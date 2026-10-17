@@ -50,10 +50,9 @@ export function createOpenDataAdapter(
   return {
     provider: provider.slug,
     kind: provider.kind,
-    // An API or a dump offered for reuse is not extraction. A provider that
-    // reads a site (a Shopify store's catalogue) says so, and #62 then needs
-    // the extraction right before it runs.
-    extraction: provider.extraction === true,
+    // An API, a dump offered for reuse, or the documents Clarity crawls: never
+    // extraction by Mercaria (`OpenDataProvider` has no such flag).
+    extraction: false,
     refreshModes: provider.refreshModes,
 
     async fetchPage(request: AdapterFetchRequest): Promise<AdapterFetchPage> {

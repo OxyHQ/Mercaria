@@ -221,7 +221,7 @@ describe('reconciling the declared sources', () => {
     expect(active.map((policy) => policy.reviewedByOxyUserId)).toEqual([`operator-${RUN}`]);
   });
 
-  it('publishes a robots-respecting extraction policy for a Shopify store, and activates it', async () => {
+  it('publishes a Shopify store with no extraction right — Clarity crawls it — and activates it', async () => {
     const store = DECLARED_OPEN_DATA_SOURCES.find(
       (source) => source.provider === 'shopify_storefront',
     );
@@ -235,8 +235,8 @@ describe('reconciling the declared sources', () => {
     ]);
     expect(result?.error).toBeNull();
     const [policy] = await policiesOf(result?.sourceId ?? '');
-    expect(policy?.extractionMode).toBe('robots_respecting');
-    expect(policy?.extractionMaxRequestsPerDay).toBe(store.rights.extractionMaxRequestsPerDay);
+    expect(policy?.extractionMode).toBe('disallowed');
+    expect(policy?.extractionMaxRequestsPerDay ?? null).toBeNull();
     expect(policy?.maySeedCatalog).toBe(true);
     expect((await configOf(result?.sourceId ?? ''))?.status).toBe('active');
   });

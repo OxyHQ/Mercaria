@@ -36,7 +36,6 @@ import { SHOPIFY_STOREFRONT_PROVIDER } from './providers/shopify-storefront.js';
 import { STEAM_STORE_PROVIDER } from './providers/steam-store.js';
 import { YGOPRODECK_PROVIDER } from './providers/ygoprodeck.js';
 import { TCGDEX_PROVIDER } from './providers/tcgdex.js';
-import { OPEN_DATA_USER_AGENT } from './http.js';
 
 /** The retailer a price source is bound to. Converged by slug. */
 export interface DeclaredMerchant {
@@ -279,10 +278,6 @@ const selfPricedSources: DeclaredOpenDataSource[] = [
       // The store's own app page, at the store's own price for Spain.
       mayLinkOut: true,
       maySeedCatalog: true,
-      // Mercaria's reader of the store's search: a hundred pages a pass.
-      extractionMode: 'robots_respecting',
-      extractionMaxRequestsPerDay: 300,
-      extractionUserAgent: OPEN_DATA_USER_AGENT,
     },
   },
   {
@@ -304,11 +299,11 @@ const selfPricedSources: DeclaredOpenDataSource[] = [
 ];
 
 /**
- * Spanish Shopify stores on Shop (shop.app), read from their own
- * `/products.json` under their robots.txt — Mercaria's own extraction
- * provider. Each was confirmed on 2026-10-10 to answer `/meta.json` with
- * country ES and currency EUR, and is named by the domain that file declares.
- * The store's name is its merchant's.
+ * Spanish Shopify stores on Shop (shop.app), read from the `/meta.json` and
+ * `/products.json` documents Clarity crawls for each under its robots.txt
+ * (`services/clarity/product-feeds.ts`). Each was confirmed on 2026-10-10 to
+ * answer `/meta.json` with country ES and currency EUR, and is named by the
+ * domain that file declares. The store's name is its merchant's.
  */
 const SPANISH_SHOPIFY_STORES: readonly { readonly domain: string; readonly name: string }[] = [
   { domain: 'pompeiibrand.com', name: 'Pompeii' },
@@ -354,10 +349,6 @@ const shopifySources: DeclaredOpenDataSource[] = SPANISH_SHOPIFY_STORES.map((sto
     // The store's own product page: a real price a shopper can buy at.
     mayLinkOut: true,
     maySeedCatalog: true,
-    extractionMode: 'robots_respecting',
-    // Two passes a day of at most a few dozen pages each, with headroom.
-    extractionMaxRequestsPerDay: 500,
-    extractionUserAgent: OPEN_DATA_USER_AGENT,
   },
 }));
 

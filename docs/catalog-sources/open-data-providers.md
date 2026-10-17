@@ -68,9 +68,9 @@ later, reviewable step; adapters never do it.
 | `gog_catalog` | GOG.com's full catalogue (games, DLC, packs, extras) | EUR for ES | provider terms | — | incremental |
 | `scryfall` | Every priced paper Magic card, one offer per finish | EUR (Cardmarket trend) | provider terms | — | incremental |
 | `tcgdex` | Every Pokémon TCG card, localized, one offer per finish | EUR (Cardmarket trend) | provider terms | card language (`es` default) | incremental |
-| `shopify_storefront` | Mercaria's own reader of the Shopify stores behind Shop (shop.app): every product, variant (size, colour), SKU, price, compare-at price, stock, images, type and tags, from the store's `/products.json`. **Extraction**: robots.txt is read and obeyed on every pass | the store's currency (`/meta.json`) | the store's own terms | the store domain (`pompeiibrand.com`) | incremental |
+| `shopify_storefront` | The Shopify stores behind Shop (shop.app): every product, variant (size, colour), SKU, price, compare-at price, stock, images, type and tags, from the store's `/products.json` — **crawled by Clarity** (a `shopify_storefront` product feed, robots.txt obeyed) and read by Mercaria from the documents Clarity keeps (ADR 0017) | the store's currency (`/meta.json`) | the store's own terms | the store domain (`pompeiibrand.com`) | incremental |
 | `ygoprodeck` | Every Yu-Gi-Oh! card: type, attribute, ATK/DEF, level, archetype, sets, rarities, formats; TCGplayer/eBay/Amazon prices as USD facts | EUR (Cardmarket market price) | provider terms (no image hotlinking: no media stored) | — | incremental |
-| `steam_store` | Mercaria's reader of Steam's store search: the top 10,000 games in relevance order for the market, with release date, review summary, platforms, tags and the discount. **Extraction**, robots.txt checked every pass; free games skipped | EUR for ES (minor units from the store) | provider terms | — | incremental |
+| `steam_store` | Steam's store search: the top 10,000 games in relevance order for the market, with release date, review summary, platforms, tags and the discount — **crawled by Clarity** (a `steam_store` product feed) and read from its documents (ADR 0017); free games skipped | EUR for ES (minor units from the store) | provider terms | — | incremental |
 
 ### Demand: the reference source fetches what the prices need
 

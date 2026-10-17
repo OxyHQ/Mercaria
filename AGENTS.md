@@ -165,9 +165,9 @@ no second store, no `src/models/` and no rollback target.
 - **Shipping UI is HIDDEN and Moovo owns logistics entirely** — do NOT build
   shipping zones or rates, and the Moovo port is registered on no deployment.
   Pickup/collection is a different thing and IS built (`docs/pickup.md`).
-- **Place facts are GoWay's** (ADR 0013): store only `go_way_place_id`, read
-  via `services/goway/` (sole SDK importer); a location is found only while
-  its place names it back as its business.
+- **Place facts are GoWay's** (ADR 0013, `go_way_place_id` only, via
+  `services/goway/`; a location shows only while its place names it back);
+  **stores are crawled by Clarity** (ADR 0017, `services/clarity/`).
 - **ONE locale registry, `@mercaria/ui/src/i18n/`**; module-scope data holds KEYS,
   never sentences. App copy is per app; **`@mercaria/ui`'s own copy is in ITS
   bundles**, merged under the reserved `ui` namespace for the locales that app SHIPS
