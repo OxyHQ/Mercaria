@@ -564,6 +564,12 @@ that cannot reach the production image. In production it runs as the COMPILED
 the rollout (`.github/scripts/run-migration-task.sh`); the Dockerfile refuses to
 build if that file was not produced.
 
+- **Each migration commits in its own transaction** (`@oxy.so/db` ≥ 1.2.0),
+  under a short `lock_timeout` retried with backoff and a 120 s
+  `statement_timeout`. A run that fails part-way leaves the migrations before
+  the failing one applied, and re-running resumes from the ledger. A migration
+  that needs longer than 120 s per statement declares
+  `-- oxy:statement-timeout=<n>s` in its own file.
 - **Migrations normally run as the pre/post pair around the rollout** — `pre`
   (additive) before, `post` (drops/renames/narrows) after the new image is live.
 - **`migration_phase=all`, dispatched by hand, is for a from-zero/cutover batch

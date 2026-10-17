@@ -3,17 +3,19 @@
  *
  * `docker-compose.postgres.yml` raises `max_locks_per_transaction` above its
  * default because every realdb file that creates its OWN throwaway database
- * migrates it with the real migrator, which applies the whole chain in ONE
- * transaction and therefore holds every object lock it takes until commit.
+ * migrates it with the real migrator. Since @oxy.so/db 1.2.0 that commits EACH
+ * migration in its own transaction, so one database's footprint is its largest
+ * single migration rather than the whole chain held until one commit (the
+ * shape every measurement before 2026-10-17 was taken under).
  * PostgreSQL sizes ONE shared lock table from
  * `max_locks_per_transaction * (max_connections + max_prepared_transactions)`,
  * so those migrations contend for a single pool rather than each getting their
  * own budget.
  *
- * The number that sizing rests on is a MEASUREMENT, and a measurement of this
- * shrinks as the migration chain grows: a longer chain is more objects locked
- * inside one transaction, so the same ceiling carries fewer concurrent
- * migrations than it did. #849 was filed because that number had been quoted
+ * The number that sizing rests on is a MEASUREMENT, and it can shrink as the
+ * migration chain grows: under per-migration transactions only when a new
+ * migration locks more than the largest one before it, which no file shows
+ * without measuring. #849 was filed because that number had been quoted
  * forward from an earlier chain instead of re-derived. This script is how it is
  * re-derived.
  *

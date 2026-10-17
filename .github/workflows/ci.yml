@@ -201,9 +201,10 @@ jobs:
         run: bun run validate:lint-coverage
 
       # Every realdb file that creates its OWN throwaway database migrates it
-      # with the real migrator, which applies the whole chain in ONE transaction
-      # and holds every object lock until commit. Those migrations contend for
-      # ONE shared lock table, so the suite has a resource bound and it is a
+      # with the real migrator. Since @oxy.so/db 1.2.0 that commits EACH
+      # migration in its own transaction, so a database holds one migration's
+      # locks at a time rather than the whole chain's until a single commit.
+      # Those migrations still contend for ONE shared lock table, so the suite has a resource bound and it is a
       # COUNT of files nobody was counting: the compose file justified its
       # ceiling on "five private-database files" long after there were eleven
       # (#849). Past the bound the failure is `out of shared memory` landing
