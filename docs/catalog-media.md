@@ -227,7 +227,7 @@ ledger that lags its writes.
 | `OXY_FILE_REFERENCES_ENABLED` | off | the outbox LOOP (the triggers enqueue regardless; switching it on drains the backlog) |
 | `OXY_FILE_REFERENCE_POLL_INTERVAL_MS` / `_BATCH_SIZE` / `_MAX_ATTEMPTS` | 5000 / 50 / 12 | the drain |
 | `OXY_FILE_RECONCILIATION_ENABLED` | off | the reconciliation LOOP |
-| `OXY_FILE_RECONCILIATION_DRY_RUN` | **on** | commits as dry runs |
+| `OXY_FILE_RECONCILIATION_DRY_RUN` | **on** | commits as dry runs (production sets `false` in `deploy-aws.yml` since the 2026-10-17 dry-run review) |
 | `OXY_FILE_RECONCILIATION_INTERVAL_HOURS` / `_POLL_INTERVAL_MS` | 24 / 60000 | scheduling |
 | `OXY_FILE_EVENTS_ENABLED` | off | the MOUNT (404 when off) |
 | `OXY_FILE_EVENTS_SECRET` | empty | events are refused 503 (Oxy retries ~3.5 days) until set |
