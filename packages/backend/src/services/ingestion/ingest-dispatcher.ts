@@ -148,7 +148,22 @@ async function driveRuns(now: Date): Promise<IngestPageResult[]> {
     // policy is per source, and N pages in flight against one provider is the
     // shape that gets an integration banned. Parallelism across SOURCES comes
     // from the several ECS tasks each claiming their own.
-    results.push(await runIngestionPage({ runId: run.id, leaseOwner: LEASE_OWNER, now }));
+    //
+    // Each run is isolated. Every run in `runs` is already leased (and its
+    // `attempts` counted), so a page that throws must not abandon the rest of
+    // the batch: they would sit leased and undriven until the lease expired,
+    // be claimed again beside the same failing run, and starve for as long as
+    // it kept failing. In October 2026 one wedged Open Prices run did exactly
+    // that to every other keyless source for a week — thousands of claims,
+    // a page an hour. The failing run keeps its lease and is retried on expiry.
+    try {
+      results.push(await runIngestionPage({ runId: run.id, leaseOwner: LEASE_OWNER, now }));
+    } catch (error: unknown) {
+      log.general.error(
+        { err: error, runId: run.id, sourceId: run.sourceId },
+        '[Ingestion] page failed; the rest of the batch continues',
+      );
+    }
   }
   return results;
 }
