@@ -144,12 +144,10 @@ export interface OpenDataProvider {
   readonly accountRefMeaning: string | null;
   /** Whether a source of this provider MUST name a sub-feed. */
   readonly accountRefRequired: boolean;
-  /**
-   * True for a provider that READS A SITE rather than an API offered for reuse
-   * (a Shopify store's `/products.json`). #62 then refuses it unless the
-   * source's policy grants extraction, and the provider checks robots.txt.
-   */
-  readonly extraction?: boolean;
+  // There is deliberately no `extraction` flag. Every provider reads an API or
+  // a dump offered for reuse, or the documents Clarity crawls: Mercaria fetches
+  // no site itself. New crawling is a Clarity product feed
+  // (`services/clarity/product-feeds.ts`), never a provider here.
   /** The refresh modes this provider can honestly perform (#68 scheduler 1). */
   readonly refreshModes: readonly CatalogRefreshMode[];
   /**

@@ -18,6 +18,7 @@
       "name": "@mercaria/backend",
       "version": "1.0.0",
       "dependencies": {
+        "@clarity.surf/sdk": "0.8.0",
         "@goway.to/sdk": "0.3.0",
         "@mercaria/contracts": "workspace:*",
         "@mercaria/shared-types": "workspace:*",
@@ -629,6 +630,8 @@
     "@biomejs/cli-win32-x64": ["@biomejs/cli-win32-x64@2.5.15", "", { "os": "win32", "cpu": "x64" }, "sha512-yAzh4UqEImV6Hcy0zjUqNfJAsUhoD64FBQCdTG8Md/Z2wQeVP/ZmJ3XRYAs1g8J9fjTFyl2fCtc5FB5til47+g=="],
 
     "@borewit/text-codec": ["@borewit/text-codec@0.2.1", "", {}, "sha512-k7vvKPbf7J2fZ5klGRD9AeKfUvojuZIQ3BT5u7Jfv+puwXkUBUT5PVyMDfJZpy30CBDXGMgw7fguK/lpOMBvgw=="],
+
+    "@clarity.surf/sdk": ["@clarity.surf/sdk@0.8.0", "", {}, "sha512-XVdWZ61XMpfdt533GIoHq7LsKk4Op8vvTbQNJcPgkPbdkHrciKvO25x7MP95+4RRRtz5/zewoLzDDtIlJY6c/A=="],
 
     "@drizzle-team/brocli": ["@drizzle-team/brocli@0.10.2", "", {}, "sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w=="],
 

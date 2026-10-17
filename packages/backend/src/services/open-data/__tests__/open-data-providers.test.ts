@@ -14,7 +14,7 @@ import { join } from 'node:path';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import type { CatalogRefreshMode, NormalizedSourceFact } from '@mercaria/shared-types';
 import { canonicalizeNormalizedRecord } from '../../ingestion/normalization.js';
 import {
@@ -41,7 +41,8 @@ import {
   shopifyStorefrontProvider,
   storeDomain,
 } from '../providers/shopify-storefront.js';
-import { searchRows, steamStoreProvider, STEAM_MAX_RESULTS } from '../providers/steam-store.js';
+import { searchRows, steamStoreProvider } from '../providers/steam-store.js';
+import { routeClarityFetchForTests } from '../../clarity/product-feeds.js';
 import { ygoprodeckProvider } from '../providers/ygoprodeck.js';
 import { SCRIPT_CORPUS } from '../../../__tests__/script-corpus.js';
 import { OpenDataConfigurationError } from '../provider.js';
@@ -599,40 +600,99 @@ describe('TCGdex', () => {
   });
 });
 
-describe('Shopify storefronts (the shops on shop.app)', () => {
-  const meta = fixture('shopify-meta.json');
-  const products = fixture('shopify-products.json') as { products: unknown[] };
-  const ROBOTS = 'User-agent: *\nDisallow: /cart\nDisallow: /checkout\nDisallow: /account\n';
-
-  function store(robots: string | null = ROBOTS) {
-    return fakeHttp({
-      text: (url) => (url.endsWith('/robots.txt') ? robots : null),
-      json: (url) => {
-        if (url.endsWith('/meta.json')) return { body: meta };
-        if (url.includes('/products.json')) return { body: products };
-        return null;
-      },
+/**
+ * A fake Clarity: the product feeds API, answering from the same fixtures the
+ * store itself used to be read from. The SDK still builds every request and
+ * parses every answer; only the network is replaced.
+ */
+function fakeClarity(feed: {
+  kind: 'shopify_storefront' | 'steam_store';
+  identifier: string;
+  meta: Record<string, unknown> | null;
+  records: { externalId: string; payload: unknown }[];
+}) {
+  const requested: { method: string; url: string; body?: unknown }[] = [];
+  const row = {
+    id: `feed-${feed.identifier}`,
+    kind: feed.kind,
+    identifier: feed.identifier,
+    label: null,
+    enabled: true,
+    pollIntervalSeconds: 21_600,
+    lastPolledAt: null,
+    lastStatus: 'ok',
+    lastError: null,
+    lastCompletedAt: '2026-09-01T00:00:00.000Z',
+    recordsSeen: feed.records.length,
+    meta: feed.meta,
+  };
+  const respond = (body: unknown) =>
+    new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
     });
-  }
+  const fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    const url = new URL(String(input));
+    requested.push({
+      method: init?.method ?? 'GET',
+      url: `${url.pathname}${url.search}`,
+      ...(init?.body === undefined ? {} : { body: JSON.parse(String(init.body)) }),
+    });
+    if (url.pathname === '/v1/product-feeds') return respond(row);
+    const limit = Number(url.searchParams.get('limit') ?? '200');
+    const after = url.searchParams.get('cursor');
+    const from = after === null ? 0 : Number(after);
+    const records = feed.records.slice(from, from + limit).map((record) => ({
+      ...record,
+      changedAt: '2026-09-01T00:00:00.000Z',
+      lastSeenAt: '2026-09-01T00:00:00.000Z',
+    }));
+    return respond({
+      feed: row,
+      records,
+      nextCursor: from + limit < feed.records.length ? String(from + limit) : null,
+    });
+  }) as typeof fetch;
+  routeClarityFetchForTests(fetch);
+  return { requested, feedId: row.id };
+}
 
-  it('is an extraction provider, one source per store domain', () => {
-    expect(shopifyStorefrontProvider.extraction).toBe(true);
+describe('Shopify storefronts (the shops on shop.app), read from Clarity', () => {
+  const meta = fixture('shopify-meta.json') as Record<string, unknown>;
+  const products = fixture('shopify-products.json') as { products: Record<string, unknown>[] };
+  const records = products.products.map((product) => ({
+    externalId: String(product.id),
+    payload: product,
+  }));
+  const http = fakeHttp({});
+
+  afterEach(() => routeClarityFetchForTests(null));
+
+  it('requests no store itself — one source per store domain, fetched by Clarity', () => {
+    expect('extraction' in shopifyStorefrontProvider).toBe(false);
     expect(shopifyStorefrontProvider.accountRefRequired).toBe(true);
     expect(storeDomain('https://PompeiiBrand.com/collections/all')).toBe('pompeiibrand.com');
     expect(() => storeDomain('not a domain')).toThrow(OpenDataConfigurationError);
   });
 
-  it('reads robots, then the store, then one record per variant grouped by product', async () => {
-    const http = store();
+  it('registers the store feed, then maps one record per variant grouped by product — as before', async () => {
+    const clarity = fakeClarity({
+      kind: 'shopify_storefront',
+      identifier: 'pompeiibrand.com',
+      meta,
+      records,
+    });
     const result = await page(shopifyStorefrontProvider, http, {
-      accountRef: 'pompeiibrand.com',
+      accountRef: 'PompeiiBrand.com',
       pageSize: 250,
     });
-    expect(http.requested.slice(0, 3)).toEqual([
-      'https://pompeiibrand.com/robots.txt',
-      'https://pompeiibrand.com/meta.json',
-      'https://pompeiibrand.com/products.json?limit=250&page=1',
-    ]);
+    expect(http.requested).toEqual([]);
+    expect(clarity.requested[0]).toEqual({
+      method: 'PUT',
+      url: '/v1/product-feeds',
+      body: { kind: 'shopify_storefront', identifier: 'pompeiibrand.com' },
+    });
+    expect(clarity.requested[1]?.url).toBe(`/v1/product-feeds/${clarity.feedId}/records?limit=250`);
     expect(result.items).toHaveLength(2);
     const [first, second] = result.items;
     expect(first?.externalType).toBe('offer');
@@ -657,32 +717,47 @@ describe('Shopify storefronts (the shops on shop.app)', () => {
     expect(facts['shopify.store_country']).toBe('ES');
     expect(facts['shopify.product_type']).toBe('SHOE');
     expect(facts['shopify.tags']).toEqual(['mocasines', 'piel']);
-    // A short page is the last one.
     expect(result.next).toBeNull();
   });
 
-  it('carries the store facts in the cursor instead of re-reading them', async () => {
-    const http = store();
+  it('carries the feed and the store facts in the cursor instead of asking again', async () => {
+    const many = [...records, { externalId: '2', payload: { ...products.products[0], id: 2 } }];
+    const first = fakeClarity({
+      kind: 'shopify_storefront',
+      identifier: 'pompeiibrand.com',
+      meta,
+      records: many,
+    });
     const result = await page(shopifyStorefrontProvider, http, {
       accountRef: 'pompeiibrand.com',
       pageSize: 1,
     });
-    expect(result.next).toEqual({ p: 2, c: 'EUR', n: 'Pompeii', k: 'ES' });
-    const again = store();
-    await page(shopifyStorefrontProvider, again, {
+    expect(result.next).toEqual({ f: first.feedId, r: '1', c: 'EUR', n: 'Pompeii', k: 'ES' });
+    const again = fakeClarity({
+      kind: 'shopify_storefront',
+      identifier: 'pompeiibrand.com',
+      meta,
+      records: many,
+    });
+    await page(shopifyStorefrontProvider, http, {
       accountRef: 'pompeiibrand.com',
       pageSize: 1,
       cursor: result.next,
     });
-    expect(again.requested).toEqual(['https://pompeiibrand.com/products.json?limit=1&page=2']);
+    expect(again.requested.map((request) => request.url)).toEqual([
+      `/v1/product-feeds/${again.feedId}/records?cursor=1&limit=1`,
+    ]);
   });
 
-  it("reads nothing a store's robots.txt disallows", async () => {
-    const http = store('User-agent: *\nDisallow: /products.json\n');
-    await expect(
-      page(shopifyStorefrontProvider, http, { accountRef: 'pompeiibrand.com' }),
-    ).rejects.toThrow(OpenDataConfigurationError);
-    expect(http.requested).toEqual(['https://pompeiibrand.com/robots.txt']);
+  it('finds nothing, and proves nothing gone, until Clarity has read the store once', async () => {
+    fakeClarity({
+      kind: 'shopify_storefront',
+      identifier: 'pompeiibrand.com',
+      meta: null,
+      records: [],
+    });
+    const result = await page(shopifyStorefrontProvider, http, { accountRef: 'pompeiibrand.com' });
+    expect(result).toEqual({ items: [], next: null, complete: false });
   });
 
   it('turns body_html into text', () => {
@@ -730,20 +805,29 @@ describe('Steam store search', () => {
     expect(first?.url).toBe('https://store.steampowered.com/app/632360/Risk_of_Rain_2/');
   });
 
-  it('checks robots first, then reads games keyed by app id, with the pre-discount price as compare-at', async () => {
-    const http = fakeHttp({
-      text: (url) => (url.endsWith('/robots.txt') ? 'User-Agent: *\nDisallow: /share/\n' : null),
-      json: () => ({ body }),
+  it('reads the rows Clarity holds for the market, keyed by app id, with the pre-discount price as compare-at', async () => {
+    const rows = [
+      ...body.results_html.matchAll(/<a href="[^"]+"[^>]*?class="search_result_row[\s\S]*?<\/a>/gu),
+    ].map((match) => match[0]);
+    const clarity = fakeClarity({
+      kind: 'steam_store',
+      identifier: 'ES',
+      meta: { country: 'ES', currency: 'EUR', language: 'spanish' },
+      records: rows.map((html) => ({
+        externalId: /data-ds-appid="(\d+)"/u.exec(html)?.[1] ?? '',
+        payload: { html },
+      })),
     });
-    const result = await page(steamStoreProvider, http, { pageSize: 100 });
-    expect(http.requested[0]).toBe('https://store.steampowered.com/robots.txt');
-    expect(http.requested[1]).toContain('cc=es');
-    expect(http.requested[1]).toContain('category1=998');
+    const http = fakeHttp({});
+    const result = await page(steamStoreProvider, http, { pageSize: 2 });
+    expect(http.requested).toEqual([]);
+    expect(clarity.requested[0]?.body).toEqual({ kind: 'steam_store', identifier: 'ES' });
     const [first] = result.items;
     expect(first?.normalized.productGroupKey).toBe('632360');
     expect(first?.normalized.price).toEqual({ amount: 824, currency: 'EUR' });
     expect(first?.normalized.compareAtPrice).toEqual({ amount: 2499, currency: 'EUR' });
-    expect(result.next).toEqual({ s: 3 });
+    expect(result.next).toEqual({ f: clarity.feedId, r: '2' });
+    routeClarityFetchForTests(null);
   });
 
   it('keeps a title in every shipped script intact, entities decoded and marks untouched', () => {
@@ -755,17 +839,13 @@ describe('Steam store search', () => {
     }
   });
 
-  it('stops at the pass depth, and refuses when robots.txt disallows the search', async () => {
-    const http = fakeHttp({ json: () => ({ body }) });
-    const last = await page(steamStoreProvider, http, {
-      pageSize: 100,
-      cursor: { s: STEAM_MAX_RESULTS - 3 },
+  it('maps nothing until Clarity has read the market and named its currency', async () => {
+    fakeClarity({ kind: 'steam_store', identifier: 'ES', meta: null, records: [] });
+    expect(await page(steamStoreProvider, fakeHttp({}), {})).toEqual({
+      items: [],
+      next: null,
+      complete: false,
     });
-    expect(last.next).toBeNull();
-    const refused = fakeHttp({
-      text: () => 'User-agent: *\nDisallow: /search/\n',
-      json: () => ({ body }),
-    });
-    await expect(page(steamStoreProvider, refused, {})).rejects.toThrow(OpenDataConfigurationError);
+    routeClarityFetchForTests(null);
   });
 });
