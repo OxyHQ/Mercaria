@@ -2,49 +2,31 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useOxy } from '@oxy.so/services';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import type { ProductSummary, SearchResult, ShoppingThreadMessage } from '@mercaria/shared-types';
+import type { ProductSummary } from '@mercaria/shared-types';
+import {
+  migrateShoppingHistory,
+  SHOPPING_HISTORY_VERSION,
+  type ViewedProduct,
+} from './shopping-history-migration';
 
-export type ThreadMessage = ShoppingThreadMessage & {
-  results?: readonly SearchResult[];
-  examples?: ProductSummary[];
-};
-export interface RecentThread {
-  id: string;
-  owner: string;
-  title: string;
-  updatedAt: string;
-  preview: boolean;
-  messages: ThreadMessage[];
-}
-interface ViewedProduct {
-  owner: string;
-  product: ProductSummary;
-}
 interface ShoppingHistory {
   hydrated: boolean;
-  threads: RecentThread[];
   products: ViewedProduct[];
-  saveThread: (thread: RecentThread) => void;
   viewProduct: (owner: string, product: ProductSummary) => void;
 }
 
-/** Device-local history, isolated by Oxy identity. No inference or purchase is simulated. */
+/**
+ * Device-local "recently viewed", isolated by Oxy identity.
+ *
+ * Shopping conversations are not kept here: they are the person's Alia
+ * conversations (`app/(app)/thread.tsx`); `migrateShoppingHistory` drops the
+ * ones version 0 stored on the device.
+ */
 export const useShoppingHistory = create<ShoppingHistory>()(
   persist(
     (set) => ({
       hydrated: false,
-      threads: [],
       products: [],
-      saveThread: (thread) =>
-        set((state) => {
-          const threads = [thread, ...state.threads.filter((item) => item.id !== thread.id)].slice(
-            0,
-            12,
-          );
-          // Bound persisted conversation text as well as the number of rows.
-          while (threads.length > 1 && JSON.stringify(threads).length > 1_500_000) threads.pop();
-          return { threads };
-        }),
       viewProduct: (owner, product) =>
         set((state) => ({
           // Saved status belongs to the authenticated query cache, never history.
@@ -58,8 +40,10 @@ export const useShoppingHistory = create<ShoppingHistory>()(
     }),
     {
       name: 'mercaria.shopping-history',
+      version: SHOPPING_HISTORY_VERSION,
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: ({ threads, products }) => ({ threads, products }),
+      partialize: ({ products }) => ({ products }),
+      migrate: migrateShoppingHistory,
       onRehydrateStorage: () => () => {
         useShoppingHistory.setState({ hydrated: true });
       },

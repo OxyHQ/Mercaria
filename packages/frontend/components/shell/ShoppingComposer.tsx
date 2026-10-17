@@ -48,17 +48,7 @@ export function ShoppingComposerProvider({ children }: { children: ReactNode }) 
 }
 
 /** Bloom owns the input, autosizing, keyboard suggestions, focus and send transitions. */
-export function ShoppingComposer({
-  onSubmit,
-  busy = false,
-  disabled = false,
-  inline = false,
-}: {
-  inline?: boolean;
-  onSubmit?: (value: string) => void;
-  busy?: boolean;
-  disabled?: boolean;
-}) {
+export function ShoppingComposer({ inline = false }: { inline?: boolean }) {
   const { t } = useTranslation();
   const router = useRouter();
   const draft = useContext(DraftContext);
@@ -72,30 +62,28 @@ export function ShoppingComposer({
   const expansion = useAnimatedStyle(
     () => ({
       maxWidth: reducedMotion
-        ? onSubmit
-          ? 896
-          : inline
+        ? inline
+          ? 600
+          : focused
             ? 600
-            : focused
-              ? 600
-              : 512
-        : withTiming(onSubmit ? 896 : inline ? 600 : focused ? 600 : 512, {
+            : 512
+        : withTiming(inline ? 600 : focused ? 600 : 512, {
             duration: 320,
             easing: Easing.bezier(0.2, 0, 0, 1),
           }),
     }),
-    [focused, reducedMotion, inline, onSubmit],
+    [focused, reducedMotion, inline],
   );
 
   const suggestions = useMemo(() => {
-    if (!focused || onSubmit) return [];
+    if (!focused) return [];
     const pills = feed.data?.sections.find((section) => section.kind === 'category-pills');
     if (pills?.kind !== 'category-pills') return [];
     return pills.pills
       .filter((pill) => pill.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
       .slice(0, 5)
       .map((pill) => ({ id: pill.id, label: pill.name }));
-  }, [feed.data, focused, query, onSubmit]);
+  }, [feed.data, focused, query]);
 
   const submit = useCallback(
     (value: string) => {
@@ -106,12 +94,9 @@ export function ShoppingComposer({
       }
       setFocused(false);
       inputRef.current?.blur();
-      if (onSubmit) {
-        onSubmit(term);
-        setQuery('');
-      } else router.push({ pathname: '/thread', params: { q: term } });
+      router.push({ pathname: '/thread', params: { q: term } });
     },
-    [onSubmit, router, setQuery],
+    [router],
   );
 
   const composer = (
@@ -128,8 +113,7 @@ export function ShoppingComposer({
           setActiveIndex(-1);
         }}
         onSend={submit}
-        canSend={!busy && !disabled && Boolean(query.trim())}
-        disabled={busy || disabled}
+        canSend={Boolean(query.trim())}
         maxLines={4}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
@@ -151,7 +135,7 @@ export function ShoppingComposer({
           paddingRight: 12,
           paddingTop: 12,
           paddingBottom: 12,
-          boxShadow: onSubmit ? '0 2px 12px rgba(0, 0, 0, 0.06)' : '0 8px 40px rgba(0, 0, 0, 0.12)',
+          boxShadow: '0 8px 40px rgba(0, 0, 0, 0.12)',
         }}
       />
     </Animated.View>
@@ -161,7 +145,7 @@ export function ShoppingComposer({
   ) : (
     <PageFooter
       position="document"
-      scrim={onSubmit ? 'always' : 'none'}
+      scrim="none"
       safeArea
       testID="shopping-composer-footer"
       style={{ paddingBottom: 28 }}

@@ -1823,16 +1823,9 @@
   },
   "thread": {
     "title": "Assistent de compres",
-    "thinking": "Cercant idees…",
-    "stop": "Atura",
-    "unavailable": "L’assistent de compres encara no està disponible. Pots continuar cercant al catàleg.",
     "signIn": "Inicia sessió per conversar",
-    "retry": "Torna-ho a provar",
     "viewResults": "Mostra els resultats de cerca",
-    "newConversation": "Conversa nova",
-    "previewAction": "Provar amb dades de mostra",
-    "previewLabel": "Vista prèvia · Respostes de mostra, sense IA connectada",
-    "previewReply": "Aquests són exemples del catàleg local per provar el disseny de la conversa. Obre un producte per veure’n els detalls o envia un altre missatge."
+    "newConversation": "Conversa nova"
   },
   "profile": {
     "title": "Perfil",

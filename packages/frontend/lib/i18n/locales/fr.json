@@ -1823,16 +1823,9 @@
   },
   "thread": {
     "title": "Assistant shopping",
-    "thinking": "Recherche d’idées…",
-    "stop": "Arrêter",
-    "unavailable": "L’assistant shopping n’est pas encore disponible. Vous pouvez toujours rechercher dans le catalogue.",
     "signIn": "Connectez-vous pour discuter",
-    "retry": "Réessayer",
     "viewResults": "Voir les résultats",
-    "newConversation": "Nouvelle conversation",
-    "previewAction": "Essayer avec des exemples",
-    "previewLabel": "Aperçu · Réponses fictives, sans IA connectée",
-    "previewReply": "Voici des exemples du catalogue local pour tester la conversation. Ouvrez un produit pour voir ses détails ou envoyez un autre message."
+    "newConversation": "Nouvelle conversation"
   },
   "profile": {
     "title": "Profil",

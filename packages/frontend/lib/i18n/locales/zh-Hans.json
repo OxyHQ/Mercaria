@@ -1807,16 +1807,9 @@
   },
   "thread": {
     "title": "购物助手",
-    "thinking": "正在寻找灵感…",
-    "stop": "停止",
-    "unavailable": "购物助手暂不可用。你仍然可以搜索商品目录。",
     "signIn": "登录后聊天",
-    "retry": "重试",
     "viewResults": "查看搜索结果",
-    "newConversation": "新对话",
-    "previewAction": "使用示例数据试用",
-    "previewLabel": "预览 · 示例回复，未连接 AI",
-    "previewReply": "这些是本地目录中的示例，用于测试对话布局。打开商品查看详情，或发送另一条消息。"
+    "newConversation": "新对话"
   },
   "profile": {
     "title": "个人资料",

@@ -1823,16 +1823,9 @@
   },
   "thread": {
     "title": "Assistente de compras",
-    "thinking": "Buscando ideias…",
-    "stop": "Parar",
-    "unavailable": "O assistente de compras ainda não está disponível. Você pode continuar pesquisando no catálogo.",
     "signIn": "Entre para conversar",
-    "retry": "Tentar novamente",
     "viewResults": "Ver resultados da busca",
-    "newConversation": "Nova conversa",
-    "previewAction": "Testar com dados de exemplo",
-    "previewLabel": "Prévia · Respostas de exemplo, sem IA conectada",
-    "previewReply": "Estes são exemplos do catálogo local para testar a conversa. Abra um produto para ver os detalhes ou envie outra mensagem."
+    "newConversation": "Nova conversa"
   },
   "profile": {
     "title": "Perfil",
