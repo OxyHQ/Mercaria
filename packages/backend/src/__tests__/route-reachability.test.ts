@@ -677,5 +677,9 @@ describe('the enumerator refuses what it does not understand', () => {
       });
     }
     expect(Date.now() - started).toBeLessThan(60_000);
-  });
+    // The vitest default (`testTimeout: 30000` in vitest.config.ts) is below the
+    // 60s bound above, so without this the runner killed the test at 30s and the
+    // re-derived bound never got to decide (#1111 timed out at 30,000 ms on a
+    // loaded runner with an analysis that A/Bs identical to `main`).
+  }, 90_000);
 });
