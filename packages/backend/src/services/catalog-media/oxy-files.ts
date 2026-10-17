@@ -25,6 +25,39 @@
  *
  * Errors never carry a source URL, a signed query or a token: a supplier URL is
  * routinely a capability, and these messages reach sync-run rows and logs.
+ *
+ * ## Oxy's per-application rate limit (429)
+ *
+ * Oxy budgets an application's writes per minute: imports, uploads and
+ * adoptions of APPLICATION files share one bucket of 30 a minute
+ * (`appFileUploadLimiter`); an account's imports and uploads share another of
+ * 30 (`cacheUploadLimiter`); references ride the 240-a-minute manage bucket.
+ * Every Mercaria process shares those buckets. A refusal is HTTP 429 naming the
+ * wait — the `Retry-After` header, repeated in the body as
+ * `details.retryAfterSeconds` because the SDK hands the body, not the headers,
+ * to its error. {@link withOxyRateLimitRetry} honours it (or backs off with
+ * jitter when Oxy names none) and retries the SAME call a bounded number of
+ * times within a bounded total wait, then surfaces the refusal as before.
+ *
+ * Retrying a refused call is safe for a reason stronger than idempotency: Oxy
+ * answers 429 from the limiter, BEFORE the route runs, so the refused request
+ * did nothing (a SOURCE's own 429 reaches Mercaria as Oxy's 502, never as 429).
+ * Each retried call is also idempotent should a later attempt race an earlier
+ * one: an import answers the same file per (owner, URL), an upload and an
+ * adoption the same file per (owner, bytes), a large upload resumes, and a
+ * reference add answers `exists` / a remove `not_found`. Not retried: the
+ * reconciliation (its inventory is a single-use stream; its loop retries in 30
+ * minutes), and the download mint and the delete (a buyer's request, an
+ * operator's action — neither should wait out a minute).
+ *
+ * ## The application's own files are remembered
+ *
+ * Every file Oxy answers as the APPLICATION's is recorded in
+ * `oxy_application_files` (best effort: a lost record costs one idempotent call
+ * later). Here, because this is the one place every such answer passes, so no
+ * writer can forget it. The maintenance backfills read it to skip a row whose
+ * file is already the application's — asking Oxy again would answer the same
+ * file and still spend a unit of the 30-a-minute budget.
  */
 
 import {
@@ -43,6 +76,8 @@ import {
 } from '@oxy.so/core/server';
 import { isOxyFileId } from '@mercaria/shared-types';
 import { oxyServiceClient } from '../../capabilities/oxy-service-client.js';
+import { recordApplicationFiles } from '../../db/oxyFiles/applicationFileRepository.js';
+import { log } from '../../lib/logger.js';
 
 /** One minted private download (the SDK does not export the type by name). */
 export type ServiceLinkedDownloadUrl = Awaited<
@@ -65,10 +100,13 @@ export interface StoredOxyFile {
 /** A refusal or failure of an Oxy Files call. The message is safe to store. */
 export class OxyFilesError extends Error {
   readonly status: number | undefined;
-  constructor(message: string, status?: number) {
+  /** For a 429: the wait Oxy named when the last attempt was refused, in ms. */
+  readonly retryAfterMs: number | undefined;
+  constructor(message: string, status?: number, retryAfterMs?: number) {
     super(message);
     this.name = 'OxyFilesError';
     this.status = status;
+    this.retryAfterMs = retryAfterMs;
   }
 }
 
@@ -86,12 +124,191 @@ function statusOf(error: unknown): number | undefined {
   return typeof status === 'number' ? status : undefined;
 }
 
+/** Whether Oxy refused this call for its rate limit, here or behind a wrapping error's `cause`. */
+export function isOxyRateLimited(error: unknown): boolean {
+  for (let current = error, depth = 0; current && depth < 5; depth += 1) {
+    if (statusOf(current) === 429) return true;
+    current = (current as { cause?: unknown }).cause;
+  }
+  return false;
+}
+
+/** How long and how often a call Oxy refused for its rate limit is tried again. */
+export interface OxyRateLimitPolicy {
+  /** Calls in all, the first included. */
+  readonly maxAttempts: number;
+  /** Total time spent waiting; a wait that would pass it is not started. */
+  readonly maxTotalWaitMs: number;
+  /** First backoff when Oxy names no wait; it doubles, capped by `maxDelayMs`. */
+  readonly fallbackBaseMs: number;
+  readonly maxDelayMs: number;
+}
+
+/**
+ * Work no person waits on — imports, adoptions, large uploads, backfills, the
+ * source-media and connector loops. Oxy's window is a minute, so two waits of
+ * up to a minute each reach the next window even after a busy one.
+ */
+export const BACKGROUND_RATE_LIMIT: OxyRateLimitPolicy = {
+  maxAttempts: 3,
+  maxTotalWaitMs: 120_000,
+  fallbackBaseMs: 15_000,
+  maxDelayMs: 60_000,
+};
+
+/**
+ * A merchant's upload request: worth a short wait (an editor dropping forty
+ * photos at once crosses 30 a minute), never one an HTTP request cannot outlast.
+ */
+export const INTERACTIVE_RATE_LIMIT: OxyRateLimitPolicy = {
+  maxAttempts: 3,
+  maxTotalWaitMs: 20_000,
+  fallbackBaseMs: 2_000,
+  maxDelayMs: 10_000,
+};
+
+/**
+ * Reference registration: inside the reference outbox's two-minute lease, so a
+ * retried batch finishes before another task may reclaim it. The manage bucket
+ * is 240 a minute; a refusal there is rare and short.
+ */
+export const REFERENCE_RATE_LIMIT: OxyRateLimitPolicy = {
+  maxAttempts: 3,
+  maxTotalWaitMs: 30_000,
+  fallbackBaseMs: 5_000,
+  maxDelayMs: 20_000,
+};
+
+/** Spread added to a wait Oxy named, so tasks refused together do not return together. */
+const NAMED_WAIT_JITTER_MS = 1_000;
+
+/**
+ * A `Retry-After` value in milliseconds: delta-seconds (`"30"`, or a number) or
+ * an HTTP-date (`"Wed, 21 Oct 2026 07:28:00 GMT"`, measured from `nowMs`; one
+ * already past is 0). Anything else is `undefined` — no wait was named.
+ */
+export function parseRetryAfterMs(value: unknown, nowMs: number): number | undefined {
+  if (typeof value === 'number')
+    return Number.isFinite(value) && value >= 0 ? Math.ceil(value * 1000) : undefined;
+  if (typeof value !== 'string') return undefined;
+  const text = value.trim();
+  if (text === '') return undefined;
+  if (/^\d+(?:\.\d+)?$/.test(text)) return Math.ceil(Number(text) * 1000);
+  // An HTTP-date names a weekday and a zone; a bare number never reaches here.
+  if (!/[a-z]/i.test(text)) return undefined;
+  const at = Date.parse(text);
+  return Number.isNaN(at) ? undefined : Math.max(0, at - nowMs);
+}
+
+function headerOf(headers: unknown, name: string): unknown {
+  if (!headers || typeof headers !== 'object') return undefined;
+  const get = (headers as { get?: unknown }).get;
+  if (typeof get === 'function') return get.call(headers, name) ?? undefined;
+  const record = headers as Record<string, unknown>;
+  const key = Object.keys(record).find((candidate) => candidate.toLowerCase() === name);
+  return key === undefined ? undefined : record[key];
+}
+
+/**
+ * The wait Oxy named for a 429, in milliseconds, wherever the error carries it:
+ * a `Retry-After` header when the transport kept one, else the API envelope's
+ * `details.retryAfterSeconds` (Oxy's `RateLimitedError`; the SDK keeps the body
+ * as `details` and `response.data`, not the headers).
+ */
+export function retryAfterMsOf(error: unknown, nowMs: number): number | undefined {
+  const failure = (error ?? {}) as {
+    details?: { retryAfterSeconds?: unknown };
+    response?: {
+      headers?: unknown;
+      data?: {
+        details?: { retryAfterSeconds?: unknown };
+        error?: { details?: { retryAfterSeconds?: unknown } };
+      };
+    };
+  };
+  const candidates = [
+    headerOf(failure.response?.headers, 'retry-after'),
+    failure.details?.retryAfterSeconds,
+    failure.response?.data?.details?.retryAfterSeconds,
+    failure.response?.data?.error?.details?.retryAfterSeconds,
+  ];
+  for (const candidate of candidates) {
+    const ms = parseRetryAfterMs(candidate, nowMs);
+    if (ms !== undefined) return ms;
+  }
+  return undefined;
+}
+
+/**
+ * How long to wait after the `failures`-th refusal: what Oxy named plus up to a
+ * second of jitter, or — when it named nothing — a backoff doubling from
+ * `fallbackBaseMs`, capped at `maxDelayMs`, with half of it jittered.
+ */
+export function rateLimitDelayMs(
+  error: unknown,
+  failures: number,
+  policy: OxyRateLimitPolicy,
+  nowMs: number,
+  random: () => number = Math.random,
+): number {
+  const named = retryAfterMsOf(error, nowMs);
+  if (named !== undefined) return named + Math.floor(random() * NAMED_WAIT_JITTER_MS);
+  const ceiling = Math.min(
+    policy.maxDelayMs,
+    policy.fallbackBaseMs * 2 ** Math.max(0, failures - 1),
+  );
+  return Math.floor(ceiling / 2 + (random() * ceiling) / 2);
+}
+
+/**
+ * Run `call`, and when Oxy refuses it for its rate limit, wait and run it again
+ * — at most `policy.maxAttempts` calls and `policy.maxTotalWaitMs` of waiting.
+ * A wait that would pass the total is not started: the refusal is thrown at
+ * once (a caller with a queue re-queues it sooner than a sleep would end).
+ * Anything but a 429 is thrown untouched on the first attempt.
+ */
+export async function withOxyRateLimitRetry<T>(
+  call: () => Promise<T>,
+  policy: OxyRateLimitPolicy = BACKGROUND_RATE_LIMIT,
+): Promise<T> {
+  let waited = 0;
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await call();
+    } catch (error) {
+      if (statusOf(error) !== 429 || attempt >= policy.maxAttempts) throw error;
+      const delay = rateLimitDelayMs(error, attempt, policy, Date.now());
+      if (waited + delay > policy.maxTotalWaitMs) throw error;
+      waited += delay;
+      log.general.warn(
+        { attempt, delayMs: delay },
+        '[OxyFiles] Oxy rate-limited the call; waiting before trying again',
+      );
+      await new Promise<void>((resolve) => setTimeout(resolve, delay));
+    }
+  }
+}
+
+/** Remember files Oxy answered as the application's (best effort; see module doc). */
+async function rememberApplicationFile(...fileIds: string[]): Promise<void> {
+  if (fileIds.length === 0) return;
+  try {
+    await recordApplicationFiles(fileIds);
+  } catch (error) {
+    log.general.debug({ err: error }, '[OxyFiles] could not record an application file');
+  }
+}
+
 function refusal(action: string, error: unknown): OxyFilesError {
   const status = statusOf(error);
   if (status === 401 || status === 403)
     return new OxyFilesError(`Oxy has not authorized Mercaria to ${action}.`, status);
   if (status !== undefined)
-    return new OxyFilesError(`Oxy could not ${action} (HTTP ${status}).`, status);
+    return new OxyFilesError(
+      `Oxy could not ${action} (HTTP ${status}).`,
+      status,
+      status === 429 ? retryAfterMsOf(error, Date.now()) : undefined,
+    );
   return new OxyFilesError(`Oxy could not ${action}.`);
 }
 
@@ -152,17 +369,115 @@ export async function importOxyFileFromUrl(
   const revalidate = options.revalidate ? { revalidate: true } : {};
   let answer: unknown;
   try {
-    answer =
+    // Retried on 429: Oxy answers the same file per (owner, URL).
+    answer = await withOxyRateLimitRetry(() =>
       owner.kind === 'application'
-        ? await oxy.assets.importAppFile(sourceUrl, { visibility: 'public', ...revalidate })
-        : await oxy.assets.importUserMedia(owner.oxyUserId, sourceUrl, {
+        ? oxy.assets.importAppFile(sourceUrl, { visibility: 'public', ...revalidate })
+        : oxy.assets.importUserMedia(owner.oxyUserId, sourceUrl, {
             visibility: 'public',
             ...revalidate,
-          });
+          }),
+    );
   } catch (error) {
     throw refusal('import the media source', error);
   }
-  return storedFile(answer);
+  const stored = storedFile(answer);
+  if (owner.kind === 'application') await rememberApplicationFile(stored.fileId);
+  return stored;
+}
+
+/** Oxy's bound on one batch import request — and one unit of its rate limit. */
+export const OXY_IMPORT_BATCH_SIZE = 50;
+
+/** One source's answer in a batch import, in the order the sources were given. */
+export type ApplicationImportResult =
+  | { readonly ok: true; readonly file: StoredOxyFile; readonly error?: undefined }
+  | { readonly ok: false; readonly error: OxyFilesError; readonly file?: undefined };
+
+/**
+ * Import many public HTTPS sources as PUBLIC files of the Mercaria APPLICATION
+ * (`importAppFiles`, `POST /assets/service/app/import/batch`): up to
+ * {@link OXY_IMPORT_BATCH_SIZE} per request, and a request is ONE unit of Oxy's
+ * 30-a-minute application budget however many sources it carries — where a
+ * single import is one unit per source. Oxy runs the items four at a time and
+ * answers each on its own, with the same (owner, URL) deduplication as
+ * {@link importOxyFileFromUrl}.
+ *
+ * The answer has one result per source, in order (a repeated source shares its
+ * result). Nothing is thrown for a source: an item Oxy refused is an
+ * `OxyFilesError` carrying its status; an item still being fetched (a large
+ * source answered `pending`) is a status-less failure, retried by the caller's
+ * own retry. Each REQUEST is retried on 429 like every import (a refused batch
+ * did nothing; a repeated item answers the same file). A request that still
+ * fails marks its sources — and those of the requests not yet sent, which
+ * would only be refused the same way — with that failure, so a caller can tell
+ * Oxy's rate limit (`isOxyRateLimited`) from a refusal and keep what earlier
+ * requests imported. Only missing credentials throw.
+ *
+ * There is no account-owned twin: Oxy has no batch route for
+ * `/assets/service/user-media/import`, so a store's or seller's sources are
+ * imported one call each.
+ */
+export async function importApplicationFilesFromUrls(
+  sourceUrls: readonly string[],
+): Promise<ApplicationImportResult[]> {
+  const oxy = client();
+  const distinct = [...new Set(sourceUrls)];
+  const answers = new Map<string, ApplicationImportResult>();
+  let failure: OxyFilesError | undefined;
+  for (let start = 0; start < distinct.length; start += OXY_IMPORT_BATCH_SIZE) {
+    const chunk = distinct.slice(start, start + OXY_IMPORT_BATCH_SIZE);
+    if (failure) {
+      for (const url of chunk) answers.set(url, { ok: false, error: failure });
+      continue;
+    }
+    let results: Awaited<ReturnType<OxyServer['assets']['importAppFiles']>>;
+    try {
+      results = await withOxyRateLimitRetry(() =>
+        oxy.assets.importAppFiles(
+          chunk.map((sourceUrl) => ({ sourceUrl, visibility: 'public' as const })),
+        ),
+      );
+    } catch (error) {
+      failure = refusal('import the media source', error);
+      for (const url of chunk) answers.set(url, { ok: false, error: failure });
+      continue;
+    }
+    const byIndex = new Map(results.map((result) => [result.index, result]));
+    chunk.forEach((url, index) => {
+      const result = byIndex.get(index);
+      if (!result) {
+        answers.set(url, {
+          ok: false,
+          error: new OxyFilesError('Oxy did not answer for the media source.'),
+        });
+      } else if (result.ok === false) {
+        answers.set(url, { ok: false, error: refusal('import the media source', result.error) });
+      } else if ((result as { pending?: unknown }).pending === true) {
+        answers.set(url, {
+          ok: false,
+          error: new OxyFilesError('Oxy is still fetching the media source.'),
+        });
+      } else {
+        try {
+          answers.set(url, { ok: true, file: storedFile(result) });
+        } catch (error) {
+          answers.set(url, {
+            ok: false,
+            error:
+              error instanceof OxyFilesError
+                ? error
+                : new OxyFilesError('Oxy did not describe the stored file.'),
+          });
+        }
+      }
+    });
+  }
+  const stored = [...answers.values()].flatMap((answer) => (answer.ok ? [answer.file.fileId] : []));
+  await rememberApplicationFile(...stored);
+  return sourceUrls.map(
+    (url) => answers.get(url) ?? { ok: false, error: new OxyFilesError('Oxy did not answer.') },
+  );
 }
 
 /**
@@ -181,19 +496,32 @@ export async function uploadOxyFile(
   const oxy = client();
   const body = new Uint8Array(bytes);
   try {
+    // Retried on 429, briefly (a merchant waits on this): Oxy answers the same
+    // file per (owner, bytes), and the bytes are held here to send again.
     if (owner.kind === 'application') {
-      const uploaded = await oxy.assets.uploadAppFile(body, mime, {
-        visibility: 'public',
-        originalName,
-        timeout: UPLOAD_TIMEOUT_MS,
-      });
-      return storedFile(uploaded);
+      const uploaded = storedFile(
+        await withOxyRateLimitRetry(
+          () =>
+            oxy.assets.uploadAppFile(body, mime, {
+              visibility: 'public',
+              originalName,
+              timeout: UPLOAD_TIMEOUT_MS,
+            }),
+          INTERACTIVE_RATE_LIMIT,
+        ),
+      );
+      await rememberApplicationFile(uploaded.fileId);
+      return uploaded;
     }
     return storedFile(
-      await oxy.assets.uploadUserMedia(owner.oxyUserId, body, mime, {
-        originalName,
-        timeout: UPLOAD_TIMEOUT_MS,
-      }),
+      await withOxyRateLimitRetry(
+        () =>
+          oxy.assets.uploadUserMedia(owner.oxyUserId, body, mime, {
+            originalName,
+            timeout: UPLOAD_TIMEOUT_MS,
+          }),
+        INTERACTIVE_RATE_LIMIT,
+      ),
     );
   } catch (error) {
     if (error instanceof OxyFilesError) throw error;
@@ -222,18 +550,24 @@ export async function uploadPrivateApplicationFile(
   const oxy = client();
   let answer: unknown;
   try {
-    answer = await oxy.assets.uploadAppFileLarge(source, {
-      mime,
-      visibility: 'private',
-      filename: options.filename,
-      ...(options.metadata ? { metadata: { ...options.metadata } } : {}),
-    });
+    // Retried on 429: calling again for the same bytes RESUMES the upload (only
+    // the parts storage lacks are sent), and stored bytes answer at once.
+    answer = await withOxyRateLimitRetry(() =>
+      oxy.assets.uploadAppFileLarge(source, {
+        mime,
+        visibility: 'private',
+        filename: options.filename,
+        ...(options.metadata ? { metadata: { ...options.metadata } } : {}),
+      }),
+    );
   } catch (error) {
     if (error instanceof LargeUploadFailedError)
       throw new OxyFilesError(`Oxy did not store the upload (${error.code}).`);
     throw refusal('store the file', error);
   }
-  return storedFile(answer);
+  const stored = storedFile(answer);
+  await rememberApplicationFile(stored.fileId);
+  return stored;
 }
 
 /**
@@ -255,7 +589,10 @@ export async function adoptAsPrivateApplicationFile(
   const oxy = client();
   let answer: Awaited<ReturnType<OxyServer['assets']['adoptAppFile']>>;
   try {
-    answer = await oxy.assets.adoptAppFile(fileId, { visibility: 'private' });
+    // Retried on 429: adoption is idempotent per (application, bytes).
+    answer = await withOxyRateLimitRetry(() =>
+      oxy.assets.adoptAppFile(fileId, { visibility: 'private' }),
+    );
   } catch (error) {
     throw refusal('adopt the file', error);
   }
@@ -263,6 +600,7 @@ export async function adoptAsPrivateApplicationFile(
   const sha256 = typeof answer?.file?.sha256 === 'string' ? answer.file.sha256.toLowerCase() : '';
   if (!/^[0-9a-f]{64}$/.test(sha256))
     throw new OxyFilesError('Oxy did not describe the stored file.');
+  await rememberApplicationFile(stored.fileId);
   return { ...stored, sha256 };
 }
 
@@ -272,7 +610,12 @@ export async function addOxyFileReferences(
 ): Promise<ServiceFileReferenceResult[]> {
   if (references.length === 0) return [];
   try {
-    return await client().assets.references.add([...references]);
+    // Retried on 429: adding a held reference answers `exists`.
+    const oxy = client();
+    return await withOxyRateLimitRetry(
+      () => oxy.assets.references.add([...references]),
+      REFERENCE_RATE_LIMIT,
+    );
   } catch (error) {
     if (error instanceof OxyFilesError) throw error;
     throw refusal('register file references', error);
@@ -285,7 +628,12 @@ export async function removeOxyFileReferences(
 ): Promise<ServiceFileReferenceResult[]> {
   if (references.length === 0) return [];
   try {
-    return await client().assets.references.remove([...references]);
+    // Retried on 429: removing a withdrawn reference answers `not_found`.
+    const oxy = client();
+    return await withOxyRateLimitRetry(
+      () => oxy.assets.references.remove([...references]),
+      REFERENCE_RATE_LIMIT,
+    );
   } catch (error) {
     if (error instanceof OxyFilesError) throw error;
     throw refusal('remove file references', error);
@@ -296,6 +644,9 @@ export async function removeOxyFileReferences(
  * Send Oxy the whole inventory of one entity type (ADR 0043 D6): Oxy adds the
  * references it is missing and removes the ones created before the run began
  * that the inventory does not list. `dryRun` only counts.
+ *
+ * NOT retried on 429: `items` is a stream that may be read only once, and the
+ * reconciliation loop already retries a failed run in 30 minutes.
  */
 export async function reconcileOxyFileReferences(
   entityType: string,

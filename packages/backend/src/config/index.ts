@@ -3924,6 +3924,17 @@ export interface OxyFilesConfig {
   readonly sourceMediaMaxPerProduct: number;
   /** `CANONICAL_SOURCE_MEDIA_MAX_ATTEMPTS` — failures before `dead_letter`. Default 8. */
   readonly sourceMediaMaxAttempts: number;
+  /**
+   * `CANONICAL_SOURCE_MEDIA_MAX_IMPORT_CALLS_PER_MINUTE` — Oxy import REQUESTS
+   * one TASK starts in any minute. Oxy charges its budget per request (30 a
+   * minute for the application, across EVERY Mercaria process), and a drain asks
+   * for all its jobs' sources in batch requests of up to 50: at the defaults (5
+   * jobs × 6 images every 10 s) that is one request per drain, 6 a minute, for
+   * up to 180 images. The cap of 10 bounds a faster poll or a bigger batch while
+   * two tasks still leave 10 a minute to operators, backfills and creators.
+   * Past it a job is deferred, never failed. Default 10.
+   */
+  readonly sourceMediaMaxImportCallsPerMinute: number;
 }
 
 /**
@@ -5108,6 +5119,10 @@ export const config: AppConfig = Object.freeze({
     sourceMediaMaxPerRecord: intEnv('CANONICAL_SOURCE_MEDIA_MAX_PER_RECORD', 6),
     sourceMediaMaxPerProduct: intEnv('CANONICAL_SOURCE_MEDIA_MAX_PER_PRODUCT', 10),
     sourceMediaMaxAttempts: intEnv('CANONICAL_SOURCE_MEDIA_MAX_ATTEMPTS', 8),
+    sourceMediaMaxImportCallsPerMinute: intEnv(
+      'CANONICAL_SOURCE_MEDIA_MAX_IMPORT_CALLS_PER_MINUTE',
+      10,
+    ),
   }),
   catalogAuthoring: Object.freeze({
     enabled: boolEnv('CATALOG_AUTHORING_ENABLED', false),

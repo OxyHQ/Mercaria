@@ -67,11 +67,66 @@ the row that will hold the file is not written yet (see "Usage registration").
 
 **Every call to Oxy Files is in ONE module, `services/catalog-media/oxy-files.ts`**
 (import, upload, references, reconciliation, event-signature verification), so a
-name that changes upstream is a one-file change. It uses `importAppFile`,
+name that changes upstream is a one-file change. It uses `importAppFile`, `importAppFiles`,
 `importUserMedia`, `verifyFileEventSignature`, `adoptAppFile`,
 `uploadAppFileLarge` and `LargeUploadFailedError` from the released ADR 0043 SDK:
 `@oxy.so/core` 4.18.0 with `@oxy.so/contracts` 4.22.0, the one version every
 package resolves (`@oxy.so/services` 11.9.0 in the apps takes core `^4.18.0`).
+
+### Oxy's per-application rate limit
+
+Oxy budgets an application's writes **per minute, across every Mercaria
+process**: application imports, uploads and adoptions share 30
+(`appFileUploadLimiter`); account (store/seller) imports and uploads share
+another 30 (`cacheUploadLimiter`); references ride the 240-a-minute manage
+bucket. A refusal is HTTP 429 with `Retry-After` (repeated in the body as
+`details.retryAfterSeconds`, which is what the SDK hands over). Oxy answers 429
+from the limiter BEFORE the route runs, so a refused call did nothing — a
+source's own 429 reaches Mercaria as Oxy's 502.
+
+The adapter (`withOxyRateLimitRetry`) honours the named wait (seconds or
+HTTP-date, plus under a second of jitter; a bounded exponential backoff with
+jitter when none is named) and retries the SAME call — at most 3 calls, and it
+never STARTS a wait that would pass the bound — then surfaces the existing
+refusal (`Oxy could not … (HTTP 429).`, with `retryAfterMs`):
+
+| Call | Bound | Why it is safe to repeat |
+|---|---|---|
+| import (application / account), adoption, large upload | 2 min | same file per (owner, URL) / (owner, bytes); a large upload resumes |
+| merchant upload (`uploadOxyFile`) | 20 s | same file per (owner, bytes); a person waits on it |
+| `references.add` / `remove` | 30 s | `exists` / `not_found`; inside the outbox's 2-min lease |
+| reconcile, download mint, delete | not retried | a single-use inventory stream; a buyer's request; an operator's action |
+
+**The budget is charged per REQUEST, so application imports are batched.**
+`importApplicationFilesFromUrls` sends up to 50 sources per
+`POST /assets/service/app/import/batch` (`importAppFiles`) — one unit, where 50
+single imports are 50 — and answers each source on its own, in order (a refusal
+carries its status; a large source Oxy is still fetching is a status-less
+failure). A request still refused after the retries marks its sources, and those
+of the requests not yet sent, rate-limited; what earlier requests stored is kept.
+Every application import goes through it: the source-media dispatcher, the
+application-media and canonical-description backfills, and
+`synchronizeApplication*` (canonical observations, application descriptions).
+Oxy has no batch route for an ACCOUNT's imports
+(`/assets/service/user-media/import`), so store and seller sources — connector
+syncs, `backfill-listing-media`, `backfill-store-artwork` — stay one request
+each, retried as above.
+
+The long-running loops build on it. The **source-media dispatcher** asks for all
+of a drain's claimed jobs' sources together: at the defaults (5 jobs × 6 images
+per 10 s poll) one request per drain — 6 a minute, up to 180 images — where one
+import per image was up to 180 requests a minute. Each task also starts at most
+`CANONICAL_SOURCE_MEDIA_MAX_IMPORT_CALLS_PER_MINUTE` (10) requests a minute, the
+bound for a faster poll or a bigger batch; two tasks at the cap still leave 10 of
+Oxy's 30 to operators, backfills and creators. A job whose sources the pace or a
+429 left unasked is DEFERRED: what was stored is attached, and it returns to
+`pending` for when the budget does with its attempt refunded (a busy Oxy never
+dead-letters it). A source Oxy could not answer otherwise (5xx, still fetching)
+fails the job with backoff after the rest is attached, so the retry asks only
+for what is missing. A **connector** sync is sequential, so the adapter's wait paces
+it at Oxy's rate; a product still refused is a recorded failure the next sync
+converges, and a webhook delivery refused that way is handed back to the sync
+queue for its retries rather than dropped.
 
 ### Who owns the bytes
 
@@ -178,6 +233,11 @@ rolled-back write leaves no request. The row names the entity, never the file:
 the worker (`file-reference-outbox.ts`) reads what the entity holds NOW from the
 registry, diffs it against `oxy_file_references` (what Oxy acknowledged), and
 sends the difference (`references.add` / `references.remove`, 100 per request).
+The trigger stamps `available_at` with the DATABASE clock while the claim
+compares against the task's, so a row never attempted since it was (re)requested
+(`attempts = 0` and no `last_error`) is due at once whatever its `available_at`
+says; every backoff and re-arm is written and compared on the task's clock (the
+source-media queue's claim does the same).
 It is the offer outbox's fixed point: one row per entity, a revision pair so a
 write landing mid-run re-arms it, leases with an owner check
 (`FOR UPDATE SKIP LOCKED`), capped exponential backoff and a visible
@@ -233,6 +293,7 @@ ledger that lags its writes.
 | `OXY_FILE_EVENTS_SECRET` | empty | events are refused 503 (Oxy retries ~3.5 days) until set |
 | `CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED` | off | the external-imagery import LOOP (the source-link trigger queues regardless) |
 | `CANONICAL_SOURCE_MEDIA_*` | see above | its batch, global in-flight cap, per-record and per-product caps, attempts |
+| `CANONICAL_SOURCE_MEDIA_MAX_IMPORT_CALLS_PER_MINUTE` | 10 | Oxy import REQUESTS (up to 50 images each) one TASK starts in a minute; tasks × this should stay under Oxy's 30 |
 
 **Where the production values live:** the `RELEASE_ENVIRONMENT` list on the
 `deploy` job of `.github/workflows/deploy-aws.yml`. oxy-infra's ECS module ignores
@@ -260,6 +321,23 @@ Preview by default, `--apply` explicit, reports carry SHA-256 hashes of sources
 and never URLs, and every apply is a compare-and-swap that reports `changed` for
 an explicit retry. They now import through Oxy (no local download), and the
 reference triggers register what they write.
+
+**A rerun asks Oxy nothing about a finished row.** Every Oxy call spends the
+30-a-minute budget even when Oxy answers the same file, so a rerun that re-asked
+about done rows starved the tail (production, 2026-10-16: 30 of 35 category
+images, then the same 5 failed on every rerun). The listing-media and
+store-artwork backfills select only references that are not Oxy file ids. The
+application-media targets and the digital-storage backfill select only rows
+whose file Oxy has not answered as the APPLICATION's own:
+`oxy_application_files`, recorded by the adapter on every application import,
+upload and adoption (Mercaria is first-party, not internal, so Oxy's metadata
+route will not say who owns a file). A row holding an application file written
+before that table existed is asked about once — `unchanged`, now recorded — and
+never again; `unchanged` otherwise means nothing was left to do. Canonical
+descriptions are filtered after the page is read (the ids are in HTML), so a
+page may report fewer entries than `limit` while the cursor still advances. The
+application targets ask Oxy in batches (one request per 50 rows, above), each row
+still answered and compare-and-swapped on its own.
 
 - `scripts/backfill-listing-media.ts` and `scripts/backfill-store-artwork.ts` —
   legacy URL-valued gallery and store artwork, imported as the store's account

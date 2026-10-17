@@ -1226,6 +1226,13 @@
       "when": 1792174103021,
       "tag": "0174_digital_asset_storage_move",
       "breakpoints": true
+    },
+    {
+      "idx": 175,
+      "version": "7",
+      "when": 1792182891096,
+      "tag": "0175_oxy_application_files",
+      "breakpoints": true
     }
   ]
 }

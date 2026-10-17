@@ -15,6 +15,11 @@
  * File ids are derived (`oxy-file-<40 hex>`), so a test can compute what an
  * import must have produced. `.mp4` sources come back as `video/mp4`, anything
  * else `image/png`; `failNext` makes the next import answer an HTTP error.
+ *
+ * **A batch import is one request** (`importAppFiles`, up to 50 sources): each
+ * source answers on its own, a `failNext` failure landing on the item it hits,
+ * while `failNextRequest` refuses the next REQUEST whole — Oxy's 429, which is
+ * charged per request. `requests` counts them: the unit of Oxy's rate limit.
  */
 
 import { createHash } from 'node:crypto';
@@ -32,6 +37,9 @@ export interface FakeOxyFiles {
     readonly baseURL: string;
     readonly assets: {
       importAppFile: (sourceUrl: string, options: { visibility: string }) => Promise<unknown>;
+      importAppFiles: (
+        items: Array<{ sourceUrl: string; visibility: string }>,
+      ) => Promise<Array<Record<string, unknown> & { index: number; ok: boolean }>>;
       importUserMedia: (
         owner: string,
         sourceUrl: string,
@@ -55,9 +63,13 @@ export interface FakeOxyFiles {
   readonly imports: FakeOxyImport[];
   /** Imports that would have DOWNLOADED (the first of each owner and URL). */
   readonly downloads: FakeOxyImport[];
+  /** Import REQUESTS made — a batch is one — the unit Oxy's rate limit counts. */
+  readonly requests: number;
   /** The id an import of `sourceUrl` by `owner` answers (`app` or `user:<id>`). */
   fileIdFor(owner: string, sourceUrl: string): string;
   failNext(status: number): void;
+  /** Refuse the next import REQUEST whole, e.g. `429` with `{ retryAfterSeconds }`. */
+  failNextRequest(status: number, details?: Record<string, unknown>): void;
   reset(): void;
 }
 
@@ -70,6 +82,20 @@ export function createFakeOxyFiles(): FakeOxyFiles {
   const downloads: FakeOxyImport[] = [];
   const seen = new Set<string>();
   let failure: number | undefined;
+  let requestFailure: { status: number; details?: Record<string, unknown> } | undefined;
+  let requests = 0;
+
+  /** One request reaches "Oxy": counted, and refused whole when asked to be. */
+  function request(): void {
+    requests += 1;
+    if (requestFailure === undefined) return;
+    const { status, details } = requestFailure;
+    requestFailure = undefined;
+    throw Object.assign(new Error(`HTTP ${status}`), {
+      status,
+      ...(details === undefined ? {} : { details }),
+    });
+  }
 
   function importFor(owner: string, sourceUrl: string) {
     if (failure !== undefined) {
@@ -105,8 +131,24 @@ export function createFakeOxyFiles(): FakeOxyFiles {
       baseURL: 'https://api.oxy.test',
       serviceToken: async () => 'fake-oxy-service-token',
       assets: {
-        importAppFile: async (sourceUrl) => importFor('app', sourceUrl),
+        importAppFile: async (sourceUrl) => {
+          request();
+          return importFor('app', sourceUrl);
+        },
+        importAppFiles: async (items) => {
+          if (items.length > 50) throw Object.assign(new Error('fake Oxy: >50'), { status: 400 });
+          request();
+          return items.map(({ sourceUrl }, index) => {
+            try {
+              return { index, ok: true, ...importFor('app', sourceUrl) };
+            } catch (error) {
+              const status = (error as { status: number }).status;
+              return { index, ok: false, error: { status, code: 'X', message: `HTTP ${status}` } };
+            }
+          });
+        },
         importUserMedia: async (owner, sourceUrl) => {
+          request();
           if (!owner) throw Object.assign(new Error('fake Oxy: no owner'), { status: 400 });
           return importFor(`user:${owner}`, sourceUrl);
         },
@@ -136,15 +178,23 @@ export function createFakeOxyFiles(): FakeOxyFiles {
     },
     imports,
     downloads,
+    get requests() {
+      return requests;
+    },
     fileIdFor: fakeOxyFileId,
     failNext(status) {
       failure = status;
+    },
+    failNextRequest(status, details) {
+      requestFailure = { status, ...(details === undefined ? {} : { details }) };
     },
     reset() {
       imports.length = 0;
       downloads.length = 0;
       seen.clear();
       failure = undefined;
+      requestFailure = undefined;
+      requests = 0;
     },
   };
 }

@@ -2,13 +2,23 @@ import { isOxyFileId, type CatalogMediaSource, type ListingMedia } from '@mercar
 import { findStoreById } from '../../db/stores/storeRepository.js';
 
 import { config } from '../../config/index.js';
-import { importOxyFileFromUrl, OxyFilesError, type OxyFileOwner } from './oxy-files.js';
+import {
+  importApplicationFilesFromUrls,
+  importOxyFileFromUrl,
+  OxyFilesError,
+  type OxyFileOwner,
+  type StoredOxyFile,
+} from './oxy-files.js';
 import { catalogMediaKind } from './policy.js';
 
-/** No source URL, signed query or credential reaches a sync-run error. */
+/**
+ * No source URL, signed query or credential reaches a sync-run error. `cause`
+ * is the adapter's `OxyFilesError` when Oxy refused (its message is as safe),
+ * so a caller can tell Oxy's rate limit (`isOxyRateLimited`) from a refusal.
+ */
 export class CatalogMediaSyncError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
     this.name = 'CatalogMediaSyncError';
   }
 }
@@ -136,6 +146,26 @@ async function synchronizeImages(
   }
   const owner = await resolveOwner();
 
+  // The application imports a gallery in ONE Oxy request (one unit of its
+  // 30-a-minute budget per 50 sources); an account has no batch route, so its
+  // sources go one call each below.
+  const batched = new Map<string, StoredOxyFile | OxyFilesError>();
+  if (owner.kind === 'application') {
+    const sources = [...new Set(references.filter((value) => !isOxyFileId(value)))];
+    const results = await importApplicationFilesFromUrls(sources);
+    sources.forEach((source, index) => {
+      const result = results[index];
+      batched.set(
+        source,
+        result === undefined
+          ? new OxyFilesError('Oxy did not answer for the media source.')
+          : result.ok
+            ? result.file
+            : result.error,
+      );
+    });
+  }
+
   const imported = new Map<string, string>();
   const ids: string[] = [];
   for (const reference of references) {
@@ -151,9 +181,12 @@ async function synchronizeImages(
     const kind = kinds?.get(reference) ?? 'image';
     let stored: Awaited<ReturnType<typeof importOxyFileFromUrl>>;
     try {
-      stored = await importOxyFileFromUrl(owner, reference);
+      const answer = batched.get(reference);
+      if (answer instanceof OxyFilesError) throw answer;
+      stored = answer ?? (await importOxyFileFromUrl(owner, reference));
     } catch (error) {
-      if (error instanceof OxyFilesError) throw new CatalogMediaSyncError(error.message);
+      if (error instanceof OxyFilesError)
+        throw new CatalogMediaSyncError(error.message, { cause: error });
       throw new CatalogMediaSyncError('Catalog image synchronization failed.');
     }
     if (stored.visibility !== 'public')

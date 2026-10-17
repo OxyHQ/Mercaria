@@ -137,12 +137,15 @@ describe('application-owned media backfill', () => {
     // application already owns answers that same file.
     const held = fake.fileIdFor('app', present(resolveMedia(`already-app-${RUN}`), 'public URL'));
     await db.update(brands).set({ logoFileId: held }).where(eq(brands.id, brand.id));
-    const original = fake.client.assets.importAppFile;
-    fake.client.assets.importAppFile = async () => ({
-      file: { id: held, mime: 'image/png', size: 10, visibility: 'public', status: 'active' },
-      outcome: 'existing',
-      deduplicated: true,
-    });
+    const original = fake.client.assets.importAppFiles;
+    fake.client.assets.importAppFiles = async (items) =>
+      items.map((_, index) => ({
+        index,
+        ok: true,
+        file: { id: held, mime: 'image/png', size: 10, visibility: 'public', status: 'active' },
+        outcome: 'existing',
+        deduplicated: true,
+      }));
     try {
       const report = await backfillApplicationMedia(
         { target: 'brand_logo', mode: 'apply', limit: 1, id: brand.id },
@@ -151,7 +154,7 @@ describe('application-owned media backfill', () => {
       expect(report.entries[0]?.outcome).toBe('unchanged');
       expect(report.retryIds).toEqual([]);
     } finally {
-      fake.client.assets.importAppFile = original;
+      fake.client.assets.importAppFiles = original;
     }
   });
 
@@ -180,13 +183,13 @@ describe('application-owned media backfill', () => {
       .set({ logoFileId: `race-before-${RUN}` })
       .where(eq(brands.id, brand.id));
     const client = present(oxyFiles.current, 'Oxy fake').client;
-    const original = client.assets.importAppFile;
-    client.assets.importAppFile = async (sourceUrl, options) => {
+    const original = client.assets.importAppFiles;
+    client.assets.importAppFiles = async (items) => {
       await db
         .update(brands)
         .set({ logoFileId: `race-edit-${RUN}` })
         .where(eq(brands.id, brand.id));
-      return original(sourceUrl, options);
+      return original(items);
     };
     try {
       const report = await backfillApplicationMedia(
@@ -198,7 +201,7 @@ describe('application-owned media backfill', () => {
       const [after] = await db.select().from(brands).where(eq(brands.id, brand.id));
       expect(after?.logoFileId).toBe(`race-edit-${RUN}`);
     } finally {
-      client.assets.importAppFile = original;
+      client.assets.importAppFiles = original;
     }
   });
 
@@ -325,5 +328,125 @@ describe('application-owned media backfill', () => {
       .from(canonicalSourceMediaImports)
       .where(eq(canonicalSourceMediaImports.canonicalProductId, productId));
     expect(queued).toHaveLength(1);
+  });
+});
+
+/**
+ * Oxy allows the application 30 imports a minute. A rerun that asked about every
+ * finished row again (Oxy answered the same file, `unchanged`, and still charged
+ * the call) starved the tail of a production run: 30 of 35 category images, then
+ * the same 5 failed on every rerun. A finished row is not selected at all now.
+ */
+describe('a rerun asks Oxy nothing about a finished row', () => {
+  it('category art: imported once, then never selected again', async () => {
+    const legacy = `https://images.example.test/rerun-${RUN}.jpg`;
+    const category = await insertCategory({
+      key: `app-media-rerun-${RUN}`,
+      name: `App Media Rerun ${RUN}`,
+      slug: `app-media-rerun-${RUN}`,
+      imageUrl: legacy,
+    });
+    const run = () =>
+      backfillApplicationMedia(
+        { target: 'category_image', mode: 'apply', limit: 1, id: category.id },
+        db,
+      );
+    expect((await run()).entries[0]).toMatchObject({ plan: 'import', outcome: 'applied' });
+    const fake = present(oxyFiles.current, 'Oxy fake');
+    fake.reset();
+    // The legacy URL stays as provenance; the row is still not selected.
+    const rerun = await run();
+    expect(rerun.entries).toEqual([]);
+    expect(rerun.retryIds).toEqual([]);
+    expect(fake.imports).toEqual([]);
+    // Nor is it in a preview: the preview is the list of what an apply would ask.
+    expect(
+      (
+        await backfillApplicationMedia(
+          { target: 'category_image', mode: 'preview', limit: 1, id: category.id },
+          db,
+        )
+      ).entries,
+    ).toEqual([]);
+  });
+
+  it('a logo already the application’s is asked about ONCE (unchanged), then never', async () => {
+    const brand = await createBrand({ name: `App Media Once ${RUN}` });
+    const fake = present(oxyFiles.current, 'Oxy fake');
+    // Held from before the record existed: Oxy, asked to adopt it, answers the
+    // same file (it deduplicates the application's bytes).
+    const held = fake.fileIdFor('app', present(resolveMedia(`once-${RUN}`), 'public URL'));
+    await db.update(brands).set({ logoFileId: held }).where(eq(brands.id, brand.id));
+    const original = fake.client.assets.importAppFiles;
+    let calls = 0;
+    fake.client.assets.importAppFiles = async (items) => {
+      calls += 1;
+      return items.map((_, index) => ({
+        index,
+        ok: true,
+        file: { id: held, mime: 'image/png', size: 10, visibility: 'public', status: 'active' },
+        outcome: 'existing',
+        deduplicated: true,
+      }));
+    };
+    try {
+      const run = () =>
+        backfillApplicationMedia(
+          { target: 'brand_logo', mode: 'apply', limit: 1, id: brand.id },
+          db,
+        );
+      expect((await run()).entries[0]?.outcome).toBe('unchanged');
+      expect(calls).toBe(1);
+      expect((await run()).entries).toEqual([]);
+      expect(calls).toBe(1);
+    } finally {
+      fake.client.assets.importAppFiles = original;
+    }
+  });
+
+  it('canonical images: an imported row is skipped; a legacy row beside it is still found', async () => {
+    const productId = await mintProduct('rerun-images');
+    const recordId = await observation('rerun-images');
+    const done = `https://supplier.example.test/${RUN}/done.jpg`;
+    const legacy = `https://supplier.example.test/${RUN}/legacy.jpg`;
+    const inserted = await db
+      .insert(canonicalImages)
+      .values([
+        { productId, sourceRecordId: recordId, sourceUrl: done, position: 0 },
+        { productId, sourceRecordId: recordId, sourceUrl: legacy, position: 1 },
+      ])
+      .returning({ id: canonicalImages.id });
+    const [doneId, legacyId] = inserted.map((row) => row.id);
+    const first = await backfillApplicationMedia(
+      { target: 'canonical_image', mode: 'apply', limit: 1, id: present(doneId, 'row') },
+      db,
+    );
+    expect(first.entries[0]).toMatchObject({ plan: 'import', outcome: 'applied' });
+    const fake = present(oxyFiles.current, 'Oxy fake');
+    fake.reset();
+    for (const id of [doneId, legacyId]) {
+      const report = await backfillApplicationMedia(
+        { target: 'canonical_image', mode: 'preview', limit: 1, id: present(id, 'row') },
+        db,
+      );
+      expect(report.entries.map((entry) => entry.id)).toEqual(id === doneId ? [] : [legacyId]);
+    }
+    expect(fake.imports).toEqual([]);
+  });
+
+  it('canonical descriptions: re-owned images are not asked about again', async () => {
+    const operatorFile = `operator-rerun-${RUN}`;
+    const productId = await mintProduct(
+      'rerun-description',
+      `<img src="https://cloud.oxy.so/${operatorFile}" alt="a">`,
+    );
+    const run = () =>
+      backfillCanonicalDescriptionImages({ mode: 'apply', limit: 1, id: productId }, db);
+    expect((await run()).entries[0]?.outcome).toBe('applied');
+    const fake = present(oxyFiles.current, 'Oxy fake');
+    fake.reset();
+    const rerun = await run();
+    expect(rerun.entries).toEqual([]);
+    expect(fake.imports).toEqual([]);
   });
 });

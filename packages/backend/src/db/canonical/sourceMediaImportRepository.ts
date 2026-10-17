@@ -15,7 +15,7 @@
  * approximate by at most one batch per task — a bound, not an exact quota.
  */
 
-import { and, asc, count, eq, gt, inArray, isNotNull, lte, or, sql } from 'drizzle-orm';
+import { and, asc, count, eq, gt, inArray, isNotNull, isNull, lte, or, sql } from 'drizzle-orm';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { canonicalImages } from '../schema/canonicalCatalog.js';
 import {
@@ -84,7 +84,20 @@ export async function claimCanonicalSourceMediaImports(
     or(
       and(
         eq(canonicalSourceMediaImports.status, 'pending'),
-        lte(canonicalSourceMediaImports.availableAt, now),
+        or(
+          // Never attempted since it was (re)requested: due at once, whatever
+          // its `available_at` says. The enqueue trigger stamps that with the
+          // DATABASE clock (`now()`) while this claim compares against the
+          // APPLICATION's; a database clock ahead of the task's would otherwise
+          // hold every fresh request back by the skew. Every later
+          // `available_at` (a backoff, a deferral, a re-arm) is written by the
+          // application and compared here on the same clock.
+          and(
+            eq(canonicalSourceMediaImports.attempts, 0),
+            isNull(canonicalSourceMediaImports.lastError),
+          ),
+          lte(canonicalSourceMediaImports.availableAt, now),
+        ),
       ),
       and(
         eq(canonicalSourceMediaImports.status, 'processing'),
@@ -92,27 +105,31 @@ export async function claimCanonicalSourceMediaImports(
       ),
     ),
   );
-  return (
-    db
-      .update(canonicalSourceMediaImports)
-      .set({
-        status: 'processing',
-        leaseOwner: options.leaseOwner,
-        leaseUntil: new Date(now.getTime() + leaseMs),
-        attempts: sql`${canonicalSourceMediaImports.attempts} + 1`,
-        lastError: null,
-      })
-      // Same-table subquery: its own range entry shadows the outer one.
-      .where(
-        sql`${canonicalSourceMediaImports.id} in (
+  const claimed = await db
+    .update(canonicalSourceMediaImports)
+    .set({
+      status: 'processing',
+      leaseOwner: options.leaseOwner,
+      leaseUntil: new Date(now.getTime() + leaseMs),
+      attempts: sql`${canonicalSourceMediaImports.attempts} + 1`,
+      lastError: null,
+    })
+    // Same-table subquery: its own range entry shadows the outer one.
+    .where(
+      sql`${canonicalSourceMediaImports.id} in (
         select ${canonicalSourceMediaImports.id} from ${canonicalSourceMediaImports}
         where ${due}
         order by ${asc(canonicalSourceMediaImports.availableAt)}
         limit ${room}
         for update skip locked
       )`,
-      )
-      .returning()
+    )
+    .returning();
+  // `UPDATE … RETURNING` answers in no particular order. Run the jobs oldest-due
+  // first, as they were chosen: a drain Oxy's budget stops part-way then defers
+  // the newest, not an arbitrary few.
+  return claimed.sort(
+    (a, b) => a.availableAt.getTime() - b.availableAt.getTime() || a.id.localeCompare(b.id),
   );
 }
 
@@ -147,12 +164,21 @@ export async function releaseCanonicalSourceMediaImport(
     availableAt: Date;
     error: string;
     now?: Date;
+    /**
+     * Give back the attempt the claim counted: the job was DEFERRED (Oxy's rate
+     * limit, or this task's own pacing), not failed, so it never nears
+     * `dead_letter` however long Oxy stays busy.
+     */
+    refundAttempt?: boolean;
   },
   db: DatabaseOrTransaction = getDb(),
 ): Promise<boolean> {
   const rows = await db
     .update(canonicalSourceMediaImports)
     .set({
+      ...(options.refundAttempt
+        ? { attempts: sql`greatest(${canonicalSourceMediaImports.attempts} - 1, 0)` }
+        : {}),
       status: options.deadLettered ? 'dead_letter' : 'pending',
       availableAt: options.availableAt,
       lastError: options.error.slice(0, CANONICAL_SOURCE_MEDIA_MAX_LAST_ERROR_LENGTH),

@@ -16,6 +16,9 @@
  *   per entity type.
  * - `oxy_file_events` + `oxy_file_event_actions` — the file events Oxy delivered
  *   and what Mercaria did to each holding row: the audit trail of a takedown.
+ * - `oxy_application_files` — the file ids Oxy has ANSWERED as the Mercaria
+ *   application's own, so maintenance can tell a row that is already done from
+ *   one that still needs Oxy (see the table).
  *
  * ## Why the enqueue is a trigger, not an `enqueue*` call
  *
@@ -281,5 +284,40 @@ export const oxyFileEventActions = pgTable(
       t.entityType,
       t.entityId,
     ),
+  ],
+);
+
+/**
+ * `oxy_application_files` — every file id Oxy has answered as the MERCARIA
+ * APPLICATION's own: an import, upload or adoption made as the application
+ * (`services/catalog-media/oxy-files.ts` records it after Oxy answered).
+ *
+ * It exists for one question Oxy cannot answer cheaply: "is the file this row
+ * holds already the application's?" Mercaria is a first-party, not an internal,
+ * application, so Oxy's metadata route does not reveal an owner, and the only
+ * other way to learn it — importing or adopting the file again, which answers
+ * the same id — spends one unit of Oxy's 30-per-minute application upload
+ * budget per row. The application-media and digital-storage backfills select
+ * only rows whose file is NOT here, so a rerun spends nothing on finished rows.
+ *
+ * A cache of Oxy's answers, never a verdict of its own: a missing row costs one
+ * idempotent call that answers the same file (and records it), so a writer that
+ * did not record, or a file stored before this table existed, is found once and
+ * never again. Insert-only; ownership of an Oxy file id does not change.
+ */
+export const oxyApplicationFiles = pgTable(
+  'oxy_application_files',
+  {
+    id: generatedId(),
+    /** An Oxy file id the application owns. Oxy owns the file; no foreign key. */
+    fileId: text().notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    check(
+      'oxy_application_files_file_id_check',
+      sql`${t.fileId} ~ '^[A-Za-z0-9_-]+$' and length(${t.fileId}) <= ${sql.raw(String(MAX_FILE_ID_LENGTH))}`,
+    ),
+    uniqueIndex('oxy_application_files_file_id_key').on(t.fileId),
   ],
 );

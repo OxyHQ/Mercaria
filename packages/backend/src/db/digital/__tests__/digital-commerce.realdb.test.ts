@@ -618,6 +618,16 @@ describe('a creator publishes an asset, and the version is then immutable', () =
       expect(after?.storageKey).toBe(copyKey);
       expect(after?.contentHash).toBe(before.contentHash);
 
+      // A rerun does not ask Oxy to adopt a moved file again: the object is
+      // known to be the application's, so the file is not selected at all.
+      const rerun = await backfillDigitalAssetStorage({
+        mode: 'apply',
+        limit: 1,
+        fileId: meshFileId,
+      });
+      expect(rerun.entries).toEqual([]);
+      expect(adoptions).toHaveLength(1);
+
       // A copy whose measurement disagrees is refused and the row stays put.
       const { meshFileId: other } = await mintPublishedAsset('storage-backfill-mismatch');
       const [otherBefore] = await db.select().from(assetFiles).where(eq(assetFiles.id, other));

@@ -35,7 +35,9 @@ vi.mock('../../../capabilities/oxy-service-client.js', async () => {
   return { oxyServiceClient: () => oxyFiles.current?.client };
 });
 
-const { drainCanonicalSourceMediaImports } = await import('../source-media-import.js');
+const { drainCanonicalSourceMediaImports, SourceMediaImportPacer } = await import(
+  '../source-media-import.js'
+);
 
 const RUN = uuidv7().slice(-12);
 let db: Database;
@@ -95,7 +97,11 @@ async function images(productId: string) {
     .orderBy(canonicalImages.position);
 }
 
-function drain(only: string[], limits = { maxPerRecord: 6, maxPerProduct: 10 }) {
+function drain(
+  only: string[],
+  limits = { maxPerRecord: 6, maxPerProduct: 10 },
+  pacer?: InstanceType<typeof SourceMediaImportPacer>,
+) {
   return drainCanonicalSourceMediaImports({
     leaseOwner: `test-${RUN}`,
     batchSize: 10,
@@ -103,6 +109,7 @@ function drain(only: string[], limits = { maxPerRecord: 6, maxPerProduct: 10 }) 
     maxAttempts: 3,
     limits,
     onlyProductIds: only,
+    ...(pacer === undefined ? {} : { pacer }),
   });
 }
 
@@ -231,7 +238,7 @@ describe('the dispatcher copies imagery as application files, deduplicated and c
       limits: { maxPerRecord: 6, maxPerProduct: 10 },
       onlyProductIds: [productId],
     });
-    expect(none).toEqual({ completed: 0, failed: 0, attached: 0 });
+    expect(none).toEqual({ completed: 0, failed: 0, deferred: 0, attached: 0 });
     expect((await jobs(productId))[0]?.status).toBe('pending');
     expect(
       await db
@@ -239,5 +246,134 @@ describe('the dispatcher copies imagery as application files, deduplicated and c
         .from(canonicalImages)
         .where(inArray(canonicalImages.productId, [productId])),
     ).toHaveLength(0);
+  });
+
+  it('asks Oxy for a whole drain in ONE request, and DEFERS it when Oxy rate-limits that request', async () => {
+    const one = await mintProduct('batched-1');
+    const two = await mintProduct('batched-2');
+    const urls = (label: string) =>
+      [0, 1].map((index) => `https://cdn.example.test/${RUN}/${label}-${index}.jpg`);
+    await attach(one, await observe('batched-1', urls('batched-1')));
+    await attach(two, await observe('batched-2', urls('batched-2')));
+    // Oxy's budget is spent for an hour — longer than the adapter's own
+    // two-minute bound, so it hands the 429 back at once.
+    fake().failNextRequest(429, { retryAfterSeconds: 3600 });
+    const startedAt = Date.now();
+    expect(await drain([one, two])).toEqual({
+      completed: 0,
+      failed: 0,
+      deferred: 2,
+      attached: 0,
+    });
+    expect(fake().requests).toBe(1);
+    for (const productId of [one, two]) {
+      const [job] = await jobs(productId);
+      expect(job?.status).toBe('pending');
+      // Deferred, not failed: the claim's attempt is given back.
+      expect(job?.attempts).toBe(0);
+      expect(job?.lastError).toMatch(/budget/);
+      expect(job?.availableAt.getTime()).toBeGreaterThanOrEqual(startedAt + 3_599_000);
+    }
+    // Once the budget is back, both jobs' four images come in one request.
+    await db
+      .update(canonicalSourceMediaImports)
+      .set({ availableAt: new Date(Date.now() - 1_000) })
+      .where(inArray(canonicalSourceMediaImports.canonicalProductId, [one, two]));
+    fake().reset();
+    expect(await drain([one, two])).toEqual({
+      completed: 2,
+      failed: 0,
+      deferred: 0,
+      attached: 4,
+    });
+    expect(fake().requests).toBe(1);
+    expect(fake().imports).toHaveLength(4);
+  });
+
+  it('keeps what Oxy stored when one source fails transiently, and retries only that one', async () => {
+    const productId = await mintProduct('partial');
+    const [flaky, fine] = ['flaky', 'fine'].map(
+      (label) => `https://cdn.example.test/${RUN}/partial-${label}.jpg`,
+    );
+    await attach(productId, await observe('partial', [flaky, fine]));
+    fake().failNext(503);
+    expect(await drain([productId])).toMatchObject({ completed: 0, failed: 1, attached: 1 });
+    expect((await images(productId)).map((image) => image.sourceUrl)).toEqual([fine]);
+    const [job] = await jobs(productId);
+    // A real failure: the attempt counts, and the backoff holds it.
+    expect(job?.attempts).toBe(1);
+    expect(job?.lastError).toMatch(/HTTP 503/);
+    await db
+      .update(canonicalSourceMediaImports)
+      .set({ availableAt: new Date(Date.now() - 1_000) })
+      .where(eq(canonicalSourceMediaImports.canonicalProductId, productId));
+    fake().reset();
+    expect(await drain([productId])).toMatchObject({ completed: 1, attached: 1 });
+    expect(fake().imports.map((entry) => entry.sourceUrl)).toEqual([flaky]);
+  });
+
+  it('paces a task by REQUESTS, deferring the sources past it', async () => {
+    const productId = await mintProduct('paced');
+    const urls = Array.from(
+      { length: 55 },
+      (_, index) => `https://cdn.example.test/${RUN}/paced-${index}.jpg`,
+    );
+    await attach(productId, await observe('paced', urls));
+    const limits = { maxPerRecord: 60, maxPerProduct: 100 };
+    let clock = Date.now();
+    const pacer = new SourceMediaImportPacer(1, () => clock);
+    const startedAt = Date.now();
+    // 55 sources need two requests of up to 50; the pace allows one a minute.
+    expect(await drain([productId], limits, pacer)).toEqual({
+      completed: 0,
+      failed: 0,
+      deferred: 1,
+      attached: 50,
+    });
+    expect(fake().requests).toBe(1);
+    const [job] = await jobs(productId);
+    expect(job?.attempts).toBe(0);
+    // Back when the minute's request leaves the window.
+    expect(job?.availableAt.getTime()).toBeGreaterThanOrEqual(startedAt + 55_000);
+    clock += 60_000;
+    await db
+      .update(canonicalSourceMediaImports)
+      .set({ availableAt: new Date(Date.now() - 1_000) })
+      .where(eq(canonicalSourceMediaImports.canonicalProductId, productId));
+    expect(await drain([productId], limits, pacer)).toMatchObject({ completed: 1, attached: 5 });
+    expect(fake().requests).toBe(2);
+    expect(await images(productId)).toHaveLength(55);
+  });
+
+  it('claims a freshly queued job however far the database clock runs ahead of the task', async () => {
+    const productId = await mintProduct('skew');
+    await attach(productId, await observe('skew', [`https://cdn.example.test/${RUN}/skew.jpg`]));
+    // The trigger stamped `available_at` with the database's now(); a task ten
+    // minutes behind it must still find the job due.
+    const behind = new Date(Date.now() - 10 * 60_000);
+    const result = await drainCanonicalSourceMediaImports({
+      leaseOwner: `test-${RUN}`,
+      batchSize: 10,
+      maxInFlight: 50,
+      maxAttempts: 3,
+      limits: { maxPerRecord: 6, maxPerProduct: 10 },
+      onlyProductIds: [productId],
+      now: () => behind,
+    });
+    expect(result).toMatchObject({ completed: 1, attached: 1 });
+  });
+});
+
+describe('SourceMediaImportPacer', () => {
+  it('admits N per rolling minute and names the wait for the next', () => {
+    let now = 1_000_000;
+    const pacer = new SourceMediaImportPacer(2, () => now);
+    expect(pacer.take()).toEqual({ ok: true });
+    now += 10_000;
+    expect(pacer.take()).toEqual({ ok: true });
+    expect(pacer.take()).toEqual({ ok: false, waitMs: 50_000 });
+    now += 50_000;
+    expect(pacer.take()).toEqual({ ok: true });
+    expect(pacer.take()).toEqual({ ok: false, waitMs: 10_000 });
   });
 });

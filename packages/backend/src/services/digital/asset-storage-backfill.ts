@@ -30,6 +30,10 @@ export interface AssetStorageBackfillOptions {
  *
  * `blocked`: Oxy refused the bytes as taken down (451, ADR 0043 D10). Not
  * retried — the claim decides, not a rerun.
+ *
+ * A file whose object Oxy has already answered as the application's
+ * (`oxy_application_files`, recorded by the adapter on every adoption and
+ * upload) is not selected, so a rerun asks Oxy only about what is left.
  */
 export async function backfillDigitalAssetStorage(
   options: AssetStorageBackfillOptions,
@@ -43,7 +47,12 @@ export async function backfillDigitalAssetStorage(
   ) {
     throw new Error('Use preview or apply with a file limit between 1 and 500.');
   }
-  const ids = await findAssetFileIdPage({ ...options, limit: options.limit + 1 }, db);
+  // Only files not yet on an application-owned object: re-adopting a moved one
+  // answers the same object and still spends a unit of Oxy's 30-a-minute budget.
+  const ids = await findAssetFileIdPage(
+    { ...options, limit: options.limit + 1, notApplicationOwned: true },
+    db,
+  );
   const entries: Array<{
     fileId: string;
     storageKeySha256?: string;

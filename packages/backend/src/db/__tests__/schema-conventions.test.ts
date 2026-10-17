@@ -71,7 +71,7 @@ const tables = Object.values(schema).flatMap((value) => (is(value, PgTable) ? [v
  * EXACTLY, rather than as a minimum, is what makes that impossible in both
  * directions.
  */
-const SCHEMA_TABLE_COUNT = 496; // material_* (3); catalog_safety_reviews and the three supervised purchase tables; oxy_file_* (5): Oxy ADR 0043 reference outbox, ledger, reconciliations, events, event actions. canonical_source_media_imports: external imagery copied into canonical_images.
+const SCHEMA_TABLE_COUNT = 497; // material_* (3); catalog_safety_reviews and the three supervised purchase tables; oxy_file_* (5): Oxy ADR 0043 reference outbox, ledger, reconciliations, events, event actions; oxy_application_files: the files Oxy answered as the application's own. canonical_source_media_imports: external imagery copied into canonical_images.
 
 describe('schema conventions (static)', () => {
   it('exports exactly the tables the gates below are calibrated for', () => {
