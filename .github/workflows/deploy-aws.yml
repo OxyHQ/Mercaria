@@ -267,6 +267,14 @@ jobs:
       #   empty), which is the precondition for Oxy's sweep ever enforcing.
       #   OXY_FILE_EVENTS_ENABLED is deliberately ABSENT (so off, 404): the
       #   webhook is registered in the Oxy console and its secret set first.
+      # - CANONICAL_SOURCE_MEDIA_BATCH_SIZE / CANONICAL_SOURCE_MEDIA_MAX_IN_FLIGHT:
+      #   the drain's throughput. At the defaults (5 per poll, 10 in flight) it
+      #   tops out at 30 jobs/min, measured on 2026-10-17 while scryfall bursts
+      #   queued ~120-260/min, so the backlog grew past 24k. One drain sends its
+      #   jobs as ONE batch import (up to 50 sources), and the per-task pacing
+      #   (CANONICAL_SOURCE_MEDIA_MAX_IMPORT_CALLS_PER_MINUTE) plus refunded 429
+      #   deferrals keep Oxy's 30-requests/min application budget intact, so a
+      #   larger batch raises throughput without raising request count.
       #
       # Values are JSON strings; the resolve step refuses anything else.
       RELEASE_ENVIRONMENT: |
@@ -276,7 +284,9 @@ jobs:
           "OXY_FILE_REFERENCES_ENABLED": "true",
           "OXY_FILE_RECONCILIATION_ENABLED": "true",
           "OXY_FILE_RECONCILIATION_DRY_RUN": "false",
-          "CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED": "true"
+          "CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED": "true",
+          "CANONICAL_SOURCE_MEDIA_BATCH_SIZE": "30",
+          "CANONICAL_SOURCE_MEDIA_MAX_IN_FLIGHT": "60"
         }
     # Native arm64, matching the image this job builds.
     #
