@@ -28,7 +28,6 @@ export function ScreenShell({
       pathname === '/explore' ||
       pathname === '/search' ||
       pathname === '/deals' ||
-      pathname === '/thread' ||
       /^\/(categories|curations|brands|families|merchants|stores|products|p|3d)(\/|$)/.test(
         pathname,
       ));

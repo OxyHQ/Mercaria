@@ -18,7 +18,7 @@
     "lint:expo": "eslint ."
   },
   "dependencies": {
-    "@alia.onl/sdk": "^19.1.0",
+    "@alia.onl/sdk": "^21.1.0",
     "@expo/app-integrity": "~57.0.2",
     "@expo/html-elements": "~57.0.0",
     "@expo/vector-icons": "^15.1.1",

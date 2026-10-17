@@ -1821,12 +1821,6 @@
       "notForSale": "No està a la venda"
     }
   },
-  "thread": {
-    "title": "Assistent de compres",
-    "signIn": "Inicia sessió per conversar",
-    "viewResults": "Mostra els resultats de cerca",
-    "newConversation": "Conversa nova"
-  },
   "profile": {
     "title": "Perfil",
     "subtitle": "Els teus preferits, comandes i compte, en un sol lloc."
@@ -1985,5 +1979,8 @@
     "pendingBody": "El tutor pot revisar els articles i el total exactes a Oxy. El pagament estarà disponible quan ho aprovi.",
     "refresh": "Actualitzar estat",
     "account": "Supervisió i compte"
+  },
+  "alia": {
+    "viewResults": "Mostra els resultats de cerca"
   }
 }

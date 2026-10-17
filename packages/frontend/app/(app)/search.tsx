@@ -17,7 +17,7 @@ import { SearchResultRow } from '@/components/search/SearchResultRow';
 /**
  * `/search` — natural-language shopping search (#95 "Client experience").
  *
- * The floating composer opens /thread; this route retains ordinary search,
+ * The floating composer asks Alia in her sheet; this route retains ordinary search,
  * filters and shareable catalogue results.
  *
  * ## The URL carries the QUERY and nothing else (#95 client rule 6)

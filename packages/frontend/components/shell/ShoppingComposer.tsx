@@ -9,7 +9,9 @@ import {
   type ReactNode,
 } from 'react';
 import type { TextInput } from 'react-native';
-import { useLocalSearchParams, usePathname, useRouter } from 'expo-router';
+import { useAskAgent } from '@alia.onl/sdk/ask';
+import { useOxy } from '@oxy.so/services';
+import { useLocalSearchParams } from 'expo-router';
 import { ChatComposer } from '@oxy.so/bloom/chat-composer';
 import { PageFooter } from '@oxy.so/bloom/page-footer';
 import Animated, {
@@ -37,8 +39,7 @@ const DraftContext = createContext<{
 /** The home field and its floating continuation edit the same draft. */
 export function ShoppingComposerProvider({ children }: { children: ReactNode }) {
   const { q } = useLocalSearchParams<{ q?: string }>();
-  const pathname = usePathname();
-  const routeQuery = pathname !== '/thread' && typeof q === 'string' ? q : '';
+  const routeQuery = typeof q === 'string' ? q : '';
   const [query, setQuery] = useState(routeQuery);
   useEffect(() => {
     setQuery(routeQuery);
@@ -47,10 +48,17 @@ export function ShoppingComposerProvider({ children }: { children: ReactNode }) 
   return <DraftContext.Provider value={value}>{children}</DraftContext.Provider>;
 }
 
-/** Bloom owns the input, autosizing, keyboard suggestions, focus and send transitions. */
+/**
+ * Bloom owns the input, autosizing, keyboard suggestions, focus and send transitions.
+ *
+ * Sending asks Alia in her one sheet (`components/alia/MercariaAskProvider.tsx`)
+ * with the words as the first turn. Signed out, the SDK opens Oxy's sign-in and
+ * the words stay in the field, to send again once signed in.
+ */
 export function ShoppingComposer({ inline = false }: { inline?: boolean }) {
   const { t } = useTranslation();
-  const router = useRouter();
+  const { ask } = useAskAgent();
+  const { canUsePrivateApi } = useOxy();
   const draft = useContext(DraftContext);
   if (!draft) throw new Error('ShoppingComposer requires ShoppingComposerProvider');
   const { query, setQuery } = draft;
@@ -94,9 +102,10 @@ export function ShoppingComposer({ inline = false }: { inline?: boolean }) {
       }
       setFocused(false);
       inputRef.current?.blur();
-      router.push({ pathname: '/thread', params: { q: term } });
+      ask(undefined, { text: term });
+      if (canUsePrivateApi) setQuery('');
     },
-    [router],
+    [ask, canUsePrivateApi, setQuery],
   );
 
   const composer = (

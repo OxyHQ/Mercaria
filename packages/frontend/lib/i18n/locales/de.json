@@ -1805,12 +1805,6 @@
       "notForSale": "Nicht im Verkauf"
     }
   },
-  "thread": {
-    "title": "Einkaufsassistent",
-    "signIn": "Zum Chatten anmelden",
-    "viewResults": "Suchergebnisse ansehen",
-    "newConversation": "Neues Gespräch"
-  },
   "profile": {
     "title": "Profil",
     "subtitle": "Deine Favoriten, Bestellungen und dein Konto an einem Ort."
@@ -1969,5 +1963,8 @@
     "pendingBody": "Deine erziehungsberechtigte Person kann die genauen Artikel und den Gesamtbetrag in Oxy prüfen. Die Zahlung wird erst nach ihrer Genehmigung verfügbar.",
     "refresh": "Status aktualisieren",
     "account": "Begleitung und Konto"
+  },
+  "alia": {
+    "viewResults": "Suchergebnisse ansehen"
   }
 }

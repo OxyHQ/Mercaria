@@ -1805,12 +1805,6 @@
       "notForSale": "Not on sale"
     }
   },
-  "thread": {
-    "title": "Shopping assistant",
-    "signIn": "Sign in to chat",
-    "viewResults": "View search results",
-    "newConversation": "New conversation"
-  },
   "profile": {
     "title": "Profile",
     "subtitle": "Your saved finds, orders and account, all in one place."
@@ -1969,5 +1963,8 @@
     "pendingBody": "Your guardian can review the exact items and total in Oxy. Payment stays unavailable until they approve.",
     "refresh": "Refresh status",
     "account": "Supervision and account"
+  },
+  "alia": {
+    "viewResults": "View search results"
   }
 }

@@ -1821,12 +1821,6 @@
       "notForSale": "No está a la venta"
     }
   },
-  "thread": {
-    "title": "Asistente de compras",
-    "signIn": "Inicia sesión para conversar",
-    "viewResults": "Ver resultados de búsqueda",
-    "newConversation": "Nueva conversación"
-  },
   "profile": {
     "title": "Perfil",
     "subtitle": "Tus guardados, pedidos y cuenta, en un mismo lugar."
@@ -1985,5 +1979,8 @@
     "pendingBody": "Tu tutor puede revisar los artículos y el total exactos en Oxy. El pago estará disponible cuando lo apruebe.",
     "refresh": "Actualizar estado",
     "account": "Supervisión y cuenta"
+  },
+  "alia": {
+    "viewResults": "Ver resultados de búsqueda"
   }
 }

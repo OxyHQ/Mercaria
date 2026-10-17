@@ -1805,12 +1805,6 @@
       "notForSale": "販売していません"
     }
   },
-  "thread": {
-    "title": "ショッピングアシスタント",
-    "signIn": "ログインしてチャット",
-    "viewResults": "検索結果を見る",
-    "newConversation": "新しい会話"
-  },
   "profile": {
     "title": "プロフィール",
     "subtitle": "保存した商品、注文、アカウントをひとつの場所で。"
@@ -1969,5 +1963,8 @@
     "pendingBody": "保護者はOxyで商品と正確な合計金額を確認できます。承認後に支払いが可能になります。",
     "refresh": "状態を更新",
     "account": "見守りとアカウント"
+  },
+  "alia": {
+    "viewResults": "検索結果を見る"
   }
 }

@@ -1805,12 +1805,6 @@
       "notForSale": "未在售"
     }
   },
-  "thread": {
-    "title": "购物助手",
-    "signIn": "登录后聊天",
-    "viewResults": "查看搜索结果",
-    "newConversation": "新对话"
-  },
   "profile": {
     "title": "个人资料",
     "subtitle": "收藏、订单和账户，尽在一处。"
@@ -1969,5 +1963,8 @@
     "pendingBody": "监护人可以在Oxy中核对商品和准确总额。批准后才能付款。",
     "refresh": "刷新状态",
     "account": "监护与账户"
+  },
+  "alia": {
+    "viewResults": "查看搜索结果"
   }
 }
