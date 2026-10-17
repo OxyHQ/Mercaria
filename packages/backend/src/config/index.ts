@@ -2445,6 +2445,12 @@ export interface CatalogIngestionConfig {
   readonly pollIntervalMs: number;
   /** How long a source or run lease lasts. Long enough for one page. */
   readonly leaseMs: number;
+  /**
+   * How long one tick keeps driving its claimed runs, page after page, before
+   * yielding the unfinished ones back to the queue. Under the poll interval, so
+   * the next tick starts on time; every claimed run gets at least one page.
+   */
+  readonly tickBudgetMs: number;
   /** The ceiling on the exponential backoff between failed refreshes. */
   readonly maxBackoffMs: number;
   /** How many unseen objects one closing run may retire. */
@@ -4426,6 +4432,7 @@ export const config: AppConfig = Object.freeze({
     batchSize: intEnv('CATALOG_INGESTION_BATCH_SIZE', 5),
     pollIntervalMs: intEnv('CATALOG_INGESTION_POLL_INTERVAL_MS', 30_000),
     leaseMs: intEnv('CATALOG_INGESTION_LEASE_MS', 120_000),
+    tickBudgetMs: intEnv('CATALOG_INGESTION_TICK_BUDGET_MS', 25_000),
     maxBackoffMs: intEnv('CATALOG_INGESTION_MAX_BACKOFF_MS', 6 * 60 * 60 * 1_000),
     retirementBatchSize: intEnv('CATALOG_INGESTION_RETIREMENT_BATCH_SIZE', 500),
     anomalyPriceFactor: intEnv('CATALOG_INGESTION_ANOMALY_PRICE_FACTOR', 20),

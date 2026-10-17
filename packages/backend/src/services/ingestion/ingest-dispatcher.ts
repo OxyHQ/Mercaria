@@ -12,7 +12,7 @@
  *
  * The SOURCE lease says "this task is responsible for feeding this source"; the
  * RUN lease says "this task is driving this pass". They are separate because a
- * pass outlives a tick: a feed with forty pages is forty ticks of one run, and
+ * pass outlives a tick: a feed of four thousand pages spans many ticks of one run, and
  * collapsing the two would either hold a source lease for an hour or let a
  * second task claim the source mid-pass and open a competing run.
  *
@@ -40,12 +40,18 @@ import {
   claimDueSources,
   releaseSourceLease,
 } from '../../db/ingestion/catalogSourceConfigRepository.js';
-import { claimSourceRuns, openSourceRun } from '../../db/ingestion/catalogSourceRunRepository.js';
+import {
+  claimSourceRuns,
+  openSourceRun,
+  yieldSourceRun,
+} from '../../db/ingestion/catalogSourceRunRepository.js';
 import { runIngestionPage, type IngestPageResult } from './ingest.service.js';
 import { resolveCatalogSourceAdapter } from './registry.js';
 
 let timer: NodeJS.Timeout | undefined;
 let running = false;
+/** Set by `stop…`: a tick in progress yields its runs instead of starting more pages. */
+let stopRequested = false;
 
 /**
  * A stable-per-process worker identity.
@@ -133,9 +139,30 @@ async function scheduleDueSources(now: Date): Promise<number> {
   return opened;
 }
 
-/** Drive one page of every claimable run. */
+/**
+ * Drive every claimable run, page after page, for one tick's budget.
+ *
+ * Round-robin: each claimed run gets a page per round, and a run that still has
+ * pages stays in the next round while `tickBudgetMs` lasts. A run left over
+ * when the budget runs out is YIELDED — handed back to the queue due now — so
+ * the next tick, on this task or another, picks it up at once. Before this a
+ * tick drove one page and left the run leased: the next claim waited for the
+ * lease to expire, and Scryfall advanced a page every two minutes.
+ *
+ * Rate limits are the adapters' own and they hold across rounds: the open-data
+ * transport spaces requests per host (Scryfall 120 ms, Steam 1.5 s), and
+ * eBay spends a fleet-wide daily budget. Driving the next page sooner never
+ * makes a request leave sooner than its provider allows.
+ */
 async function driveRuns(now: Date): Promise<IngestPageResult[]> {
-  const runs = await claimSourceRuns(getDb(), {
+  const tickStartedAt = Date.now();
+  // The caller's `now`, moved on by the time this tick has spent: every page
+  // stamps and checks its lease against the instant it actually runs.
+  const clock = () => new Date(now.getTime() + (Date.now() - tickStartedAt));
+  const withinBudget = () =>
+    !stopRequested && Date.now() - tickStartedAt < config.catalogIngestion.tickBudgetMs;
+
+  let round = await claimSourceRuns(getDb(), {
     leaseOwner: LEASE_OWNER,
     batchSize: config.catalogIngestion.batchSize,
     leaseMs: config.catalogIngestion.leaseMs,
@@ -143,27 +170,44 @@ async function driveRuns(now: Date): Promise<IngestPageResult[]> {
   });
 
   const results: IngestPageResult[] = [];
-  for (const run of runs) {
-    // Sequential rather than concurrent, deliberately: a source's rate-limit
-    // policy is per source, and N pages in flight against one provider is the
-    // shape that gets an integration banned. Parallelism across SOURCES comes
-    // from the several ECS tasks each claiming their own.
-    //
-    // Each run is isolated. Every run in `runs` is already leased (and its
-    // `attempts` counted), so a page that throws must not abandon the rest of
-    // the batch: they would sit leased and undriven until the lease expired,
-    // be claimed again beside the same failing run, and starve for as long as
-    // it kept failing. In October 2026 one wedged Open Prices run did exactly
-    // that to every other keyless source for a week — thousands of claims,
-    // a page an hour. The failing run keeps its lease and is retried on expiry.
-    try {
-      results.push(await runIngestionPage({ runId: run.id, leaseOwner: LEASE_OWNER, now }));
-    } catch (error: unknown) {
-      log.general.error(
-        { err: error, runId: run.id, sourceId: run.sourceId },
-        '[Ingestion] page failed; the rest of the batch continues',
-      );
+  while (round.length > 0) {
+    const next: typeof round = [];
+    for (const run of round) {
+      // Sequential rather than concurrent, deliberately: a source's rate-limit
+      // policy is per source, and N pages in flight against one provider is the
+      // shape that gets an integration banned. Parallelism across SOURCES comes
+      // from the several ECS tasks each claiming their own.
+      //
+      // Each page is isolated. Every run in the batch is already leased (and
+      // its `attempts` counted), so a page that throws must not abandon the
+      // rest: they would sit leased and undriven until the lease expired, be
+      // claimed again beside the same failing run, and starve for as long as it
+      // kept failing. In October 2026 one wedged Open Prices run did exactly
+      // that to every other keyless source for a week — thousands of claims,
+      // a page an hour. The failing run is dropped from this tick and keeps its
+      // lease, so it is retried on expiry.
+      try {
+        const result = await runIngestionPage({
+          runId: run.id,
+          leaseOwner: LEASE_OWNER,
+          now: clock(),
+        });
+        results.push(result);
+        if (result.hasMore) next.push(run);
+      } catch (error: unknown) {
+        log.general.error(
+          { err: error, runId: run.id, sourceId: run.sourceId },
+          '[Ingestion] page failed; the rest of the batch continues',
+        );
+      }
     }
+    if (!withinBudget()) {
+      for (const run of next) {
+        await yieldSourceRun(getDb(), { id: run.id, leaseOwner: LEASE_OWNER, now: clock() });
+      }
+      break;
+    }
+    round = next;
   }
   return results;
 }
@@ -190,6 +234,7 @@ async function tick(): Promise<void> {
 /** Begin scheduling. Idempotent — a second call is a no-op. */
 export function startCatalogIngestionDispatcher(): void {
   if (timer !== undefined) return;
+  stopRequested = false;
   if (!config.catalogIngestion.enabled) {
     log.general.info(
       '[Ingestion] catalog ingestion disabled; sources configured now are stored and will ' +
@@ -213,8 +258,13 @@ export function startCatalogIngestionDispatcher(): void {
   );
 }
 
-/** Stop claiming new work. A page already in flight reaches a durable state. */
+/**
+ * Stop claiming new work. A page already in flight reaches a durable state, and
+ * the tick then yields its runs rather than leaving them leased to a task that
+ * is going away.
+ */
 export function stopCatalogIngestionDispatcher(): void {
+  stopRequested = true;
   if (timer !== undefined) {
     clearInterval(timer);
     timer = undefined;
