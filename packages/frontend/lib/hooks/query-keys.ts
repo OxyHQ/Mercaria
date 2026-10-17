@@ -418,4 +418,11 @@ export const queryKeys = {
     partFitments: (subjects: readonly string[]) =>
       ['catalog', 'part-fitments', ...subjects] as const,
   },
+  /**
+   * GoWay forward geocoding for a place picker, keyed on the debounced TERM
+   * and the reader's locale. The entry is collected as soon as no picker reads
+   * it (`gcTime: 0` in `usePlaceSearch`): an address someone typed is
+   * transient request data, never a warm cache.
+   */
+  placeSearch: (term: string, locale: string) => ['place-search', term, locale] as const,
 } as const;

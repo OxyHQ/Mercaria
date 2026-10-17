@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { Linking, Share, View } from 'react-native';
 import { Button } from '@oxy.so/bloom/button';
+import { PlacePicker } from '@oxy.so/bloom/place-picker';
 import { TextFieldInput } from '@oxy.so/bloom/text-field';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -11,8 +12,10 @@ import {
 } from '@oxy.so/moovo-sdk';
 import type { MaterialReservation } from '@mercaria.co/sdk';
 import { Text } from '@mercaria/ui';
+import type { GoWayPlaceOption } from '@/lib/address/goway-address';
 import { useTranslation } from '@/lib/i18n';
 import { useMoovo } from '@/lib/hooks/use-moovo';
+import { usePlaceSearch } from '@/lib/hooks/use-place-search';
 import { materialRequestKey, useMaterialsClient } from '@/lib/hooks/use-materials';
 
 const endpointLabelKeys = {
@@ -22,11 +25,13 @@ const endpointLabelKeys = {
   country: 'transport.country',
   contactName: 'transport.contactName',
   contactPhone: 'transport.contactPhone',
-  latitude: 'transport.latitude',
-  longitude: 'transport.longitude',
   notes: 'transport.notes',
 } as const;
 const legLabelKeys = { pickup: 'transport.pickup', dropoff: 'transport.dropoff' } as const;
+const legPlaceKeys = {
+  pickup: 'transport.pickupPlace',
+  dropoff: 'transport.dropoffPlace',
+} as const;
 const sizeLabelKeys = {
   small: 'transport.small',
   medium: 'transport.medium',
@@ -51,17 +56,22 @@ const jobStatusLabelKeys = {
   cancelled: 'transport.jobStatus.cancelled',
 } as const;
 const emptyAddress = { line1: '', city: '', postalCode: '', country: '' };
-const emptyEndpoint = {
+const emptyFields = {
   ...emptyAddress,
   contactName: '',
   contactPhone: '',
-  latitude: '',
-  longitude: '',
   notes: '',
 };
-type EndpointFormValue = typeof emptyEndpoint;
+type EndpointFields = typeof emptyFields;
+/**
+ * One leg of the transport: the place GoWay found (its coordinate is the only
+ * one Moovo receives — never typed by hand) and the facts a courier needs that
+ * a map cannot know, prefilled from the place where GoWay has them.
+ */
+type EndpointFormValue = EndpointFields & { place: GoWayPlaceOption | null; query: string };
+const emptyEndpoint: EndpointFormValue = { ...emptyFields, place: null, query: '' };
 function endpoint(value: EndpointFormValue): TransportEndpoint {
-  if (!value.latitude.trim() || !value.longitude.trim()) throw new Error('Missing coordinates');
+  if (!value.place) throw new Error('Missing place');
   return {
     address: {
       line1: value.line1,
@@ -71,8 +81,8 @@ function endpoint(value: EndpointFormValue): TransportEndpoint {
     },
     contactName: value.contactName,
     contactPhone: value.contactPhone,
-    latitude: Number(value.latitude),
-    longitude: Number(value.longitude),
+    latitude: value.place.coordinate.latitude,
+    longitude: value.place.coordinate.longitude,
     notes: value.notes,
   };
 }
@@ -86,15 +96,43 @@ function EndpointForm({
   leg: 'pickup' | 'dropoff';
 }) {
   const { t } = useTranslation();
+  const search = usePlaceSearch(value.query);
   return (
     <View className="gap-space-8">
       <Text className="font-semibold">{t(legLabelKeys[leg])}</Text>
-      {Object.keys(emptyEndpoint).map((field) => (
+      <PlacePicker
+        label={t(legPlaceKeys[leg])}
+        placeholder={t('transport.placeSearch')}
+        query={value.query}
+        onQueryChange={(query) => onChange({ ...value, query })}
+        results={search.results}
+        status={search.status}
+        onRetry={search.retry}
+        value={value.place}
+        onValueChange={(place) =>
+          onChange(
+            place
+              ? {
+                  ...value,
+                  place,
+                  // GoWay's structured facts fill what is still empty; what the
+                  // person already typed (a flat number, a corrected postcode) stays.
+                  line1: value.line1 || place.postal.line1,
+                  city: value.city || place.postal.city,
+                  postalCode: value.postalCode || place.postal.postalCode,
+                  country: value.country || place.postal.country,
+                }
+              : { ...value, place: null },
+          )
+        }
+        testID={`transport-${leg}-place`}
+      />
+      {(Object.keys(emptyFields) as (keyof EndpointFields)[]).map((field) => (
         <TextFieldInput
           key={field}
-          label={`${t(legLabelKeys[leg])} ${t(endpointLabelKeys[field as keyof typeof endpointLabelKeys])}`}
-          placeholder={t(endpointLabelKeys[field as keyof typeof endpointLabelKeys])}
-          value={value[field as keyof EndpointFormValue]}
+          label={`${t(legLabelKeys[leg])} ${t(endpointLabelKeys[field])}`}
+          placeholder={t(endpointLabelKeys[field])}
+          value={value[field]}
           onChangeText={(text) => onChange({ ...value, [field]: text })}
         />
       ))}
@@ -115,11 +153,11 @@ export function MaterialTransportPanel({
   const materials = useMaterialsClient();
   const cache = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [pickup, setPickup] = useState({
+  const [pickup, setPickup] = useState<EndpointFormValue>({
     ...emptyEndpoint,
     notes: reservation.pickupInstructions ?? '',
   });
-  const [dropoff, setDropoff] = useState(emptyEndpoint);
+  const [dropoff, setDropoff] = useState<EndpointFormValue>(emptyEndpoint);
   const [weight, setWeight] = useState('');
   const [pieces, setPieces] = useState('');
   const [size, setSize] = useState<'small' | 'medium' | 'large'>('small');
@@ -275,7 +313,9 @@ export function MaterialTransportPanel({
           <Text>{t('transport.payerMustConfirm')}</Text>
           <Button
             onPress={() => create.mutate()}
-            disabled={create.isPending || !payer || !weight || !pieces}
+            disabled={
+              create.isPending || !payer || !weight || !pieces || !pickup.place || !dropoff.place
+            }
           >
             {t('transport.getQuote')}
           </Button>
