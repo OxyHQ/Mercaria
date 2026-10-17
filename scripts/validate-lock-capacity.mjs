@@ -6,8 +6,10 @@
  * ## The failure this exists to move
  *
  * Every realdb file that creates its OWN throwaway database migrates it with the
- * real migrator, which applies the whole chain in ONE transaction and therefore
- * holds every object lock it takes until commit. PostgreSQL sizes ONE shared
+ * real migrator. Since @oxy.so/db 1.2.0 that commits EACH migration in its own
+ * transaction, so a database holds one migration's locks at a time — its peak
+ * is its largest single migration, no longer the whole chain held until one
+ * commit as it was through @oxy.so/db 1.1. PostgreSQL sizes ONE shared
  * lock table for the whole server, so those migrations contend for a single pool
  * rather than each getting their own budget. Past the pool the failure is
  * `out of shared memory`, landing mid-migration on whichever `ALTER TABLE` was
@@ -40,9 +42,10 @@
  *
  * ## Why the capacity is projected rather than compared flat
  *
- * A capacity measurement decays: a longer chain is more objects locked inside
- * one transaction, so the same ceiling carries fewer concurrent migrations than
- * it did. Comparing today's file count against a capacity taken at an older
+ * A capacity measurement decays. Under @oxy.so/db 1.1 a longer chain was more
+ * objects locked inside one transaction; under per-migration transactions it
+ * decays only when a new migration locks more than any before it, which no file
+ * reveals without measuring. Either way the measurement must expire. Comparing today's file count against a capacity taken at an older
  * chain is exactly the arithmetic #849 was filed over. So the recorded
  * measurement carries the chain length it was taken at, and the projection
  * charges every migration added since at the measured marginal lock cost. The
@@ -105,15 +108,27 @@ const MEASUREMENTS = [
     serverVersion: '17.5',
     maxConnections: 100,
   },
-  /** Re-measured with the complete 168-entry chain; see the probe evidence. */
+  /**
+   * Re-measured under @oxy.so/db 1.2.0, which commits EACH migration in its own
+   * transaction, with the 176-entry chain. N=28, 29, 40 and 48 all carried (peak
+   * `pg_locks` 11,374 / 11,413 / 16,283 / 18,054, overlap N-wide each time). At
+   * N=64 the round failed on `too many clients already` (max_connections=100),
+   * with no `out of shared memory` at all: past 48 the server's CONNECTIONS
+   * bind, not its lock table. `capacity` is the highest N measured to carry.
+   *
+   * The previous 512 row (whole chain in ONE transaction, @oxy.so/db 1.1):
+   * capacity 28, first exhausted at 29, 6,545 locks per migration, 168 entries,
+   * 2026-10-15 at 096013fc.
+   */
   {
     ceiling: 512,
-    capacity: 28,
-    firstExhausted: 29,
-    locksPerMigration: 6545,
-    journalEntries: 168,
-    measuredOn: '2026-10-15',
-    measuredAtCommit: '096013fc',
+    capacity: 48,
+    firstExhausted: null,
+    /** Peak `pg_locks` per concurrent migration: 18,054 / 48, rounded up. */
+    locksPerMigration: 377,
+    journalEntries: 176,
+    measuredOn: '2026-10-17',
+    measuredAtCommit: '6c344f98',
     image: 'postgis/postgis:17-3.5',
     serverVersion: '17.5',
     maxConnections: 100,
@@ -137,6 +152,12 @@ const MEASUREMENTS = [
  * 93→133 average of 14.8 — because a larger marginal makes the projected
  * capacity fall faster, which fires this guard earlier and asks for a
  * re-measurement sooner. Erring the other way is how a gate goes quiet.
+ *
+ * Under per-migration transactions (@oxy.so/db ≥ 1.2.0) these figures were
+ * taken on whole-chain applies, and a new migration only adds to the peak when
+ * it outweighs the largest one already in the chain. The charge is KEPT anyway,
+ * as an expiry clock: against the 377-lock row it asks for a re-measurement
+ * after roughly sixty more migrations, rather than letting the row stand forever.
  */
 const MARGINAL_LOCKS_PER_MIGRATION = 14.8;
 

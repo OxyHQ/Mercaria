@@ -33,6 +33,12 @@
  * never reach; decide what THIS side of the deploy may apply; ensure the
  * extensions; apply; re-read the ledger and confirm.
  *
+ * Since `@oxy.so/db` 1.2.0 "apply" is ONE TRANSACTION PER MIGRATION, each under
+ * a short `lock_timeout` (retried with backoff when the lock does not come) and
+ * a 120 s `statement_timeout`. A failure leaves every earlier migration of the
+ * run committed, and a migration that legitimately runs longer must declare
+ * `-- oxy:statement-timeout=<n>s` in its own file.
+ *
  * ## `--target-database=<name>` is REQUIRED, on every run including a dry run
  *
  * `expectedDatabase` is optional in `@oxy.so/db` so a consumer can adopt the
