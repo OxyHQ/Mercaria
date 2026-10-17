@@ -7,11 +7,11 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const sdk = vi.hoisted(() => ({ importAppFiles: vi.fn() }));
+const sdk = { importAppFiles: vi.fn() };
 vi.mock('../../../capabilities/oxy-service-client.js', () => ({
   oxyServiceClient: () => ({ assets: { importAppFiles: sdk.importAppFiles } }),
 }));
-const repo = vi.hoisted(() => ({ page: vi.fn(), apply: vi.fn() }));
+const repo = { page: vi.fn(), apply: vi.fn() };
 vi.mock('../../../db/oxyFiles/applicationMediaRepository.js', () => ({
   findApplicationMediaPage: repo.page,
   applyApplicationMediaFile: repo.apply,
