@@ -12,6 +12,7 @@
 export * from './primitives';
 export * from './refs';
 export * from './catalog';
+export * from './catalog-products';
 export * from './locations';
 export * from './pagination';
 export * from './errors';

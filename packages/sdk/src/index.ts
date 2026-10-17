@@ -13,6 +13,8 @@ export {
   DEFAULT_MERCARIA_WEB_BASE_URL,
 } from './client';
 export type {
+  MercariaCatalogApi,
+  MercariaCatalogSearchInput,
   MercariaClient,
   MercariaClientOptions,
   MercariaCollectionsApi,
@@ -32,10 +34,12 @@ export type {
   MercariaHandleSource,
   MercariaLinks,
   MercariaLocationLinkTarget,
+  MercariaOfferLinkTarget,
   MercariaProductLinkTarget,
 } from './links';
 
 export {
+  catalogProductRef,
   collectionRef,
   formatMercariaRef,
   isMercariaRef,
@@ -85,6 +89,8 @@ export type {
 
 export {
   MERCARIA_LOCATION_AVAILABILITIES,
+  MERCARIA_OFFER_AVAILABILITIES,
+  MERCARIA_OFFER_KINDS,
   MERCARIA_PRODUCT_AVAILABILITIES,
   MERCARIA_PRODUCT_SORTS,
   MERCARIA_PUBLIC_API_BASE_PATH,
@@ -98,6 +104,10 @@ export type {
   ConditionGroup,
   CurrencyCode,
   ItemConditionKey,
+  MercariaCatalogProduct,
+  MercariaCatalogProductRef,
+  MercariaCatalogProductSummary,
+  MercariaCatalogVariant,
   MercariaCollection,
   MercariaCollectionRef,
   MercariaErrorDetails,
@@ -109,6 +119,13 @@ export type {
   MercariaLocationRef,
   MercariaLocationStore,
   MercariaMoney,
+  MercariaOffer,
+  MercariaOfferAction,
+  MercariaOfferAvailability,
+  MercariaOfferKind,
+  MercariaOfferSeller,
+  MercariaOfferSource,
+  MercariaOfferSummary,
   MercariaPage,
   MercariaProduct,
   MercariaProductAvailability,

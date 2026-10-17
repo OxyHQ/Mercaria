@@ -15,8 +15,8 @@
  * The product grain is the SELLABLE product: the thing a store or a person puts
  * up for sale, with its own purchase options, price and stock. Its id is
  * globally unique, so a product ref does not name its store. The multi-seller
- * canonical catalogue identity (ADR 0002) is a different grain and is not part
- * of this contract.
+ * canonical catalogue identity (ADR 0002) is a different grain with its own
+ * kind, `catalog_product` (`catalog-products.ts`).
  */
 
 import { z } from 'zod';
@@ -29,6 +29,7 @@ export const MERCARIA_REF_KINDS = [
   'store',
   'collection',
   'location',
+  'catalog_product',
 ] as const;
 export type MercariaRefKind = (typeof MERCARIA_REF_KINDS)[number];
 
@@ -69,6 +70,15 @@ const locationRef = z.object({ kind: z.literal('location'), id: MercariaIdSchema
 export const MercariaLocationRefSchema = locationRef.readonly();
 export type MercariaLocationRef = z.infer<typeof MercariaLocationRefSchema>;
 
+/**
+ * A canonical catalogue product — the model every seller of it is compared
+ * under (ADR 0002) — by id. Never by slug: a merge or a rename changes it,
+ * while a merged product's id keeps resolving to the product it merged into.
+ */
+const catalogProductRef = z.object({ kind: z.literal('catalog_product'), id: MercariaIdSchema });
+export const MercariaCatalogProductRefSchema = catalogProductRef.readonly();
+export type MercariaCatalogProductRef = z.infer<typeof MercariaCatalogProductRefSchema>;
+
 /** Any portable Mercaria reference, as a consumer persisted it: exactly the contract's keys. */
 export const MercariaRefSchema = z.discriminatedUnion('kind', [
   productRef.strict().readonly(),
@@ -76,5 +86,6 @@ export const MercariaRefSchema = z.discriminatedUnion('kind', [
   storeRef.strict().readonly(),
   collectionRef.strict().readonly(),
   locationRef.strict().readonly(),
+  catalogProductRef.strict().readonly(),
 ]);
 export type MercariaRef = z.infer<typeof MercariaRefSchema>;

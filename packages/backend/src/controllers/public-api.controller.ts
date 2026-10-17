@@ -52,6 +52,10 @@ import {
 import { log } from '../lib/logger.js';
 import { PublicApiError } from '../services/public-api/errors.js';
 import {
+  getPublicCatalogProduct,
+  searchPublicCatalogProducts,
+} from '../services/public-api/catalog-products.service.js';
+import {
   getPublicCollection,
   getPublicLocation,
   getPublicProduct,
@@ -177,6 +181,13 @@ export const publicApiHandlers: PublicHandlers = {
   getLocation: ({ params }) => getPublicLocation(params.id),
   listLocationProducts: ({ params, query }) =>
     listPublicLocationProducts(params.id, productListParams(query)),
+  searchCatalogProducts: ({ query }) =>
+    searchPublicCatalogProducts({
+      ...pageParams(query),
+      q: query.q,
+      ...(query.market === undefined ? {} : { market: query.market }),
+    }),
+  getCatalogProduct: ({ params }) => getPublicCatalogProduct(params.id),
   getOpenApiDocument: async () => (openApiDocument ??= mercariaPublicOpenApiDocument()),
 };
 

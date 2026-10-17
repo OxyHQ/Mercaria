@@ -28,6 +28,7 @@ bun add @mercaria.co/sdk     # or: npm install @mercaria.co/sdk
 - [Stores](#stores)
 - [Collections](#collections)
 - [Locations: products at a shop on a map](#locations-products-at-a-shop-on-a-map)
+- [Catalog: one product, every seller](#catalog-one-product-every-seller)
 - [Links](#links)
 - [References](#references)
 - [Pagination](#pagination)
@@ -91,6 +92,12 @@ const mercaria = createMercariaClient({
 API key or service token option, and the SDK does not fake one. When a
 Mercaria method needs service authority, it will use Oxy's canonical service
 authorization and be added here explicitly.
+
+**An Oxy service reading on its own behalf** (a search backend, an agent) may
+return its Oxy service token from `getAccessToken`. It grants nothing a read
+does not already have; Mercaria meters the caller as that service application
+rather than per address, so a backend behind one IP does not spend an
+anonymous allowance meant for people.
 
 ## Products and search
 
@@ -228,6 +235,46 @@ for (const location of items) {
 - `inStock: true` keeps what is on THIS shelf now; `query`, `sort`, `locale`,
   `limit` and `cursor` work as on `stores.products`.
 
+## Catalog: one product, every seller
+
+`products` reads ONE seller's listing. `catalog` reads the comparison
+catalogue: the canonical product — the model, "Phone X 128 GB" — and every
+current offer for it, from Mercaria's own stores and people and from the
+retailers and open-data sources Mercaria ingests.
+
+```ts
+const page = await mercaria.catalog.search({ query: 'phone x', market: 'ES' });
+const card = page.items[0];          // { ref, name, image, url, offers: { count, availability, lowestPrice } | null }
+
+const product = await mercaria.catalog.get(card.ref);
+product.variants;                    // [{ id, name, gtins: ['00012345678905'] }]
+for (const offer of product.offers ?? []) {
+  offer.kind;                        // 'native' | 'external' | 'affiliate' | 'informational'
+  offer.price;                       // native currency, or null
+  mercaria.links.offer(offer);       // where following it goes, or null
+}
+```
+
+- **A barcode is a query.** `catalog.search({ query: '8412345678905' })` is
+  answered by exact identifier.
+- **Order is Mercaria's.** Offers arrive in the versioned comparison's ranked
+  order; do not present a re-ranking as Mercaria's "best offer".
+- **Prices are native and never converted.** A price in a currency Mercaria
+  does not model is `null`, never a number in the wrong precision.
+- **`offers: null` means comparison is not being served**, never "nobody sells
+  it". A search card's `offers: null` means no current offer: the product is
+  still a real answer.
+- **Follow an external offer only through `links.offer`.** It is Mercaria's
+  redirect, which re-checks the offer at click time; the retailer's own URL is
+  not published. Render it with the action's `rel` and name `destinationHost`
+  beside it. A native offer's link is its Mercaria product page, and its
+  `purchaseOption` is the variant ref `products.resolveVariant` hydrates.
+- **Show `source` when present.** An open-data offer's licence requires the
+  attribution (`name`, `licenceLabel`, `homepage`).
+- **A merged product answers as its winner.** Persist the `ref` the body
+  carries, and drop a ref only on `MercariaGoneError`.
+  `MercariaUnavailableError` means the catalogue is not being served right now.
+
 ## Links
 
 Never build Mercaria URLs by hand. The link helpers produce the same strings the
@@ -238,7 +285,11 @@ mercaria.links.product(product);             // or a product ref, or an id
 mercaria.links.store(store);                 // or a handle, or a store seller
 mercaria.links.collection(collection, store); // a collection needs its store's handle
 mercaria.links.location(location, location.store); // a location, on its store's page
+mercaria.links.offer(offer);                 // a catalog offer: the redirect, the product page, or null
 ```
+
+A catalog product has no builder: its page is addressed by a slug a ref does
+not carry, so use the `url` its body serves.
 
 A store link needs the store's current **handle**, which a ref deliberately
 does not carry — hydrate the store (or use the `handle` on a product's store
@@ -251,7 +302,7 @@ availability, and no store handle. That is what makes it safe to persist.
 
 ```ts
 import {
-  productRef, variantRef, storeRef, collectionRef, locationRef,
+  productRef, variantRef, storeRef, collectionRef, locationRef, catalogProductRef,
   parseMercariaRef, isMercariaRef,
   formatMercariaRef, parseMercariaRefString,
 } from '@mercaria.co/sdk';
@@ -266,6 +317,7 @@ const ref = parseMercariaRef(row.mercariaRef);
 formatMercariaRef(productRef('prod_1'));          // 'mercaria:product:prod_1'
 parseMercariaRefString('mercaria:store:store_1'); // { kind: 'store', id: 'store_1' }
 formatMercariaRef(locationRef('loc_1'));          // 'mercaria:location:loc_1'
+formatMercariaRef(catalogProductRef('cp_1'));     // 'mercaria:catalog_product:cp_1'
 ```
 
 `parseMercariaRef` accepts only a plain object with exactly the keys of its

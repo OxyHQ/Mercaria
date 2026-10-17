@@ -114,6 +114,27 @@ export const MercariaLocationListQuerySchema = z.strictObject({
     ),
 });
 
+/**
+ * `GET /catalog/products`: the comparison catalogue's search.
+ *
+ * `q` is REQUIRED — there is no browse of every canonical product. A query that
+ * is a barcode is read as one and answered by exact identifier.
+ */
+export const MercariaCatalogProductSearchQuerySchema = z.strictObject({
+  limit: pageShape.limit,
+  cursor: pageShape.cursor,
+  q: productListShape.q
+    .unwrap()
+    .describe(
+      `Required. Words or a GTIN, 1–${MERCARIA_PUBLIC_QUERY_MAX_LENGTH} characters after trimming.`,
+    ),
+  market: z
+    .string()
+    .regex(/^[A-Z]{2}$/, 'must be an ISO 3166-1 alpha-2 country code')
+    .optional()
+    .describe('Only offers published for this country, ISO 3166-1 alpha-2 (`ES`).'),
+});
+
 /** `GET /stores/{id}/collections` and `GET /collections/{id}/products`. */
 export const MercariaPageQuerySchema = z.strictObject(pageShape);
 

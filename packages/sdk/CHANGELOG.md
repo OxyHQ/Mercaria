@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.0
+
+- Add `catalog`: `search`, `get` and `resolveRef` over the comparison catalogue
+  (`/public/v1/catalog/products`) — canonical products, their configurations
+  with GTINs, and every current offer in Mercaria's ranked order, prices native.
+- Add the `catalog_product` ref kind (`catalogProductRef`, and
+  `mercaria:catalog_product:<id>` in the string form), `links.offer`, and the
+  `MercariaCatalog*`/`MercariaOffer*` types with `MERCARIA_OFFER_KINDS` and
+  `MERCARIA_OFFER_AVAILABILITIES`.
+- Document that an Oxy service may pass its service token through
+  `getAccessToken` to be metered as that service.
+
 ## 0.4.0
 
 - Add `materials.linkTransport` and the opaque `moovoTransportId` reservation reference.
