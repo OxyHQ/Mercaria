@@ -21,7 +21,7 @@ import {
 } from '../../db/canonical/sourceMediaImportRepository.js';
 import { findApplicationFileIds } from '../../db/oxyFiles/applicationFileRepository.js';
 import { descriptionImageFileIds, withDescriptionImagesReplaced } from './description.js';
-import { importOxyFileFromUrl, OxyFilesError } from './oxy-files.js';
+import { importApplicationFilesFromUrls, OxyFilesError } from './oxy-files.js';
 import { catalogMediaKind } from './policy.js';
 import { resolveMedia, storedMediaFileId } from './urls.js';
 
@@ -109,6 +109,8 @@ export async function backfillApplicationMedia(
     outcome: 'pending' | 'applied' | 'unchanged' | 'changed' | 'failed' | 'skipped';
     reason?: string;
   }> = [];
+  const work: Array<{ row: ApplicationMediaRow; source: string; entry: (typeof entries)[number] }> =
+    [];
   for (const row of rows.slice(0, options.limit)) {
     const { plan, source } = planFor(row);
     const entry: (typeof entries)[number] = {
@@ -121,8 +123,20 @@ export async function backfillApplicationMedia(
     };
     entries.push(entry);
     if (plan === 'skip' || options.mode === 'preview' || source === undefined) continue;
+    work.push({ row, source, entry });
+  }
+  // One Oxy request per 50 rows — one unit of its 30-a-minute budget each —
+  // instead of one per row. Each row still gets its own answer and its own
+  // compare-and-swap.
+  const results = work.length
+    ? await importApplicationFilesFromUrls(work.map((item) => item.source))
+    : [];
+  for (const [index, { row, entry }] of work.entries()) {
+    const result = results[index];
     try {
-      const stored = await importOxyFileFromUrl({ kind: 'application' }, source);
+      if (!result) throw new OxyFilesError('Oxy did not answer for the media source.');
+      if (result.ok === false) throw result.error;
+      const stored = result.file;
       if (stored.visibility !== 'public' || catalogMediaKind(stored.mime, stored.size) !== row.kind)
         throw new OxyFilesError('Oxy did not store a public file of the expected kind.');
       if (stored.fileId === row.fileId) {
@@ -193,6 +207,11 @@ export async function backfillCanonicalDescriptionImages(
     page.flatMap((row) => descriptionImageFileIds(row.description)),
     db,
   );
+  const work: Array<{
+    row: (typeof page)[number];
+    fileIds: string[];
+    entry: (typeof entries)[number];
+  }> = [];
   for (const row of page) {
     const all = descriptionImageFileIds(row.description);
     const fileIds = all.filter((fileId) => !owned.has(fileId));
@@ -205,12 +224,28 @@ export async function backfillCanonicalDescriptionImages(
     };
     entries.push(entry);
     if (fileIds.length === 0 || options.mode === 'preview') continue;
+    work.push({ row, fileIds, entry });
+  }
+  // Every description's images in one batch (one Oxy budget unit per 50).
+  const urlOf = new Map<string, string>();
+  for (const { fileIds } of work)
+    for (const fileId of fileIds) {
+      const url = resolveMedia(fileId);
+      if (url) urlOf.set(fileId, url);
+    }
+  const sources = [...new Set(urlOf.values())];
+  const results = sources.length ? await importApplicationFilesFromUrls(sources) : [];
+  const resultOf = new Map(sources.map((url, index) => [url, results[index]]));
+  for (const { row, fileIds, entry } of work) {
     try {
       const replacements = new Map<string, string>();
       for (const fileId of fileIds) {
-        const url = resolveMedia(fileId);
+        const url = urlOf.get(fileId);
         if (!url) continue;
-        const stored = await importOxyFileFromUrl({ kind: 'application' }, url);
+        const result = resultOf.get(url);
+        if (!result) throw new OxyFilesError('Oxy did not answer for the media source.');
+        if (result.ok === false) throw result.error;
+        const stored = result.file;
         if (
           stored.visibility !== 'public' ||
           catalogMediaKind(stored.mime, stored.size) !== 'image'

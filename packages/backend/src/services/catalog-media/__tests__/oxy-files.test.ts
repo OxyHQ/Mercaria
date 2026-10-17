@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const sdk = vi.hoisted(() => ({
   importAppFile: vi.fn(),
+  importAppFiles: vi.fn(),
   importUserMedia: vi.fn(),
   uploadAppFile: vi.fn(),
   uploadUserMedia: vi.fn(),
@@ -29,6 +30,7 @@ vi.mock('../../../capabilities/oxy-service-client.js', () => ({
       ? {
           assets: {
             importAppFile: sdk.importAppFile,
+            importAppFiles: sdk.importAppFiles,
             importUserMedia: sdk.importUserMedia,
             uploadAppFile: sdk.uploadAppFile,
             uploadUserMedia: sdk.uploadUserMedia,
@@ -44,6 +46,7 @@ import {
   addOxyFileReferences,
   adoptAsPrivateApplicationFile,
   BACKGROUND_RATE_LIMIT,
+  importApplicationFilesFromUrls,
   importOxyFileFromUrl,
   isOxyRateLimited,
   OxyFilesError,
@@ -477,5 +480,79 @@ describe('the application’s own files are remembered', () => {
     expect(
       (await importOxyFileFromUrl({ kind: 'application' }, 'https://s.example/a.png')).fileId,
     ).toBe('oxy-file-1');
+  });
+});
+
+describe('batch import for the application (one rate-limit unit per 50 sources)', () => {
+  const answer = (sourceUrl: string, index: number) => ({
+    index,
+    ok: true,
+    file: { ...FILE, id: `file-${/(\d+)$/.exec(sourceUrl)?.[1]}` },
+    outcome: 'downloaded',
+    deduplicated: false,
+  });
+  beforeEach(() => {
+    sdk.importAppFiles.mockImplementation(async (items: { sourceUrl: string }[]) =>
+      items.map(({ sourceUrl }, index) => answer(sourceUrl, index)),
+    );
+  });
+
+  it('sends at most 50 sources a request, once each, and answers in the order given', async () => {
+    const urls = Array.from({ length: 120 }, (_, index) => `https://s.example/${index}`);
+    const results = await importApplicationFilesFromUrls([...urls, urls[3] as string]);
+    expect(sdk.importAppFiles.mock.calls.map(([items]) => items.length)).toEqual([50, 50, 20]);
+    expect(sdk.importAppFiles.mock.calls[0]?.[0]?.[0]).toEqual({
+      sourceUrl: 'https://s.example/0',
+      visibility: 'public',
+    });
+    expect(results).toHaveLength(121);
+    expect(results[119]).toMatchObject({ ok: true, file: { fileId: 'file-119' } });
+    // A repeated source shares its answer instead of a second import.
+    expect(results[120]).toEqual(results[3]);
+    expect(ledger.record).toHaveBeenCalledExactlyOnceWith(urls.map((_, index) => `file-${index}`));
+  });
+
+  it('answers each source on its own: a refusal, a pending fetch, an undescribed file', async () => {
+    sdk.importAppFiles.mockResolvedValue([
+      { index: 0, ok: false, error: { status: 422, code: 'SOURCE_URL_REFUSED', message: 'no' } },
+      { index: 1, ok: true, pending: true, importId: 'i', status: 'importing' },
+      { index: 2, ok: true, file: { ...FILE, size: 0 } },
+      answer('https://s.example/3', 3),
+    ]);
+    const [refused, pending, broken, fine] = await importApplicationFilesFromUrls(
+      [0, 1, 2, 3].map((index) => `https://s.example/${index}`),
+    );
+    expect(refused?.error?.message).toBe('Oxy could not import the media source (HTTP 422).');
+    expect(refused?.error?.status).toBe(422);
+    expect(pending?.error?.message).toMatch(/still fetching/);
+    expect(pending?.error?.status).toBeUndefined();
+    expect(broken?.error?.message).toMatch(/did not describe/);
+    expect(fine).toMatchObject({ ok: true, file: { fileId: 'file-3' } });
+  });
+
+  it('marks a refused request’s sources — and those not yet sent — rate-limited, keeping what came before', async () => {
+    sdk.importAppFiles
+      .mockImplementationOnce(async (items: { sourceUrl: string }[]) =>
+        items.map(({ sourceUrl }, index) => answer(sourceUrl, index)),
+      )
+      .mockRejectedValue(rateLimited(3600));
+    const urls = Array.from({ length: 120 }, (_, index) => `https://s.example/${index}`);
+    const results = await importApplicationFilesFromUrls(urls);
+    // The 429 named an hour: past the bound, so handed back at once, and the
+    // third request is never sent.
+    expect(sdk.importAppFiles).toHaveBeenCalledTimes(2);
+    expect(results.slice(0, 50).every((result) => result.ok)).toBe(true);
+    for (const result of results.slice(50)) {
+      expect(result.ok).toBe(false);
+      expect(isOxyRateLimited(result.error)).toBe(true);
+      expect(result.error?.retryAfterMs).toBe(3_600_000);
+    }
+  });
+
+  it('refuses without Mercaria credentials', async () => {
+    sdk.configured = false;
+    await expect(importApplicationFilesFromUrls(['https://s.example/1'])).rejects.toThrow(
+      /credentials/,
+    );
   });
 });

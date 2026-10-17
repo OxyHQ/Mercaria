@@ -16,7 +16,7 @@
  * forever — for a fact (`oxy_file_references`) that is already stored.
  */
 
-import { and, asc, eq, gt, inArray, lte, or, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 import type { OxyFileReferenceEntityType } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import {
@@ -72,7 +72,17 @@ export async function claimFileReferenceOutbox(
     or(
       and(
         eq(oxyFileReferenceOutboxes.status, 'pending'),
-        lte(oxyFileReferenceOutboxes.availableAt, now),
+        or(
+          // Never attempted since it was (re)requested: due at once, whatever
+          // its `available_at` says. The enqueue trigger stamps that with the
+          // DATABASE clock (`now()`) while this claim compares against the
+          // APPLICATION's; a database clock ahead of the task's would otherwise
+          // hold every fresh request back by the skew. Every later
+          // `available_at` (a backoff, a deferral, a re-arm) is written by the
+          // application and compared here on the same clock.
+          and(eq(oxyFileReferenceOutboxes.attempts, 0), isNull(oxyFileReferenceOutboxes.lastError)),
+          lte(oxyFileReferenceOutboxes.availableAt, now),
+        ),
       ),
       and(
         eq(oxyFileReferenceOutboxes.status, 'processing'),

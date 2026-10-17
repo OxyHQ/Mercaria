@@ -137,12 +137,15 @@ describe('application-owned media backfill', () => {
     // application already owns answers that same file.
     const held = fake.fileIdFor('app', present(resolveMedia(`already-app-${RUN}`), 'public URL'));
     await db.update(brands).set({ logoFileId: held }).where(eq(brands.id, brand.id));
-    const original = fake.client.assets.importAppFile;
-    fake.client.assets.importAppFile = async () => ({
-      file: { id: held, mime: 'image/png', size: 10, visibility: 'public', status: 'active' },
-      outcome: 'existing',
-      deduplicated: true,
-    });
+    const original = fake.client.assets.importAppFiles;
+    fake.client.assets.importAppFiles = async (items) =>
+      items.map((_, index) => ({
+        index,
+        ok: true,
+        file: { id: held, mime: 'image/png', size: 10, visibility: 'public', status: 'active' },
+        outcome: 'existing',
+        deduplicated: true,
+      }));
     try {
       const report = await backfillApplicationMedia(
         { target: 'brand_logo', mode: 'apply', limit: 1, id: brand.id },
@@ -151,7 +154,7 @@ describe('application-owned media backfill', () => {
       expect(report.entries[0]?.outcome).toBe('unchanged');
       expect(report.retryIds).toEqual([]);
     } finally {
-      fake.client.assets.importAppFile = original;
+      fake.client.assets.importAppFiles = original;
     }
   });
 
@@ -180,13 +183,13 @@ describe('application-owned media backfill', () => {
       .set({ logoFileId: `race-before-${RUN}` })
       .where(eq(brands.id, brand.id));
     const client = present(oxyFiles.current, 'Oxy fake').client;
-    const original = client.assets.importAppFile;
-    client.assets.importAppFile = async (sourceUrl, options) => {
+    const original = client.assets.importAppFiles;
+    client.assets.importAppFiles = async (items) => {
       await db
         .update(brands)
         .set({ logoFileId: `race-edit-${RUN}` })
         .where(eq(brands.id, brand.id));
-      return original(sourceUrl, options);
+      return original(items);
     };
     try {
       const report = await backfillApplicationMedia(
@@ -198,7 +201,7 @@ describe('application-owned media backfill', () => {
       const [after] = await db.select().from(brands).where(eq(brands.id, brand.id));
       expect(after?.logoFileId).toBe(`race-edit-${RUN}`);
     } finally {
-      client.assets.importAppFile = original;
+      client.assets.importAppFiles = original;
     }
   });
 
@@ -374,15 +377,17 @@ describe('a rerun asks Oxy nothing about a finished row', () => {
     // same file (it deduplicates the application's bytes).
     const held = fake.fileIdFor('app', present(resolveMedia(`once-${RUN}`), 'public URL'));
     await db.update(brands).set({ logoFileId: held }).where(eq(brands.id, brand.id));
-    const original = fake.client.assets.importAppFile;
+    const original = fake.client.assets.importAppFiles;
     let calls = 0;
-    fake.client.assets.importAppFile = async () => {
+    fake.client.assets.importAppFiles = async (items) => {
       calls += 1;
-      return {
+      return items.map((_, index) => ({
+        index,
+        ok: true,
         file: { id: held, mime: 'image/png', size: 10, visibility: 'public', status: 'active' },
         outcome: 'existing',
         deduplicated: true,
-      };
+      }));
     };
     try {
       const run = () =>
@@ -395,7 +400,7 @@ describe('a rerun asks Oxy nothing about a finished row', () => {
       expect((await run()).entries).toEqual([]);
       expect(calls).toBe(1);
     } finally {
-      fake.client.assets.importAppFile = original;
+      fake.client.assets.importAppFiles = original;
     }
   });
 

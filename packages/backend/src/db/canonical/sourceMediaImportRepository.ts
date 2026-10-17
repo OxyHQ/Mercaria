@@ -15,7 +15,7 @@
  * approximate by at most one batch per task — a bound, not an exact quota.
  */
 
-import { and, asc, count, eq, gt, inArray, isNotNull, lte, or, sql } from 'drizzle-orm';
+import { and, asc, count, eq, gt, inArray, isNotNull, isNull, lte, or, sql } from 'drizzle-orm';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { canonicalImages } from '../schema/canonicalCatalog.js';
 import {
@@ -84,7 +84,20 @@ export async function claimCanonicalSourceMediaImports(
     or(
       and(
         eq(canonicalSourceMediaImports.status, 'pending'),
-        lte(canonicalSourceMediaImports.availableAt, now),
+        or(
+          // Never attempted since it was (re)requested: due at once, whatever
+          // its `available_at` says. The enqueue trigger stamps that with the
+          // DATABASE clock (`now()`) while this claim compares against the
+          // APPLICATION's; a database clock ahead of the task's would otherwise
+          // hold every fresh request back by the skew. Every later
+          // `available_at` (a backoff, a deferral, a re-arm) is written by the
+          // application and compared here on the same clock.
+          and(
+            eq(canonicalSourceMediaImports.attempts, 0),
+            isNull(canonicalSourceMediaImports.lastError),
+          ),
+          lte(canonicalSourceMediaImports.availableAt, now),
+        ),
       ),
       and(
         eq(canonicalSourceMediaImports.status, 'processing'),

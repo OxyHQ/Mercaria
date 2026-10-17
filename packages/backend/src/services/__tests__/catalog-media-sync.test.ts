@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { findStoreById, oxyServiceClient, importUserMedia, importAppFile } = vi.hoisted(() => ({
-  findStoreById: vi.fn(),
-  oxyServiceClient: vi.fn(),
-  importUserMedia: vi.fn(),
-  importAppFile: vi.fn(),
-}));
+const { findStoreById, oxyServiceClient, importUserMedia, importAppFile, importAppFiles } =
+  vi.hoisted(() => ({
+    findStoreById: vi.fn(),
+    oxyServiceClient: vi.fn(),
+    importUserMedia: vi.fn(),
+    importAppFile: vi.fn(),
+    importAppFiles: vi.fn(),
+  }));
 vi.mock('../../db/stores/storeRepository.js', () => ({ findStoreById }));
 vi.mock('../../capabilities/oxy-service-client.js', () => ({ oxyServiceClient }));
 import {
@@ -29,9 +31,12 @@ function refused(status: number, message = `HTTP ${status}`) {
 beforeEach(() => {
   vi.resetAllMocks();
   findStoreById.mockResolvedValue({ oxyAccountId: 'persisted-owner' });
-  oxyServiceClient.mockReturnValue({ assets: { importUserMedia, importAppFile } });
+  oxyServiceClient.mockReturnValue({ assets: { importUserMedia, importAppFile, importAppFiles } });
   importUserMedia.mockImplementation(async () => imported());
   importAppFile.mockImplementation(async () => imported('oxy-app-file'));
+  importAppFiles.mockImplementation(async (items: unknown[]) =>
+    items.map((_, index) => ({ index, ok: true, ...imported(`oxy-app-file-${index}`) })),
+  );
 });
 
 describe('catalog image synchronization', () => {
@@ -51,12 +56,19 @@ describe('catalog image synchronization', () => {
   });
 
   it('imports content no account owns as the Mercaria application, never an operator', async () => {
-    expect(await synchronizeApplicationImages(['https://supplier.example/photo.png'])).toEqual([
-      'oxy-app-file',
+    expect(
+      await synchronizeApplicationImages([
+        'https://supplier.example/photo.png',
+        'https://supplier.example/back.png',
+        'https://supplier.example/photo.png',
+      ]),
+    ).toEqual(['oxy-app-file-0', 'oxy-app-file-1', 'oxy-app-file-0']);
+    // The whole gallery in ONE batch request — one unit of Oxy's budget.
+    expect(importAppFiles).toHaveBeenCalledExactlyOnceWith([
+      { sourceUrl: 'https://supplier.example/photo.png', visibility: 'public' },
+      { sourceUrl: 'https://supplier.example/back.png', visibility: 'public' },
     ]);
-    expect(importAppFile).toHaveBeenCalledExactlyOnceWith('https://supplier.example/photo.png', {
-      visibility: 'public',
-    });
+    expect(importAppFile).not.toHaveBeenCalled();
     expect(importUserMedia).not.toHaveBeenCalled();
   });
 

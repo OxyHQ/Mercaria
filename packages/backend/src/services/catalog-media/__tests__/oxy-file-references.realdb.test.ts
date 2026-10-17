@@ -45,8 +45,12 @@ const { convergeEntityReferences, drainFileReferenceOutbox } = await import(
 );
 const { handleOxyFileEvent } = await import('../file-events.js');
 const { reconcileEntityType } = await import('../file-reference-reconciliation.js');
-const { completeFileReferenceOutbox, claimFileReferenceOutbox, requestFileReferenceConvergence } =
-  await import('../../../db/oxyFiles/referenceOutboxRepository.js');
+const {
+  completeFileReferenceOutbox,
+  claimFileReferenceOutbox,
+  releaseFileReferenceOutbox,
+  requestFileReferenceConvergence,
+} = await import('../../../db/oxyFiles/referenceOutboxRepository.js');
 
 const RUN = uuidv7().slice(-12).replaceAll('-', '');
 let db: Database;
@@ -266,6 +270,48 @@ describe('convergence diffs what an entity holds against what Oxy acknowledged',
     expect(await ledger('brand_logo', [brandId])).toEqual([
       { entityId: brandId, fileId: fileId('race'), state: 'registered' },
     ]);
+  });
+});
+
+describe('the claim reads one clock per timestamp', () => {
+  it('a fresh request is claimable however far the database clock runs ahead of the task', async () => {
+    const brandId = await mintBrand('skew', fileId('skew'));
+    const owner = `test-owner-${RUN}-skew`;
+    // The trigger stamped `available_at` with the DATABASE's now(); a task whose
+    // clock runs ten minutes behind it must still see the request as due.
+    const behind = new Date(Date.now() - 10 * 60_000);
+    const claimed = await claimFileReferenceOutbox({
+      leaseOwner: owner,
+      batchSize: 10,
+      now: behind,
+      only: { entityType: 'brand_logo', entityIds: [brandId] },
+    });
+    expect(claimed.map((row) => row.entityId)).toEqual([brandId]);
+
+    // A backoff is written and compared on the application's clock: a released
+    // row waits for it, even though it was once a fresh request.
+    await releaseFileReferenceOutbox({
+      ids: [present(claimed[0], 'claim').id],
+      leaseOwner: owner,
+      deadLettered: false,
+      availableAt: new Date(behind.getTime() + 60_000),
+      error: 'Oxy could not register file references.',
+      now: behind,
+    });
+    const only = { entityType: 'brand_logo' as const, entityIds: [brandId] };
+    expect(
+      await claimFileReferenceOutbox({ leaseOwner: owner, batchSize: 10, now: behind, only }),
+    ).toEqual([]);
+    expect(
+      (
+        await claimFileReferenceOutbox({
+          leaseOwner: owner,
+          batchSize: 10,
+          now: new Date(behind.getTime() + 60_000),
+          only,
+        })
+      ).map((row) => row.entityId),
+    ).toEqual([brandId]);
   });
 });
 

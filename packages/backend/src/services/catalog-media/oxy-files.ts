@@ -289,10 +289,11 @@ export async function withOxyRateLimitRetry<T>(
   }
 }
 
-/** Remember a file Oxy answered as the application's (best effort; see module doc). */
-async function rememberApplicationFile(fileId: string): Promise<void> {
+/** Remember files Oxy answered as the application's (best effort; see module doc). */
+async function rememberApplicationFile(...fileIds: string[]): Promise<void> {
+  if (fileIds.length === 0) return;
   try {
-    await recordApplicationFiles([fileId]);
+    await recordApplicationFiles(fileIds);
   } catch (error) {
     log.general.debug({ err: error }, '[OxyFiles] could not record an application file');
   }
@@ -383,6 +384,100 @@ export async function importOxyFileFromUrl(
   const stored = storedFile(answer);
   if (owner.kind === 'application') await rememberApplicationFile(stored.fileId);
   return stored;
+}
+
+/** Oxy's bound on one batch import request — and one unit of its rate limit. */
+export const OXY_IMPORT_BATCH_SIZE = 50;
+
+/** One source's answer in a batch import, in the order the sources were given. */
+export type ApplicationImportResult =
+  | { readonly ok: true; readonly file: StoredOxyFile; readonly error?: undefined }
+  | { readonly ok: false; readonly error: OxyFilesError; readonly file?: undefined };
+
+/**
+ * Import many public HTTPS sources as PUBLIC files of the Mercaria APPLICATION
+ * (`importAppFiles`, `POST /assets/service/app/import/batch`): up to
+ * {@link OXY_IMPORT_BATCH_SIZE} per request, and a request is ONE unit of Oxy's
+ * 30-a-minute application budget however many sources it carries — where a
+ * single import is one unit per source. Oxy runs the items four at a time and
+ * answers each on its own, with the same (owner, URL) deduplication as
+ * {@link importOxyFileFromUrl}.
+ *
+ * The answer has one result per source, in order (a repeated source shares its
+ * result). Nothing is thrown for a source: an item Oxy refused is an
+ * `OxyFilesError` carrying its status; an item still being fetched (a large
+ * source answered `pending`) is a status-less failure, retried by the caller's
+ * own retry. Each REQUEST is retried on 429 like every import (a refused batch
+ * did nothing; a repeated item answers the same file). A request that still
+ * fails marks its sources — and those of the requests not yet sent, which
+ * would only be refused the same way — with that failure, so a caller can tell
+ * Oxy's rate limit (`isOxyRateLimited`) from a refusal and keep what earlier
+ * requests imported. Only missing credentials throw.
+ *
+ * There is no account-owned twin: Oxy has no batch route for
+ * `/assets/service/user-media/import`, so a store's or seller's sources are
+ * imported one call each.
+ */
+export async function importApplicationFilesFromUrls(
+  sourceUrls: readonly string[],
+): Promise<ApplicationImportResult[]> {
+  const oxy = client();
+  const distinct = [...new Set(sourceUrls)];
+  const answers = new Map<string, ApplicationImportResult>();
+  let failure: OxyFilesError | undefined;
+  for (let start = 0; start < distinct.length; start += OXY_IMPORT_BATCH_SIZE) {
+    const chunk = distinct.slice(start, start + OXY_IMPORT_BATCH_SIZE);
+    if (failure) {
+      for (const url of chunk) answers.set(url, { ok: false, error: failure });
+      continue;
+    }
+    let results: Awaited<ReturnType<OxyServer['assets']['importAppFiles']>>;
+    try {
+      results = await withOxyRateLimitRetry(() =>
+        oxy.assets.importAppFiles(
+          chunk.map((sourceUrl) => ({ sourceUrl, visibility: 'public' as const })),
+        ),
+      );
+    } catch (error) {
+      failure = refusal('import the media source', error);
+      for (const url of chunk) answers.set(url, { ok: false, error: failure });
+      continue;
+    }
+    const byIndex = new Map(results.map((result) => [result.index, result]));
+    chunk.forEach((url, index) => {
+      const result = byIndex.get(index);
+      if (!result) {
+        answers.set(url, {
+          ok: false,
+          error: new OxyFilesError('Oxy did not answer for the media source.'),
+        });
+      } else if (result.ok === false) {
+        answers.set(url, { ok: false, error: refusal('import the media source', result.error) });
+      } else if ((result as { pending?: unknown }).pending === true) {
+        answers.set(url, {
+          ok: false,
+          error: new OxyFilesError('Oxy is still fetching the media source.'),
+        });
+      } else {
+        try {
+          answers.set(url, { ok: true, file: storedFile(result) });
+        } catch (error) {
+          answers.set(url, {
+            ok: false,
+            error:
+              error instanceof OxyFilesError
+                ? error
+                : new OxyFilesError('Oxy did not describe the stored file.'),
+          });
+        }
+      }
+    });
+  }
+  const stored = [...answers.values()].flatMap((answer) => (answer.ok ? [answer.file.fileId] : []));
+  await rememberApplicationFile(...stored);
+  return sourceUrls.map(
+    (url) => answers.get(url) ?? { ok: false, error: new OxyFilesError('Oxy did not answer.') },
+  );
 }
 
 /**

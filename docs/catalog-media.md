@@ -67,7 +67,7 @@ the row that will hold the file is not written yet (see "Usage registration").
 
 **Every call to Oxy Files is in ONE module, `services/catalog-media/oxy-files.ts`**
 (import, upload, references, reconciliation, event-signature verification), so a
-name that changes upstream is a one-file change. It uses `importAppFile`,
+name that changes upstream is a one-file change. It uses `importAppFile`, `importAppFiles`,
 `importUserMedia`, `verifyFileEventSignature`, `adoptAppFile`,
 `uploadAppFileLarge` and `LargeUploadFailedError` from the released ADR 0043 SDK:
 `@oxy.so/core` 4.18.0 with `@oxy.so/contracts` 4.22.0, the one version every
@@ -97,13 +97,33 @@ refusal (`Oxy could not … (HTTP 429).`, with `retryAfterMs`):
 | `references.add` / `remove` | 30 s | `exists` / `not_found`; inside the outbox's 2-min lease |
 | reconcile, download mint, delete | not retried | a single-use inventory stream; a buyer's request; an operator's action |
 
-The long-running loops build on it. The **source-media dispatcher** paces each
-task at `CANONICAL_SOURCE_MEDIA_MAX_IMPORTS_PER_MINUTE` (15) — unpaced it could
-start 5 jobs × 6 images every 10 s — and a job that reaches the pace, or that
-Oxy still refuses after the adapter's retries, is DEFERRED: what it imported is
-attached, the job returns to `pending` for when the budget does with its attempt
-refunded (a busy Oxy never dead-letters it), and the rest of the drain's batch
-waits with it. A **connector** sync is sequential, so the adapter's wait paces
+**The budget is charged per REQUEST, so application imports are batched.**
+`importApplicationFilesFromUrls` sends up to 50 sources per
+`POST /assets/service/app/import/batch` (`importAppFiles`) — one unit, where 50
+single imports are 50 — and answers each source on its own, in order (a refusal
+carries its status; a large source Oxy is still fetching is a status-less
+failure). A request still refused after the retries marks its sources, and those
+of the requests not yet sent, rate-limited; what earlier requests stored is kept.
+Every application import goes through it: the source-media dispatcher, the
+application-media and canonical-description backfills, and
+`synchronizeApplication*` (canonical observations, application descriptions).
+Oxy has no batch route for an ACCOUNT's imports
+(`/assets/service/user-media/import`), so store and seller sources — connector
+syncs, `backfill-listing-media`, `backfill-store-artwork` — stay one request
+each, retried as above.
+
+The long-running loops build on it. The **source-media dispatcher** asks for all
+of a drain's claimed jobs' sources together: at the defaults (5 jobs × 6 images
+per 10 s poll) one request per drain — 6 a minute, up to 180 images — where one
+import per image was up to 180 requests a minute. Each task also starts at most
+`CANONICAL_SOURCE_MEDIA_MAX_IMPORT_CALLS_PER_MINUTE` (10) requests a minute, the
+bound for a faster poll or a bigger batch; two tasks at the cap still leave 10 of
+Oxy's 30 to operators, backfills and creators. A job whose sources the pace or a
+429 left unasked is DEFERRED: what was stored is attached, and it returns to
+`pending` for when the budget does with its attempt refunded (a busy Oxy never
+dead-letters it). A source Oxy could not answer otherwise (5xx, still fetching)
+fails the job with backoff after the rest is attached, so the retry asks only
+for what is missing. A **connector** sync is sequential, so the adapter's wait paces
 it at Oxy's rate; a product still refused is a recorded failure the next sync
 converges, and a webhook delivery refused that way is handed back to the sync
 queue for its retries rather than dropped.
@@ -213,6 +233,11 @@ rolled-back write leaves no request. The row names the entity, never the file:
 the worker (`file-reference-outbox.ts`) reads what the entity holds NOW from the
 registry, diffs it against `oxy_file_references` (what Oxy acknowledged), and
 sends the difference (`references.add` / `references.remove`, 100 per request).
+The trigger stamps `available_at` with the DATABASE clock while the claim
+compares against the task's, so a row never attempted since it was (re)requested
+(`attempts = 0` and no `last_error`) is due at once whatever its `available_at`
+says; every backoff and re-arm is written and compared on the task's clock (the
+source-media queue's claim does the same).
 It is the offer outbox's fixed point: one row per entity, a revision pair so a
 write landing mid-run re-arms it, leases with an owner check
 (`FOR UPDATE SKIP LOCKED`), capped exponential backoff and a visible
@@ -268,7 +293,7 @@ ledger that lags its writes.
 | `OXY_FILE_EVENTS_SECRET` | empty | events are refused 503 (Oxy retries ~3.5 days) until set |
 | `CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED` | off | the external-imagery import LOOP (the source-link trigger queues regardless) |
 | `CANONICAL_SOURCE_MEDIA_*` | see above | its batch, global in-flight cap, per-record and per-product caps, attempts |
-| `CANONICAL_SOURCE_MEDIA_MAX_IMPORTS_PER_MINUTE` | 15 | imports one TASK starts in a minute; tasks × this should stay under Oxy's 30 |
+| `CANONICAL_SOURCE_MEDIA_MAX_IMPORT_CALLS_PER_MINUTE` | 10 | Oxy import REQUESTS (up to 50 images each) one TASK starts in a minute; tasks × this should stay under Oxy's 30 |
 
 **Where the production values live:** the `RELEASE_ENVIRONMENT` list on the
 `deploy` job of `.github/workflows/deploy-aws.yml`. oxy-infra's ECS module ignores
@@ -310,7 +335,9 @@ route will not say who owns a file). A row holding an application file written
 before that table existed is asked about once — `unchanged`, now recorded — and
 never again; `unchanged` otherwise means nothing was left to do. Canonical
 descriptions are filtered after the page is read (the ids are in HTML), so a
-page may report fewer entries than `limit` while the cursor still advances.
+page may report fewer entries than `limit` while the cursor still advances. The
+application targets ask Oxy in batches (one request per 50 rows, above), each row
+still answered and compare-and-swapped on its own.
 
 - `scripts/backfill-listing-media.ts` and `scripts/backfill-store-artwork.ts` —
   legacy URL-valued gallery and store artwork, imported as the store's account

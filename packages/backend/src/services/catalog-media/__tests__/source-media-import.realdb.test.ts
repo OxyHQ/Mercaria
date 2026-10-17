@@ -248,94 +248,119 @@ describe('the dispatcher copies imagery as application files, deduplicated and c
     ).toHaveLength(0);
   });
 
-  it('DEFERS a job Oxy rate-limits: keeps what it imported, refunds the attempt, holds the batch', async () => {
-    const limited = await mintProduct('rate-limited');
-    const waiting = await mintProduct('rate-limited-sibling');
-    const first = `https://cdn.example.test/${RUN}/limited-1.jpg`;
-    const second = `https://cdn.example.test/${RUN}/limited-2.jpg`;
-    await attach(limited, await observe('rate-limited', [first, second]));
-    await attach(
-      waiting,
-      await observe('rate-limited-sibling', [`https://cdn.example.test/${RUN}/sibling.jpg`]),
-    );
-    // The claim takes jobs oldest-available first; pin the order so the limited
-    // job runs first and the sibling is the one held behind it.
-    for (const [productId, ageMs] of [
-      [limited, 10_000],
-      [waiting, 5_000],
-    ] as const)
-      await db
-        .update(canonicalSourceMediaImports)
-        .set({ availableAt: new Date(Date.now() - ageMs) })
-        .where(eq(canonicalSourceMediaImports.canonicalProductId, productId));
-    const client = fake().client;
-    const original = client.assets.importAppFile;
-    let calls = 0;
-    // The first import lands; then Oxy's budget is spent for an hour — a wait
-    // longer than the adapter's own two minutes, so it gives the 429 back at once.
-    client.assets.importAppFile = async (sourceUrl, options) => {
-      calls += 1;
-      if (calls > 1)
-        throw Object.assign(new Error('Too many application file uploads.'), {
-          status: 429,
-          details: { retryAfterSeconds: 3600 },
-        });
-      return original(sourceUrl, options);
-    };
-    try {
-      const startedAt = Date.now();
-      const result = await drain([limited, waiting]);
-      expect(result).toEqual({ completed: 0, failed: 0, deferred: 2, attached: 1 });
-      // Never a second call after the refusal: the sibling waits with the batch.
-      expect(calls).toBe(2);
-      expect((await images(limited)).map((image) => image.sourceUrl)).toEqual([first]);
-      for (const productId of [limited, waiting]) {
-        const [job] = await jobs(productId);
-        expect(job?.status).toBe('pending');
-        // Deferred, not failed: the claim's attempt is given back.
-        expect(job?.attempts).toBe(0);
-        expect(job?.lastError).toMatch(/budget/);
-        expect(job?.availableAt.getTime()).toBeGreaterThanOrEqual(startedAt + 3_599_000);
-      }
-    } finally {
-      client.assets.importAppFile = original;
+  it('asks Oxy for a whole drain in ONE request, and DEFERS it when Oxy rate-limits that request', async () => {
+    const one = await mintProduct('batched-1');
+    const two = await mintProduct('batched-2');
+    const urls = (label: string) =>
+      [0, 1].map((index) => `https://cdn.example.test/${RUN}/${label}-${index}.jpg`);
+    await attach(one, await observe('batched-1', urls('batched-1')));
+    await attach(two, await observe('batched-2', urls('batched-2')));
+    // Oxy's budget is spent for an hour — longer than the adapter's own
+    // two-minute bound, so it hands the 429 back at once.
+    fake().failNextRequest(429, { retryAfterSeconds: 3600 });
+    const startedAt = Date.now();
+    expect(await drain([one, two])).toEqual({
+      completed: 0,
+      failed: 0,
+      deferred: 2,
+      attached: 0,
+    });
+    expect(fake().requests).toBe(1);
+    for (const productId of [one, two]) {
+      const [job] = await jobs(productId);
+      expect(job?.status).toBe('pending');
+      // Deferred, not failed: the claim's attempt is given back.
+      expect(job?.attempts).toBe(0);
+      expect(job?.lastError).toMatch(/budget/);
+      expect(job?.availableAt.getTime()).toBeGreaterThanOrEqual(startedAt + 3_599_000);
     }
-    // Once the budget is back the job finishes, asking Oxy only for the rest.
+    // Once the budget is back, both jobs' four images come in one request.
     await db
       .update(canonicalSourceMediaImports)
       .set({ availableAt: new Date(Date.now() - 1_000) })
-      .where(inArray(canonicalSourceMediaImports.canonicalProductId, [limited, waiting]));
+      .where(inArray(canonicalSourceMediaImports.canonicalProductId, [one, two]));
     fake().reset();
-    expect(await drain([limited, waiting])).toMatchObject({ completed: 2, deferred: 0 });
-    expect(fake().imports.map((entry) => entry.sourceUrl)).not.toContain(first);
-    expect((await images(limited)).map((image) => image.sourceUrl)).toEqual([first, second]);
+    expect(await drain([one, two])).toEqual({
+      completed: 2,
+      failed: 0,
+      deferred: 0,
+      attached: 4,
+    });
+    expect(fake().requests).toBe(1);
+    expect(fake().imports).toHaveLength(4);
   });
 
-  it('paces a task under its share of Oxy’s budget, deferring what is past it', async () => {
+  it('keeps what Oxy stored when one source fails transiently, and retries only that one', async () => {
+    const productId = await mintProduct('partial');
+    const [flaky, fine] = ['flaky', 'fine'].map(
+      (label) => `https://cdn.example.test/${RUN}/partial-${label}.jpg`,
+    );
+    await attach(productId, await observe('partial', [flaky, fine]));
+    fake().failNext(503);
+    expect(await drain([productId])).toMatchObject({ completed: 0, failed: 1, attached: 1 });
+    expect((await images(productId)).map((image) => image.sourceUrl)).toEqual([fine]);
+    const [job] = await jobs(productId);
+    // A real failure: the attempt counts, and the backoff holds it.
+    expect(job?.attempts).toBe(1);
+    expect(job?.lastError).toMatch(/HTTP 503/);
+    await db
+      .update(canonicalSourceMediaImports)
+      .set({ availableAt: new Date(Date.now() - 1_000) })
+      .where(eq(canonicalSourceMediaImports.canonicalProductId, productId));
+    fake().reset();
+    expect(await drain([productId])).toMatchObject({ completed: 1, attached: 1 });
+    expect(fake().imports.map((entry) => entry.sourceUrl)).toEqual([flaky]);
+  });
+
+  it('paces a task by REQUESTS, deferring the sources past it', async () => {
     const productId = await mintProduct('paced');
-    const urls = [0, 1, 2].map((index) => `https://cdn.example.test/${RUN}/paced-${index}.jpg`);
+    const urls = Array.from(
+      { length: 55 },
+      (_, index) => `https://cdn.example.test/${RUN}/paced-${index}.jpg`,
+    );
     await attach(productId, await observe('paced', urls));
+    const limits = { maxPerRecord: 60, maxPerProduct: 100 };
     let clock = Date.now();
-    const pacer = new SourceMediaImportPacer(2, () => clock);
+    const pacer = new SourceMediaImportPacer(1, () => clock);
     const startedAt = Date.now();
-    expect(await drain([productId], undefined, pacer)).toEqual({
+    // 55 sources need two requests of up to 50; the pace allows one a minute.
+    expect(await drain([productId], limits, pacer)).toEqual({
       completed: 0,
       failed: 0,
       deferred: 1,
-      attached: 2,
+      attached: 50,
     });
-    expect(fake().imports).toHaveLength(2);
+    expect(fake().requests).toBe(1);
     const [job] = await jobs(productId);
     expect(job?.attempts).toBe(0);
-    // Back when the oldest of the minute's imports leaves the window.
+    // Back when the minute's request leaves the window.
     expect(job?.availableAt.getTime()).toBeGreaterThanOrEqual(startedAt + 55_000);
     clock += 60_000;
     await db
       .update(canonicalSourceMediaImports)
       .set({ availableAt: new Date(Date.now() - 1_000) })
       .where(eq(canonicalSourceMediaImports.canonicalProductId, productId));
-    expect(await drain([productId], undefined, pacer)).toMatchObject({ completed: 1, attached: 1 });
-    expect(await images(productId)).toHaveLength(3);
+    expect(await drain([productId], limits, pacer)).toMatchObject({ completed: 1, attached: 5 });
+    expect(fake().requests).toBe(2);
+    expect(await images(productId)).toHaveLength(55);
+  });
+
+  it('claims a freshly queued job however far the database clock runs ahead of the task', async () => {
+    const productId = await mintProduct('skew');
+    await attach(productId, await observe('skew', [`https://cdn.example.test/${RUN}/skew.jpg`]));
+    // The trigger stamped `available_at` with the database's now(); a task ten
+    // minutes behind it must still find the job due.
+    const behind = new Date(Date.now() - 10 * 60_000);
+    const result = await drainCanonicalSourceMediaImports({
+      leaseOwner: `test-${RUN}`,
+      batchSize: 10,
+      maxInFlight: 50,
+      maxAttempts: 3,
+      limits: { maxPerRecord: 6, maxPerProduct: 10 },
+      onlyProductIds: [productId],
+      now: () => behind,
+    });
+    expect(result).toMatchObject({ completed: 1, attached: 1 });
   });
 });
 

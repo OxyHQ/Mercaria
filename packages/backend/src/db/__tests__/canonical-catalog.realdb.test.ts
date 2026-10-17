@@ -105,6 +105,21 @@ vi.mock('../../capabilities/oxy-service-client.js', () => ({
   oxyServiceClient: () => ({
     assets: {
       importAppFile: (...args: unknown[]) => importAppFile(...args),
+      // The application imports a gallery as ONE batch request; each item is
+      // answered by `importAppFile` above, in order, so the cases below drive both.
+      importAppFiles: async (items: { sourceUrl: string; visibility: string }[]) => {
+        const results: unknown[] = [];
+        for (const [index, item] of items.entries()) {
+          try {
+            const answer = await importAppFile(item.sourceUrl, { visibility: item.visibility });
+            results.push({ index, ok: true, ...(answer as object) });
+          } catch (error) {
+            const status = (error as { status?: number }).status ?? 500;
+            results.push({ index, ok: false, error: { status, code: 'X', message: 'refused' } });
+          }
+        }
+        return results;
+      },
       importUserMedia: (...args: unknown[]) => importUserMedia(...args),
     },
   }),
