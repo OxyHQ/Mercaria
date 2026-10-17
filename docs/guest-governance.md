@@ -495,8 +495,7 @@ GUEST_SIGNAL_WINDOW_SECONDS=300
 
 `GUEST_ABUSE_CONTROLS_ENABLED` defaults OFF, unlike the three guest levers that
 default on, and the discriminator is whether the flag demands a SECRET.
-`GUEST_COMMERCE_ENABLED` and `SUPPLIER_PREFLIGHT_ENABLED` both do and both
-default off: a flag that defaults ON and demands a key it has not been given
+`SUPPLIER_PREFLIGHT_ENABLED` does and defaults off: a flag that defaults ON and demands a key it has not been given
 makes every unconfigured deployment log an error at boot about a feature nobody
 asked for, and an error nobody can act on is one everybody learns to scroll
 past.

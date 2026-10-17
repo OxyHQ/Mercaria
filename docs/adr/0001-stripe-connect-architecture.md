@@ -476,7 +476,6 @@ sequenceDiagram
 ### Environment (names final; validation follows the `CROWDSOURCE_ENABLED` pattern — a half-configured integration stays OFF and logs once at boot)
 
 ```
-STRIPE_ENABLED=false
 STRIPE_SECRET_KEY=                       # platform secret key (sk_test_/sk_live_)
 STRIPE_WEBHOOK_SECRET=                   # platform-scope endpoint
 STRIPE_WEBHOOK_SECRET_PREVIOUS=          # rotation window
@@ -486,7 +485,9 @@ STRIPE_SELLER_COUNTRIES=ES,…             # allow-list within {US,CA,UK,EEA,CH}
 EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=      # per app, client side
 ```
 
-`STRIPE_ENABLED=true` requires the secret key **and both** webhook secrets.
+The rail has no switch (amended 2026-10-16, when `STRIPE_ENABLED` was removed):
+it is ON exactly when the secret key **and both** webhook secrets are set, and a
+partly configured rail stays OFF and logs once at boot.
 There is no `STRIPE_ACCOUNT_ID`-style variable: the platform account is implied
 by the key, and connected-account ids live only in provider-account records.
 

@@ -1155,11 +1155,9 @@ describe('claiming a FREE asset', () => {
     expect(grantRight).not.toHaveBeenCalled();
   });
 
-  it('is reachable with PAID checkout off, which is the reason the levers are separate', async () => {
-    // ADR 0010 D13: `DIGITAL_PAID_CHECKOUT_ENABLED` stops buying and *"a free
-    // claim still works"*. The apps here are all built with it unset, so this
-    // case is the whole of that claim.
-    expect(process.env.DIGITAL_PAID_CHECKOUT_ENABLED).toBeUndefined();
+  it('claims a free asset in an enabled vertical without consulting any paid-checkout lever', async () => {
+    // Paid checkout has no switch of its own (it follows
+    // `DIGITAL_ENABLED_VERTICALS`), and a free claim never asks about money.
     const { status } = await post(
       uploadsOn,
       claimPath,

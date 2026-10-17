@@ -446,8 +446,8 @@ composed, with nothing guest-specific invented:
 
 | Dimension | Gate | Value at launch |
 |---|---|---|
-| Feature | `GUEST_COMMERCE_ENABLED` (ADR 0003 M8) | off until #111's rollout |
-| Rail | `STRIPE_ENABLED` | as deployed |
+| Feature | guest commerce configured — both M8 keys (ADR 0003 M8) | off until #111's rollout |
+| Rail | the Stripe rail configured — key and both webhook secrets | as deployed |
 | Presentment currencies | `STRIPE_PRESENTMENT_CURRENCIES` | EUR, USD (ADR 0001 D8) |
 | Markets / sellers | `STRIPE_SELLER_COUNTRIES` + per-seller readiness | EEA, Spain first (D8/D9) |
 | Seller kind | ADR 0003 D18 refusal at group construction | **stores only** — no P2P for guests (G18) |
@@ -516,22 +516,23 @@ holding Mercaria orders**:
 
 ### G17. Rollback: disable ISSUANCE, drain the rest — two levers, never confused
 
-Feature rollback is `GUEST_COMMERCE_ENABLED=false` (ADR 0003 M8/M10): it stops
-NEW guest session issuance and NEW guest checkout, and gates nothing durable.
+Feature rollback is turning guest commerce off (ADR 0003 M8/M10 — unset
+`GUEST_PII_ENCRYPTION_KEY`; there is no switch since 2026-10-16): it stops NEW
+guest session issuance and NEW guest checkout, and gates nothing durable.
 
 - **Pending guest PaymentIntents drain normally.** The client secret confirms
-  without a Mercaria session (G9); `STRIPE_ENABLED` stays on, so the webhook
-  mounts stay up and the verified success runs the full chain — orders `paid`,
+  without a Mercaria session (G9); the Stripe rail stays configured, so the
+  webhook mounts stay up and the verified success runs the full chain — orders `paid`,
   transfers, grant, email. The flag is checked at issuance, not in the
   webhook, outbox or settlement paths, so there is nothing to race.
 - **Completed guest orders keep everything:** portal grants and magic-link
-  recovery keep serving placed orders with the flag off ("gate the loop, never
+  recovery keep serving placed orders with guest commerce off ("gate the loop, never
   the durable record"); refunds, disputes, reversals and reconciliation carry
   no buyer identity in their chain and do not notice.
-- **`STRIPE_ENABLED=false` is NOT a guest rollback lever.** It kills the whole
-  rail for everyone AND unmounts the webhook routes — flipping it with guest
-  (or any) intents in flight strands verified events. Guest rollback never
-  touches it.
+- **Unconfiguring the Stripe rail is NOT a guest rollback lever.** It kills
+  the whole rail for everyone AND unmounts the webhook routes — removing a
+  Stripe secret with guest (or any) intents in flight strands verified events.
+  Guest rollback never touches it.
 - The only forbidden rollback remains ADR 0003 M10's: schema reversal while
   any guest order exists.
 
@@ -759,14 +760,14 @@ sequenceDiagram
     participant G2 as Guest B (new)
     participant API as Mercaria API
     participant S as Stripe
-    Op->>API: GUEST_COMMERCE_ENABLED=false (G17 — issuance lever only)
+    Op->>API: guest commerce off — PII key unset (G17 — issuance lever only)
     G2->>API: POST /cart/items (no credential)
     API-->>G2: guest issuance refused — no new session, no new guest checkout
     G1->>S: confirms the already-open intent (client secret works — G9)
-    S->>API: payment_intent.succeeded (STRIPE_ENABLED untouched:<br/>webhooks stay mounted)
+    S->>API: payment_intent.succeeded (Stripe rail untouched:<br/>webhooks stay mounted)
     API->>API: full chain runs: paid · transfers · grant · email —<br/>the flag is checked at issuance, nowhere downstream (B12)
     G1->>API: portal + magic-link recovery keep serving placed orders
-    Note over Op,API: STRIPE_ENABLED=false is NOT this lever — it would<br/>unmount the webhooks and strand the drain (G17)
+    Note over Op,API: unconfiguring Stripe is NOT this lever — it would<br/>unmount the webhooks and strand the drain (G17)
 ```
 
 ### 12. Link or a Stripe Customer exists — but no Mercaria guest credential
@@ -843,10 +844,10 @@ sequenceDiagram
     postures (G4, G15) are all decided here.
 12. **Security and privacy review before enablement.** Procedural and binding,
     layered on ADR 0003's: guest Stripe payment creation outside tests
-    requires `GUEST_COMMERCE_ENABLED=true`, which #111 gates behind the
-    completed security review (ADR 0003 acceptance 8) — this ADR adds that the
-    review must cover B1–B12 explicitly. The half-configuration boot rule
-    makes accidental enablement fail closed.
+    requires guest commerce on (both M8 keys resolving), which #111 gates
+    behind the completed security review (ADR 0003 acceptance 8) — this ADR
+    adds that the review must cover B1–B12 explicitly. With either key
+    missing guest commerce stays off.
 
 ## Non-goals
 

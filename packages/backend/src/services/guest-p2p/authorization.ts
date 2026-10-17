@@ -18,7 +18,7 @@
  * (`docs/guest-p2p/2026-08-10-guest-p2p-checkout-decision.md`): none of D18's
  * three evidence conditions can be evaluated, because the authenticated P2P
  * cohort, the guest store cohort and the dispute history they compare are all
- * empty — `GUEST_COMMERCE_ENABLED` has never been true in production and no
+ * empty — guest commerce has never been configured in production and no
  * Mercaria order has ever been placed by a guest.
  *
  * Shipping the flag anyway would ship a switch whose flip enables a scope

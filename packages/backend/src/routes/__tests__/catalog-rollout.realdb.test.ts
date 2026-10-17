@@ -159,7 +159,7 @@ async function build(options: {
   vi.resetModules();
   for (const lever of LEVERS) process.env[lever] = options.levers ? 'true' : 'false';
   process.env.CATALOG_OPERATOR_OXY_USER_IDS = options.operators;
-  process.env.STRIPE_ENABLED = 'false';
+  process.env.STRIPE_SECRET_KEY = '';
 
   const graph = options.withDatabase ? await import('../../db/postgres.js') : null;
   if (graph) await graph.connectPostgres();
@@ -195,7 +195,7 @@ afterAll(async () => {
   // `build()` sets this too. Vitest isolates files, so leaving it set changes
   // nothing today — but an afterAll that unsets some of what its setup set is a
   // half-cleanup somebody later trusts.
-  delete process.env.STRIPE_ENABLED;
+  delete process.env.STRIPE_SECRET_KEY;
   for (const deployment of [leversOn, leversOff, leversOffNoOperators]) {
     if (deployment) await deployment.close();
   }

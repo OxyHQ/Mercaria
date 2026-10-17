@@ -15,7 +15,7 @@
  * shape for one. The refusal happens here, is counted, and is logged — and
  * nothing downstream can ever encounter a stored event whose authenticity was
  * not established, because such an event does not exist. That is the
- * `STRIPE_ENABLED` mount rule: without a secret there is nothing to verify, so
+ * Stripe webhook mount rule: without a secret there is nothing to verify, so
  * accepting bytes to process later would be storing a stranger's opinion.
  *
  * ## The dedupe key depends on how it arrived

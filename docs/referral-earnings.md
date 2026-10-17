@@ -336,8 +336,9 @@ their ordinary lifecycle to payout.
 1. Populate `REFERRAL_OPERATOR_OXY_USER_IDS` before any partner earns: with it
    empty `/internal/referrals` is not mounted at all, which also means nobody
    can approve, settle, cancel, freeze or trace anything.
-2. Set `STRIPE_ENABLED` and onboard each partner to a payment-ready connected
-   account. The rail is registered (#146), but with Stripe off every partner's
+2. Configure the Stripe rail (its key and both webhook secrets — it has no
+   switch) and onboard each partner to a payment-ready connected account. The
+   rail is registered (#146), but with Stripe off every partner's
    identity and payout readiness derives as `unknown`, which BLOCKS — and a
    partner with no `provider_accounts` row has no beneficiary to pay.
 3. Publish a payout minimum for every currency partners can earn in.

@@ -1,13 +1,14 @@
 /**
- * The UNCONFIGURED deployment (#103, ADR 0003 M8): `GUEST_COMMERCE_ENABLED`
- * unset — which is production's state until the M8 security review clears.
+ * The UNCONFIGURED deployment (#103, ADR 0003 M8): neither M8 key resolves.
+ * Guest commerce has no switch — it is on exactly when
+ * `GUEST_PII_ENCRYPTION_KEY` and `GUEST_EMAIL_HASH_KEY` both resolve — so this
+ * is the only way a deployment is without it.
  *
  * The `/guest/session` mount is gated like the Stripe webhook mount and for
  * the same reason: 404 is the truthful answer from a deployment that will
- * never honour the credential, and it advertises no surface to probe. The
- * half-configuration rule (enabled without the two M8 keys stays OFF) is
- * pinned here too, because this is the one place a misconfigured deployment's
- * actual wire behaviour is observable.
+ * never honour the credential, and it advertises no surface to probe. Pinned
+ * here because this is the one place an unconfigured deployment's actual wire
+ * behaviour is observable.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -19,9 +20,7 @@ const servers: Server[] = [];
 let closePostgres: typeof import('../../db/postgres.js').closePostgres;
 
 beforeAll(async () => {
-  // ENABLED, but missing both M8 keys: the half-configuration rule must
-  // resolve this to OFF — the same deployment shape as fully unset.
-  process.env.GUEST_COMMERCE_ENABLED = 'true';
+  // Missing both M8 keys: guest commerce must resolve OFF.
   delete process.env.GUEST_PII_ENCRYPTION_KEY;
   delete process.env.GUEST_EMAIL_HASH_KEY;
 
@@ -42,7 +41,7 @@ afterAll(async () => {
   await closePostgres();
 });
 
-describe('GUEST_COMMERCE_ENABLED without the M8 keys — half-configured stays OFF', () => {
+describe('guest commerce without the M8 keys stays OFF', () => {
   it('does not mount the surface at all: every guest-session path answers 404', async () => {
     const ensure = await fetch(`${baseUrl}/guest/session`, {
       method: 'POST',
@@ -55,7 +54,7 @@ describe('GUEST_COMMERCE_ENABLED without the M8 keys — half-configured stays O
     expect(inspect.status).toBe(404);
   });
 
-  it('keeps the rest of the API serving — the flag turns off guests, not commerce', async () => {
+  it('keeps the rest of the API serving — no keys turns off guests, not commerce', async () => {
     const root = await fetch(`${baseUrl}/`);
     expect(root.status).toBe(200);
   });

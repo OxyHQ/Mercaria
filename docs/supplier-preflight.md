@@ -430,7 +430,7 @@ PROCUREMENT_OPERATOR_OXY_USER_IDS=        # empty = surface not mounted (404)
 ```
 
 `SUPPLIER_PREFLIGHT_ENABLED=true` **requires** the fingerprint key — the
-half-configuration rule `GUEST_COMMERCE_ENABLED` established. An unset key would
+half-configuration rule guest commerce's two keys established. An unset key would
 mean an unkeyed request digest, and a country plus a postal code is a space
 small enough to enumerate, so that digest would be an offline oracle over
 buyers' addresses sitting in a column.
