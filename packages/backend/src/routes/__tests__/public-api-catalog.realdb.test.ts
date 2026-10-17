@@ -485,9 +485,9 @@ describe('@mercaria.co/sdk against this server', () => {
     expect(byId).toEqual(raw.body);
     expect(byRef).toEqual(byId);
     for (const offer of byId.offers ?? []) {
-      // The backend compiles `strict: false`, under which zod infers every key
-      // optional; the SDK's own (strict) type is what a consumer sees.
-      const link = sdk.links.offer(offer as Parameters<typeof sdk.links.offer>[0]);
+      // The backend compiles `strict: false`, like Clarity: the offer it was
+      // handed is accepted as it is.
+      const link = sdk.links.offer(offer);
       if (offer.action.kind === 'outbound') expect(link).toBe(`${base}${offer.action.path}`);
       else if (offer.action.kind === 'none') expect(link).toBeNull();
     }

@@ -3,6 +3,7 @@ import type {
   MercariaCollectionRef,
   MercariaLocation,
   MercariaLocationRef,
+  MercariaOffer,
   MercariaOfferAction,
   MercariaProductRef,
   MercariaProductSummary,
@@ -56,8 +57,14 @@ export type MercariaLocationLinkTarget =
   | MercariaLocationRef
   | Pick<MercariaLocation, 'ref'>;
 
-/** An offer as {@link MercariaLinks.offer} accepts it: the offer, or its action. */
-export type MercariaOfferLinkTarget = MercariaOfferAction | { action: MercariaOfferAction };
+/**
+ * An offer as {@link MercariaLinks.offer} accepts it: the offer, or its action.
+ * Taken from the contract's own types (`Pick`), so it accepts exactly what a
+ * read returned under any compiler setting — a consumer compiled with
+ * `strict: false` infers every contract key optional, and a hand-written
+ * `{ action: … }` would refuse the offer that consumer was just handed.
+ */
+export type MercariaOfferLinkTarget = MercariaOfferAction | Pick<MercariaOffer, 'action'>;
 
 /** The link builders on a client. */
 export interface MercariaLinks {
