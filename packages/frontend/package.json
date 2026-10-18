@@ -29,7 +29,7 @@
     "@mercaria/shared-types": "workspace:*",
     "@mercaria/ui": "workspace:*",
     "@oxy.so/app-preset": "3.2.1",
-    "@oxy.so/bloom": "^10.18.0",
+    "@oxy.so/bloom": "12.0.0",
     "@oxy.so/core": "4.21.0",
     "@oxy.so/moovo-sdk": "0.1.0",
     "@oxy.so/services": "11.13.0",
