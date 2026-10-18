@@ -2,7 +2,7 @@ import { SupervisedStorefrontGate } from '@/components/shell/SupervisedStorefron
 import { Slot, Stack } from 'expo-router';
 import { Platform, useWindowDimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { AppShell } from '@oxy.so/bloom/app-shell';
+import { AppShell, AppShellPanel } from '@oxy.so/bloom/app-shell';
 import { CartFlightProvider } from '@mercaria/ui';
 import { STOREFRONT_NAV_FROM } from '@/lib/layout';
 import { AppErrorBoundary } from '@/components/error-boundary';
@@ -49,7 +49,7 @@ function StorefrontLayout() {
 
   // Bloom's `AppShell` owns the responsive layout: the sidebar in flow from
   // 976px (a drawer below it), the bottom bar below it, and the framed
-  // `ContentPanel` around the page (`panel`). This layout only supplies the
+  // `AppShellPanel` around the page. This layout only supplies the
   // app-specific slots: the routed content element (a `<Stack>` for native
   // push/pop transitions, a `<Slot>` for the web document-scroll flow), the
   // storefront sidebar and the `BottomTabBar`.
@@ -78,7 +78,7 @@ function StorefrontLayout() {
           <AppShell
             variant="feed"
             safeArea
-            panel
+            panels
             // WEB scrolls the DOCUMENT (sticky navigation, the address bar
             // collapsing, scroll restoration); NATIVE is one fixed frame and each
             // page owns its scroller (`ScreenShell`).
@@ -93,9 +93,11 @@ function StorefrontLayout() {
             gutter={width >= STOREFRONT_NAV_FROM ? 8 : 0}
             navigationGap={4}
           >
-            {/* Web only: a referral link opens in the browser, never the app. */}
-            {IS_WEB ? <ReferralDisclosureNotice /> : null}
-            {routed}
+            <AppShellPanel>
+              {/* Web only: a referral link opens in the browser, never the app. */}
+              {IS_WEB ? <ReferralDisclosureNotice /> : null}
+              {routed}
+            </AppShellPanel>
           </AppShell>
         </GestureHandlerRootView>
       </ShoppingActionsProvider>
