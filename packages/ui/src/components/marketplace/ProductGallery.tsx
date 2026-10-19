@@ -1,4 +1,5 @@
 import {
+  type ComponentRef,
   useCallback,
   useEffect,
   useImperativeHandle,
@@ -105,15 +106,15 @@ export function ProductGallery({
     setIndex(0);
   }
   const viewer = useRef<ZoomableMediaGalleryHandle>(null);
-  const thumbnailRail = useRef<ScrollView>(null);
+  const thumbnailRail = useRef<ComponentRef<typeof ScrollView>>(null);
   const thumbnailOffset = useRef(0);
-  const attachThumbnailRail = useCallback((rail: ScrollView | null) => {
+  const attachThumbnailRail = useCallback((rail: ComponentRef<typeof ScrollView> | null) => {
     thumbnailRail.current = rail;
     thumbnailOffset.current = 0;
   }, []);
   const [thumbnailViewportExtent, setThumbnailViewportExtent] = useState(0);
   const reducedMotion = useReducedMotion();
-  const frames = useRef<Record<number, View | null>>({});
+  const frames = useRef<Record<number, ComponentRef<typeof View> | null>>({});
   const [panelWidth, setPanelWidth] = useState(0);
   const [ratios, setRatios] = useState<Record<string, number>>({});
   // The product columns start at md (768), but Shop changes from horizontal

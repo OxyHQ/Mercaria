@@ -1,4 +1,4 @@
-import { useEffect, type PropsWithChildren, type Ref } from 'react';
+import { type ComponentRef, useEffect, type PropsWithChildren, type Ref } from 'react';
 import {
   Platform,
   View,
@@ -26,7 +26,7 @@ export interface MarketplaceSheetProps extends PropsWithChildren {
   /** Authored policy documents use a solid reading surface. */
   opaque?: boolean;
   headingGap?: 12 | 16;
-  scrollRef?: Ref<ScrollView>;
+  scrollRef?: Ref<ComponentRef<typeof ScrollView>>;
   scrollViewProps?: Omit<ScrollViewProps, 'children' | 'contentContainerStyle'>;
 }
 

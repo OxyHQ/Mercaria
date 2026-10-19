@@ -1,9 +1,10 @@
 import type React from 'react';
 import type { LucideIcon } from 'lucide-react-native';
-import { StyleSheet } from 'react-native';
+import type { ColorValue, StyleProp } from 'react-native';
 import {
   sizes,
   type BloomIconComponent,
+  type IconStyle,
   type Props as BloomSvgIconProps,
 } from '@oxy.so/bloom/icons';
 
@@ -51,6 +52,31 @@ export function LucideGlyph({ icon: Icon, fill, size = 22 }: LucideGlyphProps) {
   return <Icon size={size} color={fill} />;
 }
 
+/**
+ * The `color` a style prop resolves to, last entry winning as in
+ * `StyleSheet.flatten`. Not `StyleSheet.flatten` itself: under React Native
+ * 0.88's strict types its parameter is RN's internal animated style type, which
+ * rejects the `ViewStyle` Expo's react-native-web typings widen (a numeric
+ * `transitionDuration`), so `IconStyle` no longer type-checks against it.
+ */
+function isStyleList(
+  style: IconStyle | readonly StyleProp<IconStyle>[],
+): style is readonly StyleProp<IconStyle>[] {
+  return Array.isArray(style);
+}
+
+function styleColor(style: StyleProp<IconStyle>): ColorValue | undefined {
+  if (!style || typeof style !== 'object') return undefined;
+  if (isStyleList(style)) {
+    for (let index = style.length - 1; index >= 0; index -= 1) {
+      const color = styleColor(style[index]);
+      if (color !== undefined) return color;
+    }
+    return undefined;
+  }
+  return style.color;
+}
+
 const FIELD_ICON_CACHE = new Map<LucideIcon, React.ComponentType<BloomSvgIconProps>>();
 
 /**
@@ -66,7 +92,7 @@ export function toBloomFieldIcon(Icon: LucideIcon): React.ComponentType<BloomSvg
   const cached = FIELD_ICON_CACHE.get(Icon);
   if (cached) return cached;
   const Adapted = ({ size, style }: BloomSvgIconProps) => {
-    const color = StyleSheet.flatten(style)?.color;
+    const color = styleColor(style);
     return (
       <Icon
         size={sizes[size ?? 'md']}

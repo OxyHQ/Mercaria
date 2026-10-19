@@ -1,4 +1,5 @@
 import {
+  type ComponentRef,
   createContext,
   useCallback,
   useContext,
@@ -64,7 +65,7 @@ export function ShoppingComposer({ inline = false }: { inline?: boolean }) {
   const { query, setQuery } = draft;
   const [focused, setFocused] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<ComponentRef<typeof TextInput>>(null);
   const feed = useFeed();
   const reducedMotion = useReducedMotion();
   const expansion = useAnimatedStyle(
