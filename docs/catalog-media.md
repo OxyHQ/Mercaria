@@ -177,7 +177,10 @@ still go to Oxy as one batch request. Oxy answers a repeated
 6 h) and dead-letters after `CANONICAL_SOURCE_MEDIA_MAX_ATTEMPTS` (8). The loop is
 gated by `CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED` (default off); the trigger queues
 regardless. Links made before `0173` are queued by
-`backfill-application-media.ts --target=source_media`.
+`backfill-application-media.ts --target=source_media`; the products that show no
+image at all go first with `--target=source_media_imageless` (one observation —
+the newest naming media — per such product, `--after` a product id: 11,500 jobs
+where all their links would be 80,000).
 
 ### Digital deliverables are application files
 

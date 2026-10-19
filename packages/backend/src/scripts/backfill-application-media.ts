@@ -6,6 +6,7 @@ import {
   backfillCanonicalDescriptionImages,
   backfillCanonicalImageDuplicates,
   backfillCanonicalSourceMediaQueue,
+  backfillImagelessProductSourceMedia,
   type ApplicationMediaBackfillOptions,
 } from '../services/catalog-media/application-media-backfill.js';
 
@@ -17,7 +18,9 @@ import {
  *   adopt an account-owned file as the application's;
  * - `canonical_description_image` — adopt the images of canonical descriptions;
  * - `canonical_image_duplicates` — collapse rows the old identity bug duplicated;
- * - `source_media` — queue the imagery of source links made before migration 0173.
+ * - `source_media` — queue the imagery of source links made before migration 0173;
+ * - `source_media_imageless` — queue one observation per product that shows no
+ *   image (`--after` is a product id): the blank cards first.
  *
  *
  *   bun run packages/backend/src/scripts/backfill-application-media.ts --target=category_image
@@ -26,6 +29,7 @@ const EXTRA_TARGETS = [
   'canonical_description_image',
   'canonical_image_duplicates',
   'source_media',
+  'source_media_imageless',
 ] as const;
 
 async function main() {
@@ -51,6 +55,8 @@ async function main() {
   else if (target === 'canonical_image_duplicates')
     report = await backfillCanonicalImageDuplicates(options, db);
   else if (target === 'source_media') report = await backfillCanonicalSourceMediaQueue(options, db);
+  else if (target === 'source_media_imageless')
+    report = await backfillImagelessProductSourceMedia(options, db);
   else if (target && (APPLICATION_MEDIA_TARGETS as readonly string[]).includes(target)) {
     options.target = target as ApplicationMediaTarget;
     report = await backfillApplicationMedia(options, db);

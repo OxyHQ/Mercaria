@@ -308,6 +308,43 @@ export async function lockCanonicalProductForMedia(
 }
 
 /**
+ * One keyset page (by product) of the products that show NO image, each with
+ * its newest ACTIVE source link whose observation names media — one job per
+ * product is enough to give it imagery (the worker copies up to six images of
+ * an observation), where all of its links would queue ~7 jobs each.
+ */
+export async function findImagelessProductSourceLinksPage(
+  options: { after?: string; limit: number },
+  db: DatabaseOrTransaction = getDb(),
+): Promise<{ linkId: string; productId: string; sourceRecordId: string }[]> {
+  const rows = await db.execute<{
+    link_id: string;
+    product_id: string;
+    source_record_id: string;
+  }>(sql`
+    select distinct on (l.product_id) l.id as link_id, l.product_id, l.source_record_id
+      from canonical_product_source_links l
+      join source_records r on r.id = l.source_record_id
+     where l.status = 'active'
+       and jsonb_typeof(r.payload -> 'media') = 'array'
+       and jsonb_array_length(r.payload -> 'media') > 0
+       and not exists (
+         select 1 from ${canonicalImages} ci
+          where ci.product_id = l.product_id
+            and ci.status = 'active'
+            and ci.file_id is not null
+       )
+       ${options.after === undefined ? sql`` : sql`and l.product_id > ${options.after}`}
+     order by l.product_id, r.observed_at desc, l.id desc
+     limit ${options.limit}`);
+  return rows.map((row) => ({
+    linkId: String(row.link_id),
+    productId: String(row.product_id),
+    sourceRecordId: String(row.source_record_id),
+  }));
+}
+
+/**
  * One keyset page of ACTIVE source links whose observation names an image the
  * product does not hold yet — the links made before the `0173` trigger existed,
  * which the backfill queues. A link whose images the product already holds is
