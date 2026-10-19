@@ -9,7 +9,7 @@
       },
       "devDependencies": {
         "@biomejs/biome": "2.5.15",
-        "@oxy.so/doctor": "1.1.1",
+        "@oxy.so/doctor": "1.2.0",
         "@playwright/test": "1.64.0",
         "typescript": "^5.9.3",
       },
@@ -921,7 +921,7 @@
 
     "@oxy.so/db": ["@oxy.so/db@1.2.0", "", { "peerDependencies": { "drizzle-orm": "^0.45.2", "postgres": "^3.4.9" } }, "sha512-EXgrZDYFcIA+r9jZJfOOfAMZ0T1SLiuXKkN4q4WPAhbFDIbRx6R4JrkYoZ77J9f04n8wfFVhAduHHHprE6hS1w=="],
 
-    "@oxy.so/doctor": ["@oxy.so/doctor@1.1.1", "", { "bin": { "oxy-doctor": "src/cli.mjs" } }, "sha512-QSjyEVdeKSOD4VDS9x26iVqn9glexdXAnZAZAXi2GQLKOndEOhvd8HAaY4v7uKej/6Krw8MXf6H3oJlX/2dn1g=="],
+    "@oxy.so/doctor": ["@oxy.so/doctor@1.2.0", "", { "bin": { "oxy-doctor": "src/cli.mjs" } }, "sha512-4ABIvA5eg6r5WDB9KUZcbF3ACW89CLwzNG2vACxCXJmz8ZBnQAD6qIU1/bV0/RXib+V2Ph3DQ7GxaJkspE6G1g=="],
 
     "@oxy.so/expo-splash": ["@oxy.so/expo-splash@1.0.0", "", { "dependencies": { "@expo/image-utils": ">=0.7.0", "xml2js": "^0.6.2" }, "peerDependencies": { "expo": ">=51.0.0", "expo-splash-screen": ">=0.27.0", "react": ">=18.0.0", "react-native": ">=0.74.0" } }, "sha512-v1jMNwb0WpHhDuGss8kNOi7rYWlIA2H96d8ejHiB3H12iKkrNBNA02vFfG7Q8Xrd2SlSu1vrfU8Tl4B33s3cVA=="],
 
