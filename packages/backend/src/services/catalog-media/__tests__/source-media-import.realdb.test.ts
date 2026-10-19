@@ -23,6 +23,11 @@ import {
   recordSourceObservation,
 } from '../../../db/canonical/provenanceRepository.js';
 import { insertCanonicalProductSourceLink } from '../../../db/canonical/canonicalProductRepository.js';
+import {
+  claimCanonicalSourceMediaImports,
+  releaseCanonicalSourceMediaImport,
+  requestCanonicalSourceMediaImport,
+} from '../../../db/canonical/sourceMediaImportRepository.js';
 import { loadPrimaryProductImages } from '../../../db/search/searchCandidateRepository.js';
 import { deleteTestCanonicalRows } from '../../../db/__tests__/canonical-teardown.js';
 import { createCanonicalProduct } from '../../canonical/canonical-product.service.js';
@@ -147,6 +152,76 @@ describe('attaching an observation queues its imagery', () => {
   });
 });
 
+describe('what is queued, and in what order', () => {
+  it('queues nothing for an observation whose images the product already holds', async () => {
+    const productId = await mintProduct('held');
+    const url = `https://cdn.example.test/${RUN}/held.jpg`;
+    await attach(productId, await observe('held-first', [url]));
+    await drain([productId]);
+    expect(await images(productId)).toHaveLength(1);
+
+    // Ingestion re-observes the offer: a new record, a new link, the same image.
+    await attach(productId, await observe('held-again', [url]));
+    expect(await jobs(productId)).toHaveLength(0);
+
+    // A new image in the next observation is queued.
+    await attach(
+      productId,
+      await observe('held-new', [url, `https://cdn.example.test/${RUN}/held-2.jpg`]),
+    );
+    expect(await jobs(productId)).toHaveLength(1);
+  });
+
+  it('queues a product that shows no image at priority 0 and drains it first', async () => {
+    const shown = await mintProduct('priority-shown');
+    await attach(
+      shown,
+      await observe('priority-shown-a', [`https://cdn.example.test/${RUN}/s-a.jpg`]),
+    );
+    await drain([shown]);
+    expect(await images(shown)).toHaveLength(1);
+    // Queued FIRST: the product already shows an image.
+    await attach(
+      shown,
+      await observe('priority-shown-b', [`https://cdn.example.test/${RUN}/s-b.jpg`]),
+    );
+    const blank = await mintProduct('priority-blank');
+    await attach(
+      blank,
+      await observe('priority-blank-a', [`https://cdn.example.test/${RUN}/b-a.jpg`]),
+    );
+
+    expect((await jobs(shown))[0]?.priority).toBe(1);
+    expect((await jobs(blank))[0]?.priority).toBe(0);
+
+    const claimed = await claimCanonicalSourceMediaImports({
+      leaseOwner: `test-${RUN}`,
+      batchSize: 1,
+      maxInFlight: 50,
+      onlyProductIds: [shown, blank],
+    });
+    expect(claimed.map((job) => job.canonicalProductId)).toEqual([blank]);
+    const [first] = claimed;
+    if (!first) throw new Error('fixture: nothing claimed');
+    await releaseCanonicalSourceMediaImport({
+      id: first.id,
+      leaseOwner: `test-${RUN}`,
+      deadLettered: false,
+      refundAttempt: true,
+      availableAt: new Date(0),
+      error: 'test: released',
+      now: new Date(),
+    });
+  });
+
+  it('the backfill queues at the same priority', async () => {
+    const blank = await mintProduct('priority-backfill');
+    const record = await observe('priority-backfill-a', [`https://cdn.example.test/${RUN}/pb.jpg`]);
+    expect(await requestCanonicalSourceMediaImport(blank, record, db)).toBe(true);
+    expect((await jobs(blank))[0]?.priority).toBe(0);
+  });
+});
+
 describe('the dispatcher copies imagery as application files, deduplicated and capped', () => {
   it('imports each HTTPS reference once, with the observation as provenance, and search shows it', async () => {
     const productId = await mintProduct('import');
@@ -173,11 +248,13 @@ describe('the dispatcher copies imagery as application files, deduplicated and c
       { productId, fileId: fake().fileIdFor('app', a), alt: null },
     ]);
 
-    // A second offer of the same product naming a held URL imports nothing new.
+    // A second offer of the same product naming a held URL queues nothing
+    // (migration 0176), so nothing is drained and nothing is imported.
     const second = await observe('import-2', [b]);
     await attach(productId, second);
     fake().reset();
-    expect(await drain([productId])).toMatchObject({ completed: 1, attached: 0 });
+    expect(await jobs(productId)).toHaveLength(0);
+    expect(await drain([productId])).toMatchObject({ completed: 0, attached: 0 });
     expect(fake().imports).toEqual([]);
     expect(await images(productId)).toHaveLength(2);
   });

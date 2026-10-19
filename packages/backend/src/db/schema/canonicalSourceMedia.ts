@@ -24,6 +24,15 @@
  * product that already shows `maxImagesPerProduct` images imports nothing more,
  * however many offers it has, and an import of a URL the product already holds
  * is never made (identity is the source URL, `attachCanonicalMediaBySource`).
+ *
+ * ## What is queued, and in what order
+ *
+ * Ingestion re-observes every offer on every run, and each observation is a new
+ * `source_records` row and a new link — so a link whose observation names only
+ * images the product already holds queues nothing (migration `0176`): 149,000
+ * such no-op jobs once buried the products that had no image at all. And a
+ * product that SHOWS no image is drained first (`priority` 0, set when the job
+ * is queued): one with images can wait, one without is a blank card today.
  */
 
 import { sql } from 'drizzle-orm';
@@ -60,6 +69,8 @@ export const canonicalSourceMediaImports = pgTable(
       .notNull()
       .default('pending'),
     attempts: integer().notNull().default(0),
+    /** 0: the product showed no image when this was queued — drained first. 1: it did. */
+    priority: integer().notNull().default(1),
     availableAt: timestamptz().notNull(),
     leaseOwner: text(),
     leaseUntil: timestamptz(),
@@ -74,6 +85,7 @@ export const canonicalSourceMediaImports = pgTable(
       CANONICAL_SOURCE_MEDIA_IMPORT_STATUSES,
     ),
     check('canonical_source_media_imports_attempts_check', sql`${t.attempts} >= 0`),
+    check('canonical_source_media_imports_priority_check', sql`${t.priority} in (0, 1)`),
     check(
       'canonical_source_media_imports_last_error_length_check',
       sql`${t.lastError} is null or length(${t.lastError}) <= ${sql.raw(String(CANONICAL_SOURCE_MEDIA_MAX_LAST_ERROR_LENGTH))}`,
@@ -84,7 +96,7 @@ export const canonicalSourceMediaImports = pgTable(
       t.sourceRecordId,
     ),
     index('canonical_source_media_imports_pending_idx')
-      .on(t.availableAt, t.createdAt)
+      .on(t.priority, t.availableAt, t.createdAt)
       .where(sql`${t.status} = 'pending'`),
     index('canonical_source_media_imports_reclaim_idx')
       .on(t.leaseUntil, t.createdAt)

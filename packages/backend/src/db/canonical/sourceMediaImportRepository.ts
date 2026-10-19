@@ -40,6 +40,13 @@ export async function requestCanonicalSourceMediaImport(
       sourceRecordId,
       status: 'pending',
       attempts: 0,
+      // As the enqueue trigger (migration 0176): a product that shows no image first.
+      priority: sql`case when exists (
+        select 1 from ${canonicalImages}
+         where ${canonicalImages.productId} = ${canonicalProductId}
+           and ${canonicalImages.status} = 'active'
+           and ${canonicalImages.fileId} is not null
+      ) then 1 else 0 end`,
       availableAt: now,
     })
     .onConflictDoNothing({
@@ -119,17 +126,20 @@ export async function claimCanonicalSourceMediaImports(
       sql`${canonicalSourceMediaImports.id} in (
         select ${canonicalSourceMediaImports.id} from ${canonicalSourceMediaImports}
         where ${due}
-        order by ${asc(canonicalSourceMediaImports.availableAt)}
+        order by ${asc(canonicalSourceMediaImports.priority)}, ${asc(canonicalSourceMediaImports.availableAt)}
         limit ${room}
         for update skip locked
       )`,
     )
     .returning();
-  // `UPDATE … RETURNING` answers in no particular order. Run the jobs oldest-due
-  // first, as they were chosen: a drain Oxy's budget stops part-way then defers
-  // the newest, not an arbitrary few.
+  // `UPDATE … RETURNING` answers in no particular order. Run the jobs as they
+  // were chosen — a product that shows no image first, then oldest-due: a drain
+  // Oxy's budget stops part-way then defers those, not an arbitrary few.
   return claimed.sort(
-    (a, b) => a.availableAt.getTime() - b.availableAt.getTime() || a.id.localeCompare(b.id),
+    (a, b) =>
+      a.priority - b.priority ||
+      a.availableAt.getTime() - b.availableAt.getTime() ||
+      a.id.localeCompare(b.id),
   );
 }
 
