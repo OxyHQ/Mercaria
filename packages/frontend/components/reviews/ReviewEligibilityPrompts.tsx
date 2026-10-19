@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '@oxy.so/bloom/button';
 import { View } from 'react-native';
 import { RatingInput } from '@oxy.so/bloom/rating';
-import { useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { REVIEW_MEDIA_LIMIT } from '@mercaria/shared-types';
 import type { ReviewEligibility, ReviewScope } from '@mercaria/shared-types';
 import { Text } from '@mercaria/ui';
