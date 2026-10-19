@@ -10,7 +10,7 @@ vi.mock('@tanstack/react-query', async (importOriginal) => ({
   useQueryClient: vi.fn(),
 }));
 vi.mock('react', () => ({ useMemo: (factory: () => unknown) => factory() }));
-vi.mock('@oxy.so/services', () => ({
+vi.mock('@oxy.so/services/ui/client', () => ({
   useOxy: () => ({ oxyServices: { session: { accessToken: null } } }),
 }));
 vi.mock('../../i18n', () => ({ useTranslation: () => ({ locale: 'en' }) }));

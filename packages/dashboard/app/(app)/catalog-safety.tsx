@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { Button } from '@oxy.so/bloom/button';
 import { Text, useFormatters, conditionLabelKey } from '@mercaria/ui';
 import type { CatalogSafetyReviewDecision } from '@mercaria/shared-types';

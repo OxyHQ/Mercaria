@@ -1,5 +1,5 @@
 import { Button } from '@oxy.so/bloom/button';
-import { FollowTargetButton, openAccountDialog, useOxy } from '@oxy.so/services';
+import { FollowTargetButton, useOxy } from '@oxy.so/services/ui/client';
 import type { StoreSummary } from '@mercaria/shared-types';
 import { useStoreFollowTarget } from '@/lib/hooks/use-store-follow';
 import { useTranslation } from '@/lib/i18n';
@@ -52,7 +52,7 @@ export function StoreFollowButton({
   size?: FollowButtonSize;
 }) {
   const { t } = useTranslation();
-  const { canUsePrivateApi } = useOxy();
+  const { canUsePrivateApi, openAccountDialog } = useOxy();
   const { data: followTargetId } = useStoreFollowTarget(store);
 
   if (followTargetId) {

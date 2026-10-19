@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 import { Button } from '@oxy.so/bloom/button';
 import { useRouter } from 'expo-router';
-import { useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import type { CatalogProductBrowsePage } from '@mercaria/shared-types';
 import { CanonicalProductCard, Text } from '@mercaria/ui';
 import * as Skeleton from '@oxy.so/bloom/skeleton';

@@ -6,7 +6,7 @@ import { Loading } from '@oxy.so/bloom/loading';
 import { SettingsCard, SettingsRow, SettingsSection } from '@oxy.so/bloom/settings-modal';
 import { TextFieldInput } from '@oxy.so/bloom/text-field';
 import { toast } from '@oxy.so/bloom/toast';
-import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import {
   REFERRAL_OUTSTANDING_KEYS,
   REFERRAL_PAYOUT_STATUS_KEYS,
@@ -127,7 +127,7 @@ function money(amountMinor: number, currency: CurrencyCode, locale: string): str
  */
 export function ReferralsSettingsPage() {
   const { t } = useTranslation();
-  const { isAuthenticated } = useOxy();
+  const { isAuthenticated, openAccountDialog } = useOxy();
   const { afterClose } = useSettingsDialog();
   const dashboard = useReferralDashboard();
 

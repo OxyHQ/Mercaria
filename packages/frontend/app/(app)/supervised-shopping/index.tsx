@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useOxy, openAccountDialog } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@oxy.so/bloom/button';
 import { EmptyState } from '@oxy.so/bloom/empty-state';
@@ -19,7 +19,7 @@ import {
 export default function SupervisedShoppingScreen() {
   const { t } = useTranslation();
   const { formatMoney } = useFormatters();
-  const { user, isAuthenticated } = useOxy();
+  const { user, isAuthenticated, openAccountDialog } = useOxy();
   const router = useRouter();
   const cache = useQueryClient();
   const [cursor, setCursor] = useState<string>();

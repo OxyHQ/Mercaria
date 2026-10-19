@@ -5,7 +5,7 @@ import { TextFieldInput } from '@oxy.so/bloom/text-field';
 import { View, Pressable } from 'react-native';
 import Head from 'expo-router/head';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { EmptyState } from '@oxy.so/bloom/empty-state';
 import { PriceSummary } from '@oxy.so/bloom/price-breakdown';
 import { Check, Plus } from 'lucide-react-native';
@@ -133,6 +133,7 @@ function AddressOption({
  * exist is not a property of having an account.
  */
 function SignInBenefit() {
+  const { openAccountDialog } = useOxy();
   const { t } = useTranslation();
   return (
     <View className="rounded-2xl border border-border bg-card p-4">

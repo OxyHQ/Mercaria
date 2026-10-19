@@ -1,7 +1,8 @@
 import { useCallback, useMemo } from 'react';
 import { usePathname, useRouter } from 'expo-router';
 import type { SidebarProps } from '@oxy.so/bloom/sidebar';
-import { ProfileButton, openAccountDialog } from '@oxy.so/services';
+import type { AccountDialogMenuItem } from '@oxy.so/services';
+import { ProfileButton, useOxy } from '@oxy.so/services/ui/client';
 import { toBloomIcon, useSettingsDialog, useSidebarCollapse } from '@mercaria/ui';
 import { Logo } from '@/components/Logo';
 import { useTranslation } from '@/lib/i18n';
@@ -20,6 +21,7 @@ import { NAV_ITEMS, isNavItemActive } from './nav-items';
  * the footer carries only the account trigger.
  */
 export function usePosSidebar(): SidebarProps {
+  const { openAccountDialog } = useOxy();
   const { t } = useTranslation();
   const router = useRouter();
   const pathname = usePathname();
@@ -29,9 +31,20 @@ export function usePosSidebar(): SidebarProps {
 
   const goHome = useCallback(() => router.push('/'), [router]);
 
-  // "Manage" on the account menu opens the till's Settings dialog (account,
-  // language, theme); the Oxy account sheet is one row inside it.
-  const handleManage = useCallback(() => settings.open(), [settings]);
+  // The till's Settings dialog (account, language, theme) is an item in the
+  // account menu. "Manage your Oxy account" there always opens Oxy's own
+  // account screen.
+  const accountMenuItems = useMemo<AccountDialogMenuItem[]>(
+    () => [
+      {
+        key: 'mercaria-settings',
+        label: t('ui.settings.dialog'),
+        icon: 'cog-outline',
+        onPress: () => settings.open(),
+      },
+    ],
+    [settings, t],
+  );
 
   const visible = useMemo(() => NAV_ITEMS.filter((item) => can(item.permission)), [can]);
   const selected = visible.find((item) => isNavItemActive(item, pathname))?.key;
@@ -66,11 +79,21 @@ export function usePosSidebar(): SidebarProps {
       footer: ({ collapsed: railCollapsed }) => (
         <ProfileButton
           expanded={!railCollapsed}
-          onNavigateManage={handleManage}
+          menuItems={accountMenuItems}
           onAddAccount={() => openAccountDialog()}
         />
       ),
     }),
-    [collapsed, goHome, handleManage, router, selected, setCollapsed, t, visible],
+    [
+      accountMenuItems,
+      collapsed,
+      goHome,
+      openAccountDialog,
+      router,
+      selected,
+      setCollapsed,
+      t,
+      visible,
+    ],
   );
 }

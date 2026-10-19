@@ -1,5 +1,5 @@
 import { useRouter, type RoutePath } from 'expo-router';
-import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { Button } from '@oxy.so/bloom/button';
 import type { SettingsModalPage, SettingsNavGroup } from '@oxy.so/bloom/settings-modal';
 import { SettingsGeneralPage } from '@oxy.so/bloom/settings-modal';
@@ -41,7 +41,7 @@ function GeneralSettingsPage() {
 
 function AccountPage() {
   const { t } = useTranslation();
-  const { user, isAuthenticated, oxyServices, showBottomSheet } = useOxy();
+  const { user, isAuthenticated, oxyServices, showBottomSheet, openAccountDialog } = useOxy();
   const { afterClose } = useSettingsDialog();
   if (!isAuthenticated) {
     // Reached only by a link to `/settings/account` while signed out.

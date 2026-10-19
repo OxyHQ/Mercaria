@@ -3,7 +3,7 @@ import Svg, { Path } from 'react-native-svg';
 import { Button } from '@oxy.so/bloom/button';
 import { useTheme } from '@oxy.so/bloom/theme';
 import { toast } from '@oxy.so/bloom/toast';
-import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import type { Review, ReviewHelpfulness } from '@mercaria/shared-types';
 import { Text, useFormatters } from '@mercaria/ui';
 import { useUpdateReviewHelpfulness } from '@/lib/hooks/use-reviews';
@@ -35,7 +35,7 @@ export function ReviewHelpfulButton({
   const { t } = useTranslation();
   const { colors } = useTheme();
   const { formatReviewCount } = useFormatters();
-  const { isAuthenticated, canUsePrivateApi } = useOxy();
+  const { isAuthenticated, canUsePrivateApi, openAccountDialog } = useOxy();
   const mutation = useUpdateReviewHelpfulness(review.id);
   const personalVote = isAuthenticated ? vote : undefined;
   const count = personalVote?.helpfulnessCount ?? review.helpfulnessCount ?? 0;

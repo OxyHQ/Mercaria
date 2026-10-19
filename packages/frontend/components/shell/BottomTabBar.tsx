@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Avatar } from '@oxy.so/bloom/avatar';
 import { BottomBar, type BottomBarProps } from '@oxy.so/bloom/bottom-bar';
-import { useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { CartFlightTarget, ShopNavigationIcon, Text } from '@mercaria/ui';
 
 import { useCart } from '@/lib/hooks/use-cart';
