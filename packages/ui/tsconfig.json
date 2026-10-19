@@ -7,7 +7,7 @@
   // the frontend's compiler setup (expo base + strict + NativeWind className
   // typing via `nativewind-env.d.ts`) so types are identical on both sides.
   // ---------------------------------------------------------------------------
-  "extends": "expo/tsconfig.base",
+  "extends": "expo/tsconfig.base.json",
   "compilerOptions": {
     "strict": true,
     "noEmit": true,

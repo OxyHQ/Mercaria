@@ -29,7 +29,9 @@ module.exports = {
       favicon: './assets/icon-192.png',
     },
     plugins: [
-      'expo-router',
+      // SDK 58 turns async routes on for web by default; keep the single
+      // eager bundle every earlier release shipped.
+      ['expo-router', { asyncRoutes: { web: false } }],
       'expo-localization',
       'expo-font',
       'expo-image',

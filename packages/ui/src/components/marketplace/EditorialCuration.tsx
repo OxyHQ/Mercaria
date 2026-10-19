@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { type ComponentRef, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   AccessibilityInfo,
   Animated,
@@ -33,7 +33,7 @@ function Reveal({
   immediate?: boolean;
   kind?: 'text' | 'image' | 'hero' | 'quote';
 }) {
-  const ref = useRef<View>(null);
+  const ref = useRef<ComponentRef<typeof View>>(null);
   const opacity = useRef(new Animated.Value(1)).current;
   useEffect(() => {
     if (reduced) {
@@ -149,10 +149,10 @@ export function EditorialCuration({
       typeof window !== 'undefined' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   );
-  const main = useRef<View>(null);
-  const heading = useRef<View>(null);
-  const cover = useRef<View>(null);
-  const content = useRef<View>(null);
+  const main = useRef<ComponentRef<typeof View>>(null);
+  const heading = useRef<ComponentRef<typeof View>>(null);
+  const cover = useRef<ComponentRef<typeof View>>(null);
+  const content = useRef<ComponentRef<typeof View>>(null);
   useEffect(() => {
     void AccessibilityInfo.isReduceMotionEnabled().then(setReduced);
     const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduced);

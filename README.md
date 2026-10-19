@@ -10,8 +10,8 @@
 </p>
 
 <p align="center">
-  <img alt="Expo SDK 57" src="https://img.shields.io/badge/Expo-SDK%2057-440151?style=flat-square&logo=expo&logoColor=white">
-  <img alt="React Native 0.86" src="https://img.shields.io/badge/React%20Native-0.86-440151?style=flat-square&logo=react&logoColor=white">
+  <img alt="Expo SDK 58" src="https://img.shields.io/badge/Expo-SDK%2058-440151?style=flat-square&logo=expo&logoColor=white">
+  <img alt="React Native 0.88" src="https://img.shields.io/badge/React%20Native-0.88-440151?style=flat-square&logo=react&logoColor=white">
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-440151?style=flat-square&logo=typescript&logoColor=white">
   <img alt="Bun" src="https://img.shields.io/badge/bun-1.3-440151?style=flat-square&logo=bun&logoColor=white">
   <img alt="Express" src="https://img.shields.io/badge/Express-4-440151?style=flat-square&logo=express&logoColor=white">

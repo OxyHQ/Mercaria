@@ -16,11 +16,12 @@ type KeyboardAwareScrollViewProps = ScrollViewProps & {
   extraKeyboardSpace?: number;
 };
 
-const KeyboardAwareScrollView = React.forwardRef<ScrollView, KeyboardAwareScrollViewProps>(
-  ({ bottomOffset, disableScrollOnKeyboardHide, enabled, extraKeyboardSpace, ...props }, ref) => (
-    <ScrollView ref={ref} {...props} />
-  ),
-);
+const KeyboardAwareScrollView = React.forwardRef<
+  React.ComponentRef<typeof ScrollView>,
+  KeyboardAwareScrollViewProps
+>(({ bottomOffset, disableScrollOnKeyboardHide, enabled, extraKeyboardSpace, ...props }, ref) => (
+  <ScrollView ref={ref} {...props} />
+));
 KeyboardAwareScrollView.displayName = 'KeyboardAwareScrollView';
 
 // No-op on web — keyboard sticky behavior is native-only
@@ -29,9 +30,10 @@ type KeyboardStickyViewProps = ViewProps & {
   enabled?: boolean;
 };
 
-const KeyboardStickyView = React.forwardRef<View, KeyboardStickyViewProps>(
-  ({ offset, enabled, ...props }, ref) => <View ref={ref} {...props} />,
-);
+const KeyboardStickyView = React.forwardRef<
+  React.ComponentRef<typeof View>,
+  KeyboardStickyViewProps
+>(({ offset, enabled, ...props }, ref) => <View ref={ref} {...props} />);
 KeyboardStickyView.displayName = 'KeyboardStickyView';
 
 export { KeyboardAwareScrollView, KeyboardAvoidingView, KeyboardStickyView };

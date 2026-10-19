@@ -1,5 +1,5 @@
 import { ProductReviewMedia } from './ProductReviewMedia';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { type ComponentRef, useCallback, useEffect, useRef, useState } from 'react';
 import { View, useWindowDimensions, type ScrollView, type TextInput } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useReducedMotion } from 'react-native-reanimated';
@@ -74,9 +74,9 @@ export function ProductReviewsDialog({
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<ReviewSortOrder>('newest');
   const [ratings, setRatings] = useState<number[]>([]);
-  const searchInput = useRef<TextInput>(null);
+  const searchInput = useRef<ComponentRef<typeof TextInput>>(null);
   const { formatReviewCount } = useFormatters();
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
   const positioned = useRef(false);
   const [reviewLayout, setReviewLayout] = useState<{ y: number; height: number }>();
   const [bodyOffset, setBodyOffset] = useState(0);

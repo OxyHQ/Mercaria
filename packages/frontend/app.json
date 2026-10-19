@@ -8,11 +8,6 @@
     "icon": "./assets/icon-512.png",
     "scheme": "mercaria",
     "userInterfaceStyle": "automatic",
-    "splash": {
-      "image": "./assets/images/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#040711"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "co.mercaria.app",
@@ -35,7 +30,14 @@
       "favicon": "./assets/icon-192.png"
     },
     "plugins": [
-      "expo-router",
+      [
+        "expo-router",
+        {
+          "asyncRoutes": {
+            "web": false
+          }
+        }
+      ],
       "expo-localization",
       "expo-font",
       "expo-image",

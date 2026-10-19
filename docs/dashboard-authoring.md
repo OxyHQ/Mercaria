@@ -209,7 +209,7 @@ happens on a phone.
 
 Logical spacing utilities (`ms-`, `me-`, `ps-`, `pe-`) are used where they
 occur. `text-right` and physical borders are used deliberately: `text-end` and
-`border-s-*` are MEASURED not to survive react-native-css/RN 0.86 (a clean
+`border-s-*` are MEASURED not to survive react-native-css/RN 0.88 (a clean
 compile and no effect on native), and the dashboard is not mirrored (#434).
 `validate:rtl-classes` does not scan this package.
 
