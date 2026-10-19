@@ -779,8 +779,10 @@ describe('YGOPRODeck', () => {
     expect(first?.normalized.productGroupKey).toBe('17494901');
     expect(first?.normalized.price).toEqual({ amount: 6, currency: 'EUR' });
     expect(first?.normalized.merchantHint).toBe('Cardmarket');
-    // Their images may not be hotlinked.
-    expect(first?.normalized.media).toEqual([]);
+    // Recorded to be COPIED into Oxy Files, never hotlinked (their terms).
+    expect(first?.normalized.media).toEqual([
+      'https://images.ygoprodeck.com/images/cards/17494901.jpg',
+    ]);
     const facts = Object.fromEntries(
       (first?.normalized.facts ?? []).map((fact) => [fact.key, fact]),
     );
