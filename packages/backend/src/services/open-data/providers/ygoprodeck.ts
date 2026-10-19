@@ -12,8 +12,12 @@
  *
  * ## Terms
  *
- * 20 requests a second at most, and images must not be hotlinked — so this
- * provider stores no image URL. The data is cached by Mercaria, as asked.
+ * 20 requests a second at most, and images must not be hotlinked: download
+ * them and serve them yourself. Mercaria never hotlinks any source's imagery —
+ * every `media` URL is COPIED once into a file the Mercaria application owns
+ * (Oxy ADR 0043, `services/catalog-media/source-media-import.ts`) and served
+ * from Oxy — so the card's artwork (`card_images[].image_url`) is recorded like
+ * any other source's. The data is cached by Mercaria, as asked.
  */
 
 import type { NormalizedSourceRecord } from '@mercaria/shared-types';
@@ -133,13 +137,21 @@ export function toItem(card: Readonly<Record<string, unknown>>): OpenDataItem | 
     .add('price_basis', 'cardmarket_market_price')
     .toArray();
 
+  // Each artwork of the card, the full image (the worker copies at most six).
+  const media = [
+    ...new Set(
+      asArray(card.card_images)
+        .map((image) => asText(asObject(image)?.image_url))
+        .filter((url): url is string => url?.startsWith('https://') === true),
+    ),
+  ];
   const description = asText(card.desc);
   const normalized: NormalizedSourceRecord = {
     title: name,
     identifiers: [],
     options: [],
     productGroupKey: id,
-    media: [],
+    media,
     merchantHint: 'Cardmarket',
     brandHint: 'Yu-Gi-Oh!',
     ...(description === undefined ? {} : { description }),
