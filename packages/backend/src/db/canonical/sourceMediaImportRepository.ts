@@ -47,27 +47,40 @@ export async function requestCanonicalSourceMediaImport(
   db: DatabaseOrTransaction,
   now: Date = new Date(),
 ): Promise<boolean> {
-  // The trigger's insert (migration 0176), for a link made before it: nothing
-  // when the observation names no image the product lacks; priority 0 when the
-  // product shows none.
-  const rows = await db.execute<{ id: string }>(sql`
-    insert into ${canonicalSourceMediaImports}
-      (id, canonical_product_id, source_record_id, status, attempts, priority, available_at)
-    select gen_random_uuid()::text, ${canonicalProductId}, ${sourceRecordId}, 'pending', 0,
-           case when exists (
-             select 1 from ${canonicalImages}
-              where ${canonicalImages.productId} = ${canonicalProductId}
-                and ${canonicalImages.status} = 'active'
-                and ${canonicalImages.fileId} is not null
-           ) then 1 else 0 end,
-           ${now}
+  // The trigger's conditions (migration 0176), for a link made before it:
+  // nothing when the observation names no image the product lacks. (The worker
+  // re-plans every job, so an image attached between this read and the insert
+  // costs a no-op job, never a duplicate.)
+  const [needed] = await db.execute<{ needed: boolean }>(sql`
+    select ${namesAnUnheldImage(sql`${canonicalProductId}`, sql`r.payload`)} as needed
       from ${sourceRecords} r
      where r.id = ${sourceRecordId}
        and jsonb_typeof(r.payload -> 'media') = 'array'
-       and jsonb_array_length(r.payload -> 'media') > 0
-       and ${namesAnUnheldImage(sql`${canonicalProductId}`, sql`r.payload`)}
-    on conflict (canonical_product_id, source_record_id) do nothing
-    returning id`);
+       and jsonb_array_length(r.payload -> 'media') > 0`);
+  if (needed?.needed !== true) return false;
+  const rows = await db
+    .insert(canonicalSourceMediaImports)
+    .values({
+      canonicalProductId,
+      sourceRecordId,
+      status: 'pending',
+      attempts: 0,
+      // As the enqueue trigger (migration 0176): a product that shows no image first.
+      priority: sql`case when exists (
+        select 1 from ${canonicalImages}
+         where ${canonicalImages.productId} = ${canonicalProductId}
+           and ${canonicalImages.status} = 'active'
+           and ${canonicalImages.fileId} is not null
+      ) then 1 else 0 end`,
+      availableAt: now,
+    })
+    .onConflictDoNothing({
+      target: [
+        canonicalSourceMediaImports.canonicalProductId,
+        canonicalSourceMediaImports.sourceRecordId,
+      ],
+    })
+    .returning({ id: canonicalSourceMediaImports.id });
   return rows.length === 1;
 }
 
