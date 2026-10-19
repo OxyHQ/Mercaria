@@ -11,7 +11,7 @@ import {
 } from 'react';
 import type { TextInput } from 'react-native';
 import { useAskAgent } from '@alia.onl/sdk/ask';
-import { useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { useLocalSearchParams } from 'expo-router';
 import { ChatComposer } from '@oxy.so/bloom/chat-composer';
 import { PageFooter } from '@oxy.so/bloom/page-footer';

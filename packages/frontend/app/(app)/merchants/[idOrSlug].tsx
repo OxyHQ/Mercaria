@@ -4,7 +4,7 @@ import { Pressable, View } from 'react-native';
 import Head from 'expo-router/head';
 import { Badge } from '@oxy.so/bloom/badge';
 import { useDialogControl } from '@oxy.so/bloom/dialog';
-import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import type {
   MerchantCatalogEmptyReason,
@@ -143,7 +143,7 @@ export default function MerchantScreen() {
   const { t } = useTranslation();
   const ratingDisplay = useRatingDisplay();
   const [storefrontId, setStorefrontId] = useState<string | undefined>(undefined);
-  const { isAuthenticated } = useOxy();
+  const { isAuthenticated, openAccountDialog } = useOxy();
   const claimControl = useDialogControl();
   const [claimMode, setClaimMode] = useState<'claim' | 'contest'>('claim');
   // Claiming and contesting are made by a PERSON under their own Oxy session

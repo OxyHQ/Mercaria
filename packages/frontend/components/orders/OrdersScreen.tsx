@@ -5,7 +5,7 @@ import { View, Pressable } from 'react-native';
 import { Image } from '@mercaria/ui';
 import Head from 'expo-router/head';
 import { Link, useRouter } from 'expo-router';
-import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { EmptyState } from '@oxy.so/bloom/empty-state';
 import {
   BUYER_ORDER_VIEWS,
@@ -117,7 +117,7 @@ function OrderRow({ order, view }: { order: OrderSummary; view: BuyerOrderView }
 function OrdersBody({ view }: { view: BuyerOrderView }) {
   const { t } = useTranslation();
   const router = useRouter();
-  const { isAuthenticated, canUsePrivateApi } = useOxy();
+  const { isAuthenticated, canUsePrivateApi, openAccountDialog } = useOxy();
   const [page, setPage] = useState(1);
   const { data, isLoading, isError, refetch } = useOrders(page, view);
 

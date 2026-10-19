@@ -3,7 +3,7 @@ import { Button } from '@oxy.so/bloom/button';
 import { Icon, Text, useSettingsDialog } from '@mercaria/ui';
 import { Textarea } from '@oxy.so/bloom/textarea';
 import { useState } from 'react';
-import { useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { generateAPIUrl } from '@/lib/generate-api-url';
 import {
   MessageSquare,

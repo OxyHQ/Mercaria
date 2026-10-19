@@ -14,7 +14,7 @@ import { Link, type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { Button } from '@oxy.so/bloom/button';
 import { Rating } from '@oxy.so/bloom/rating';
 import { Screen, useScreen } from '@oxy.so/bloom/screen';
-import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import {
   Accordion,
   AccordionItem,
@@ -267,7 +267,7 @@ interface ProductBodyProps {
 
 /** The two-column PDP body (gallery + buy column) plus the full-width shelves. */
 function ProductBody({ listing }: ProductBodyProps) {
-  const { canUsePrivateApi } = useOxy();
+  const { canUsePrivateApi, openAccountDialog } = useOxy();
   const resolveImage = useImageResolver();
   const controlClassName = useShopControlClassName();
   const { colors, isDarkColorScheme } = useColorScheme();

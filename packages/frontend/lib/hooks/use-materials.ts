@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { createMercariaClient } from '@mercaria.co/sdk';
 import config from '../config';
 

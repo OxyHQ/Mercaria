@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@oxy.so/bloom/button';
 import { View, Pressable } from 'react-native';
-import { useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { Check, Plus, Trash2 } from 'lucide-react-native';
 import type { Address, CreateAddressInput } from '@mercaria/shared-types';
 import { Icon, Text, formatRegionName, toBloomIcon } from '@mercaria/ui';

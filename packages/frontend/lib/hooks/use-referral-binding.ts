@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { Platform } from 'react-native';
 import { create } from 'zustand';
 import type { Cart, ReferralBindingResult, ReferralClientSurface } from '@mercaria/shared-types';

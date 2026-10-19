@@ -27,7 +27,7 @@ import { Dialog, useDialogControl } from '@oxy.so/bloom/dialog';
 import { Button } from '@oxy.so/bloom/button';
 import { useIsRtl } from '@oxy.so/bloom/hooks';
 import { Rating } from '@oxy.so/bloom/rating';
-import { openAccountDialog, useFollowTarget, useOxy } from '@oxy.so/services';
+import { useFollowTarget, useOxy } from '@oxy.so/services/ui/client';
 import {
   Text,
   ProductRichText,
@@ -790,7 +790,7 @@ export function StoreMenuSheet({
   // is a second CONTROL, never a second mechanism. The compact round shape is
   // why it drives `useFollowTarget` directly instead of rendering
   // `StoreFollowButton`; the fuller options menu stays on the hero button.
-  const { canUsePrivateApi } = useOxy();
+  const { canUsePrivateApi, openAccountDialog } = useOxy();
   const { data: followTargetId } = useStoreFollowTarget(store);
   const { isFollowing, isUnknown, isPending, follow, unfollow } = useFollowTarget(followTargetId);
 
@@ -806,7 +806,16 @@ export function StoreMenuSheet({
     // `follow`/`unfollow` surface their own failures through the shared store
     // and never reject, so there is no rejection to handle here.
     void (isFollowing ? unfollow() : follow());
-  }, [canUsePrivateApi, followTargetId, isUnknown, isPending, isFollowing, unfollow, follow]);
+  }, [
+    canUsePrivateApi,
+    followTargetId,
+    isUnknown,
+    isPending,
+    isFollowing,
+    unfollow,
+    follow,
+    openAccountDialog,
+  ]);
 
   const push = (page: SheetPage) => {
     setDirection('forward');

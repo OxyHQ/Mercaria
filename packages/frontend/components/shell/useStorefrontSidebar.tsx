@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { usePathname, useRouter } from 'expo-router';
 import type { SidebarProps } from '@oxy.so/bloom/sidebar';
-import { useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { Avatar } from '@oxy.so/bloom/avatar';
 import { Button } from '@oxy.so/bloom/button';
 import { RiSettings3Line } from '@oxy.so/bloom/icons/RiSettings3Line';

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { Button } from '@oxy.so/bloom/button';
 import { Dialog, type DialogControlProps } from '@oxy.so/bloom/dialog';
 import { Field } from '@oxy.so/bloom/field';
@@ -180,7 +180,7 @@ function ClaimFlow({
   onDone: () => void;
 }) {
   const { t } = useTranslation();
-  const { isAuthenticated } = useOxy();
+  const { isAuthenticated, openAccountDialog } = useOxy();
   const claims = useMyMerchantClaims(isAuthenticated);
 
   if (!isAuthenticated) {

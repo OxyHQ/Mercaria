@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { moovoForOxy } from '@oxy.so/moovo-sdk';
 
 export function useMoovo() {

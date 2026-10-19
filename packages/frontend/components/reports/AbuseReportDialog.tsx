@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from '@oxy.so/bloom/toast';
-import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import {
   ABUSE_REPORT_CATEGORIES,
   type AbuseReportCategory,
@@ -62,7 +62,7 @@ export function AbuseReportDialog({
   control: DialogControlProps;
 }) {
   const { t } = useTranslation();
-  const { isAuthenticated } = useOxy();
+  const { isAuthenticated, openAccountDialog } = useOxy();
   const [selected, setSelected] = useState<AbuseReportCategory[]>([]);
   const [details, setDetails] = useState('');
 

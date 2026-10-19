@@ -15,7 +15,7 @@
 
 import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import {
   MAX_CLAIM_LIST_LIMIT,
   MAX_HOURS_EXCEPTION_LIST_LIMIT,

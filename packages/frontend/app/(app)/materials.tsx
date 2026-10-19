@@ -5,7 +5,7 @@ import Head from 'expo-router/head';
 import { Button } from '@oxy.so/bloom/button';
 import { TextFieldInput } from '@oxy.so/bloom/text-field';
 import { Loading } from '@oxy.so/bloom/loading';
-import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Text } from '@mercaria/ui';
 import { MercariaError, type MaterialOffer, type MaterialReservation } from '@mercaria.co/sdk';
@@ -41,7 +41,7 @@ function ErrorMessage({ error }: { error: unknown }) {
 
 export default function MaterialsScreen() {
   const { t } = useTranslation();
-  const { user, canUsePrivateApi, activeSessionId } = useOxy();
+  const { user, canUsePrivateApi, activeSessionId, openAccountDialog } = useOxy();
   return (
     <ScreenShell>
       <Head>

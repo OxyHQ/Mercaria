@@ -5,7 +5,7 @@ import { Loading } from '@oxy.so/bloom/loading';
 import { TextFieldInput } from '@oxy.so/bloom/text-field';
 import Head from 'expo-router/head';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { Text, formatDateTime } from '@mercaria/ui';
 import type { SellerDraftEntryPath } from '@mercaria/shared-types';
 import { ScreenShell } from '@/components/shell/ScreenShell';
@@ -42,7 +42,7 @@ import {
 export default function SellIndexScreen() {
   const router = useRouter();
   const { t, locale } = useTranslation();
-  const { isAuthenticated } = useOxy();
+  const { isAuthenticated, openAccountDialog } = useOxy();
   const params = useLocalSearchParams<{
     canonicalProductId?: string;
     canonicalVariantId?: string;

@@ -2,7 +2,7 @@ import { Pressable, View } from 'react-native';
 import { Loading } from '@oxy.so/bloom/loading';
 import Head from 'expo-router/head';
 import { useRouter } from 'expo-router';
-import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { Text } from '@mercaria/ui';
 import { WATCHLIST_MAX_LISTS_PER_OWNER } from '@mercaria/shared-types';
 import { ScreenShell } from '@/components/shell/ScreenShell';
@@ -33,7 +33,7 @@ import { useTranslation } from '@/lib/i18n';
 export default function WatchlistsScreen() {
   const router = useRouter();
   const { t } = useTranslation();
-  const { isAuthenticated } = useOxy();
+  const { isAuthenticated, openAccountDialog } = useOxy();
   const watchlists = useWatchlists();
   const createList = useCreateWatchlist();
   const duplicateList = useDuplicateWatchlist();

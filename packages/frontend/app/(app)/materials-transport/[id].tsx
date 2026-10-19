@@ -1,6 +1,6 @@
 import { View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { Button } from '@oxy.so/bloom/button';
 import { useQuery } from '@tanstack/react-query';
 import { Text } from '@mercaria/ui';
@@ -11,7 +11,7 @@ import { useTranslation } from '@/lib/i18n';
 
 export default function TransportApproval() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { user, canUsePrivateApi, activeSessionId } = useOxy();
+  const { user, canUsePrivateApi, activeSessionId, openAccountDialog } = useOxy();
   const moovo = useMoovo();
   const { t } = useTranslation();
   const query = useQuery({

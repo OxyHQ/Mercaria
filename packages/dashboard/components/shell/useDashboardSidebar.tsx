@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
-import { useOxy } from '@oxy.so/services';
 import { ShieldCheck } from 'lucide-react-native';
 import { catalogSafetyAccess } from '@/lib/api/catalog-safety';
 import { useCallback, useMemo } from 'react';
 import { View } from 'react-native';
 import { usePathname, useRouter } from 'expo-router';
 import type { SidebarProps } from '@oxy.so/bloom/sidebar';
-import { ProfileButton, openAccountDialog } from '@oxy.so/services';
+import type { AccountDialogMenuItem } from '@oxy.so/services';
+import { ProfileButton, useOxy } from '@oxy.so/services/ui/client';
 import { toBloomIcon, useColorScheme, useSettingsDialog, useSidebarCollapse } from '@mercaria/ui';
 import { Logo } from '@/components/Logo';
 import { BrandWordmark } from '@/components/BrandWordmark';
@@ -29,7 +29,7 @@ import { NAV_ITEMS, isNavItemActive } from './nav-items';
  */
 export function useDashboardSidebar(): SidebarProps {
   const { t } = useTranslation();
-  const { user } = useOxy();
+  const { user, openAccountDialog } = useOxy();
   const reviewAccess = useQuery({
     queryKey: ['catalog-safety-access', user?.id],
     queryFn: catalogSafetyAccess,
@@ -45,10 +45,21 @@ export function useDashboardSidebar(): SidebarProps {
   const { collapsed, setCollapsed } = useSidebarCollapse();
 
   const goHome = useCallback(() => router.push('/'), [router]);
-  // "Manage" on the account menu is the person's own Settings dialog; the
-  // store's configuration is the "settings" row below.
+  // The person's own Settings dialog is an item in the account menu; the
+  // store's configuration is the "settings" row below. "Manage your Oxy
+  // account" in that menu always opens Oxy's own account screen.
   const settings = useSettingsDialog();
-  const openSettings = useCallback(() => settings.open(), [settings]);
+  const accountMenuItems = useMemo<AccountDialogMenuItem[]>(
+    () => [
+      {
+        key: 'mercaria-settings',
+        label: t('ui.settings.dialog'),
+        icon: 'cog-outline',
+        onPress: () => settings.open(),
+      },
+    ],
+    [settings, t],
+  );
 
   const visible = useMemo(() => NAV_ITEMS.filter((item) => can(item.permission)), [can]);
   const selected = visible.find((item) => isNavItemActive(item, pathname))?.key;
@@ -122,17 +133,18 @@ export function useDashboardSidebar(): SidebarProps {
           <StoreSwitcher compact={railCollapsed} />
           <ProfileButton
             expanded={!railCollapsed}
-            onNavigateManage={openSettings}
+            menuItems={accountMenuItems}
             onAddAccount={() => openAccountDialog()}
           />
         </View>
       ),
     }),
     [
+      accountMenuItems,
       collapsed,
       colors.background,
       goHome,
-      openSettings,
+      openAccountDialog,
       router,
       selected,
       setCollapsed,

@@ -4,7 +4,7 @@ import Head from 'expo-router/head';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { Cart, NearbyLocationResult } from '@mercaria/shared-types';
 import { Text } from '@mercaria/ui';
-import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { RiMapPin2Line } from '@oxy.so/bloom/icons/RiMapPin2Line';
 import { EmptyState } from '@oxy.so/bloom/empty-state';
 import { ScreenShell } from '@/components/shell/ScreenShell';
@@ -55,7 +55,7 @@ export default function NearbyScreen() {
   const { t } = useTranslation();
   const params = useLocalSearchParams<{ product?: string; variant?: string }>();
   const router = useRouter();
-  const { isAuthenticated } = useOxy();
+  const { isAuthenticated, openAccountDialog } = useOxy();
   const addToCart = useAddCartItem();
   const [error, setError] = useState<string | null>(null);
 

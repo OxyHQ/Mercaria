@@ -5,7 +5,7 @@ import { View } from 'react-native';
 import { Image } from '@mercaria/ui';
 import Head from 'expo-router/head';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import type { CatalogStructuredData } from '@mercaria/shared-types';
 import { SectionHeader, Text } from '@mercaria/ui';
 import * as Skeleton from '@oxy.so/bloom/skeleton';

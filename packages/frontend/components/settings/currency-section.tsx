@@ -1,4 +1,4 @@
-import { useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { toast } from '@oxy.so/bloom/toast';
 import type { SettingsPageSection } from '@oxy.so/bloom/settings-modal';
 import { ALL_CURRENCY_CODES, CURRENCY_SYMBOLS, type CurrencyCode } from '@mercaria/shared-types';
