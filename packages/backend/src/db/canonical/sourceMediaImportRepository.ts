@@ -3,7 +3,8 @@
  * owed to a canonical product (`db/schema/canonicalSourceMedia.ts` says why).
  *
  * New rows come from the `mercaria_canonical_source_media_enqueue` trigger of
- * migration `0173`; {@link requestCanonicalSourceMediaImport} is the same insert
+ * migration `0173` (`0176`: nothing for images the product holds, imageless
+ * products first); {@link requestCanonicalSourceMediaImport} is the same insert
  * for the backfill that queues links made before the trigger existed, and its
  * handle is REQUIRED (house-invariants, #584).
  *
@@ -15,7 +16,20 @@
  * approximate by at most one batch per task — a bound, not an exact quota.
  */
 
-import { and, asc, count, eq, gt, inArray, isNotNull, isNull, lte, or, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  eq,
+  gt,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  or,
+  type SQL,
+  sql,
+} from 'drizzle-orm';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { canonicalImages } from '../schema/canonicalCatalog.js';
 import {
@@ -33,30 +47,43 @@ export async function requestCanonicalSourceMediaImport(
   db: DatabaseOrTransaction,
   now: Date = new Date(),
 ): Promise<boolean> {
-  const rows = await db
-    .insert(canonicalSourceMediaImports)
-    .values({
-      canonicalProductId,
-      sourceRecordId,
-      status: 'pending',
-      attempts: 0,
-      // As the enqueue trigger (migration 0176): a product that shows no image first.
-      priority: sql`case when exists (
-        select 1 from ${canonicalImages}
-         where ${canonicalImages.productId} = ${canonicalProductId}
-           and ${canonicalImages.status} = 'active'
-           and ${canonicalImages.fileId} is not null
-      ) then 1 else 0 end`,
-      availableAt: now,
-    })
-    .onConflictDoNothing({
-      target: [
-        canonicalSourceMediaImports.canonicalProductId,
-        canonicalSourceMediaImports.sourceRecordId,
-      ],
-    })
-    .returning({ id: canonicalSourceMediaImports.id });
+  // The trigger's insert (migration 0176), for a link made before it: nothing
+  // when the observation names no image the product lacks; priority 0 when the
+  // product shows none.
+  const rows = await db.execute<{ id: string }>(sql`
+    insert into ${canonicalSourceMediaImports}
+      (id, canonical_product_id, source_record_id, status, attempts, priority, available_at)
+    select gen_random_uuid()::text, ${canonicalProductId}, ${sourceRecordId}, 'pending', 0,
+           case when exists (
+             select 1 from ${canonicalImages}
+              where ${canonicalImages.productId} = ${canonicalProductId}
+                and ${canonicalImages.status} = 'active'
+                and ${canonicalImages.fileId} is not null
+           ) then 1 else 0 end,
+           ${now}
+      from ${sourceRecords} r
+     where r.id = ${sourceRecordId}
+       and jsonb_typeof(r.payload -> 'media') = 'array'
+       and jsonb_array_length(r.payload -> 'media') > 0
+       and ${namesAnUnheldImage(sql`${canonicalProductId}`, sql`r.payload`)}
+    on conflict (canonical_product_id, source_record_id) do nothing
+    returning id`);
   return rows.length === 1;
+}
+
+/**
+ * `payload.media` names a URL the product holds no `canonical_images` row for —
+ * the trigger's condition (migration 0176), shared by the backfill.
+ */
+function namesAnUnheldImage(productId: SQL, payload: SQL): SQL {
+  return sql`exists (
+    select 1 from jsonb_array_elements_text(${payload} -> 'media') as m(url)
+     where not exists (
+       select 1 from ${canonicalImages} ci
+        where ci.product_id = ${productId}
+          and ci.source_url = m.url
+     )
+  )`;
 }
 
 export async function claimCanonicalSourceMediaImports(
@@ -268,8 +295,10 @@ export async function lockCanonicalProductForMedia(
 }
 
 /**
- * One keyset page of ACTIVE source links whose observation names media — the
- * links made before the `0173` trigger existed, which the backfill queues.
+ * One keyset page of ACTIVE source links whose observation names an image the
+ * product does not hold yet — the links made before the `0173` trigger existed,
+ * which the backfill queues. A link whose images the product already holds is
+ * not work (migration `0176`), so it is not on the page.
  */
 export async function findSourceLinksWithMediaPage(
   options: { after?: string; limit: number },
@@ -286,6 +315,7 @@ export async function findSourceLinksWithMediaPage(
      where l.status = 'active'
        and jsonb_typeof(r.payload -> 'media') = 'array'
        and jsonb_array_length(r.payload -> 'media') > 0
+       and ${namesAnUnheldImage(sql`l.product_id`, sql`r.payload`)}
        ${options.after === undefined ? sql`` : sql`and l.id > ${options.after}`}
      order by l.id
      limit ${options.limit}`);

@@ -214,6 +214,16 @@ describe('what is queued, and in what order', () => {
     });
   });
 
+  it('the backfill queues nothing for an observation whose images the product holds', async () => {
+    const productId = await mintProduct('backfill-held');
+    const url = `https://cdn.example.test/${RUN}/bh.jpg`;
+    await attach(productId, await observe('backfill-held-a', [url]));
+    await drain([productId]);
+    const again = await observe('backfill-held-b', [url]);
+    expect(await requestCanonicalSourceMediaImport(productId, again, db)).toBe(false);
+    expect(await jobs(productId)).toHaveLength(0);
+  });
+
   it('the backfill queues at the same priority', async () => {
     const blank = await mintProduct('priority-backfill');
     const record = await observe('priority-backfill-a', [`https://cdn.example.test/${RUN}/pb.jpg`]);
