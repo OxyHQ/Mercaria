@@ -36,7 +36,7 @@
     "@oxy.so/crowdsource-contracts": "^1.1.0",
     "@oxy.so/crowdsource-express": "^1.1.0",
     "@oxy.so/db": "^1.2.0",
-    "@oxy.so/mcp": "1.3.0",
+    "@oxy.so/mcp": "1.3.1",
     "@oxy.so/moovo-sdk": "0.2.1",
     "@peable.to/sdk": "0.2.5-oxy-one.0",
     "@socket.io/redis-adapter": "^8.3.0",
