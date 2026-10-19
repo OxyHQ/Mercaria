@@ -336,7 +336,8 @@ export async function backfillCanonicalSourceMediaQueue(
     linkId: string;
     productId: string;
     sourceRecordId: string;
-    outcome: 'pending' | 'queued' | 'already_queued';
+    /** `not_queued`: already queued, or the product came to hold its images since the page was read. */
+    outcome: 'pending' | 'queued' | 'not_queued';
   }> = [];
   for (const link of links.slice(0, options.limit)) {
     const entry: (typeof entries)[number] = { ...link, outcome: 'pending' };
@@ -348,7 +349,7 @@ export async function backfillCanonicalSourceMediaQueue(
         db,
       ))
         ? 'queued'
-        : 'already_queued';
+        : 'not_queued';
   }
   return {
     target: 'source_media' as const,

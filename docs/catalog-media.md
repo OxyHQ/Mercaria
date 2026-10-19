@@ -150,7 +150,11 @@ When an observation is attached to a canonical product — the ingestion matcher
 #60's backfill minting a product, or an operator's observation: all three write an
 active `canonical_product_source_links` row — the trigger of migration `0173`
 queues `canonical_source_media_imports(product, observation)` in the same
-transaction, if the observation's stored `payload.media` names anything. The
+transaction, if the observation's stored `payload.media` names an image the
+product does not already hold (migration `0176`: ingestion re-observes every
+offer on every run, and 149,000 jobs once piled up for images their products
+already held). A job for a product that shows no image is queued at `priority` 0
+and claimed before any other. The
 dispatcher (`services/catalog-media/source-media-import.ts`) imports each HTTPS
 reference through the adapter as an application-owned PUBLIC file and attaches it
 as a `canonical_images` row with `source_url` and `source_record_id` as provenance,
