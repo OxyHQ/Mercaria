@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Platform, View } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import type { AssetUploadInput } from '@oxy.so/core';
-import { useOxy, useUploadFile } from '@oxy.so/services';
+import { useOxy, useUploadFile } from '@oxy.so/services/ui/client';
 import { FileUpload, type FileUploadFile } from '@oxy.so/bloom/file-upload';
 import { Button } from '@oxy.so/bloom/button';
 import { Text } from '@mercaria/ui';
