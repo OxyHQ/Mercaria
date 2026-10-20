@@ -380,7 +380,9 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // `shopping-thread.ts` LEFT: the shopping thread is a conversation with Alia
     // through her SDK, so Mercaria publishes no message, request or reply shape
     // for it — -1 module, -3 types, -6 properties. Measured by the real guard.
-    'walked 139 contract module(s), 2383 exported type(s), 7973 property signature(s)',
+    // ProductSummary gains `catalogSlug`, a catalogue card's product page: one
+    // property. Measured by the real guard.
+    'walked 139 contract module(s), 2383 exported type(s), 7974 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });

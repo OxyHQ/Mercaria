@@ -34,6 +34,30 @@ threading a viewer through `catalog-hydration.service.ts`'s
 `toProductSummaries`, which takes none, and accepting a per-viewer cache on a
 page that reads the whole active taxonomy to build; neither has been decided.
 
+## A shelf is the stores' listings, then the catalogue
+
+Every product is one row of `canonical_products` and every way to buy it one
+row of `offers` — a Mercaria store's listing is a NATIVE offer. A products
+shelf (the home's "New arrivals" and "On sale", every explore/category/deals
+shelf and its "see all") reads `services/discovery/shelf-products.service.ts`'s
+`findShelfProducts`: the stores' listings first (as before), then the
+catalogue's products (`db/discovery/catalogShelfRepository.ts`) — imaged,
+priced by a CURRENT non-native offer, not sold natively (that product is
+already on the shelf as its listing). Shelves used to read `listings` alone, so
+of 166,000 products the 29 the stores sell were the only ones any browse page
+showed (2026-10-20).
+
+The catalogue answers `new` (`created_at`), `on-sale` (the CHEAPEST current
+offer's discount, deepest first) and `top-rated` (product rating, the same
+review floor); `best-selling`/`most-viewed` are counted for listings only. A
+catalogue card carries `catalogSlug` (it opens `/p/<slug>` and saving it saves
+the product) and is priced at the lowest current offer through search's own
+projection (`buildSearchOfferContexts`). The home and explore's root also show
+the catalogue products filed under NO category — most of the catalogue is not
+classified yet, so a category page shows only what is filed under it; a product
+filed under a SUPPRESSED category is shown nowhere, like that category's
+listings.
+
 ## Why `discovery`, not `feed`
 
 `feed` already names two unrelated things in this repo — the home feed
