@@ -309,6 +309,8 @@ export type CatalogBackfillReasonCode =
   // ── reference_products (ADR 0014) ──────────────────────────────────────────
   | 'reference_product_minted'
   | 'reference_no_identifier'
+  /** A NEW product would have no image: Mercaria accepts no product without one. */
+  | 'reference_no_image'
   | 'identifier_already_owned'
   // ── source_readvance (ADR 0014) ────────────────────────────────────────────
   | 'readvance_matched'
@@ -318,6 +320,8 @@ export type CatalogBackfillReasonCode =
   // ── reference_promotion (ADR 0014) ─────────────────────────────────────────
   | 'reference_product_promoted'
   | 'promotion_awaiting_offer'
+  /** Priced and identified, but it SHOWS no image yet (its imagery is still importing). */
+  | 'promotion_awaiting_image'
   // ── cross-stage ────────────────────────────────────────────────────────────
   | 'out_of_cohort'
   | 'write_publication_disabled'
@@ -353,6 +357,7 @@ export const CATALOG_BACKFILL_REASON_CODES: readonly CatalogBackfillReasonCode[]
   'offer_variant_mismatch',
   'reference_product_minted',
   'reference_no_identifier',
+  'reference_no_image',
   'identifier_already_owned',
   'readvance_matched',
   'readvance_unmatched',
@@ -360,6 +365,7 @@ export const CATALOG_BACKFILL_REASON_CODES: readonly CatalogBackfillReasonCode[]
   'readvance_requested',
   'reference_product_promoted',
   'promotion_awaiting_offer',
+  'promotion_awaiting_image',
   'out_of_cohort',
   'write_publication_disabled',
   'record_error',
@@ -413,6 +419,7 @@ export const CATALOG_BACKFILL_REASON_OUTCOMES: Readonly<
   offer_variant_mismatch: ['review_required'],
   reference_product_minted: ['created'],
   reference_no_identifier: ['skipped'],
+  reference_no_image: ['skipped'],
   identifier_already_owned: ['skipped'],
   readvance_matched: ['matched'],
   readvance_unmatched: ['unmatched'],
@@ -421,6 +428,7 @@ export const CATALOG_BACKFILL_REASON_OUTCOMES: Readonly<
   readvance_requested: ['enqueued'],
   reference_product_promoted: ['created'],
   promotion_awaiting_offer: ['skipped'],
+  promotion_awaiting_image: ['skipped'],
   out_of_cohort: ['skipped'],
   write_publication_disabled: ['skipped'],
   record_error: ['failed'],

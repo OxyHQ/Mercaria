@@ -16,7 +16,11 @@
  *    source-anchored product (ADR 0016) — an ACTIVE source link;
  * 4. at least one ACTIVE offer of it carries a price — a price is persisted
  *    on an offer only under the source's `display_price` right, so this is
- *    "a price somebody may be shown".
+ *    "a price somebody may be shown";
+ * 5. it SHOWS at least one image (an active `canonical_images` row holding an
+ *    Oxy file) — Mercaria accepts no product without one, and its imagery is
+ *    copied after the observation is attached, so a draft waits here
+ *    (`promotion_awaiting_image`) until the copy lands.
  *
  * Promotion goes through `updateCanonicalProduct` via the writer, which stamps
  * the review. A dry run reports what it would promote.
@@ -26,6 +30,7 @@ import { and, asc, eq, gt, inArray, isNotNull, sql, type SQL } from 'drizzle-orm
 import { getDb } from '../../../db/postgres.js';
 import { catalogBackfillRecords } from '../../../db/schema/backfill.js';
 import {
+  canonicalImages,
   canonicalProducts,
   canonicalVariants,
   canonicalVariantSourceLinks,
@@ -134,6 +139,24 @@ async function decideProduct(context: StageContext, productId: string): Promise<
     return {
       reasonCode: 'promotion_awaiting_offer',
       detail: `product ${productId} has no active priced offer yet`,
+    };
+  }
+
+  // Rule 5.
+  const [imaged] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(canonicalImages)
+    .where(
+      and(
+        eq(canonicalImages.productId, productId),
+        eq(canonicalImages.status, 'active'),
+        isNotNull(canonicalImages.fileId),
+      ),
+    );
+  if ((imaged?.count ?? 0) === 0) {
+    return {
+      reasonCode: 'promotion_awaiting_image',
+      detail: `product ${productId} shows no image yet`,
     };
   }
 

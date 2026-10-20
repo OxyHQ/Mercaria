@@ -77,12 +77,22 @@ listings:
    is then re-advanced, so it attaches and its offer materializes in this stage.
    Its matcher verdict may be `manual_review`: within one source the key, not a
    resembling title, is identity.
+   **Mercaria lists no product without at least one image.** A NEW product is
+   minted only from an observation whose `media` names an HTTPS image the
+   source-media importer can copy; otherwise the object is `skipped` /
+   `reference_no_image` and nothing is written. Joining an existing product is
+   not gated (the product already exists; the observation only adds a variant).
 10. **`source_readvance`** — every `unmatched` object whose asserted GTIN an
     ACTIVE identifier now holds is re-asked of the matcher through #62's own
     `advanceObject`, which attaches it and materializes its offer.
 11. **`reference_promotion`** — a draft minted by `reference_products` that
     still holds an active identifier, or an active source link (ADR 0016), and
-    has at least one active priced offer becomes `active`.
+    has at least one active priced offer becomes `active` — once it SHOWS an
+    image (an active `canonical_images` row holding an Oxy file). Until the
+    importer has copied one it stays a draft: `skipped` /
+    `promotion_awaiting_image`, and a later run promotes it. Migration 0177
+    returned to draft every active reference-minted product with no image and no
+    store selling it.
 
 ### The four rules `provisional_products` decides by
 
