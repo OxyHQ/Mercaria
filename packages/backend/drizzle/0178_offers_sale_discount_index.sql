@@ -1,0 +1,15 @@
+-- oxy:deploy-phase=pre
+-- oxy:rollback=derived
+--
+-- The catalogue's "On sale" shelf (`db/discovery/catalogShelfRepository.ts`)
+-- ordered EVERY discounted offer (~37k in production) by discount, each with
+-- an anti-join for a cheaper offer of its product, before taking 12: 1.4 s on
+-- an idle database and 8-31 s on the shared one, which made a cold home feed
+-- take 30 s (2026-10-20). This index stores that discount, so the shelf walks
+-- from the deepest one and stops once its page is full.
+--
+-- Additive (`pre`): the serving image ignores it. A plain CREATE INDEX holds
+-- a SHARE lock on `offers` for the build; the partial predicate keeps the
+-- index to the discounted active offers (~50k of ~308k rows), so the build is
+-- a single scan of `offers`.
+CREATE INDEX "offers_sale_discount_idx" ON "offers" USING btree ((1 - "price_amount"::numeric / "compare_at_price_amount"),"id") WHERE "offers"."status" = 'active' and "offers"."kind" <> 'native' and "offers"."price_amount" is not null and "offers"."compare_at_price_amount" > "offers"."price_amount" and "offers"."compare_at_price_currency" = "offers"."price_currency";
