@@ -58,6 +58,14 @@ classified yet, so a category page shows only what is filed under it; a product
 filed under a SUPPRESSED category is shown nowhere, like that category's
 listings.
 
+`on-sale` never evaluates every discounted offer: it walks
+`offers_sale_discount_idx` (the discount, deepest first) one window at a time
+and checks only that window's offers for a cheaper offer of their product and
+for shelf eligibility, stopping once its page is full. Ranking all ~37k
+discounted offers first cost 1.4 s idle and up to 31 s on the loaded shared
+database, which was most of a 30 s cold home feed (2026-10-20). The home feed is
+cached once for every viewer, like this one: its build reads no viewer either.
+
 ## Why `discovery`, not `feed`
 
 `feed` already names two unrelated things in this repo — the home feed

@@ -120,44 +120,73 @@ async function pageOf(
   return rows.map((row) => String(row.id));
 }
 
+/** The first window of discounted offers `on-sale` walks; it doubles while short. */
+const ON_SALE_FIRST_WINDOW = 200;
+
 /**
  * `on-sale`: products whose CHEAPEST current non-native offer is discounted, by
- * the depth of that discount. Starts from the discounted offers (a few
- * percent of all offers) and keeps one only when no cheaper current offer of
- * the same product exists.
+ * the depth of that discount.
+ *
+ * Walks the discounted offers deepest discount first along
+ * `offers_sale_discount_idx`, one WINDOW at a time, keeping an offer only when
+ * no cheaper current offer of its product exists and the product is on the
+ * shelf. A product appears once, at its deepest such discount (the first time
+ * the walk meets it). The walk stops as soon as `offset + limit` products are
+ * found, so the per-offer checks run on the head of the ranking — never on
+ * every discounted offer, which is what made the cold home feed take 30 s
+ * (2026-10-20). A window that comes back short of its size is the end of the
+ * ranking.
  */
 async function findOnSaleCatalogProductIds(
   db: DatabaseOrTransaction,
   input: FindCatalogProductsBySignalInput,
 ): Promise<string[]> {
-  const rows = await db.execute<{ id: string }>(sql`
-    select p.id
-      from (
-        select distinct on (v.product_id)
-               v.product_id,
-               1 - o.price_amount::numeric / o.compare_at_price_amount AS discount
-          from offers o
-          join canonical_variants v on v.id = o.canonical_variant_id
-         where o.status = 'active' and o.stale_at > now() and o.kind <> 'native'
-           and o.price_amount is not null
-           and o.compare_at_price_amount > o.price_amount
-           and o.compare_at_price_currency = o.price_currency
-           and not exists (
-             select 1 from canonical_variants v2
-               join offers o2 on o2.canonical_variant_id = v2.id
-              where v2.product_id = v.product_id
-                and o2.status = 'active' and o2.stale_at > now() and o2.kind <> 'native'
-                and o2.price_currency = o.price_currency
-                and o2.price_amount < o.price_amount
-           )
-         order by v.product_id, discount desc
-      ) sale
-      join canonical_products p on p.id = sale.product_id
-     where ${categoryScope(input)}
-       and ${shelfEligible()}
-     order by sale.discount desc, p.id desc
-     limit ${input.limit} offset ${input.offset}`);
-  return rows.map((row) => String(row.id));
+  const wanted = input.offset + input.limit;
+  for (let window = Math.max(ON_SALE_FIRST_WINDOW, wanted * 4); ; window *= 2) {
+    const rows = await db.execute<{ offer_id: string; product_id: string | null }>(sql`
+      select sale.id as offer_id, p.id as product_id
+        from (
+          select o.id, v.product_id, o.price_amount, o.price_currency,
+                 (1 - o.price_amount::numeric / o.compare_at_price_amount) as discount
+            from offers o
+            join canonical_variants v on v.id = o.canonical_variant_id
+           where o.status = 'active' and o.kind <> 'native'
+             and o.price_amount is not null
+             and o.compare_at_price_amount > o.price_amount
+             and o.compare_at_price_currency = o.price_currency
+             and o.stale_at > now()
+           order by (1 - o.price_amount::numeric / o.compare_at_price_amount) desc, o.id desc
+           limit ${window}
+        ) sale
+        left join lateral (
+          select p.id
+            from canonical_products p
+           where p.id = sale.product_id
+             and ${categoryScope(input)}
+             and ${shelfEligible()}
+             and not exists (
+               select 1 from canonical_variants v2
+                 join offers o2 on o2.canonical_variant_id = v2.id
+                where v2.product_id = sale.product_id
+                  and o2.status = 'active' and o2.stale_at > now() and o2.kind <> 'native'
+                  and o2.price_currency = sale.price_currency
+                  and o2.price_amount < sale.price_amount
+             )
+        ) p on true
+       order by sale.discount desc, sale.id desc`);
+    const products: string[] = [];
+    const seen = new Set<string>();
+    for (const row of rows) {
+      if (row.product_id === null) continue;
+      const id = String(row.product_id);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      products.push(id);
+    }
+    if (products.length >= wanted || rows.length < window) {
+      return products.slice(input.offset, wanted);
+    }
+  }
 }
 
 /** The compare-at price of each product's cheapest current non-native offer, when discounted. */

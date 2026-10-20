@@ -9,10 +9,19 @@
  *   4. merchants       — "Worth the hype"
  *   5. products        — "On sale"
  *
- * The assembled feed is cached in Redis with a short TTL keyed per viewer; on a
- * cache miss/absence (or any Redis error) it is built from the database and the
+ * The assembled feed is cached in Redis with a short TTL; on a cache
+ * miss/absence (or any Redis error) it is built from the database and the
  * result cached. Redis failures fall back gracefully — they are logged, never
- * thrown. The caching is unchanged by the port.
+ * thrown.
+ *
+ * ## One entry for everybody
+ *
+ * Nothing in the build reads a viewer — `toProductSummaries` takes none, so no
+ * card is marked `saved` — so the feed is the same bytes for every shopper and
+ * is cached ONCE, like the discovery feed. It used to be keyed per viewer,
+ * which gave every signed-in shopper a private entry for an identical feed and
+ * so a full cold build of their own on every visit after the TTL. A personal
+ * section joins the key the day one exists.
  *
  * ## "On sale" never reads the whole catalogue
  *
@@ -42,12 +51,9 @@ import { findShelfProducts } from './discovery/shelf-products.service.js';
 import { getRedisClient, withRedisTimeout } from '../lib/redis.js';
 import { log } from '../lib/logger.js';
 
-/** v5: the product shelves carry catalogue products after the listings (`catalogSlug`). */
-const FEED_CACHE_VERSION = 'v5';
-
-function feedCacheKey(viewerId: string | undefined): string {
-  return `feed:home:${FEED_CACHE_VERSION}:${viewerId ?? 'anon'}`;
-}
+/** v6: one entry for every viewer (see "One entry for everybody"). */
+const FEED_CACHE_VERSION = 'v6';
+const FEED_CACHE_KEY = `feed:home:${FEED_CACHE_VERSION}`;
 
 /** Build the top "category-pills" section from top-level categories. */
 function buildCategoryPills(topLevel: CategoryRecord[]): CategoryPill[] {
@@ -165,13 +171,13 @@ async function buildFeedFromDb(): Promise<Feed> {
 }
 
 /**
- * Get the home feed for a viewer, served from Redis when warm. Cache absence or
- * any Redis error falls back to building from the database; cache writes are best
- * effort and never block the response.
+ * Get the home feed, served from Redis when warm. Cache absence or any Redis
+ * error falls back to building from the database; cache writes are best effort
+ * and never block the response.
  */
-export async function getFeed(viewerId?: string): Promise<Feed> {
+export async function getFeed(): Promise<Feed> {
   const redis = getRedisClient();
-  const key = feedCacheKey(viewerId);
+  const key = FEED_CACHE_KEY;
 
   if (redis) {
     try {

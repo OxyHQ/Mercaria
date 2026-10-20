@@ -1247,6 +1247,13 @@
       "when": 1792482163784,
       "tag": "0177_catalog_requires_an_image",
       "breakpoints": true
+    },
+    {
+      "idx": 178,
+      "version": "7",
+      "when": 1792501275952,
+      "tag": "0178_offers_sale_discount_index",
+      "breakpoints": true
     }
   ]
 }
