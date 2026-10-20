@@ -35,12 +35,14 @@ import { listGtinDemand } from '../../db/ingestion/catalogSourceObjectRepository
 import { insertMatchPolicyVersion } from '../../db/matching/matchPolicyRepository.js';
 import { catalogBackfillRecords, catalogBackfillRuns } from '../../db/schema/backfill.js';
 import {
+  canonicalImages,
   canonicalProducts,
   canonicalProductSourceLinks,
   canonicalVariants,
   canonicalVariantSourceLinks,
   productIdentifiers,
 } from '../../db/schema/canonicalCatalog.js';
+import { canonicalSourceMediaImports } from '../../db/schema/canonicalSourceMedia.js';
 import {
   catalogSourceConfigs,
   catalogSourceObjects,
@@ -85,6 +87,8 @@ const RUN = uuidv7().slice(-12);
 const OPERATOR = `operator-seed-${RUN}`;
 const GTIN = fixtureGtin(`reference-seeding-${RUN}`, 1);
 const NAME = `Tomate triturado ${RUN}`;
+/** A reference product whose observation names no image: Mercaria lists none. */
+const IMAGELESS_GTIN = fixtureGtin(`reference-seeding-${RUN}`, 2);
 
 let db: Database;
 let policySlot: ActivePolicySlot | undefined;
@@ -122,8 +126,24 @@ const referenceRecord: AdapterRecord = {
     brandHint: 'Hacendado',
     identifiers: [{ scheme: 'gtin', value: GTIN }],
     options: [],
-    media: [],
+    // At least one image, or no product is minted (`reference_no_image`).
+    media: [`https://images.openfoodfacts.org/images/products/${GTIN}/front.jpg`],
     facts: [{ key: 'openfacts.nutriscore_grade', value: 'b' }],
+  },
+};
+
+const imagelessRecord: AdapterRecord = {
+  externalType: 'product',
+  externalId: IMAGELESS_GTIN,
+  observedAt: OBSERVED,
+  raw: { code: IMAGELESS_GTIN },
+  normalized: {
+    title: `Garbanzos cocidos ${RUN}`,
+    brandHint: 'Hacendado',
+    identifiers: [{ scheme: 'gtin', value: IMAGELESS_GTIN }],
+    options: [],
+    // A bare provider id is not an image Mercaria can copy.
+    media: ['front-image-1'],
   },
 };
 
@@ -153,6 +173,7 @@ const priceRecord: AdapterRecord = {
 
 let referenceSourceId = '';
 let priceSourceId = '';
+let imagelessSourceId = '';
 let priceMerchantId = '';
 
 async function bringUpSource(input: {
@@ -260,6 +281,23 @@ async function recordFor(runId: string, sourceObjectId: string) {
   return record;
 }
 
+/** What the source-media importer leaves once a product's imagery is copied: one shown image. */
+async function showAnImage(productId: string): Promise<void> {
+  const [link] = await db
+    .select({ sourceRecordId: canonicalProductSourceLinks.sourceRecordId })
+    .from(canonicalProductSourceLinks)
+    .where(eq(canonicalProductSourceLinks.productId, productId))
+    .limit(1);
+  await db.insert(canonicalImages).values({
+    productId,
+    fileId: uuidv7(),
+    sourceRecordId: link?.sourceRecordId ?? '',
+    kind: 'image',
+    status: 'active',
+    position: 0,
+  });
+}
+
 async function seededProducts() {
   return db
     .select()
@@ -316,8 +354,15 @@ beforeAll(async () => {
     // No retailer page to send anyone to: the offer is informational.
     rights: { mayLinkOut: false },
   });
+  imagelessSourceId = await bringUpSource({
+    label: 'imageless',
+    kind: 'marketplace_api',
+    record: imagelessRecord,
+    rights: { maySeedCatalog: true },
+  });
   await ingest(referenceSourceId);
   await ingest(priceSourceId);
+  await ingest(imagelessSourceId);
 }, POLICY_CASE_TIMEOUT_MS);
 
 afterAll(async () => {
@@ -386,6 +431,13 @@ afterAll(async () => {
     await db
       .delete(matchDecisions)
       .where(inArray(matchDecisions.sourceRecordId, safe(ownRecordIds)));
+    // The source links queued the observations' imagery; those jobs cite the
+    // records (RESTRICT) and go first.
+    await db
+      .delete(canonicalSourceMediaImports)
+      .where(inArray(canonicalSourceMediaImports.canonicalProductId, safe(productIds)));
+    // The image `showAnImage` gave a product cites its source record (RESTRICT).
+    await db.delete(canonicalImages).where(inArray(canonicalImages.productId, safe(productIds)));
     await db.delete(sourceRecords).where(inArray(sourceRecords.sourceId, safe(createdSourceIds)));
     await db
       .delete(catalogSourceConfigs)
@@ -514,6 +566,20 @@ describe('ADR 0014: a reference catalogue seeds the product a price attaches to'
     expect((await objectOf(referenceSourceId))?.state).toBe('unmatched');
   });
 
+  it('APPLY mints nothing from an observation that names no image', async () => {
+    const runId = await backfill('reference_products', 'apply');
+    const imageless = await objectOf(imagelessSourceId);
+    const record = await recordFor(runId, imageless?.id ?? '');
+    expect(record?.reasonCode).toBe('reference_no_image');
+    expect(record?.outcome).toBe('skipped');
+    expect(record?.canonicalProductId).toBeNull();
+    const minted = await db
+      .select({ id: canonicalProducts.id })
+      .from(canonicalProducts)
+      .where(like(canonicalProducts.slug, `%-${IMAGELESS_GTIN}`));
+    expect(minted).toEqual([]);
+  });
+
   it('a second APPLY run converges on the same product', async () => {
     await backfill('reference_products', 'apply');
     expect(await seededProducts()).toHaveLength(1);
@@ -562,7 +628,22 @@ describe('ADR 0014: a reference catalogue seeds the product a price attaches to'
     expect((await resolveOfferSources([unnamed], db)).size).toBe(0);
   });
 
-  it('reference_promotion makes the seeded product active', async () => {
+  it('reference_promotion waits for an image, then makes the seeded product active', async () => {
+    const waiting = await backfill('reference_promotion', 'apply');
+    const [draft] = await seededProducts();
+    expect(draft?.status).toBe('draft');
+    const [awaiting] = await db
+      .select()
+      .from(catalogBackfillRecords)
+      .where(
+        and(
+          eq(catalogBackfillRecords.runId, waiting),
+          eq(catalogBackfillRecords.subjectKey, `canonical_product:${draft?.id ?? ''}`),
+        ),
+      );
+    expect(awaiting?.reasonCode).toBe('promotion_awaiting_image');
+
+    await showAnImage(draft?.id ?? '');
     const runId = await backfill('reference_promotion', 'apply');
     const [product] = await seededProducts();
     const [record] = await db

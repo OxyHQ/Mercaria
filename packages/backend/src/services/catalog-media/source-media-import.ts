@@ -71,6 +71,7 @@ import {
   OxyFilesError,
 } from './oxy-files.js';
 import { catalogMediaKind } from './policy.js';
+import { importableMediaUrl } from './source-media-urls.js';
 
 export interface SourceMediaLimits {
   readonly maxPerRecord: number;
@@ -101,16 +102,6 @@ export class SourceMediaImportPacer {
       return { ok: true };
     }
     return { ok: false, waitMs: (this.started[0] ?? at) + RATE_WINDOW_MS - at };
-  }
-}
-
-/** An HTTPS reference without credentials, or nothing. A bare provider id is not a source. */
-function importableUrl(reference: string): string | undefined {
-  try {
-    const url = new URL(reference);
-    return url.protocol === 'https:' && !url.username && !url.password ? url.toString() : undefined;
-  } catch {
-    return undefined;
   }
 }
 
@@ -150,7 +141,7 @@ async function planSourceMediaJob(
   const sources = [
     ...new Set(
       (await findSourceRecordMedia(job.sourceRecordId, db))
-        .map(importableUrl)
+        .map(importableMediaUrl)
         .filter((url): url is string => url !== undefined),
     ),
   ].slice(0, limits.maxPerRecord);
