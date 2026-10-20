@@ -17,6 +17,7 @@ import {
 } from '../../db/canonical/canonicalProductRepository.js';
 import {
   findSourceLinksWithMediaPage,
+  findImagelessProductSourceLinksPage,
   requestCanonicalSourceMediaImport,
 } from '../../db/canonical/sourceMediaImportRepository.js';
 import { findApplicationFileIds } from '../../db/oxyFiles/applicationFileRepository.js';
@@ -356,6 +357,49 @@ export async function backfillCanonicalSourceMediaQueue(
     mode: options.mode,
     entries,
     resumeAfterId: links.length > options.limit ? links[options.limit - 1]?.linkId : null,
+    retryIds: [] as string[],
+  };
+}
+
+/**
+ * Queue ONE observation — the newest that names media — for each product that
+ * shows no image, by product id (`--after` is a product id). The product cards
+ * that are blank today, at the head of the queue (priority 0), without the ~7
+ * jobs per product `source_media` would queue for all their links.
+ */
+export async function backfillImagelessProductSourceMedia(
+  options: { mode: 'preview' | 'apply'; limit: number; after?: string },
+  db: Database = getDb(),
+) {
+  assertBounds(options);
+  const links = await findImagelessProductSourceLinksPage(
+    { ...options, limit: options.limit + 1 },
+    db,
+  );
+  const entries: Array<{
+    linkId: string;
+    productId: string;
+    sourceRecordId: string;
+    /** `not_queued`: already queued, or the product came to hold the images since. */
+    outcome: 'pending' | 'queued' | 'not_queued';
+  }> = [];
+  for (const link of links.slice(0, options.limit)) {
+    const entry: (typeof entries)[number] = { ...link, outcome: 'pending' };
+    entries.push(entry);
+    if (options.mode === 'apply')
+      entry.outcome = (await requestCanonicalSourceMediaImport(
+        link.productId,
+        link.sourceRecordId,
+        db,
+      ))
+        ? 'queued'
+        : 'not_queued';
+  }
+  return {
+    target: 'source_media_imageless' as const,
+    mode: options.mode,
+    entries,
+    resumeAfterId: links.length > options.limit ? links[options.limit - 1]?.productId : null,
     retryIds: [] as string[],
   };
 }

@@ -41,6 +41,7 @@ const {
   backfillCanonicalDescriptionImages,
   backfillCanonicalImageDuplicates,
   backfillCanonicalSourceMediaQueue,
+  backfillImagelessProductSourceMedia,
 } = await import('../application-media-backfill.js');
 const { resolveMedia } = await import('../urls.js');
 
@@ -328,6 +329,47 @@ describe('application-owned media backfill', () => {
       .from(canonicalSourceMediaImports)
       .where(eq(canonicalSourceMediaImports.canonicalProductId, productId));
     expect(queued).toHaveLength(1);
+  });
+
+  it('queues ONE observation — the newest — per product that shows no image', async () => {
+    const productId = await mintProduct('imageless');
+    const older = await observation('imageless-old', {
+      title: 'old',
+      media: [`https://supplier.example.test/${RUN}/old.jpg`],
+    });
+    const newer = await observation('imageless-new', {
+      title: 'new',
+      media: [`https://supplier.example.test/${RUN}/new.jpg`],
+    });
+    for (const sourceRecordId of [older, newer]) {
+      await insertCanonicalProductSourceLink(db, {
+        productId,
+        sourceRecordId,
+        method: 'connector_declared',
+        matchRule: 'test.app-media',
+      });
+    }
+    // Links made before 0173: no job.
+    await db
+      .delete(canonicalSourceMediaImports)
+      .where(eq(canonicalSourceMediaImports.canonicalProductId, productId));
+    let after: string | undefined;
+    let found: { outcome: string; sourceRecordId: string } | undefined;
+    for (let page = 0; page < 100 && !found; page += 1) {
+      const report = await backfillImagelessProductSourceMedia(
+        { mode: 'apply', limit: 500, ...(after ? { after } : {}) },
+        db,
+      );
+      found = report.entries.find((entry) => entry.productId === productId);
+      if (!report.resumeAfterId) break;
+      after = report.resumeAfterId;
+    }
+    expect(found).toMatchObject({ outcome: 'queued', sourceRecordId: newer });
+    const queued = await db
+      .select()
+      .from(canonicalSourceMediaImports)
+      .where(eq(canonicalSourceMediaImports.canonicalProductId, productId));
+    expect(queued.map((job) => [job.sourceRecordId, job.priority])).toEqual([[newer, 0]]);
   });
 });
 

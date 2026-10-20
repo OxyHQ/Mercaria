@@ -65,6 +65,7 @@ on:
           - canonical_description_image
           - canonical_image_duplicates
           - source_media
+          - source_media_imageless
       limit:
         description: Rows in this batch (1 to 500)
         type: number
@@ -127,7 +128,7 @@ jobs:
             *) echo "::error::unknown mode '$MODE'"; exit 1 ;;
           esac
           case "$TARGET" in
-            canonical_image | category_image | brand_logo | canonical_description_image | canonical_image_duplicates | source_media) ;;
+            canonical_image | category_image | brand_logo | canonical_description_image | canonical_image_duplicates | source_media | source_media_imageless) ;;
             *) echo "::error::unknown target '$TARGET'"; exit 1 ;;
           esac
           if [[ ! "$LIMIT" =~ ^[1-9][0-9]{0,2}$ ]] || ((LIMIT > 500)); then
