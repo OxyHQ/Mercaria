@@ -33,22 +33,17 @@ import { findActiveCategories, type CategoryRecord } from '../db/catalog/categor
 import {
   findActiveListingsForStores,
   findListingChildren,
-  findNewestActiveListings,
-  findOnSaleListings,
   type ListingImageRecord,
   type ListingRecord,
 } from '../db/catalog/listingRepository.js';
-import {
-  toCategoryImage,
-  toProductSummaries,
-  toStoreSummary,
-} from './catalog-hydration.service.js';
+import { toCategoryImage, toStoreSummary } from './catalog-hydration.service.js';
 import { config } from '../config/index.js';
+import { findShelfProducts } from './discovery/shelf-products.service.js';
 import { getRedisClient, withRedisTimeout } from '../lib/redis.js';
 import { log } from '../lib/logger.js';
 
-/** v4 includes category Oxy file IDs and expires URL-only projections. */
-const FEED_CACHE_VERSION = 'v4';
+/** v5: the product shelves carry catalogue products after the listings (`catalogSlug`). */
+const FEED_CACHE_VERSION = 'v5';
 
 function feedCacheKey(viewerId: string | undefined): string {
   return `feed:home:${FEED_CACHE_VERSION}:${viewerId ?? 'anon'}`;
@@ -134,15 +129,23 @@ async function buildFeedFromDb(): Promise<Feed> {
     .filter((c) => c.parentId === null)
     .slice(0, config.feed.categoriesSize);
   const children = allCategories.filter((c) => c.parentId !== null);
+  const activeCategoryIds = allCategories.map((c) => c.id);
 
-  const [newArrivalsListings, onSaleListings] = await Promise.all([
-    findNewestActiveListings(config.feed.newArrivalsSize),
-    findOnSaleListings({ limit: config.feed.onSaleSize }),
-  ]);
-
+  // A Mercaria store's listings first, then the catalogue's products
+  // (`services/discovery/shelf-products.service.ts`).
   const [newArrivals, onSale, merchants] = await Promise.all([
-    toProductSummaries(newArrivalsListings),
-    toProductSummaries(onSaleListings),
+    findShelfProducts({
+      signal: 'new',
+      scope: { kind: 'home', activeCategoryIds },
+      limit: config.feed.newArrivalsSize,
+      offset: 0,
+    }),
+    findShelfProducts({
+      signal: 'on-sale',
+      scope: { kind: 'home', activeCategoryIds },
+      limit: config.feed.onSaleSize,
+      offset: 0,
+    }),
     buildMerchants(),
   ]);
 
