@@ -29,6 +29,12 @@ case "$1 $2" in
   'ecs run-task')
     printf '%s\n' "$task_arn"
     ;;
+  'ecs describe-services')
+    case "${FAKE_SERVICE_MODE:-fargate}" in
+      ec2) echo '{"capacityProviderStrategy":[{"capacityProvider":"oxy-ec2","weight":1,"base":0}]}' ;;
+      *) echo '{"launchType":"FARGATE","capacityProviderStrategy":[]}' ;;
+    esac
+    ;;
   'ecs describe-tasks')
     polls_file="$FAKE_AWS_STATE/polls"
     polls=$(( $(cat "$polls_file" 2>/dev/null || echo 0) + 1 ))
@@ -80,6 +86,7 @@ run_case() {
   output=$(
     PATH="$test_directory/bin:$PATH" \
       FAKE_AWS_MODE="$mode" FAKE_AWS_STATE="$state" \
+      APP="${CASE_APP:-}" FAKE_SERVICE_MODE="${CASE_SERVICE_MODE:-}" \
       CLUSTER=oxy-cluster TASK_DEFINITION=arn:td/mercaria:9 CONTAINER_NAME=mercaria \
       NETWORK_CONFIGURATION='{"awsvpcConfiguration":{"subnets":["s"]}}' \
       COMMAND_JSON='["bun","x.js"]' TASK_LABEL=fixture STARTED_BY=fixture \
@@ -119,6 +126,13 @@ run_case never-ran 1 true 30 'container never ran'
 run_case logs-fail 0 true 30 'could not read' 'fixture completed'
 # The wait is bounded, and the message says the task was NOT stopped.
 run_case never-stops 1 '' 2 'STILL RUNNING and was not stopped'
+# No service named: FARGATE, and the service is never asked.
+run_case ok 0 '' 30 'launch type FARGATE' '!describe-services'
+# A Fargate service: its launch type.
+CASE_APP=mercaria CASE_SERVICE_MODE=fargate run_case ok 0 '' 30 'launch type FARGATE' 'fixture completed'
+# A service on the EC2 capacity: its strategy, never FARGATE (an EC2-only
+# revision is refused there).
+CASE_APP=mercaria CASE_SERVICE_MODE=ec2 run_case ok 0 '' 30 'capacity provider strategy' '!--launch-type' 'fixture completed'
 
 if ((failures > 0)); then
   echo "$failures run-ecs-task assertion(s) failed"

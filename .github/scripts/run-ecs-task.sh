@@ -7,6 +7,10 @@
 #                         the deploy's one-shots). A task still running at the
 #                         deadline is a red step that names the task — it is
 #                         NOT stopped, and the message says so.
+#   APP (or SERVICE)      the ECS service whose capacity the task runs on: its
+#                         capacity provider strategy when it has one (oxy-cluster's
+#                         EC2 capacity, whose revisions are EC2-only), otherwise
+#                         its launch type. Without it the task runs on FARGATE.
 #   PRINT_TASK_LOG        `true` prints the container's CloudWatch stream after
 #                         the task stops. Opt-in: this repository is public, so
 #                         only a caller whose command prints nothing sensitive
@@ -39,11 +43,30 @@ OVERRIDES=$(jq -nc \
   --argjson command "$COMMAND_JSON" \
   '{containerOverrides: [{name: $name, command: $command}]}')
 
-echo "running $TASK_LABEL on $CLUSTER using $TASK_DEFINITION"
+# Where the service runs. A hard-coded FARGATE refuses the EC2-only revision of
+# a service on the EC2 capacity and fails the deploy before the rollout.
+SERVICE_NAME="${SERVICE:-${APP:-}}"
+PLACEMENT=(--launch-type FARGATE)
+PLACEMENT_LABEL="launch type FARGATE"
+if [[ -n "$SERVICE_NAME" ]]; then
+  SERVICE_JSON=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE_NAME" \
+    --query 'services[0]' --output json)
+  STRATEGY=$(jq -c '.capacityProviderStrategy // []' <<<"$SERVICE_JSON")
+  if [[ "$STRATEGY" != "[]" ]]; then
+    PLACEMENT=(--capacity-provider-strategy "$STRATEGY")
+    PLACEMENT_LABEL="capacity provider strategy $STRATEGY"
+  else
+    LAUNCH_TYPE=$(jq -r '.launchType // "FARGATE"' <<<"$SERVICE_JSON")
+    PLACEMENT=(--launch-type "$LAUNCH_TYPE")
+    PLACEMENT_LABEL="launch type $LAUNCH_TYPE"
+  fi
+fi
+
+echo "running $TASK_LABEL on $CLUSTER using $TASK_DEFINITION ($PLACEMENT_LABEL)"
 TASK_ARN=$(aws ecs run-task \
   --cluster "$CLUSTER" \
   --task-definition "$TASK_DEFINITION" \
-  --launch-type FARGATE \
+  "${PLACEMENT[@]}" \
   --count 1 \
   --network-configuration "$NETWORK_CONFIGURATION" \
   --overrides "$OVERRIDES" \
