@@ -64,6 +64,13 @@
 - **The backend compiles `strict: false`.** Without `strictNullChecks` TypeScript
   does not narrow a union on a boolean-literal discriminant, so every
   discriminated union uses a STRING discriminant.
+- **`req.ip` is the client, and nothing else derives one.** `createApp()` sets
+  `trust proxy` to `@oxy.so/core`'s `oxyTrustProxy` before any middleware: it
+  trusts the ALB (a private peer) and a Cloudflare edge hop and nothing further
+  out, so the address is right whether or not the hostname is proxied and a
+  forged `X-Forwarded-For` is never believed. Every IP-keyed control reads
+  `req.ip`; never parse a forwarding header by hand, never set a hop count
+  (`client-ip.test.ts`).
 - **A provider id is NEVER a Mercaria primary key** — a plain indexed column;
   their key space changes between test and live mode.
 - **Immutability is a trigger.** Append-only means UPDATE *and* DELETE unless
