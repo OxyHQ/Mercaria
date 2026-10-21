@@ -18,7 +18,7 @@
       "name": "@mercaria/backend",
       "version": "1.0.0",
       "dependencies": {
-        "@clarity.surf/sdk": "0.8.0",
+        "@clarity.surf/sdk": "0.9.0",
         "@goway.to/sdk": "0.3.0",
         "@mercaria/contracts": "workspace:*",
         "@mercaria/shared-types": "workspace:*",
@@ -27,7 +27,7 @@
         "@oxy.so/crowdsource": "^1.2.0",
         "@oxy.so/crowdsource-contracts": "^1.1.0",
         "@oxy.so/crowdsource-express": "^1.1.0",
-        "@oxy.so/db": "^1.2.0",
+        "@oxy.so/db": "^1.3.0",
         "@oxy.so/mcp": "1.3.1",
         "@oxy.so/moovo-sdk": "0.2.1",
         "@peable.to/sdk": "0.2.5-oxy-one.0",
@@ -301,7 +301,7 @@
         "@oxy.so/app-preset": "3.3.0",
         "@oxy.so/bloom": "15.0.0",
         "@oxy.so/core": "6.9.1",
-        "@oxy.so/expo-splash": "^1.0.0",
+        "@oxy.so/expo-splash": "^1.1.0",
         "@oxy.so/services": "12.4.0",
         "@react-native-async-storage/async-storage": "^2.2.0",
         "@react-native-community/hooks": "^100.1.0",
@@ -642,7 +642,7 @@
 
     "@borewit/text-codec": ["@borewit/text-codec@0.2.1", "", {}, "sha512-k7vvKPbf7J2fZ5klGRD9AeKfUvojuZIQ3BT5u7Jfv+puwXkUBUT5PVyMDfJZpy30CBDXGMgw7fguK/lpOMBvgw=="],
 
-    "@clarity.surf/sdk": ["@clarity.surf/sdk@0.8.0", "", {}, "sha512-XVdWZ61XMpfdt533GIoHq7LsKk4Op8vvTbQNJcPgkPbdkHrciKvO25x7MP95+4RRRtz5/zewoLzDDtIlJY6c/A=="],
+    "@clarity.surf/sdk": ["@clarity.surf/sdk@0.9.0", "", {}, "sha512-au0wNJLwHmE+SM9P35MRPjpjNpRprFJmVTeBODJZu/69Q/5chJty0ZPIET9qfns9G3fgeZY6i8VwOAusFyDzzw=="],
 
     "@drizzle-team/brocli": ["@drizzle-team/brocli@0.10.2", "", {}, "sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w=="],
 
@@ -946,11 +946,11 @@
 
     "@oxy.so/crowdsource-express": ["@oxy.so/crowdsource-express@1.1.0", "", { "peerDependencies": { "@oxy.so/crowdsource-contracts": "^1.1.0", "express": ">=4" } }, "sha512-j36JutvSU/5ZMfX8GVdAGsMGttCQ5PWo4sTlObPrST0vTaJim54YT3JhpF53Zy3FJPzihpPJL6o65ABFmt9owQ=="],
 
-    "@oxy.so/db": ["@oxy.so/db@1.2.0", "", { "peerDependencies": { "drizzle-orm": "^0.45.2", "postgres": "^3.4.9" } }, "sha512-EXgrZDYFcIA+r9jZJfOOfAMZ0T1SLiuXKkN4q4WPAhbFDIbRx6R4JrkYoZ77J9f04n8wfFVhAduHHHprE6hS1w=="],
+    "@oxy.so/db": ["@oxy.so/db@1.3.0", "", { "peerDependencies": { "drizzle-orm": "^0.45.2", "postgres": "^3.4.9" }, "bin": { "oxy-db-check-migration-locks": "dist/cjs/bin/check-migration-locks.js" } }, "sha512-erRxIElQt6D56kKuEOaiGVs/JkYW+rNepu1vxzuw6FQLhgknM3RAUMyonI14Ms4j2fZGECIW3jIVj1XGEENgPA=="],
 
     "@oxy.so/doctor": ["@oxy.so/doctor@1.2.0", "", { "bin": { "oxy-doctor": "src/cli.mjs" } }, "sha512-4ABIvA5eg6r5WDB9KUZcbF3ACW89CLwzNG2vACxCXJmz8ZBnQAD6qIU1/bV0/RXib+V2Ph3DQ7GxaJkspE6G1g=="],
 
-    "@oxy.so/expo-splash": ["@oxy.so/expo-splash@1.0.0", "", { "dependencies": { "@expo/image-utils": ">=0.7.0", "xml2js": "^0.6.2" }, "peerDependencies": { "expo": ">=51.0.0", "expo-splash-screen": ">=0.27.0", "react": ">=18.0.0", "react-native": ">=0.74.0" } }, "sha512-v1jMNwb0WpHhDuGss8kNOi7rYWlIA2H96d8ejHiB3H12iKkrNBNA02vFfG7Q8Xrd2SlSu1vrfU8Tl4B33s3cVA=="],
+    "@oxy.so/expo-splash": ["@oxy.so/expo-splash@1.1.0", "", { "dependencies": { "@expo/image-utils": ">=0.7.0", "xml2js": "^0.6.2" }, "peerDependencies": { "expo": ">=51.0.0", "expo-splash-screen": ">=0.27.0", "react": ">=18.0.0", "react-native": ">=0.74.0" } }, "sha512-oLlRHLc0pzEIsujaPiOOAJqrAXo41pNxT4zN3WxkvwU0VNWj8AQ+h+KxPPvSmWqnck1F/pCUfFYAfftHtp4ATw=="],
 
     "@oxy.so/mcp": ["@oxy.so/mcp@1.3.1", "", { "dependencies": { "@modelcontextprotocol/sdk": "^1.32.1", "@oxy.so/contracts": "^5.0.0", "zod": "^4.5.4" } }, "sha512-TlxuBZHVhN7bCD4ebV9vE2khu2oai4nGAtrXZm9s56nZDzvNzoS3Zxl/npNvxP9Gzgsl80K2COlrIeVCvY4wPQ=="],
 
@@ -2994,7 +2994,7 @@
 
     "@oxy.so/core/zod": ["zod@3.25.76", "", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
 
-    "@oxy.so/expo-splash/@expo/image-utils": ["@expo/image-utils@0.10.3", "", { "dependencies": { "@expo/require-utils": "^56.1.5", "@expo/spawn-async": "^1.8.0", "chalk": "^4.0.0", "getenv": "^2.0.0", "jimp-compact": "0.16.1", "parse-png": "^2.1.0", "semver": "^7.6.0" } }, "sha512-FgVp21Q05GRi08XwkzdZbBb/sBgCcP66snxlyN/HyisdtTcSbTr1qV5wkXYjq+6Q1xllXiKLmCwjDvydoN2vyg=="],
+    "@oxy.so/expo-splash/xml2js": ["xml2js@0.6.2", "", { "dependencies": { "sax": ">=0.6.0", "xmlbuilder": "~11.0.0" } }, "sha512-T4rieHaC1EXcES0Kxxj4JWgaUQHDk+qwHcYOCFHfiwKz7tOVPLq7Hjq9dM1WCMhylqMEfP7hMcOIChvotiZegA=="],
 
     "@oxy.so/protocol/zod": ["zod@3.25.76", "", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
 
@@ -3507,10 +3507,6 @@
     "@modelcontextprotocol/sdk/express/serve-static": ["serve-static@2.2.1", "", { "dependencies": { "encodeurl": "^2.0.0", "escape-html": "^1.0.3", "parseurl": "^1.3.3", "send": "^1.2.0" } }, "sha512-xRXBn0pPqQTVQiC8wyQrKs2MOlX24zQ0POGaj0kultvoOCstBQM5yvOhAVSUwOMjQtTvsPWoNCHfPGwaaQJhTw=="],
 
     "@modelcontextprotocol/sdk/express/type-is": ["type-is@2.0.1", "", { "dependencies": { "content-type": "^1.0.5", "media-typer": "^1.1.0", "mime-types": "^3.0.0" } }, "sha512-OZs6gsjF4vMp32qrCbiVSkrFmXtG/AZhY3t0iAMrMBiAZyV9oALtXO8hsrHbMXF9x6L3grlFuwW2oAz7cav+Gw=="],
-
-    "@oxy.so/expo-splash/@expo/image-utils/@expo/require-utils": ["@expo/require-utils@56.1.5", "", { "dependencies": { "@babel/code-frame": "^7.20.0", "@babel/core": "^7.25.2", "@babel/plugin-transform-modules-commonjs": "^7.24.8" }, "peerDependencies": { "typescript": "^5.0.0 || ^5.0.0-0 || ^6.0.0" }, "optionalPeers": ["typescript"] }, "sha512-3wsdJLSpELhRPEMZCCREqAAFRGG23BUWJHGKIUxyqGkWvy5KPdzlBxGlVVb/6h9gNOflqgTtvTWaP2EuHoQ1HQ=="],
-
-    "@oxy.so/expo-splash/@expo/image-utils/semver": ["semver@7.8.5", "", { "bin": { "semver": "bin/semver.js" } }, "sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA=="],
 
     "@oxy.so/services/@peable.to/sdk/@peable.to/shared-types": ["@peable.to/shared-types@0.5.0", "", { "dependencies": { "@peable.to/contracts": "0.1.0" } }, "sha512-ffRUGOJi/6O2Cohq3PrryNm7lFNFMaL0eit4mO5aKPzSE35bfdHuPvPW8yz2tXwQ3mBESC2BlkeyO7Km2T8kTw=="],
 
