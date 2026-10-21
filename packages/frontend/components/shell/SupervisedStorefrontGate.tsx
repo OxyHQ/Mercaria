@@ -4,7 +4,7 @@ import { Redirect, Slot, Stack, useLocalSearchParams, usePathname, useRouter } f
 import { useQueryClient } from '@tanstack/react-query';
 import { useOxy } from '@oxy.so/services';
 import { useSupervision } from '@oxy.so/services/ui';
-import { AppShell } from '@oxy.so/bloom/app-shell';
+import { AppShell, AppShellPanel } from '@oxy.so/bloom/app-shell';
 import { Button } from '@oxy.so/bloom/button';
 import { Loading } from '@oxy.so/bloom/loading';
 import { EmptyState } from '@oxy.so/bloom/empty-state';
@@ -101,9 +101,12 @@ export function SupervisedStorefrontGate({ children }: { children: ReactNode }) 
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AppShell
         variant="feed"
-        panel
+        panels
         scroll={Platform.OS === 'web' ? 'document' : 'fixed'}
-        header={
+        header={null}
+      >
+        <AppShellPanel
+          header={
           <View className="flex-row items-center justify-between gap-3 px-4 py-3">
             <Button
               appearance="plain"
@@ -121,9 +124,10 @@ export function SupervisedStorefrontGate({ children }: { children: ReactNode }) 
               {t('supervisedShopping.account')}
             </Button>
           </View>
-        }
-      >
-        {Platform.OS === 'web' ? <Slot /> : <Stack screenOptions={{ headerShown: false }} />}
+          }
+        >
+          {Platform.OS === 'web' ? <Slot /> : <Stack screenOptions={{ headerShown: false }} />}
+        </AppShellPanel>
       </AppShell>
     </GestureHandlerRootView>
   );

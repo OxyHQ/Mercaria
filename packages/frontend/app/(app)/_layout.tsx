@@ -1,8 +1,8 @@
 import { SupervisedStorefrontGate } from '@/components/shell/SupervisedStorefrontGate';
 import { Slot, Stack } from 'expo-router';
-import { Platform, useWindowDimensions } from 'react-native';
+import { Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { AppShell } from '@oxy.so/bloom/app-shell';
+import { AppShell, AppShellPanel } from '@oxy.so/bloom/app-shell';
 import { CartFlightProvider } from '@mercaria/ui';
 import { STOREFRONT_NAV_FROM } from '@/lib/layout';
 import { AppErrorBoundary } from '@/components/error-boundary';
@@ -45,7 +45,6 @@ function StorefrontLayout() {
   useNotificationSetup();
 
   const sidebar = useStorefrontSidebar();
-  const { width } = useWindowDimensions();
 
   // Bloom's `AppShell` owns the responsive layout: the sidebar in flow from
   // 976px (a drawer below it), the bottom bar below it, and the framed
@@ -78,7 +77,7 @@ function StorefrontLayout() {
           <AppShell
             variant="feed"
             safeArea
-            panel
+            panels
             // WEB scrolls the DOCUMENT (sticky navigation, the address bar
             // collapsing, scroll restoration); NATIVE is one fixed frame and each
             // page owns its scroller (`ScreenShell`).
@@ -90,12 +89,17 @@ function StorefrontLayout() {
             bottomBar={<BottomTabBar />}
             navFrom={STOREFRONT_NAV_FROM}
             contentWidth={CONTENT_WIDTH}
-            gutter={width >= STOREFRONT_NAV_FROM ? 8 : 0}
+            // Framed while the sidebar is in flow; the shell drops the gutter
+            // itself below that, so no window width here.
+            gutter={8}
             navigationGap={4}
           >
-            {/* Web only: a referral link opens in the browser, never the app. */}
-            {IS_WEB ? <ReferralDisclosureNotice /> : null}
-            {routed}
+            {/* Every page is one reading panel; the shell frames it. */}
+            <AppShellPanel>
+              {/* Web only: a referral link opens in the browser, never the app. */}
+              {IS_WEB ? <ReferralDisclosureNotice /> : null}
+              {routed}
+            </AppShellPanel>
           </AppShell>
         </GestureHandlerRootView>
       </ShoppingActionsProvider>
