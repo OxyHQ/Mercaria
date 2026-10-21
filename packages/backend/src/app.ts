@@ -15,6 +15,7 @@ import { ecosystemActivityMiddleware } from './ecosystemActivity';
  */
 
 import express from 'express';
+import { oxyTrustProxy } from '@oxy.so/core/server';
 import cors from 'cors';
 import { log } from './lib/logger.js';
 // Routes
@@ -166,6 +167,16 @@ import { createMercariaMcpHttpService } from './capabilities/mercaria-mcp-http.j
  */
 export function createApp(): express.Express {
   const app = express();
+  // FIRST, before any middleware reads `req.ip`: the general and actor rate
+  // limits, guest-session farming (`networkRangeOf`) and guest order recovery
+  // all key on it. The ALB appends the peer it saw to `X-Forwarded-For`, and a
+  // hostname behind the Cloudflare proxy adds Cloudflare's edge after the
+  // client. With no setting `req.ip` was the ALB's private address — one key
+  // for every caller; `trust proxy = 1` would be Cloudflare's edge behind the
+  // proxy. `oxyTrustProxy` trusts the private socket peer and a Cloudflare edge
+  // hop and nothing further out, so `req.ip` is the client either way and a
+  // forged header is never believed.
+  app.set('trust proxy', oxyTrustProxy);
   app.use(ecosystemActivityMiddleware);
   const mercariaMcpHttpService = createMercariaMcpHttpService();
 
