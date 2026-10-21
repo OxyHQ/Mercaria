@@ -45,6 +45,12 @@
       "expo-web-browser",
       "expo-asset",
       "@oxy.so/services/plugins/withOxySharedPermissions",
+      [
+        "expo-build-properties",
+        {
+          "android": { "gifEnabled": false, "webpEnabled": false }
+        }
+      ],
       "@oxy.so/app-preset/plugin/withOxyAndroidRelease",
       "expo-notifications",
       [
@@ -58,7 +64,8 @@
         "expo-audio",
         {
           "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone, to dictate messages and to talk with Alia while you shop",
-          "recordAudioAndroid": true
+          "recordAudioAndroid": true,
+          "enableBackgroundPlayback": false
         }
       ],
       [
