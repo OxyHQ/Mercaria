@@ -101,6 +101,7 @@ const EXCLUDED: Readonly<Record<string, readonly string[]>> = {
     'src/services/catalog-media/__tests__/oxy-files.test.ts',
     'src/services/catalog-media/__tests__/verify.test.ts',
     'src/services/goway/__tests__/places.test.ts',
+    'src/services/ingestion/adapters/__tests__/product-feed-contract.test.ts',
     'src/services/moovo/__tests__/moovo-registration.test.ts',
     'src/services/payments/__tests__/checkout-rail.test.ts',
     'src/services/payments/__tests__/native-rail.test.ts',
