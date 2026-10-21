@@ -31,7 +31,7 @@
     "@mercaria/contracts": "workspace:*",
     "@mercaria/shared-types": "workspace:*",
     "@oxy.so/contracts": "5.3.0",
-    "@oxy.so/core": "6.5.0",
+    "@oxy.so/core": "6.7.0",
     "@oxy.so/crowdsource": "^1.2.0",
     "@oxy.so/crowdsource-contracts": "^1.1.0",
     "@oxy.so/crowdsource-express": "^1.1.0",
