@@ -110,7 +110,9 @@ jobs:
                   'name': name,
                   'content': content,
                   'ttl': 300,
-                  'proxied': False,
+                  # The ACM validation record must stay DNS-only; the endpoint is
+                  # Cloudflare-proxied like every Oxy API host (2026-10-21).
+                  'proxied': name == 'mcp.mercaria.co',
               })
               if result.get('success'):
                   print(f'CREATED {name} -> {content}')
