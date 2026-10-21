@@ -90,7 +90,7 @@ whole merchant-facing statement of scope was one sentence, *"imports your
 products, stock and orders on a schedule"*, which is accurate and silent about
 everything it omits. Everything that could have said more was either not
 rendered or could not express it: `descriptor.resources` had **zero** occurrences
-across all three client packages, the nine `CHANNEL_LIMITATION_CODES` name no
+across all three client packages, the eight `CHANNEL_LIMITATION_CODES` name no
 entity at all, and Shopify's only two limitations are `informational` — which the
 channels list filters out, so it displayed none.
 
@@ -1175,11 +1175,11 @@ Each is a named contract rather than a stub that lies.
   first page of a real backfill as a sample without committing it is work in
   `connector-sync.service` rather than here. A feed's preview IS wired, through
   #63's own `POST .../versions/:v/preview`.
-- **Feed UPLOADS** have no screen. The endpoint exists and takes raw bytes with
-  no body parser; a file picker that streams to it is a client concern with its
-  own platform differences, and an upload lives on one task's disk
-  (`feed_uploads.status='missing'` is a real state), so a URL feed is the path
-  this issue gives screens to.
+- **Feed UPLOADS** have no screen. The protocol exists — a direct upload session
+  whose parts the client PUTs straight to storage (`docs/feed-importer.md`
+  §"Uploading a feed file") — and a file picker that hashes a file and sends its
+  parts is a client concern with its own platform differences, so a URL feed is
+  the path this issue gives screens to.
 - **A record-level error EXPORT for CONNECTORS** (#87 management 9). The
   per-record TABLE this entry said was owed now exists — #303's
   `sync_run_record_failures`, read at

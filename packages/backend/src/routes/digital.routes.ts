@@ -22,11 +22,11 @@
  *
  * ## This is NOT a raw-body mount and must not become one
  *
- * The five routers mounted before `express.json()` are a closed set asserted per
- * mount, and nothing here belongs in it: the creator registers a file that was
+ * The routers mounted before `express.json()` are a closed set asserted per
+ * mount (`docs/house-invariants.md`), and nothing here belongs in it: the creator registers a file that was
  * uploaded STRAIGHT TO OXY and posts its `file_id`, so no request on this router
- * carries bytes. If a future upload route ever needs the stream, that is a sixth
- * mount and a sixth test file — a decision for a human, not a line added here.
+ * carries bytes. If a future upload route ever needs the stream, that is one more
+ * mount and one more test file — a decision for a human, not a line added here.
  *
  * ## There is no `/internal/*` surface here
  *

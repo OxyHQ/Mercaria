@@ -22,7 +22,7 @@ import { boundedBytes, decompressBytes, type FeedByteMeter } from '../bytes.js';
 import { FeedImportRefusal } from '../errors.js';
 import { openFeedStream } from '../fetch.js';
 import { redactFeedMessage, redactFeedUrl } from '../redact.js';
-import { detectUploadContainer, sanitizeUploadFilename, uploadPath } from '../upload.js';
+import { detectUploadContainer, sanitizeUploadFilename } from '../upload.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -203,13 +203,23 @@ describe('uploads: containers and path tricks (security 3)', () => {
     expect(() => sanitizeUploadFilename('')).toThrow(FeedImportRefusal);
   });
 
-  it('refuses a storage key that is not the shape this module mints', () => {
-    // The bytes never land under a merchant-supplied name: the key is CSPRNG
-    // and this refusal is what stops a value that reached the column some other
-    // way becoming a path.
-    expect(() => uploadPath('../../etc/passwd')).toThrow(FeedImportRefusal);
-    expect(() => uploadPath('a/b')).toThrow(FeedImportRefusal);
-    expect(uploadPath('AAAAAAAAAAAA')).toContain('AAAAAAAAAAAA');
+  it('never puts an upload on, or reads one from, a task disk', () => {
+    // An upload is a private Oxy file the client sent straight to storage; a
+    // filesystem path in this module would be a merchant's bytes on ONE task,
+    // gone with the next deployment, and a name a value could become.
+    const source = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), '..', 'upload.ts'),
+      'utf8',
+    );
+    expect(source).toContain('mintPrivateDownloadUrls');
+    for (const forbidden of [
+      "'node:fs'",
+      "'node:fs/promises'",
+      'createWriteStream',
+      'stagingDir',
+    ]) {
+      expect(source.includes(forbidden), forbidden).toBe(false);
+    }
   });
 });
 

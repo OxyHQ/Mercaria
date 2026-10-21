@@ -20,13 +20,17 @@
  * The mapping is worth reading for the two entries that are NOT the obvious
  * ones. A size or ratio cap is `schema_drift`, not `parse_failure`: the bytes
  * parsed fine, the feed simply became something Mercaria will not accept, and
- * that is a change in the source's shape. And a missing staged upload is
- * `source_outage`, not `auth_failure` — the artefact went with the task that
- * received it, which is Mercaria's own infrastructure and is retryable once the
- * merchant re-uploads.
+ * that is a change in the source's shape. And a missing upload is
+ * `source_outage`, not `auth_failure` — storage no longer serves the file (it was
+ * deleted or taken down), which is Mercaria's own infrastructure and is answered
+ * once the merchant uploads it again.
  */
 
-import type { CatalogSourceFetchFailureKind } from '@mercaria/shared-types';
+import {
+  FEED_REFUSAL_REASONS,
+  type CatalogSourceFetchFailureKind,
+  type FeedRefusalReason,
+} from '@mercaria/shared-types';
 
 /**
  * Why a whole feed could not be read.
@@ -46,50 +50,8 @@ import type { CatalogSourceFetchFailureKind } from '@mercaria/shared-types';
  * catalogue with nothing in it, which a complete enumeration is entitled to
  * report and which legitimately retires everything the source had.
  */
-export type FeedRefusalReason =
-  | 'configuration_missing'
-  | 'configuration_incomplete'
-  | 'unsupported_format'
-  | 'forbidden_container'
-  | 'insecure_url'
-  | 'blocked_address'
-  | 'upstream_unavailable'
-  | 'upstream_status'
-  | 'unauthorized'
-  | 'download_too_large'
-  | 'decompressed_too_large'
-  | 'compression_ratio_exceeded'
-  | 'too_many_records'
-  | 'record_too_large'
-  | 'malformed_feed'
-  | 'entity_declaration_refused'
-  | 'record_path_not_found'
-  | 'no_records_mapped'
-  | 'upload_missing'
-  | 'stage_unavailable';
-
-export const FEED_REFUSAL_REASONS: readonly FeedRefusalReason[] = [
-  'configuration_missing',
-  'configuration_incomplete',
-  'unsupported_format',
-  'forbidden_container',
-  'insecure_url',
-  'blocked_address',
-  'upstream_unavailable',
-  'upstream_status',
-  'unauthorized',
-  'download_too_large',
-  'decompressed_too_large',
-  'compression_ratio_exceeded',
-  'too_many_records',
-  'record_too_large',
-  'malformed_feed',
-  'entity_declaration_refused',
-  'record_path_not_found',
-  'no_records_mapped',
-  'upload_missing',
-  'stage_unavailable',
-];
+export type { FeedRefusalReason };
+export { FEED_REFUSAL_REASONS };
 
 /**
  * A feed the importer will not read, and why.

@@ -125,10 +125,10 @@ no second store, no `src/models/` and no rollback target.
 
 ## Things that break silently if you change them
 
-- **Six routers must stay mounted BEFORE `express.json()`** — the webhook mounts
-  plus the feed-import upload route, which buffers its own body. Enumerated in
-  `docs/house-invariants.md` and asserted against the real middleware chain PER
-  MOUNT; a seventh mount brings its own test file.
+- **Six webhook routers stay mounted BEFORE `express.json()`**
+  (`docs/house-invariants.md`), asserted PER MOUNT on the real chain.
+- **No request body carries a feed** (the proxy refuses >100 MB): parts go to
+  storage presigned; validation is a polled 202 job (`docs/feed-importer.md`).
 - **Three moderation ESCAPES are closed in pre-existing commerce code**, invisible
   from `services/moderation/`: `catalog-write.service.updateListing` refuses to set
   `restricted` or to leave it; `archiveListing` refuses a restricted listing at all

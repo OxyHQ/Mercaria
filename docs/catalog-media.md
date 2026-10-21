@@ -233,6 +233,7 @@ like a file id that no entry holds, and on a trigger that disagrees with it.
 | `return_request_evidence`, `retail_service_request_evidence`, `supplier_agreement_evidence`, `retail_resale_evidence`, `retail_compliance_evidence`, `merchant_claim_evidence`, `relationship_evidence` | the evidence row's `id` | its `file_id` / `oxy_file_id` | the uploader | retained (evidence) |
 | `order_item_image` | `order_items.id` | an Oxy URL in `.image_url` | store / seller | retained — order history is never rewritten |
 | `digital_asset_file` | the storage key itself | `asset_files.storage_key` | the application (adopted or uploaded); the creator only for a row the storage backfill has not moved yet | retained |
+| `feed_upload` | `feed_uploads.id` | `.storage_key` — a feed file the client uploaded straight to storage | application (private) | retained — a run whose file Oxy stopped serving refuses with `upload_missing` |
 
 **How a write becomes a reference.** A trigger of migration `0172` on every
 holding table (`mercaria_oxy_file_reference_touch`) enqueues the ENTITY into

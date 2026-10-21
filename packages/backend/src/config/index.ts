@@ -3542,7 +3542,10 @@ export interface FeedImportConfig {
   readonly enabled: boolean;
   /** AES-256-GCM key for a feed's stored credential. 64 hex chars; validated on first use. */
   readonly authEncryptionKey: string;
-  /** Where a fetched feed and an upload are staged on the task's own disk. */
+  /**
+   * Where a run's JSONL STAGE is written on the task's own disk. An uploaded feed
+   * is never here: it is a private Oxy file the client sent straight to storage.
+   */
   readonly stagingDir: string;
   /** Hard cap on bytes read from a source, BEFORE decompression. */
   readonly maxDownloadBytes: number;

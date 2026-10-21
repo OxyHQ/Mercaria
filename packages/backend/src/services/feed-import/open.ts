@@ -12,6 +12,8 @@
  * This module reaches no database, which is what lets the adapter import it
  * directly: the #62 isolation gate scans `services/ingestion/adapters/` for a
  * repository, a database handle or drizzle, and there is none here to reach.
+ * An upload is read from Oxy Files' storage through the one Oxy Files adapter
+ * (`upload.ts` → `catalog-media/oxy-files.ts`), never from a local disk.
  */
 
 import type { FeedAuthorization } from './auth.js';
@@ -60,14 +62,14 @@ export async function openFeedOrigin(
         'The mapping version declares an upload origin and names no artefact.',
       );
     }
-    const bytes = await openStagedUpload(key);
+    const opened = await openStagedUpload(key, signal);
     return {
       kind: 'ok',
-      bytes,
+      bytes: opened.bytes,
       // An upload has no HTTP validators, and inventing one would make the next
       // conditional request present a validator no host ever issued.
       validators: { etag: null, lastModified: null },
-      close: () => undefined,
+      close: opened.close,
     };
   }
 

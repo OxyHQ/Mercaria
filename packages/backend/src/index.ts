@@ -216,6 +216,13 @@ connectPostgres()
       import('./services/curation/curation-dispatcher.js')
         .then(({ startCurationDispatcher }) => startCurationDispatcher())
         .catch((err) => log.general.error({ err }, 'Curation dispatcher import failed'));
+      // Run whole-feed validations (#63) in the background: a validation reads
+      // and stages the whole feed, which outlives any request. On EVERY task,
+      // same lease shape, renewed while a job runs. No switch — a validation is
+      // a read that writes a report, and the request that queues one answers 202.
+      import('./services/feed-import/validation-dispatcher.js')
+        .then(({ startFeedValidationDispatcher }) => startFeedValidationDispatcher())
+        .catch((err) => log.general.error({ err }, 'Feed validation dispatcher import failed'));
       // Schedule and page external ingestion runs (#62). On EVERY task, same
       // lease shape, and TWO claims rather than one: a source lease says which
       // task feeds a source, a run lease says which task is driving the current

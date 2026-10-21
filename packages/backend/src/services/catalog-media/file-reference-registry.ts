@@ -413,6 +413,20 @@ const DEFINITIONS: readonly FileReferenceEntityDefinition[] = [
       }
     },
   },
+  {
+    // A feed file the client uploaded straight to storage, a PRIVATE file of
+    // the Mercaria application (`feed_uploads.storage_key`). Referenced while the
+    // row lives: an unconsumed upload's row is swept after seven days and a
+    // consumed one goes with its configuration, and either deletion withdraws
+    // the reference so Oxy collects the file. No detach: a run whose file Oxy
+    // stopped serving refuses with `upload_missing`, which names the remedy.
+    entityType: 'feed_upload',
+    ownerKind: 'application',
+    owner: 'application',
+    entityId: 'feed_uploads.id',
+    registration: 'trigger',
+    sources: [single('feed_uploads', 'id', 'storage_key', 'file_id')],
+  },
 ];
 
 const BY_TYPE = new Map(DEFINITIONS.map((definition) => [definition.entityType, definition]));

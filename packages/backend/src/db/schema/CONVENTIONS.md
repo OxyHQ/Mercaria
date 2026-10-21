@@ -3353,10 +3353,11 @@ provenance: the older copies are retired with the reason #57 already defines as
 "a newer offer took this one's active source mapping".
 ## The universal feed importer (#63)
 
-Seven tables — `feed_configurations`, `feed_configuration_versions`,
+Nine tables — `feed_configurations`, `feed_configuration_versions`,
 `feed_field_mappings`, `feed_value_mappings`, `feed_uploads`,
-`feed_import_reports`, `feed_import_report_entries` — and no change to any
-existing one. Full reference: `docs/feed-importer.md`.
+`feed_upload_sessions`, `feed_import_reports`, `feed_import_report_entries`,
+`feed_validation_jobs` — and no change to any existing one. Full reference:
+`docs/feed-importer.md`.
 
 **A 1:1 extension of the #62 source, one layer further down.**
 `feed_configurations.source_id` is `UNIQUE`, so there is still exactly one source
@@ -3429,9 +3430,31 @@ would make retention fail silently (the `analytics_events` posture).
 class, no `..`, no leading dot, bounded — written that way rather than as a list
 of forbidden sequences, because a denylist over path syntax is what every
 traversal bug has walked around. The stored artefact is never named after it:
-`storage_key` is CSPRNG and shape-CHECKed. Only a plain file and a single-member
-gzip are accepted (`FEED_COMPRESSIONS`), so an accepted artefact has no entry
-paths at all.
+`storage_key` is the Oxy `file_id` of a PRIVATE application file the client
+uploaded straight to storage (as `asset_files.storage_key` is), shape-CHECKed,
+and registered as a `feed_upload` reference by the `0172` trigger function so Oxy
+keeps it exactly as long as the row. Only a plain file and a single-member gzip
+are accepted (`FEED_COMPRESSIONS`), so an accepted artefact has no entry paths at
+all.
+
+**A direct upload is a SESSION row, and its CHECKs are biconditionals.**
+`feed_upload_sessions`: `completed` exactly when it names its `feed_uploads` row,
+`failed` exactly when it carries a failure from `FEED_UPLOAD_SESSION_FAILURES`,
+a part-sending or verifying session always names storage's upload, and a
+`proof_required` one always names a range inside the file. Storage keys an OPEN
+upload by its bytes, so `feed_upload_sessions_open_upload_key` (partial, open
+statuses only) is what stops two configurations completing one set of parts.
+
+**A cited upload has no deadline.** `feed_uploads.expires_at` is NULL exactly
+when `consumed_at` is set (`feed_uploads_retention_shape_check`): drafting a
+version that cites an upload consumes it in the draft's own transaction, because
+an active version re-reads it on every pass and a revert cites it again. So the
+sweep never meets the `restrict` key from `feed_configuration_versions.upload_id`.
+
+**`feed_validation_jobs` is an outbox**: one OPEN job per version (partial
+unique), a lease whose owner and deadline are present exactly while
+`processing`, `completed` exactly when it cites its report, `failed` exactly when
+it carries a `FEED_REFUSAL_REASONS` member.
 
 **Two PROTECTED columns**, both on `feed_configuration_versions`:
 `auth_ciphertext` (an AES-256-GCM envelope, the `connections` situation) and
@@ -3444,8 +3467,9 @@ four already exist on the #62 source or on `source_records`, and a second copy
 would be two answers to one question with the loser being whichever the
 dispatcher does not read. Stated here because their ABSENCE is the decision.
 
-**Three retention targets**, all in `expiryTargets.ts`: uploads at 7 days (the
-bytes live on one task's disk and do not survive a deployment), reports at 90
+**Five retention targets**, all in `expiryTargets.ts`: uploads no version cites
+at 7 days (a cited one has none), upload sessions and validation jobs at 7 days
+(records that something ran, swept before what they produced), reports at 90
 days (an active version cites one), entries at 30 days — deliberately SHORTER
 than the report that counts them, because the counts are what is read months
 later and the per-record detail is what a merchant downloads this week. Entries

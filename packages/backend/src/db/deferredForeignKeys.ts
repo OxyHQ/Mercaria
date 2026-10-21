@@ -1514,6 +1514,21 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'feed_configuration_versions.created_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'feed_configuration_versions.activated_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'feed_uploads.uploaded_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'feed_upload_sessions.opened_by_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'feed_upload_sessions.oxy_upload_id',
+    reason:
+      'An Oxy Files large-upload session id (Oxy ADR 0043 stage 4b). Oxy owns the session and ' +
+      'aborts it on its own clock; Mercaria stores only the id it drives the upload with.',
+  },
+  {
+    column: 'feed_upload_sessions.oxy_file_id',
+    reason:
+      OXY_FILE +
+      ' The answer storage gave a session BEFORE Mercaria accepted the bytes; the holding row is ' +
+      'the `feed_uploads` row it completes into.',
+  },
+  { column: 'feed_validation_jobs.requested_by_oxy_user_id', reason: OXY_ACCOUNT },
   {
     column: 'feed_import_reports.requested_by_oxy_user_id',
     reason:

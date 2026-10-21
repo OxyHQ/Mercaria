@@ -6,11 +6,20 @@ import {
   activateFeedVersionSchema,
   createFeedConfigurationSchema,
   draftFeedVersionSchema,
+  feedUploadPartsSchema,
+  feedUploadProofSchema,
+  openFeedUploadSessionSchema,
 } from '../../middleware/feed-import-schemas.js';
 import {
   activateFeedVersionHandler,
+  completeFeedUploadSessionHandler,
   declareFeedOwnerScope,
   createFeedHandler,
+  feedUploadPartsHandler,
+  getFeedUploadSessionHandler,
+  getFeedValidationHandler,
+  openFeedUploadSessionHandler,
+  proveFeedUploadSessionHandler,
   downloadFeedReportHandler,
   draftFeedVersionHandler,
   getFeedHandler,
@@ -22,7 +31,6 @@ import {
   previewFeedVersionHandler,
   revertFeedVersionHandler,
   syncFeedHandler,
-  uploadFeedHandler,
   validateFeedVersionHandler,
 } from '../../controllers/feed-import.controller.js';
 
@@ -48,23 +56,20 @@ import {
  * split this API then could not change without breaking it (the `fees` router's
  * reasoning, one surface over).
  *
- * ## The upload route reads the request as a STREAM, and no parser may touch it
+ * ## No route here carries a feed
  *
- * `express.raw` would BUFFER the body, which for a feed is gigabytes in memory —
- * exactly what issue acceptance 1 forbids. So there is no body parser on the
- * upload route at all: the handler iterates `req` and writes to disk as the
- * bytes arrive, bounded by `FEED_IMPORT_MAX_DOWNLOAD_BYTES`. The global
- * `express.json()` leaves the stream alone because it matches on content type,
- * which is why the handler REFUSES a JSON content type rather than finding an
- * empty stream and reporting an empty feed. The metadata rides the query string
- * for the same reason a multipart parser is absent — two fields do not justify a
- * second parser over attacker-supplied input.
+ * A feed is gigabytes, and the proxy in front of this API refuses a request
+ * body over 100 MB. So an upload is a SESSION: the client declares the file
+ * (size, SHA-256, label, compression), PUTs presigned parts straight to storage,
+ * and completes; every request here is a small JSON body under the global
+ * `express.json()`. A whole-feed validation is likewise a job the client polls,
+ * because reading a feed outlives the load balancer's idle timeout.
  */
 const router = Router({ mergeParams: true });
 
 /**
- * Its own bucket (`rl:feed-import:`), and a small one for the two routes that
- * FETCH.
+ * Its own bucket (`rl:feed-import:`), and a small one for the routes that
+ * FETCH or make storage do work.
  *
  * A preview and a sync each cause an outbound request to a host the merchant
  * chose, so an unmetered surface is a way to make Mercaria hammer a third party
@@ -127,6 +132,12 @@ router.post(
   validateFeedVersionHandler,
 );
 
+router.get(
+  '/:configurationId/versions/:versionId/validations/:validationId',
+  requireStorePermission('channels:write'),
+  getFeedValidationHandler,
+);
+
 router.post(
   '/:configurationId/versions/:versionId/activate',
   requireStorePermission('channels:write'),
@@ -146,11 +157,42 @@ router.get(
   listFeedUploadsHandler,
 );
 
+// Direct uploads: the client PUTs the feed's parts to storage itself, so no
+// request here carries a feed (`upload-session.service.ts`).
 router.post(
-  '/:configurationId/uploads',
+  '/:configurationId/upload-sessions',
   requireStorePermission('channels:write'),
   fetchLimiter,
-  uploadFeedHandler,
+  validateBody(openFeedUploadSessionSchema),
+  openFeedUploadSessionHandler,
+);
+
+router.get(
+  '/:configurationId/upload-sessions/:sessionId',
+  requireStorePermission('channels:write'),
+  getFeedUploadSessionHandler,
+);
+
+router.post(
+  '/:configurationId/upload-sessions/:sessionId/parts',
+  requireStorePermission('channels:write'),
+  validateBody(feedUploadPartsSchema),
+  feedUploadPartsHandler,
+);
+
+router.post(
+  '/:configurationId/upload-sessions/:sessionId/complete',
+  requireStorePermission('channels:write'),
+  fetchLimiter,
+  completeFeedUploadSessionHandler,
+);
+
+router.post(
+  '/:configurationId/upload-sessions/:sessionId/proof',
+  requireStorePermission('channels:write'),
+  fetchLimiter,
+  validateBody(feedUploadProofSchema),
+  proveFeedUploadSessionHandler,
 );
 
 router.get(
