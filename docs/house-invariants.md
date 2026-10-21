@@ -103,14 +103,22 @@
 
 ## Raw-body mounts
 
-Six routers must stay mounted BEFORE `express.json()` in `app.ts`, and one more
-route buffers its own body:
+Six routers must stay mounted BEFORE `express.json()` in `app.ts`:
 
 `/channels/webhooks` · `/webhooks/crowdsource` · `/webhooks/stripe` and
 `/webhooks/stripe/connect` · `/webhooks/peable` (ADR 0009) ·
 `/webhooks/suppliers/:supplierAccountId` · `/webhooks/oxy-files` (Oxy ADR 0043
-D9, gated on `OXY_FILE_EVENTS_ENABLED`), plus the feed-import upload route
-(`express.raw`, refuses a JSON content type).
+D9, gated on `OXY_FILE_EVENTS_ENABLED`).
+
+**No route reads a large body, and none may start to.** Every Oxy API hostname
+sits behind a proxy that refuses a request body over 100 MB and gives an origin
+100 s to answer (the ALB drops an idle connection at 60 s). The feed-import
+upload route that streamed a raw body to the task's disk is gone: a feed file is
+a direct upload session whose parts the client PUTs straight to Oxy Files'
+storage on presigned URLs, and a whole-feed validation is a job the request
+enqueues and the client polls (`docs/feed-importer.md`). A creator's digital
+deliverable already worked this way. A file that has to reach Mercaria goes to
+storage first; a request carries its id.
 
 Asserted against the REAL middleware chain by
 `routes/__tests__/stripe-webhook.integration.test.ts`,

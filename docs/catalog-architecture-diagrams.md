@@ -105,6 +105,7 @@ flowchart LR
         M_Store_access["Store access"]
         M_Canonical_source_imagery__Oxy_ADR_0043_["Canonical source imagery (Oxy ADR 0043)"]
         M_Oxy_file_usage__Oxy_ADR_0043_["Oxy file usage (Oxy ADR 0043)"]
+        M_Feed_uploads_and_validations___63_["Feed uploads and validations (#63)"]
     end
     subgraph outside["Pre-existing tables the epic attaches to"]
         direction TB
@@ -118,6 +119,10 @@ flowchart LR
         X_categories[("categories")]
         X_collections[("collections")]
         X_connections[("connections")]
+        X_feed_configuration_versions[("feed_configuration_versions")]
+        X_feed_configurations[("feed_configurations")]
+        X_feed_import_reports[("feed_import_reports")]
+        X_feed_uploads[("feed_uploads")]
         X_listing_images[("listing_images")]
         X_listings[("listings")]
         X_order_items[("order_items")]
@@ -205,6 +210,10 @@ flowchart LR
     M_Store_access --> X_stores
     M_Canonical_source_imagery__Oxy_ADR_0043_ --> X_canonical_products
     M_Canonical_source_imagery__Oxy_ADR_0043_ --> X_source_records
+    M_Feed_uploads_and_validations___63_ --> X_feed_configuration_versions
+    M_Feed_uploads_and_validations___63_ --> X_feed_configurations
+    M_Feed_uploads_and_validations___63_ --> X_feed_import_reports
+    M_Feed_uploads_and_validations___63_ --> X_feed_uploads
 ```
 
 **2 foreign keys point the other way** — from a table outside the epic into
@@ -219,7 +228,7 @@ Measured, not asserted. Every edge below is a `.insert(…)`, `.update(…)` or 
 the table's drizzle symbol, or a raw-SQL write naming it, found in a non-test module under
 `packages/backend/src`. The node on the left is the **directory** the writing module sits in.
 
-**27 modules**, **22 writing directories**,
+**28 modules**, **23 writing directories**,
 **5 tables written from more than one directory** and
 **5 written by no application code at all**. The exceptions are drawn by name,
 because they are the whole reason to look at this graph: `catalog-table-ownership.md` opens with
@@ -239,6 +248,7 @@ flowchart LR
     W_db_digital["db/digital"]
     W_db_digitalRetail["db/digitalRetail"]
     W_db_discovery["db/discovery"]
+    W_db_feedImport["db/feedImport"]
     W_db_navigation["db/navigation"]
     W_db_oxyFiles["db/oxyFiles"]
     W_db_productTypes["db/productTypes"]
@@ -277,6 +287,7 @@ flowchart LR
     M_Store_access(["Store access"])
     M_Canonical_source_imagery__Oxy_ADR_0043_(["Canonical source imagery (Oxy ADR 0043)"])
     M_Oxy_file_usage__Oxy_ADR_0043_(["Oxy file usage (Oxy ADR 0043)"])
+    M_Feed_uploads_and_validations___63_(["Feed uploads and validations (#63)"])
     W_db_canonical -->|"1"| M_Canonical_source_imagery__Oxy_ADR_0043_
     W_db_catalog -->|"1"| M_Connector_pins
     W_db_catalog -->|"1"| M_Native_variant_images
@@ -293,6 +304,7 @@ flowchart LR
     W_db_digitalRetail -->|"6"| M_Digital_retail_procurement_and_fulfilment
     W_db_digitalRetail -->|"4"| M_Digital_retail_supply
     W_db_discovery -->|"2"| M_Discovery
+    W_db_feedImport -->|"2"| M_Feed_uploads_and_validations___63_
     W_db_navigation -->|"5"| M_Navigation
     W_db_oxyFiles -->|"1"| M_Authoring
     W_db_oxyFiles -->|"6"| M_Oxy_file_usage__Oxy_ADR_0043_
@@ -372,7 +384,7 @@ HTTP-reachability half, which no source scan can answer.
 
 ## 3. Cardinality, by module
 
-All 102 tables created by a migration at or after `0088`
+All 104 tables created by a migration at or after `0088`
 appear below exactly once, each under the module that owns it. Every relationship is a foreign
 key drizzle will emit; the label is the child columns and the `ON DELETE` action.
 
@@ -1177,6 +1189,28 @@ erDiagram
 | `oxy_file_event_actions` | `0172` | `db/oxyFiles` (insert) |
 | `oxy_application_files` | `0175` | `db/oxyFiles` (insert) |
 
+### Feed uploads and validations (#63)
+
+```mermaid
+erDiagram
+    feed_upload_sessions {
+    }
+    feed_validation_jobs {
+    }
+    feed_configurations ||--o{ feed_upload_sessions : "configuration_id · cascade"
+    feed_uploads |o--o{ feed_upload_sessions : "feed_upload_id · restrict"
+    feed_configuration_versions ||--o{ feed_validation_jobs : "version_id · cascade"
+    feed_configurations ||--o{ feed_validation_jobs : "configuration_id · cascade"
+    feed_import_reports |o--o{ feed_validation_jobs : "report_id · restrict"
+```
+
+Also names, from outside the epic: `feed_configuration_versions`, `feed_configurations`, `feed_import_reports`, `feed_uploads`.
+
+| Table | Created by | Written by |
+|---|---|---|
+| `feed_upload_sessions` | `0180` | `db/feedImport` (insert/update) |
+| `feed_validation_jobs` | `0180` | `db/feedImport` (insert/update) |
+
 ## 4. What the derivation found
 
 Counts, so that a diagram that quietly stopped measuring anything is visible as a number that
@@ -1184,18 +1218,18 @@ moved. Every one of these is re-derived on each run and floored by the gate.
 
 | Fact | Value |
 |---|---|
-| Tables in the population | 102 |
-| Modules they are grouped into | 27 |
-| Foreign keys out of an epic table | 192 |
+| Tables in the population | 104 |
+| Modules they are grouped into | 28 |
+| Foreign keys out of an epic table | 197 |
 | Foreign keys into one, from outside the epic | 2 |
-| Pre-existing tables the epic attaches to | 23 |
+| Pre-existing tables the epic attaches to | 27 |
 | Relationships the schema proves are 1:1 | 6 |
-| Relationships whose parent is optional (nullable FK) | 83 |
-| Directories that write an epic table | 22 |
+| Relationships whose parent is optional (nullable FK) | 85 |
+| Directories that write an epic table | 23 |
 | Tables written from more than one directory | 5 |
 | Tables no application code writes | 5 |
 
-`ON DELETE` across those 192 foreign keys: **49** `cascade`, **2** `no action`, **138** `restrict`, **3** `set null`.
+`ON DELETE` across those 197 foreign keys: **52** `cascade`, **2** `no action`, **140** `restrict`, **3** `set null`.
 
 ### The relationships the schema proves are 1:1
 

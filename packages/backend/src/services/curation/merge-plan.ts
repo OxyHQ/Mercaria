@@ -2399,6 +2399,15 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
     reason: 'The same `role` vocabulary, on the error report.',
   },
   {
+    table: 'feed_upload_sessions',
+    disposition: 'not_an_entity_reference',
+    reason:
+      '`status`, `compression` and `failure` are the upload’s own lifecycle, its declared ' +
+      'compression and why storage or Mercaria refused it; the references beside them are a ' +
+      'feed configuration and a feed upload (both FK) and two Oxy Files ids — none is a ' +
+      'mergeable catalogue entity.',
+  },
+  {
     table: 'generic_compatibility_relations',
     disposition: 'discriminates_foreign_keys',
     reason:

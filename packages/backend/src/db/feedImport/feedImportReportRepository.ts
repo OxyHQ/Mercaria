@@ -1,6 +1,7 @@
 /**
  * Reads and writes for `feed_import_reports`, `feed_import_report_entries` and
- * `feed_uploads` (#63 acceptance 4, Mapping UX 7).
+ * `feed_uploads` (#63 acceptance 4, Mapping UX 7). Upload SESSIONS are
+ * `feedUploadSessionRepository.ts`.
  *
  * ## The counters and the entries are written together, and the CHECK is why
  *
@@ -21,7 +22,7 @@
  * precisely so an active version's evidence cannot go without the version.
  */
 
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type {
   FeedCompression,
   FeedImportReportMode,
@@ -34,7 +35,12 @@ import type {
 import { FEED_TOKEN_BEARING_ISSUE_CODES } from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../postgres.js';
 import { RETENTION_SECONDS } from '../expiryTargets.js';
-import { feedImportReportEntries, feedImportReports, feedUploads } from '../schema/feedImport.js';
+import {
+  feedConfigurations,
+  feedImportReportEntries,
+  feedImportReports,
+  feedUploads,
+} from '../schema/feedImport.js';
 
 export type FeedImportReportRow = typeof feedImportReports.$inferSelect;
 export type FeedImportReportEntryRow = typeof feedImportReportEntries.$inferSelect;
@@ -251,21 +257,64 @@ export async function listFeedUploads(
 }
 
 /**
- * Mark an upload's state.
+ * CONSUME an upload: a mapping version is about to cite it.
  *
- * `consumed` carries its timestamp (a CHECK pairs them); `missing` deliberately
- * does not — it is a discovery about the filesystem rather than an event, and
- * dating it would suggest somebody knows when the artefact went.
+ * Runs in the draft's own transaction and BEFORE the version insert, so the row
+ * lock it takes is held across that insert: the expiry sweep cannot delete the
+ * upload between the check and the citation. The upload must belong to the
+ * SAME configuration — an upload id is a capability over a stored file, and a
+ * version citing another feed's upload would read somebody else's catalogue.
+ *
+ * `expires_at` is cleared because a version is immutable history: an active one
+ * re-reads its upload on every pass and a revert drafts a copy citing the same
+ * one (`feed_uploads_retention_shape_check`). Returns `undefined` when there is
+ * no such upload in this configuration, or it is no longer usable.
  */
-export async function setFeedUploadStatus(
+export async function consumeFeedUpload(
   db: DatabaseOrTransaction,
-  input: { uploadId: string; status: FeedUploadStatus; now: Date },
-): Promise<void> {
-  await db
+  input: { uploadId: string; configurationId: string; now: Date },
+): Promise<FeedUploadRow | undefined> {
+  const [row] = await db
     .update(feedUploads)
     .set({
-      status: input.status,
-      consumedAt: input.status === 'consumed' ? input.now : null,
+      status: 'consumed',
+      // A repeat citation keeps the FIRST consumption instant.
+      consumedAt: sql`coalesce(${feedUploads.consumedAt}, ${input.now.toISOString()}::timestamptz)`,
+      expiresAt: null,
     })
-    .where(and(eq(feedUploads.id, input.uploadId)));
+    .where(
+      and(
+        eq(feedUploads.id, input.uploadId),
+        eq(feedUploads.configurationId, input.configurationId),
+        inArray(feedUploads.status, ['staged', 'consumed'] satisfies FeedUploadStatus[]),
+      ),
+    )
+    .returning();
+  return row;
+}
+
+/**
+ * Every upload of this OWNER that already holds `fileId` — the proof that the
+ * owner had these exact bytes before, which lets storage's deduplicated answer
+ * stand without a proof of possession (`feed_upload_sessions`). The owner is a
+ * store, or the platform (`storeId` null).
+ */
+export async function ownerHoldsFeedUploadFile(
+  db: DatabaseOrTransaction,
+  input: { fileId: string; storeId: string | null },
+): Promise<boolean> {
+  const rows = await db
+    .select({ id: feedUploads.id })
+    .from(feedUploads)
+    .innerJoin(feedConfigurations, eq(feedConfigurations.id, feedUploads.configurationId))
+    .where(
+      and(
+        eq(feedUploads.storageKey, input.fileId),
+        input.storeId === null
+          ? isNull(feedConfigurations.storeId)
+          : eq(feedConfigurations.storeId, input.storeId),
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
 }

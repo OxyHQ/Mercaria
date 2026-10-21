@@ -276,12 +276,6 @@ function describeChannelShape(
           summary:
             'A feed lists your products for buyers to compare and links them to your own shop. It does not create Mercaria listings, so these products cannot be bought through Mercaria checkout and their stock and orders stay with you.',
         },
-        {
-          code: 'upload_not_durable',
-          severity: 'informational',
-          summary:
-            'An uploaded file is held on the server that received it and may need re-uploading. A feed at an HTTPS URL has no such limit.',
-        },
       ],
       supportsNativeCheckout: false,
     };

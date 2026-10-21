@@ -592,7 +592,14 @@ export const FEED_IMPORT_REPORT_MODES: readonly FeedImportReportMode[] = [
  */
 export const FEED_ACTIVATING_REPORT_MODES: readonly FeedImportReportMode[] = ['validation'];
 
-/** The lifecycle of an uploaded feed artefact. */
+/**
+ * The lifecycle of an uploaded feed artefact.
+ *
+ * `staged` is an upload no mapping version cites yet, swept seven days after it
+ * arrived. `consumed` is one a version cites: versions are immutable history and
+ * a reverted copy cites the same upload, so a consumed upload lives as long as
+ * its configuration and the expiry sweep never reaches it.
+ */
 export type FeedUploadStatus = 'staged' | 'consumed' | 'expired' | 'missing';
 
 export const FEED_UPLOAD_STATUSES: readonly FeedUploadStatus[] = [
@@ -600,6 +607,161 @@ export const FEED_UPLOAD_STATUSES: readonly FeedUploadStatus[] = [
   'consumed',
   'expired',
   'missing',
+];
+
+/**
+ * One direct upload of a feed file, from the client straight to object storage.
+ *
+ * The bytes never transit Mercaria's API: the client PUTs presigned parts to
+ * Oxy Files' storage, and Mercaria only opens, completes and accepts. So no
+ * request body carries the feed, and a feed of any size the importer accepts
+ * fits under a proxy's body limit.
+ *
+ * - `uploading` — parts are being sent.
+ * - `proof_required` — storage already held these exact bytes, so nothing was
+ *   uploaded, and the client must prove it holds the file by sending one small
+ *   range of it (`FEED_UPLOAD_PROOF_MAX_BYTES`). Knowing a file's hash is not
+ *   holding the file.
+ * - `verifying` — storage is hashing the assembled object.
+ * - `completed` — the upload is a `feed_uploads` row a version may cite.
+ * - `failed` — terminal, with a {@link FeedUploadSessionFailure}.
+ */
+export type FeedUploadSessionStatus =
+  | 'uploading'
+  | 'proof_required'
+  | 'verifying'
+  | 'completed'
+  | 'failed';
+
+export const FEED_UPLOAD_SESSION_STATUSES: readonly FeedUploadSessionStatus[] = [
+  'uploading',
+  'proof_required',
+  'verifying',
+  'completed',
+  'failed',
+];
+
+/** The statuses a session can still move out of. */
+export const FEED_UPLOAD_SESSION_OPEN_STATUSES: readonly FeedUploadSessionStatus[] = [
+  'uploading',
+  'proof_required',
+  'verifying',
+];
+
+/**
+ * Why a direct upload ended without becoming a feed upload.
+ *
+ * - `checksum_mismatch` / `size_mismatch` — the stored bytes are not the
+ *   declared ones.
+ * - `forbidden_container` — a multi-entry archive, refused from its magic bytes.
+ * - `compression_mismatch` — gzip bytes declared `none`, or the reverse.
+ * - `content_blocked` — bytes taken down after a content claim.
+ * - `storage_refused` — storage would not keep the file.
+ * - `expired` — the upload was not completed in time and storage discarded it.
+ * - `proof_failed` — the range sent as proof of possession did not match.
+ */
+export type FeedUploadSessionFailure =
+  | 'checksum_mismatch'
+  | 'size_mismatch'
+  | 'forbidden_container'
+  | 'compression_mismatch'
+  | 'content_blocked'
+  | 'storage_refused'
+  | 'expired'
+  | 'proof_failed';
+
+export const FEED_UPLOAD_SESSION_FAILURES: readonly FeedUploadSessionFailure[] = [
+  'checksum_mismatch',
+  'size_mismatch',
+  'forbidden_container',
+  'compression_mismatch',
+  'content_blocked',
+  'storage_refused',
+  'expired',
+  'proof_failed',
+];
+
+/** The largest byte range a proof of possession asks for. */
+export const FEED_UPLOAD_PROOF_MAX_BYTES = 64 * 1024;
+
+/**
+ * A whole-feed validation, run in the background rather than inside a request:
+ * reading and staging a multi-gigabyte feed outlives every proxy's idle timeout.
+ *
+ * `failed` is a refusal that will answer the same way again (a cap, a
+ * misconfiguration, a forbidden container) and carries its
+ * {@link FeedRefusalReason}. `dead_letter` is a retryable failure that kept
+ * failing.
+ */
+export type FeedValidationJobStatus =
+  | 'pending'
+  | 'processing'
+  | 'completed'
+  | 'failed'
+  | 'dead_letter';
+
+export const FEED_VALIDATION_JOB_STATUSES: readonly FeedValidationJobStatus[] = [
+  'pending',
+  'processing',
+  'completed',
+  'failed',
+  'dead_letter',
+];
+
+/** The statuses a validation job can still move out of. */
+export const FEED_VALIDATION_JOB_OPEN_STATUSES: readonly FeedValidationJobStatus[] = [
+  'pending',
+  'processing',
+];
+
+/**
+ * Why the importer refused a WHOLE feed (the record-level vocabulary is
+ * {@link FeedRecordIssueCode}). The backend's `services/feed-import/errors.ts`
+ * documents each reason and maps it onto #62's adapter failure kinds.
+ */
+export type FeedRefusalReason =
+  | 'configuration_missing'
+  | 'configuration_incomplete'
+  | 'unsupported_format'
+  | 'forbidden_container'
+  | 'insecure_url'
+  | 'blocked_address'
+  | 'upstream_unavailable'
+  | 'upstream_status'
+  | 'unauthorized'
+  | 'download_too_large'
+  | 'decompressed_too_large'
+  | 'compression_ratio_exceeded'
+  | 'too_many_records'
+  | 'record_too_large'
+  | 'malformed_feed'
+  | 'entity_declaration_refused'
+  | 'record_path_not_found'
+  | 'no_records_mapped'
+  | 'upload_missing'
+  | 'stage_unavailable';
+
+export const FEED_REFUSAL_REASONS: readonly FeedRefusalReason[] = [
+  'configuration_missing',
+  'configuration_incomplete',
+  'unsupported_format',
+  'forbidden_container',
+  'insecure_url',
+  'blocked_address',
+  'upstream_unavailable',
+  'upstream_status',
+  'unauthorized',
+  'download_too_large',
+  'decompressed_too_large',
+  'compression_ratio_exceeded',
+  'too_many_records',
+  'record_too_large',
+  'malformed_feed',
+  'entity_declaration_refused',
+  'record_path_not_found',
+  'no_records_mapped',
+  'upload_missing',
+  'stage_unavailable',
 ];
 
 /**

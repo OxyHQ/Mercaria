@@ -49,6 +49,9 @@ const NOT_OXY_FILES: Readonly<Record<string, string>> = {
   'oxy_file_events.file_id': "the registry's own event audit",
   'oxy_application_files.file_id':
     "the adapter's record of which files Oxy answered as the application's own",
+  'feed_upload_sessions.oxy_file_id':
+    'storage’s answer to an upload session BEFORE Mercaria accepted the bytes; the holding row ' +
+    'is the `feed_uploads` row the session completes into',
 };
 
 const FILE_ID_NAME = /(?:^|_)file_ids?$/;
@@ -170,6 +173,7 @@ describe('the Oxy file reference registry is complete', () => {
     expect(retained).toEqual(
       [
         'digital_asset_file',
+        'feed_upload',
         'merchant_claim_evidence',
         'order_item_image',
         'organization_archive_logo',

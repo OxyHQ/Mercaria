@@ -9,6 +9,8 @@
  *   supplier bytes at all.
  * - **Upload** of bytes Mercaria already holds (a merchant's upload), and the
  *   resumable multipart upload of a private deliverable of any type up to 8 GiB.
+ * - **Client-driven upload**: the same multipart protocol with the bytes on the
+ *   CLIENT, which PUTs presigned parts to storage itself (a feed file).
  * - **Adoption** (stage 4b): the application's OWN file of a file it can read,
  *   sharing the stored bytes — a creator's deliverable, without a download.
  * - **References** (D4/D6): the application's own record of which entity uses
@@ -568,6 +570,266 @@ export async function uploadPrivateApplicationFile(
   const stored = storedFile(answer);
   await rememberApplicationFile(stored.fileId);
   return stored;
+}
+
+/** One presigned part URL: the client PUTs exactly `size` bytes to `url`. */
+export interface ClientUploadPart {
+  readonly partNumber: number;
+  readonly url: string;
+  readonly size: number;
+}
+
+/** The file a client-driven upload became, as storage measured it. */
+export interface ClientUploadedFile {
+  readonly fileId: string;
+  readonly size: number;
+  readonly sha256: string;
+}
+
+/**
+ * Where a client-driven upload stands (Oxy ADR 0043 stage 4b), parsed into a
+ * closed shape before it leaves this module.
+ *
+ * - `uploading`: parts are owed; `parts` carries URLs for some of the missing
+ *   ones (at most 100 a call), `uploadedParts` what storage already holds.
+ * - `verifying`: storage is hashing the assembled object; ask again.
+ * - `completed`: a file. `deduplicated` means NOTHING was uploaded — the
+ *   application already held these bytes.
+ * - `incomplete`: a completion found parts missing or mis-sized; the upload
+ *   stays open and the client sends them.
+ * - `failed`: terminal, with storage's own code (`CHECKSUM_MISMATCH`,
+ *   `SIZE_MISMATCH`, `CONTENT_BLOCKED`, `EXPIRED`, …).
+ */
+export type ClientUploadState =
+  | {
+      readonly kind: 'uploading';
+      readonly uploadId: string;
+      readonly partSize: number;
+      readonly partCount: number;
+      readonly expiresAt: string | null;
+      readonly parts: readonly ClientUploadPart[];
+      readonly uploadedParts: readonly number[];
+    }
+  | { readonly kind: 'verifying'; readonly uploadId: string }
+  | {
+      readonly kind: 'completed';
+      readonly uploadId: string | null;
+      readonly file: ClientUploadedFile;
+      readonly deduplicated: boolean;
+    }
+  | { readonly kind: 'incomplete'; readonly uploadId: string }
+  | {
+      readonly kind: 'failed';
+      readonly uploadId: string | null;
+      readonly code: string;
+    };
+
+const APP_UPLOADS = '/assets/service/app/uploads';
+
+function positiveInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
+}
+
+function clientUploadState(answer: unknown): ClientUploadState {
+  const view = (answer ?? {}) as {
+    uploadId?: unknown;
+    status?: unknown;
+    partSize?: unknown;
+    partCount?: unknown;
+    expiresAt?: unknown;
+    parts?: unknown;
+    uploadedParts?: unknown;
+    file?: { id?: unknown; size?: unknown; sha256?: unknown };
+    deduplicated?: unknown;
+    error?: { code?: unknown };
+  };
+  const uploadId = typeof view.uploadId === 'string' && view.uploadId !== '' ? view.uploadId : null;
+  switch (view.status) {
+    case 'uploading': {
+      if (!uploadId || !positiveInteger(view.partSize) || !positiveInteger(view.partCount))
+        throw new OxyFilesError('Oxy did not describe the upload.');
+      return {
+        kind: 'uploading',
+        uploadId,
+        partSize: view.partSize,
+        partCount: view.partCount,
+        expiresAt: typeof view.expiresAt === 'string' ? view.expiresAt : null,
+        parts: uploadParts(view.parts),
+        uploadedParts: Array.isArray(view.uploadedParts)
+          ? view.uploadedParts.flatMap((part: { partNumber?: unknown }) =>
+              positiveInteger(part?.partNumber) ? [part.partNumber] : [],
+            )
+          : [],
+      };
+    }
+    case 'verifying':
+      if (!uploadId) throw new OxyFilesError('Oxy did not describe the upload.');
+      return { kind: 'verifying', uploadId };
+    case 'completed': {
+      const file = view.file;
+      const sha256 = typeof file?.sha256 === 'string' ? file.sha256.toLowerCase() : '';
+      if (!isOxyFileId(file?.id) || !positiveInteger(file?.size) || !/^[0-9a-f]{64}$/.test(sha256))
+        throw new OxyFilesError('Oxy did not describe the stored file.');
+      return {
+        kind: 'completed',
+        uploadId,
+        file: { fileId: file.id, size: file.size, sha256 },
+        deduplicated: view.deduplicated === true,
+      };
+    }
+    case 'failed':
+    case 'aborted':
+      return {
+        kind: 'failed',
+        uploadId,
+        code: typeof view.error?.code === 'string' ? view.error.code : 'UPLOAD_FAILED',
+      };
+    default:
+      throw new OxyFilesError('Oxy did not describe the upload.');
+  }
+}
+
+function uploadParts(value: unknown): ClientUploadPart[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((part: { partNumber?: unknown; url?: unknown; size?: unknown }) => {
+    if (
+      !positiveInteger(part?.partNumber) ||
+      !positiveInteger(part?.size) ||
+      typeof part?.url !== 'string' ||
+      !part.url.startsWith('https://')
+    )
+      throw new OxyFilesError('Oxy did not describe the upload parts.');
+    return { partNumber: part.partNumber, url: part.url, size: part.size };
+  });
+}
+
+/** `/assets/service/app/uploads/:uploadId`, with the id escaped. */
+function appUploadPath(uploadId: string, suffix = ''): string {
+  return `${APP_UPLOADS}/${encodeURIComponent(uploadId)}${suffix}`;
+}
+
+/**
+ * Open (or resume) an upload whose bytes a CLIENT sends straight to storage, of
+ * a PRIVATE file the Mercaria application will own (`POST
+ * /assets/service/app/uploads`). The SDK's `uploadAppFileLarge` runs the whole
+ * protocol with bytes this process holds; here the bytes are the client's, so
+ * Mercaria drives only the API half and hands the presigned part URLs on. No
+ * byte passes through Mercaria or Oxy's API on the way in.
+ *
+ * `mime` and `filename` are Mercaria's own labels, never the client's: storage
+ * refuses active documents (XML among them) by type AND by extension, and a feed
+ * is data to be parsed, never served. Storage answers bytes the application
+ * already holds at once (`completed`, `deduplicated`) — see
+ * `feed_upload_sessions` for why that answer is not trusted on its own.
+ */
+export async function openClientUpload(input: {
+  sha256: string;
+  size: number;
+  mime: string;
+  filename: string;
+}): Promise<ClientUploadState> {
+  const oxy = client();
+  try {
+    // Retried on 429: opening the same bytes again answers the same session.
+    const answer = await withOxyRateLimitRetry(
+      () =>
+        oxy.serviceRequest<unknown>(
+          'POST',
+          APP_UPLOADS,
+          {
+            sha256: input.sha256,
+            size: input.size,
+            mime: input.mime,
+            filename: input.filename,
+            visibility: 'private',
+          },
+          { cache: false },
+        ),
+      INTERACTIVE_RATE_LIMIT,
+    );
+    const state = clientUploadState(answer);
+    if (state.kind === 'completed') await rememberApplicationFile(state.file.fileId);
+    return state;
+  } catch (error) {
+    if (error instanceof OxyFilesError) throw error;
+    throw refusal('open the upload', error);
+  }
+}
+
+/** Presigned URLs for these parts (1–100 of them), valid an hour. */
+export async function clientUploadPartUrls(
+  uploadId: string,
+  partNumbers: readonly number[],
+): Promise<readonly ClientUploadPart[]> {
+  const oxy = client();
+  try {
+    const answer = await withOxyRateLimitRetry(
+      () =>
+        oxy.serviceRequest<{ parts?: unknown }>(
+          'POST',
+          appUploadPath(uploadId, '/parts'),
+          { partNumbers: [...partNumbers] },
+          { cache: false },
+        ),
+      INTERACTIVE_RATE_LIMIT,
+    );
+    return uploadParts(answer?.parts);
+  } catch (error) {
+    if (error instanceof OxyFilesError) throw error;
+    throw refusal('sign the upload parts', error);
+  }
+}
+
+/** Where a client-driven upload stands now. */
+export async function describeClientUpload(uploadId: string): Promise<ClientUploadState> {
+  const oxy = client();
+  try {
+    const answer = await withOxyRateLimitRetry(
+      () =>
+        oxy.serviceRequest<unknown>('GET', appUploadPath(uploadId), undefined, { cache: false }),
+      INTERACTIVE_RATE_LIMIT,
+    );
+    const state = clientUploadState(answer);
+    if (state.kind === 'completed') await rememberApplicationFile(state.file.fileId);
+    return state;
+  } catch (error) {
+    if (error instanceof OxyFilesError) throw error;
+    throw refusal('read the upload', error);
+  }
+}
+
+/** Storage's own terminal codes for a completion, answered as values rather than thrown. */
+const TERMINAL_COMPLETION_STATUSES = new Set([410, 413, 415, 422, 451]);
+
+/**
+ * Assemble the parts and VERIFY: only bytes that hash to the declared SHA-256
+ * become a file. `verifying` when storage needs longer (ask again with
+ * {@link describeClientUpload}); `incomplete` when parts are missing; `failed`
+ * with storage's own code for a terminal refusal. Idempotent.
+ */
+export async function completeClientUpload(uploadId: string): Promise<ClientUploadState> {
+  const oxy = client();
+  try {
+    const answer = await withOxyRateLimitRetry(
+      () =>
+        oxy.serviceRequest<unknown>('POST', appUploadPath(uploadId, '/complete'), undefined, {
+          cache: false,
+        }),
+      INTERACTIVE_RATE_LIMIT,
+    );
+    const state = clientUploadState(answer);
+    if (state.kind === 'completed') await rememberApplicationFile(state.file.fileId);
+    return state;
+  } catch (error) {
+    if (error instanceof OxyFilesError) throw error;
+    const status = statusOf(error);
+    if (status === 409) return { kind: 'incomplete', uploadId };
+    if (status !== undefined && TERMINAL_COMPLETION_STATUSES.has(status)) {
+      const code = error instanceof OxyApiError && error.code ? error.code : 'UPLOAD_FAILED';
+      return { kind: 'failed', uploadId, code };
+    }
+    throw refusal('complete the upload', error);
+  }
 }
 
 /**

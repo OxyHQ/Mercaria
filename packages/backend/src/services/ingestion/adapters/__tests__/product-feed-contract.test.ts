@@ -4,8 +4,8 @@
  * as API adapters").
  *
  * All thirteen cases, a real Postgres server, and a real CSV: the harness
- * renders the scenario's records as a delimited file, stages it as an UPLOAD and
- * points a real `createProductFeedAdapter` at it. So the pipeline under test is
+ * renders the scenario's records as a delimited file, serves it as a stored
+ * UPLOAD and points a real `createProductFeedAdapter` at it. So the pipeline under test is
  * the real one end to end — fetch, decompress, decode, parse, map, validate,
  * stage, page, cursor, completion verdict — and what it produces flows into
  * `source_records`, `catalog_source_objects` and matched external `offers`
@@ -18,7 +18,9 @@
  *    host and the suite would depend on the internet. The upload path is the
  *    same `openFeedOrigin`, the same caps and the same parser; only the first
  *    few bytes differ. `feed-security.test.ts` covers the URL path's own
- *    refusals against the real guard.
+ *    refusals against the real guard. The one thing replaced is Oxy Files' URL
+ *    MINT: it answers a `data:` URL holding the CSV, so `upload.ts` streams it
+ *    through the real `fetch` exactly as it streams a presigned storage URL.
  * 2. **`pageSize` is ONE.** A file has no page tokens: #63 reads the whole feed
  *    once and pages a local stage by record count, so "three pages" in the
  *    scenario can only mean "three records at one per page". `AdapterContractHarness`
@@ -30,7 +32,8 @@
  *    refusal set, and it drives the real `fetchPage`.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { FeedFieldMapping, FeedFieldRole } from '@mercaria/shared-types';
@@ -46,20 +49,41 @@ import {
   feedRefusalFetchKind,
 } from '../../../feed-import/errors.js';
 import type { ResolvedFeedImport } from '../../../feed-import/resolve.js';
-import { stageUploadedFeed } from '../../../feed-import/upload.js';
 import { createProductFeedAdapter, PRODUCT_FEED_PROVIDER } from '../product-feed.js';
+
+/** The "stored" uploads, by Oxy file id. See substitution 1. */
+const storedFeeds = vi.hoisted(() => new Map<string, string>());
+
+vi.mock('../../../catalog-media/oxy-files.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../catalog-media/oxy-files.js')>()),
+  mintPrivateDownloadUrls: async (ids: readonly string[]) =>
+    ids.flatMap((id) => {
+      const csv = storedFeeds.get(id);
+      return csv === undefined
+        ? []
+        : [
+            {
+              id,
+              url: `data:text/csv;base64,${Buffer.from(csv, 'utf8').toString('base64')}`,
+              expiresIn: 300,
+              mime: 'text/csv',
+              size: Buffer.byteLength(csv),
+              sha256: '',
+            },
+          ];
+    }),
+}));
 
 const ADAPTERS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 /**
- * The staging directory is the configured one, and that is safe here.
+ * The STAGE directory is the configured one, and that is safe here.
  *
  * `config` is frozen and read at import, so a per-file override would have to be
  * an env var set before the module graph is evaluated — which vitest's parallel
- * files make unreliable. It costs nothing: an upload key is CSPRNG and a stage
- * key is the feed's own CONTENT DIGEST, so two suites can only share a file by
- * staging byte-identical content, and then the file they share is correct for
- * both.
+ * files make unreliable. It costs nothing: a stage key is the feed's own
+ * CONTENT DIGEST, so two suites can only share a file by staging byte-identical
+ * content, and then the file they share is correct for both.
  */
 
 /** The mapping the harness's generated CSV is read under. */
@@ -123,9 +147,8 @@ function renderScenario(scenario: ContractScenario): string {
 /**
  * Build an adapter that reads the scenario as an uploaded CSV.
  *
- * The staging is SYNCHRONOUS-looking because `createAdapter` is; the upload is
- * written lazily on the first `resolveFeed`, which is also when the adapter
- * would first need it.
+ * `createAdapter` is synchronous, so the upload is "stored" lazily on the first
+ * `resolveFeed`, which is also when the adapter would first need it.
  */
 function createFeedContractAdapter(
   provider: string,
@@ -141,13 +164,11 @@ function createFeedContractAdapter(
   const adapter = createProductFeedAdapter({
     resolveFeed: async () => {
       if (resolved !== null) return resolved;
-      async function* bytes(): AsyncGenerator<Uint8Array> {
-        yield Buffer.from(csv, 'utf8');
-      }
-      const staged = await stageUploadedFeed(bytes(), 'none');
+      const fileId = `contract-${randomUUID()}`;
+      storedFeeds.set(fileId, csv);
       resolved = {
-        configurationId: `contract-${staged.storageKey}`,
-        versionId: `contract-version-${staged.storageKey}`,
+        configurationId: `contract-${fileId}`,
+        versionId: `contract-version-${fileId}`,
         deliveryMode,
         compression: 'none',
         encoding: 'utf-8',
@@ -165,7 +186,7 @@ function createFeedContractAdapter(
         origin: {
           fetchMode: 'upload',
           feedUrl: null,
-          uploadStorageKey: staged.storageKey,
+          uploadStorageKey: fileId,
           authorization: { kind: 'none', secret: null, paramName: null },
           validators: { etag: null, lastModified: null },
           timeoutMs: 5_000,

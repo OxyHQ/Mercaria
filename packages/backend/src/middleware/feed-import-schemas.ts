@@ -26,6 +26,7 @@ import {
   FEED_FIELD_TRANSFORMS,
   FEED_FORMATS,
   FEED_MAPPABLE_VALUE_ROLES,
+  FEED_UPLOAD_PROOF_MAX_BYTES,
   type FeedAuthKind,
   type FeedCompression,
   type FeedDeliveryMode,
@@ -237,18 +238,48 @@ export const activateFeedVersionSchema = z
 export type ActivateFeedVersionBody = z.infer<typeof activateFeedVersionSchema>;
 
 /**
- * An upload's METADATA. The bytes arrive as the raw request body.
+ * `POST …/upload-sessions` — open a direct upload of a feed file.
  *
- * The filename is a LABEL and is sanitised again server-side; the declared
- * compression is compared against the artefact's own magic bytes, because a
- * gzip uploaded as `none` is handed to the CSV parser as binary and produces
- * ten thousand malformed records instead of one honest refusal.
+ * The bytes never ride a request: the client declares what it will send and
+ * PUTs the parts to storage itself. The filename is a LABEL and is sanitised
+ * again server-side; `sha256` and `byteSize` are what storage verifies the
+ * assembled object against, and the declared compression is compared with the
+ * file's own magic bytes before the upload is accepted — a gzip declared `none`
+ * is handed to the CSV parser as binary and produces ten thousand malformed
+ * records instead of one honest refusal.
  */
-export const feedUploadMetadataSchema = z
+export const openFeedUploadSessionSchema = z
   .object({
     filename: z.string().trim().min(1).max(200),
     compression: z.enum(COMPRESSION_VALUES),
+    byteSize: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    sha256: z.string().regex(/^[0-9a-fA-F]{64}$/u, 'sha256 must be 64 hexadecimal characters'),
   })
   .strict();
 
-export type FeedUploadMetadataQuery = z.infer<typeof feedUploadMetadataSchema>;
+export type OpenFeedUploadSessionBody = z.infer<typeof openFeedUploadSessionSchema>;
+
+/** `POST …/upload-sessions/:sessionId/parts` — fresh URLs for up to 100 parts. */
+export const feedUploadPartsSchema = z
+  .object({
+    partNumbers: z.array(z.number().int().min(1).max(10_000)).min(1).max(100),
+  })
+  .strict();
+
+export type FeedUploadPartsBody = z.infer<typeof feedUploadPartsSchema>;
+
+/**
+ * `POST …/upload-sessions/:sessionId/proof` — the requested range of the file,
+ * base64. Bounded so the request stays a few dozen kilobytes.
+ */
+export const feedUploadProofSchema = z
+  .object({
+    bytes: z
+      .string()
+      .min(1)
+      .max(Math.ceil(FEED_UPLOAD_PROOF_MAX_BYTES / 3) * 4)
+      .regex(/^[A-Za-z0-9+/]+={0,2}$/u, 'bytes must be base64'),
+  })
+  .strict();
+
+export type FeedUploadProofBody = z.infer<typeof feedUploadProofSchema>;

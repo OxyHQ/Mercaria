@@ -42,9 +42,11 @@ Four, and every decision below exists to make one of them unrepresentable.
 
 ```text
 merchant configures a feed        →  feed_configurations (identity FROZEN)
+merchant uploads a file (or not)  →  feed_upload_sessions → feed_uploads (an Oxy file)
 merchant drafts a mapping version →  feed_configuration_versions + mappings
 merchant PREVIEWS a bounded sample→  values beside what the mapping made of them
-merchant VALIDATES the whole feed →  feed_import_reports (mode = validation)
+merchant VALIDATES the whole feed →  feed_validation_jobs (202, polled)
+                                  →  feed_import_reports (mode = validation)
 merchant ACTIVATES, citing it     →  one active version per configuration
 #62's dispatcher opens a run      →  the product_feed adapter fetches
   fetch → decompress → decode → parse → map → validate → STAGE
@@ -134,8 +136,9 @@ Four independent places:
 ### Bounded memory is a property of the SHAPE
 
 Every layer is an async generator: bytes → decompression → decoding → records →
-mapped candidates. The largest live object is one record. `express.raw` is
-deliberately absent from the upload route for the same reason — it buffers.
+mapped candidates. The largest live object is one record. No route takes a feed as a request
+body at all — an upload goes straight to storage (§"Uploading a feed file"), and
+every pass streams it back from there.
 
 `feed-memory.test.ts` measures peak heap at a scale and at eight times that
 scale and asserts the difference is noise. "It fit in memory once" is a fact
@@ -387,11 +390,16 @@ act. The reads follow the writes rather than getting a looser gate.
 | `GET /:id/status` | last run, next run, counts and failures |
 | `POST /:id/versions` | draft a mapping version |
 | `POST /:id/versions/:v/preview` | a bounded sample, mapped, with suggestions |
-| `POST /:id/versions/:v/validate` | read the whole feed, write a report |
+| `POST /:id/versions/:v/validate` | queue a validation of the whole feed: **202** with a job (one open per version) |
+| `GET /:id/versions/:v/validations/:job` | the job: `pending` → `processing` → `completed` (with `reportId`), `failed` (with `failureReason`) or `dead_letter` |
 | `POST /:id/versions/:v/activate` | activate, citing a validation report |
 | `POST /:id/versions/:v/revert` | draft a copy of an earlier version |
-| `POST /:id/uploads` | upload a feed file (raw bytes, streamed) |
-| `GET /:id/uploads` | this feed's staged artefacts |
+| `POST /:id/upload-sessions` | open a direct upload: `{ filename, compression, byteSize, sha256 }` |
+| `GET /:id/upload-sessions/:s` | the session (and finish one storage was still verifying) |
+| `POST /:id/upload-sessions/:s/parts` | fresh presigned URLs: `{ partNumbers }`, at most 100 |
+| `POST /:id/upload-sessions/:s/complete` | assemble and verify: 201 with the upload, 202 verifying, 409 parts missing, 422 refused |
+| `POST /:id/upload-sessions/:s/proof` | proof of possession: `{ bytes }`, the requested range, base64 |
+| `GET /:id/uploads` | this feed's uploads |
 | `GET /:id/reports` · `GET /:id/reports/:r` | the reports |
 | `GET /:id/reports/:r/download` | the error report, as CSV |
 | `POST /:id/sync` | open a MANUAL pass |
@@ -405,11 +413,126 @@ Two rate-limit buckets: `rl:feed-import:` for the surface, and a much smaller
 `rl:feed-import-fetch:` for the four routes that cause an outbound request to a
 host the merchant chose.
 
-The upload route has **no body parser at all** — `express.raw` would buffer
-gigabytes — so the handler iterates `req` and writes to disk as the bytes arrive.
-A JSON or multipart content type is REFUSED, because the global `express.json()`
-would have consumed the body and left an empty stream that reads as an empty
-feed.
+The validation is a JOB because reading and staging a whole feed takes minutes
+for a large one, and the ALB drops an idle connection at 60 s (the proxy in
+front of it gives an origin 100 s). `services/feed-import/validation-dispatcher.ts`
+runs it on every task with the house lease shape — renewed while it runs, a
+retryable failure backed off and dead-lettered visibly, a refusal that would
+answer the same way `failed` once — through the same `validateFeedVersion`, so
+the report an activation cites is the one the request used to write. The
+dashboard polls it (`lib/api/feeds.ts`). A preview stays synchronous: it reads a
+bounded sample and stops.
+
+### Uploading a feed file
+
+**No request to this API carries a feed.** Every Oxy API hostname sits behind a
+proxy that refuses a request body over 100 MB, and a feed is gigabytes — so the
+client sends the file straight to storage. The file becomes a PRIVATE file of
+the Mercaria application in Oxy Files (Oxy ADR 0043 stage 4b, the multipart
+upload whose parts go to S3 on presigned URLs); `feed_uploads.storage_key` is its
+Oxy file id, every task reads the same object, and an upload no longer goes with
+the task that received it. Mercaria holds no bucket and no S3 credential of its
+own: it drives the API half of Oxy's protocol (`openClientUpload` and its
+siblings in `services/catalog-media/oxy-files.ts`) and hands the part URLs on.
+
+1. **Open.** `POST …/upload-sessions` with `filename` (a label), `compression`
+   (`none` | `gzip`), `byteSize` and `sha256` (lowercase hex of the whole file).
+   A file over `FEED_IMPORT_MAX_DOWNLOAD_BYTES` is refused here, 413. The answer:
+   - `uploading` — `partSize`, `partCount`, `uploadedParts` (what storage
+     already holds: opening again RESUMES) and `parts`, presigned URLs for up to
+     100 of the missing parts.
+   - `proof_required` — storage already held these bytes, so nothing is to be
+     uploaded; send the range in `proof` (below).
+   - `completed` — the same feed owner already holds these bytes; `upload` is ready.
+2. **Send the parts.** Part `n` is bytes `[(n-1)·partSize, n·partSize)` of the
+   file; `PUT` exactly `size` bytes to its `url`, with no credentials and no
+   extra headers (the URL is signed). In parallel, each retried on its own. A URL
+   is valid an hour; `POST …/parts` with `{ partNumbers }` mints fresh ones (and a
+   `403` from storage means "ask for a fresh URL").
+3. **Complete.** `POST …/complete`. Storage assembles the object and hashes it;
+   only bytes that hash to the declared SHA-256 become a file. **201** with
+   `upload` — cite `upload.id` as a version's `uploadId`. **202** `verifying` —
+   `GET` the session until it is `completed`. **409** — parts are missing; `GET`
+   the session for `uploadedParts`, send the rest, complete again. **422** — the
+   upload was refused (`failure`: `checksum_mismatch`, `size_mismatch`,
+   `forbidden_container`, `compression_mismatch`, `content_blocked`,
+   `storage_refused`, `expired`, `proof_failed`); open a new one.
+
+Before the `feed_uploads` row exists Mercaria reads the first 512 bytes back
+from storage and applies the refusals every feed meets: a multi-entry archive by
+its magic bytes, and a compression the session did not declare.
+
+**Knowing a hash is not holding a file.** Storage answers bytes the
+application already holds at once, and those may be another store's feed or a
+creator's paid deliverable. Unless the same feed OWNER (store, or the platform)
+already holds the file in a `feed_uploads` row, the session is `proof_required`:
+`POST …/proof` with `{ bytes }`, base64 of exactly `proof.length` bytes from
+`proof.offset` (at most 64 KiB, at a random offset). Compared byte for byte with
+the stored object; a mismatch fails the session, and opening again draws a new
+range. Two sessions for the same bytes share one storage upload, so
+`feed_upload_sessions_open_upload_key` lets the same configuration resume its
+own and refuses any other (409) until the first finishes.
+
+**Lifecycle.** A `feed_uploads` row registers its file with Oxy as a
+`feed_upload` reference (the `0172` trigger), and Oxy collects an application
+file nothing references — so the file lives exactly as long as the row. An
+upload no version cites expires after 7 days; drafting a version that cites one
+CONSUMES it (no deadline), because an active version re-reads it on every pass
+and a revert cites it again, and a version may cite only its OWN configuration's
+upload. A run whose file Oxy stopped serving refuses with `upload_missing`.
+
+A minimal client, in Node:
+
+```js
+import { createHash } from 'node:crypto';
+import { openAsBlob } from 'node:fs';
+
+const api = (path, init = {}) =>
+  fetch(`https://api.mercaria.co/admin/stores/${storeId}/feeds/${feedId}${path}`, {
+    ...init,
+    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+  }).then(async (res) => ({ status: res.status, body: await res.json() }));
+
+const file = await openAsBlob('products.csv.gz');
+const hash = createHash('sha256');
+for await (const chunk of file.stream()) hash.update(chunk);
+const opened = await api('/upload-sessions', {
+  method: 'POST',
+  body: JSON.stringify({
+    filename: 'products.csv.gz', compression: 'gzip',
+    byteSize: file.size, sha256: hash.digest('hex'),
+  }),
+});
+let session = opened.body.data;
+if (session.status === 'proof_required') {
+  const { offset, length } = session.proof;
+  const bytes = Buffer.from(await file.slice(offset, offset + length).arrayBuffer());
+  session = (await api(`/upload-sessions/${session.id}/proof`, {
+    method: 'POST', body: JSON.stringify({ bytes: bytes.toString('base64') }),
+  })).body.data;
+}
+if (session.status === 'uploading') {
+  const held = new Set(session.uploadedParts);
+  const missing = Array.from({ length: session.partCount }, (_, i) => i + 1).filter((n) => !held.has(n));
+  for (let i = 0; i < missing.length; i += 100) {
+    const { parts } = (await api(`/upload-sessions/${session.id}/parts`, {
+      method: 'POST', body: JSON.stringify({ partNumbers: missing.slice(i, i + 100) }),
+    })).body.data;
+    for (const part of parts) {
+      const start = (part.partNumber - 1) * session.partSize;
+      await fetch(part.url, { method: 'PUT', body: file.slice(start, start + part.size) });
+    }
+  }
+  let done = await api(`/upload-sessions/${session.id}/complete`, { method: 'POST' });
+  while (done.status === 202) {
+    await new Promise((r) => setTimeout(r, 2000));
+    done = await api(`/upload-sessions/${session.id}`);
+    if (done.body.data.status !== 'verifying') break;
+  }
+  session = done.body.data;
+}
+// session.upload.id is what a mapping version cites as `uploadId`.
+```
 
 ### Operator — `/internal/feed-imports/*`
 
@@ -432,7 +555,7 @@ source whose terms went wrong — already exists on
 ```
 FEED_IMPORT_ENABLED=false               # registers the adapter + mounts the merchant surface
 FEED_IMPORT_AUTH_ENCRYPTION_KEY=        # REQUIRED when enabled (openssl rand -hex 32)
-FEED_IMPORT_STAGING_DIR=<tmpdir>/mercaria-feed-import
+FEED_IMPORT_STAGING_DIR=<tmpdir>/mercaria-feed-import   # a run's JSONL stage; uploads live in Oxy Files
 FEED_IMPORT_MAX_DOWNLOAD_BYTES=2147483648
 FEED_IMPORT_MAX_DECOMPRESSED_BYTES=17179869184
 FEED_IMPORT_MAX_COMPRESSION_RATIO=200
@@ -467,6 +590,7 @@ one is rejected with the limit named, never truncated.
 | `feed-delivery-mode.test.ts` | snapshot and delta SEPARATELY, and that the rule is reachable through one function |
 | `feed-import-isolation.test.ts` | no evaluation anywhere, the disjoint vocabularies, no commerce-graph write, the tenant gate, the protected columns — with an enumeration floor and a mutation self-test on every detector |
 | `services/__tests__/feed-import-writes.realdb.test.ts` | the frozen identity key, the version freeze, the one-active partial unique, the activation CHECK, the mapping shape CHECK, the report counters, the observed-token CHECK, the append-only entries, the filename CHECK — against a REAL server |
+| `feed-import/__tests__/feed-direct-upload.realdb.test.ts` | a direct upload end to end over an in-memory Oxy Files: the accepted row and its reference trigger, the container and compression refusals, the proof of possession, one open session per storage upload, `verifying` finishing on a read, consumption of a cited upload, and the validation job's one-open-per-version and its report — against a REAL server |
 | `adapters/__tests__/product-feed-contract.test.ts` | #62's thirteen contract cases against the real adapter over a real CSV, plus every refusal's classification |
 
 ---
@@ -546,7 +670,7 @@ sourceUpdatedAt }`. `normalized` is `null` **exactly when** an issue of severity
 | Entry point | Module | What it gives you |
 |---|---|---|
 | `openFeedStream` | `services/feed-import/fetch.ts` | `safeFetch` with HTTPS-only, conditional requests and a `not_modified` branch carrying no bytes |
-| `openFeedOrigin` | `services/feed-import/open.ts` | the same over a URL **or** a staged upload, behind one `FeedOrigin` |
+| `openFeedOrigin` | `services/feed-import/open.ts` | the same over a URL **or** a stored upload, behind one `FeedOrigin` |
 | `authorizeFeedRequest` | `services/feed-import/auth.ts` | applies a `basic`/`bearer`/`header`/`query_param` credential to a request |
 | `redactFeedUrl`, `redactFeedMessage` | `services/feed-import/redact.ts` | the host-only form every log line and projection must use |
 
@@ -601,10 +725,6 @@ Each is a NAMED contract, not a stub.
   stored on the observation; nothing here composes a tracked URL.
 - **#59 — review and corrections** of what the matcher could not decide.
 - **#68 — feed freshness policy** beyond `catalog_source_configs`' TTL.
-- **Durable upload storage.** A staged upload lives on the disk of the task that
-  received it, `feed_uploads.status = 'missing'` is a real state, and a run whose
-  artefact went with its task refuses with `upload_missing` rather than importing
-  zero records. Moving to object storage changes `upload.ts` and nothing else.
 - **The mapping UI.** Every endpoint the flow needs exists and is documented
   above; the dashboard screens are not in this issue.
 

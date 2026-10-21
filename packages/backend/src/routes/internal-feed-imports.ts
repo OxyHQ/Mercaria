@@ -63,10 +63,19 @@ import {
   activateFeedVersionSchema,
   createOperatorFeedConfigurationSchema,
   draftFeedVersionSchema,
+  feedUploadPartsSchema,
+  feedUploadProofSchema,
+  openFeedUploadSessionSchema,
 } from '../middleware/feed-import-schemas.js';
 import {
   activateFeedVersionHandler,
+  completeFeedUploadSessionHandler,
   createFeedHandler,
+  feedUploadPartsHandler,
+  getFeedUploadSessionHandler,
+  getFeedValidationHandler,
+  openFeedUploadSessionHandler,
+  proveFeedUploadSessionHandler,
   declareFeedOwnerScope,
   downloadFeedReportHandler,
   draftFeedVersionHandler,
@@ -81,7 +90,6 @@ import {
   revertFeedVersionHandler,
   syncFeedHandler,
   traceFeedHandler,
-  uploadFeedHandler,
   validateFeedVersionHandler,
 } from '../controllers/feed-import.controller.js';
 
@@ -91,7 +99,7 @@ const router = Router();
  * The merchant surface's own buckets, reused rather than a third pair.
  *
  * A preview, a validate, an upload and a sync each cause an outbound request to
- * a host somebody chose or a write of up to `FEED_IMPORT_MAX_DOWNLOAD_BYTES`;
+ * a host somebody chose or make storage hold up to `FEED_IMPORT_MAX_DOWNLOAD_BYTES`;
  * that cost does not change because the caller is an operator, and a separate
  * unmetered budget here would be the way to make Mercaria hammer a partner.
  */
@@ -133,6 +141,10 @@ platform.post(
   fetchLimiter,
   validateFeedVersionHandler,
 );
+platform.get(
+  '/:configurationId/versions/:versionId/validations/:validationId',
+  getFeedValidationHandler,
+);
 platform.post(
   '/:configurationId/versions/:versionId/activate',
   validateBody(activateFeedVersionSchema),
@@ -140,9 +152,31 @@ platform.post(
 );
 platform.post('/:configurationId/versions/:versionId/revert', revertFeedVersionHandler);
 platform.get('/:configurationId/uploads', listFeedUploadsHandler);
-// No body parser, exactly as on the merchant surface: `express.raw` would
-// BUFFER a feed, which is gigabytes in memory. The handler iterates the stream.
-platform.post('/:configurationId/uploads', fetchLimiter, uploadFeedHandler);
+// Direct uploads, exactly as on the merchant surface: the client PUTs the parts
+// to storage itself, so no request here carries a feed.
+platform.post(
+  '/:configurationId/upload-sessions',
+  fetchLimiter,
+  validateBody(openFeedUploadSessionSchema),
+  openFeedUploadSessionHandler,
+);
+platform.get('/:configurationId/upload-sessions/:sessionId', getFeedUploadSessionHandler);
+platform.post(
+  '/:configurationId/upload-sessions/:sessionId/parts',
+  validateBody(feedUploadPartsSchema),
+  feedUploadPartsHandler,
+);
+platform.post(
+  '/:configurationId/upload-sessions/:sessionId/complete',
+  fetchLimiter,
+  completeFeedUploadSessionHandler,
+);
+platform.post(
+  '/:configurationId/upload-sessions/:sessionId/proof',
+  fetchLimiter,
+  validateBody(feedUploadProofSchema),
+  proveFeedUploadSessionHandler,
+);
 platform.get('/:configurationId/reports', listFeedReportsHandler);
 platform.get('/:configurationId/reports/:reportId', getFeedReportHandler);
 platform.get('/:configurationId/reports/:reportId/download', downloadFeedReportHandler);

@@ -2,7 +2,8 @@
  * The universal product-feed importer — issue #63, feeding #62's staged
  * pipeline: `feed_configurations`, `feed_configuration_versions`,
  * `feed_field_mappings`, `feed_value_mappings`, `feed_uploads`,
- * `feed_import_reports`, `feed_import_report_entries`.
+ * `feed_upload_sessions`, `feed_import_reports`, `feed_import_report_entries`,
+ * `feed_validation_jobs`.
  *
  * #62 owns the SOURCE — its lifecycle, its nine versioned rights, its cadence,
  * its freshness TTL, its runs and its observations. This module owns the one
@@ -102,8 +103,13 @@ import {
   FEED_MAPPABLE_VALUE_ROLES,
   FEED_RECORD_ISSUE_CODES,
   FEED_RECORD_PATH_FORMATS,
+  FEED_REFUSAL_REASONS,
   FEED_TOKEN_BEARING_ISSUE_CODES,
+  FEED_UPLOAD_PROOF_MAX_BYTES,
+  FEED_UPLOAD_SESSION_FAILURES,
+  FEED_UPLOAD_SESSION_STATUSES,
   FEED_UPLOAD_STATUSES,
+  FEED_VALIDATION_JOB_STATUSES,
 } from '@mercaria/shared-types';
 import { inList } from '@oxy.so/db';
 import { asEnumValues, checkOneOf } from './columns';
@@ -260,13 +266,28 @@ export const feedConfigurations = pgTable(
  * Decompression bombs are bounded at read time by an absolute output cap AND a
  * ratio cap, because either alone is defeatable.
  *
- * ### The artefact is EPHEMERAL and the row says so
+ * ### The artefact is a private Oxy file, uploaded straight to storage
  *
- * Mercaria has no blob store of its own, so a staged upload lives on the task's
- * own disk. `status = 'missing'` is a real state rather than an error: a run
- * whose artefact was staged by a task that has since been replaced refuses with
- * that reason named, instead of importing zero records and reporting a
- * successful enumeration — which is the shape that retires a catalogue.
+ * `storage_key` holds the Oxy `file_id` of a PRIVATE file the Mercaria
+ * application owns (Oxy ADR 0043), as `asset_files.storage_key` does. The client
+ * puts the bytes in storage directly (`feed_upload_sessions`), so no request to
+ * this API carries a feed, and every task reads the same object. Oxy keeps an
+ * application file only while something references it, so the row registers
+ * itself as a `feed_upload` reference (the trigger of the migration that added
+ * this, on `storage_key`), and the file goes once the row does. A run whose file
+ * Oxy no longer serves refuses with `upload_missing` instead of importing zero
+ * records and reporting a successful enumeration — the shape that retires a
+ * catalogue.
+ *
+ * ### A CITED upload does not expire
+ *
+ * `expires_at` bounds an upload nobody uses. Drafting a mapping version that
+ * cites one CONSUMES it — `consumed_at` set, `expires_at` cleared, in the
+ * draft's own transaction — because versions are immutable history: an active
+ * version re-reads its upload on every pass and a revert drafts a copy citing the
+ * same one. The sweep therefore never meets the `restrict` foreign key from
+ * `feed_configuration_versions.upload_id`; a consumed upload goes with its
+ * configuration. `feed_uploads_retention_shape_check` holds the pair.
  */
 export const feedUploads = pgTable(
   'feed_uploads',
@@ -282,9 +303,8 @@ export const feedUploads = pgTable(
     /** sha-256 of the received bytes, so a re-upload of the same file is recognisable. */
     contentDigest: text().notNull(),
     /**
-     * WHERE the staged bytes are, on the task that received them. A path
-     * fragment, never an absolute path a caller supplied — composed from the
-     * row id by `feed-import/upload.ts`.
+     * The Oxy `file_id` of the stored bytes: a private file of the Mercaria
+     * application. Never derived from anything a caller named.
      */
     storageKey: text().notNull(),
     compression: text({ enum: asEnumValues(FEED_COMPRESSIONS) }).notNull(),
@@ -293,8 +313,11 @@ export const feedUploads = pgTable(
       .default('staged'),
     uploadedByOxyUserId: text().notNull(),
     consumedAt: timestamptz(),
-    /** The retention deadline. Swept by `expiryTargets.ts`. */
-    expiresAt: timestamptz().notNull(),
+    /**
+     * The retention deadline of an upload no version cites. Swept by
+     * `expiryTargets.ts`; NULL once consumed (see the docblock).
+     */
+    expiresAt: timestamptz(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -319,6 +342,11 @@ export const feedUploads = pgTable(
     check(
       'feed_uploads_consumed_shape_check',
       sql`(${t.status} = 'consumed') = (${t.consumedAt} is not null)`,
+    ),
+    /** A consumed upload has no deadline and every other one has one. */
+    check(
+      'feed_uploads_retention_shape_check',
+      sql`(${t.consumedAt} is null) = (${t.expiresAt} is not null)`,
     ),
     index('feed_uploads_configuration_idx').on(t.configurationId, t.createdAt),
     /**
@@ -854,5 +882,210 @@ export const feedImportReportEntries = pgTable(
     index('feed_import_report_entries_code_idx').on(t.reportId, t.issueCode),
     /** The EXPIRY SWEEP's own index, leading on the deadline. */
     index('feed_import_report_entries_expiry_idx').on(t.expiresAt),
+  ],
+);
+
+/**
+ * `feed_upload_sessions` — one direct upload of a feed file, from the client
+ * straight to object storage.
+ *
+ * ### Why the bytes never reach this API
+ *
+ * A feed is gigabytes and every Oxy API hostname sits behind a proxy that
+ * refuses a request body over 100 MB. So the client asks for a session, PUTs
+ * presigned parts to Oxy Files' storage itself (a private file of the Mercaria
+ * application, Oxy ADR 0043 stage 4b), and completes; storage hashes the
+ * assembled object and only bytes matching the declared SHA-256 become a file.
+ * Mercaria then reads the first bytes back, refuses a multi-entry archive or a
+ * compression mismatch, and only then writes the `feed_uploads` row a version
+ * may cite.
+ *
+ * ### Knowing a hash is not holding a file
+ *
+ * Storage answers bytes the application ALREADY holds at once, with no upload —
+ * and those bytes may be another store's feed or a creator's private
+ * deliverable. So a session that storage deduplicated is `proof_required` unless
+ * this owner already holds the file in a `feed_uploads` row: the client must
+ * send one random range (`proof_offset`, `proof_length`) of the file, which
+ * Mercaria compares against the stored object. A hash, a size and a guess
+ * cannot answer that.
+ *
+ * ### One open session per storage upload
+ *
+ * Storage keys an open upload by its bytes, so two sessions for the same bytes
+ * get the same `oxy_upload_id` — and the second could complete parts the first
+ * sent. `feed_upload_sessions_open_upload_key` makes that a conflict the
+ * service answers (resume for the same configuration, refuse otherwise).
+ */
+export const feedUploadSessions = pgTable(
+  'feed_upload_sessions',
+  {
+    id: generatedId(),
+    configurationId: text()
+      .notNull()
+      .references(() => feedConfigurations.id, { onDelete: 'cascade' }),
+    /** The client's filename, reduced to a label (`feed_uploads.filename`'s rule). */
+    filename: text().notNull(),
+    /** What the client declared; compared against the bytes before acceptance. */
+    compression: text({ enum: asEnumValues(FEED_COMPRESSIONS) }).notNull(),
+    /** The declared size. Storage refuses an object of any other size. */
+    byteSize: bigint({ mode: 'number' }).notNull(),
+    /** The declared SHA-256. Storage refuses bytes that hash to anything else. */
+    contentDigest: text().notNull(),
+    /** Oxy's upload session, while parts are being sent. NULL when storage deduplicated. */
+    oxyUploadId: text(),
+    /**
+     * The Oxy file storage answered with, before Mercaria accepted it. The
+     * holding row is the `feed_uploads` row it completes into; this is the
+     * session's own note of the answer.
+     */
+    oxyFileId: text(),
+    status: text({ enum: asEnumValues(FEED_UPLOAD_SESSION_STATUSES) })
+      .notNull()
+      .default('uploading'),
+    /** The range a deduplicated session must send as proof of possession. */
+    proofOffset: bigint({ mode: 'number' }),
+    proofLength: integer(),
+    /** The upload this session became. */
+    feedUploadId: text().references(() => feedUploads.id, { onDelete: 'restrict' }),
+    failure: text({ enum: asEnumValues(FEED_UPLOAD_SESSION_FAILURES) }),
+    openedByOxyUserId: text().notNull(),
+    /** Storage abandons an upload after a week at most; so does this row. */
+    expiresAt: timestamptz().notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    checkOneOf('feed_upload_sessions_status_check', t.status, FEED_UPLOAD_SESSION_STATUSES),
+    checkOneOf('feed_upload_sessions_compression_check', t.compression, FEED_COMPRESSIONS),
+    checkOneOf('feed_upload_sessions_failure_check', t.failure, FEED_UPLOAD_SESSION_FAILURES),
+    check(
+      'feed_upload_sessions_filename_shape_check',
+      sql`${t.filename} ~ '^[A-Za-z0-9][A-Za-z0-9 _.-]{0,199}$' and ${t.filename} !~ '\\.\\.'`,
+    ),
+    check('feed_upload_sessions_digest_shape_check', sql`${t.contentDigest} ~ '^[0-9a-f]{64}$'`),
+    check('feed_upload_sessions_byte_size_check', sql`${t.byteSize} > 0`),
+    /** Two biconditionals, never one over their conjunction. */
+    check(
+      'feed_upload_sessions_completed_shape_check',
+      sql`(${t.status} = 'completed') = (${t.feedUploadId} is not null)`,
+    ),
+    check(
+      'feed_upload_sessions_failed_shape_check',
+      sql`(${t.status} = 'failed') = (${t.failure} is not null)`,
+    ),
+    /** A part-sending or verifying session names the storage upload it drives. */
+    check(
+      'feed_upload_sessions_upload_shape_check',
+      sql`${t.status} not in ('uploading', 'verifying') or ${t.oxyUploadId} is not null`,
+    ),
+    /** A session asking for proof, or one that completed, knows its file. */
+    check(
+      'feed_upload_sessions_file_shape_check',
+      sql`${t.status} not in ('proof_required', 'completed') or ${t.oxyFileId} is not null`,
+    ),
+    check(
+      'feed_upload_sessions_proof_shape_check',
+      sql`(${t.proofOffset} is null) = (${t.proofLength} is null)
+          and (${t.status} <> 'proof_required' or ${t.proofOffset} is not null)
+          and (${t.proofOffset} is null or (${t.proofOffset} >= 0 and ${t.proofLength} > 0
+               and ${t.proofLength} <= ${sql.raw(String(FEED_UPLOAD_PROOF_MAX_BYTES))}
+               and ${t.proofOffset} + ${t.proofLength} <= ${t.byteSize}))`,
+    ),
+    /** PROPERTY — one open session per storage upload. See the docblock. */
+    uniqueIndex('feed_upload_sessions_open_upload_key')
+      .on(t.oxyUploadId)
+      .where(sql`${t.status} in ('uploading', 'verifying') and ${t.oxyUploadId} is not null`),
+    index('feed_upload_sessions_configuration_idx').on(t.configurationId, t.createdAt),
+    // `feed_uploads` is swept (`db/expiryTargets.ts`); each deleted row checks this foreign key.
+    index('feed_upload_sessions_feed_upload_id_idx')
+      .on(t.feedUploadId)
+      .where(sql`${t.feedUploadId} is not null`),
+    /** The EXPIRY SWEEP's own index, leading on the deadline. */
+    index('feed_upload_sessions_expiry_idx').on(t.expiresAt),
+  ],
+);
+
+/**
+ * `feed_validation_jobs` — a whole-feed validation, run by a background loop.
+ *
+ * A validation reads and stages the WHOLE feed, which for a multi-gigabyte file
+ * takes minutes — longer than the load balancer's idle timeout and the proxy's
+ * in front of it. So the request enqueues a job and answers 202, and the client
+ * polls it, as a manual sync already does with its run.
+ *
+ * An outbox row IS the job (house invariants): a claim is a lease with an owner
+ * check (`FOR UPDATE SKIP LOCKED`), a retryable failure backs off and
+ * dead-letters visibly, and a refusal that would answer the same way again is
+ * `failed` with its reason. The report it writes is the same `validation` report
+ * the request used to write, so activation cites exactly what it cited before.
+ */
+export const feedValidationJobs = pgTable(
+  'feed_validation_jobs',
+  {
+    id: generatedId(),
+    configurationId: text()
+      .notNull()
+      .references(() => feedConfigurations.id, { onDelete: 'cascade' }),
+    versionId: text()
+      .notNull()
+      .references(() => feedConfigurationVersions.id, { onDelete: 'cascade' }),
+    status: text({ enum: asEnumValues(FEED_VALIDATION_JOB_STATUSES) })
+      .notNull()
+      .default('pending'),
+    attempts: integer().notNull().default(0),
+    availableAt: timestamptz().notNull(),
+    leaseOwner: text(),
+    leaseUntil: timestamptz(),
+    /** The report the validation wrote. Swept later than this row (90 days against 7). */
+    reportId: text().references(() => feedImportReports.id, { onDelete: 'restrict' }),
+    failureReason: text({ enum: asEnumValues(FEED_REFUSAL_REASONS) }),
+    /** A bounded, redacted message — a refusal's own text, never a feed value or a URL. */
+    lastError: text(),
+    requestedByOxyUserId: text().notNull(),
+    /** The retention deadline. Swept by `expiryTargets.ts`. */
+    expiresAt: timestamptz().notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    checkOneOf('feed_validation_jobs_status_check', t.status, FEED_VALIDATION_JOB_STATUSES),
+    checkOneOf('feed_validation_jobs_failure_reason_check', t.failureReason, FEED_REFUSAL_REASONS),
+    check('feed_validation_jobs_attempts_check', sql`${t.attempts} >= 0`),
+    check(
+      'feed_validation_jobs_completed_shape_check',
+      sql`(${t.status} = 'completed') = (${t.reportId} is not null)`,
+    ),
+    check(
+      'feed_validation_jobs_failed_shape_check',
+      sql`(${t.status} = 'failed') = (${t.failureReason} is not null)`,
+    ),
+    check(
+      'feed_validation_jobs_lease_shape_check',
+      sql`(${t.status} = 'processing') = (${t.leaseOwner} is not null)
+          and (${t.leaseOwner} is null) = (${t.leaseUntil} is null)`,
+    ),
+    check(
+      'feed_validation_jobs_last_error_length_check',
+      sql`${t.lastError} is null
+          or length(${t.lastError}) <= ${sql.raw(String(FEED_IMPORT_MAX_TEXT_LENGTH))}`,
+    ),
+    /**
+     * One OPEN validation per version: asking again while one is queued or
+     * running answers that job (`ON CONFLICT DO NOTHING RETURNING`, with this
+     * predicate repeated) instead of reading the whole feed twice.
+     */
+    uniqueIndex('feed_validation_jobs_open_version_key')
+      .on(t.versionId)
+      .where(sql`${t.status} in ('pending', 'processing')`),
+    /** The claim read. */
+    index('feed_validation_jobs_claim_idx').on(t.status, t.availableAt),
+    index('feed_validation_jobs_configuration_idx').on(t.configurationId, t.createdAt),
+    // `feed_import_reports` is swept (`db/expiryTargets.ts`); each deleted row checks this foreign key.
+    index('feed_validation_jobs_report_id_idx')
+      .on(t.reportId)
+      .where(sql`${t.reportId} is not null`),
+    /** The EXPIRY SWEEP's own index, leading on the deadline. */
+    index('feed_validation_jobs_expiry_idx').on(t.expiresAt),
   ],
 );

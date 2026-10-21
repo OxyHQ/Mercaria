@@ -7,7 +7,7 @@
  * A merchant on a live Shopify store reported that "discounts and other things
  * are not syncing". Discounts were never built. Nothing anywhere told them, and
  * nothing could have: `descriptor.resources` names the three resources a sync
- * SETTING can address, the nine `CHANNEL_LIMITATION_CODES` name no entity at
+ * SETTING can address, the eight `CHANNEL_LIMITATION_CODES` name no entity at
  * all, and the merchant's whole statement of scope was one sentence — "imports
  * your products, stock and orders on a schedule" — which is accurate and silent
  * about everything it omits. A vocabulary that can only name what exists cannot

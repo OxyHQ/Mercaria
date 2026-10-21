@@ -382,7 +382,10 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // for it — -1 module, -3 types, -6 properties. Measured by the real guard.
     // ProductSummary gains `catalogSlug`, a catalogue card's product page: one
     // property. Measured by the real guard.
-    'walked 139 contract module(s), 2383 exported type(s), 7974 property signature(s)',
+    // Direct feed uploads add the session status and failure vocabularies, the
+    // validation job status, and move `FeedRefusalReason` into shared-types: four
+    // type aliases and no property: +4 types. Measured by the real guard.
+    'walked 139 contract module(s), 2387 exported type(s), 7974 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });
