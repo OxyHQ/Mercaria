@@ -436,5 +436,9 @@ export async function refreshBrandProductCount(
   brandId: string,
   productCount: number,
 ): Promise<void> {
-  await db.update(brands).set({ productCount }).where(eq(brands.id, brandId));
+  // Unchanged is not a write — see `refreshFamilyProductCount`.
+  await db
+    .update(brands)
+    .set({ productCount })
+    .where(and(eq(brands.id, brandId), ne(brands.productCount, productCount)));
 }

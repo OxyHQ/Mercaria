@@ -440,10 +440,18 @@ export async function refreshFamilyProductCount(
   familyId: string,
   productCount: number,
 ): Promise<void> {
+  // A count that has not moved is not a write: `rebuild_projections` re-derives
+  // every family each autopilot cycle, and an unconditional UPDATE rewrote the
+  // row (and bumped `updated_at`) every time for nothing.
   await db
     .update(canonicalProductFamilies)
     .set({ productCount })
-    .where(eq(canonicalProductFamilies.id, familyId));
+    .where(
+      and(
+        eq(canonicalProductFamilies.id, familyId),
+        ne(canonicalProductFamilies.productCount, productCount),
+      ),
+    );
 }
 
 /** Trigram candidates with pg_trgm's own score, ordered strongest first. */
