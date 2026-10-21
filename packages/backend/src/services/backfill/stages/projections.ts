@@ -42,7 +42,7 @@ import { getDb } from '../../../db/postgres.js';
 import { config } from '../../../config/index.js';
 import { canonicalProducts } from '../../../db/schema/canonicalCatalog.js';
 import { attributeReindexRequests } from '../../../db/schema/attributeRegistry.js';
-import { countVariantsForProduct } from '../../../db/canonical/canonicalVariantRepository.js';
+import { countVariantsForProducts } from '../../../db/canonical/canonicalVariantRepository.js';
 import { refreshFamilyProductCount } from '../../../db/canonical/productFamilyRepository.js';
 import { refreshBrandProductCount } from '../../../db/canonical/brandRepository.js';
 import {
@@ -82,6 +82,12 @@ export async function runRebuildProjectionsPage(context: StageContext): Promise<
     .orderBy(asc(canonicalProducts.id))
     .limit(context.limit);
 
+  // One grouped count for the page rather than one statement per product.
+  const variantCounts = await countVariantsForProducts(
+    db,
+    rows.map((row) => row.id),
+  );
+
   const refreshedFamilies = new Set<string>();
   // #749: brands are re-derived here too. Before that the merge rollup was the
   // ONLY writer of `brands.product_count`, so a brand nobody merged had no
@@ -92,7 +98,7 @@ export async function runRebuildProjectionsPage(context: StageContext): Promise<
     rows,
     (row) => ({ kind: 'canonical_product', canonicalProductId: row.id }),
     async (row): Promise<SubjectVerdict> => {
-      const actual = await countVariantsForProduct(db, row.id);
+      const actual = variantCounts.get(row.id) ?? 0;
 
       if (row.familyId !== null && !refreshedFamilies.has(row.familyId)) {
         refreshedFamilies.add(row.familyId);
