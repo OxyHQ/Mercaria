@@ -1,4 +1,4 @@
-import { renderListingLink } from "@/lib/catalog/product-links";
+import { renderListingLink, renderMerchantLink } from "@/lib/catalog/product-links";
 import type { ReactElement } from 'react';
 import { View } from 'react-native';
 import { Link, useRouter, type Href } from 'expo-router';
@@ -114,9 +114,6 @@ export function DiscoveryFeed({ sections, categoryShortcuts, categoryTitle }: Di
   const onPressCategoryTile = (id: string, slug: string) =>
     router.push(categoryHref(slug.length > 0 ? slug : id));
 
-  const onPressProduct = (id: string) =>
-    router.push({ pathname: '/products/[id]', params: { id } });
-
   const onPressStore = (handle: string) =>
     router.push({ pathname: '/stores/[handle]', params: { handle } });
 
@@ -169,8 +166,8 @@ export function DiscoveryFeed({ sections, categoryShortcuts, categoryTitle }: Di
         key={section.id}
         title={title}
         merchants={section.stores}
-        onPressMerchant={onPressStore}
-        onPressProduct={onPressProduct}
+        renderMerchantLink={renderMerchantLink}
+        renderProductLink={renderListingLink}
       />
     );
   }
