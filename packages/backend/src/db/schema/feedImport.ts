@@ -568,6 +568,14 @@ export const feedConfigurationVersions = pgTable(
       .on(t.configurationId)
       .where(sql`${t.status} = 'active'`),
     index('feed_configuration_versions_configuration_idx').on(t.configurationId, t.version),
+    // `feed_uploads` is swept (`db/expiryTargets.ts`); each deleted row checks this foreign key.
+    index('feed_configuration_versions_upload_id_idx')
+      .on(t.uploadId)
+      .where(sql`${t.uploadId} is not null`),
+    // `feed_import_reports` is swept (`db/expiryTargets.ts`); each deleted row checks this foreign key.
+    index('feed_configuration_versions_validated_report_id_idx')
+      .on(t.validatedReportId)
+      .where(sql`${t.validatedReportId} is not null`),
   ],
 );
 

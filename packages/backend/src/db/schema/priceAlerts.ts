@@ -635,6 +635,10 @@ export const priceAlertTriggers = pgTable(
     ),
     index('price_alert_triggers_alert_idx').on(t.alertId, t.createdAt.desc()),
     index('price_alert_triggers_offer_idx').on(t.offerId, t.createdAt.desc()),
+    // `offer_price_snapshots` is swept (`db/expiryTargets.ts`) and this foreign
+    // key CASCADEs, so each deleted snapshot looks here. The identity key holds
+    // the column THIRD, which serves no lookup by it alone.
+    index('price_alert_triggers_observed_price_version_idx').on(t.observedPriceVersion),
   ],
 );
 
@@ -796,5 +800,9 @@ export const priceAlertNotifications = pgTable(
       .where(sql`${t.state} = 'delivering'`),
     index('price_alert_notifications_trigger_idx').on(t.triggerId),
     index('price_alert_notifications_alert_idx').on(t.alertId, t.createdAt.desc()),
+    // `notifications` is swept (`db/expiryTargets.ts`); each deleted row checks this foreign key.
+    index('price_alert_notifications_notification_id_idx')
+      .on(t.notificationId)
+      .where(sql`${t.notificationId} is not null`),
   ],
 );

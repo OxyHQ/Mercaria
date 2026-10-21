@@ -314,6 +314,10 @@ export const cancellationRequests = pgTable(
     index('cancellation_requests_open_idx')
       .on(t.createdAt)
       .where(sql`${t.state} in (${sql.raw(stateList(OPEN_CANCELLATION_REQUEST_STATES))})`),
+    // `guest_order_access_grants` is swept (`db/expiryTargets.ts`); each deleted row checks this foreign key.
+    index('cancellation_requests_requested_by_grant_id_idx')
+      .on(t.requestedByGrantId)
+      .where(sql`${t.requestedByGrantId} is not null`),
   ],
 );
 
@@ -549,6 +553,10 @@ export const returnRequests = pgTable(
     index('return_requests_refund_pending_idx')
       .on(t.updatedAt)
       .where(sql`${t.state} = 'refund_pending'`),
+    // `guest_order_access_grants` is swept (`db/expiryTargets.ts`); each deleted row checks this foreign key.
+    index('return_requests_requested_by_grant_id_idx')
+      .on(t.requestedByGrantId)
+      .where(sql`${t.requestedByGrantId} is not null`),
   ],
 );
 
@@ -749,6 +757,10 @@ export const supportMessages = pgTable(
           and length(${t.body}) <= ${sql.raw(String(SUPPORT_MESSAGE_MAX_LENGTH))}`,
     ),
     index('support_messages_thread_idx').on(t.threadId, t.createdAt),
+    // `guest_order_access_grants` is swept (`db/expiryTargets.ts`); each deleted row checks this foreign key.
+    index('support_messages_author_grant_id_idx')
+      .on(t.authorGrantId)
+      .where(sql`${t.authorGrantId} is not null`),
   ],
 );
 
@@ -821,5 +833,9 @@ export const buyerRequestEvents = pgTable(
     index('buyer_request_events_return_idx')
       .on(t.returnRequestId, t.at)
       .where(sql`${t.returnRequestId} is not null`),
+    // `guest_order_access_grants` is swept (`db/expiryTargets.ts`); each deleted row checks this foreign key.
+    index('buyer_request_events_actor_grant_id_idx')
+      .on(t.actorGrantId)
+      .where(sql`${t.actorGrantId} is not null`),
   ],
 );
