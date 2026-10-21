@@ -1254,6 +1254,13 @@
       "when": 1792501275952,
       "tag": "0178_offers_sale_discount_index",
       "breakpoints": true
+    },
+    {
+      "idx": 179,
+      "version": "7",
+      "when": 1792553258038,
+      "tag": "0179_jazzy_lethal_legion",
+      "breakpoints": true
     }
   ]
 }
