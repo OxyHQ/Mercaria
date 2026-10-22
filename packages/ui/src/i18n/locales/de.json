@@ -1036,7 +1036,8 @@
         "system": "System",
         "light": "Hell",
         "dark": "Dunkel",
-        "color": "App-Farbe"
+        "color": "App-Farbe",
+        "colorFailed": "Die App-Farbe konnte nicht gespeichert werden. Versuche es erneut."
       },
       "language": {
         "title": "Sprache",

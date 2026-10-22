@@ -4,7 +4,7 @@ import { useFonts } from 'expo-font';
 import { Slot, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useCallback, useEffect } from 'react';
-import { OxyProvider, useOxy } from '@oxy.so/services/ui/client';
+import { OxyProvider, useAccountColor, useOxy } from '@oxy.so/services/ui/client';
 import { useSupervision } from '@oxy.so/services/ui/client';
 import { BloomProvider } from '@oxy.so/bloom/provider';
 import { OverlayInertBoundary, PortalOutlet, PortalProvider } from '@oxy.so/bloom/portal';
@@ -55,6 +55,10 @@ function AuthSetup({ children }: { children: React.ReactNode }) {
       (supervision.data.self === null || supervision.data.self.status === 'ended'));
 
   setTokenGetter(() => oxyServices.session.accessToken || null);
+
+  // The account's colour wears the Bloom theme for every Oxy app; signed out,
+  // Bloom's default stays.
+  useAccountColor();
 
   // The guest→Oxy cart merge (#104). Mounted once, at the top, because the
   // trigger is signing IN and that can happen on any screen. It is a React

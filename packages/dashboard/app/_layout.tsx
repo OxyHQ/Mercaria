@@ -4,7 +4,7 @@ import { useFonts } from 'expo-font';
 import { Slot, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useCallback, useEffect } from 'react';
-import { OxyProvider, useOxy } from '@oxy.so/services/ui/client';
+import { OxyProvider, useAccountColor, useOxy } from '@oxy.so/services/ui/client';
 import { BloomProvider } from '@oxy.so/bloom/provider';
 import { OverlayInertBoundary, PortalOutlet, PortalProvider } from '@oxy.so/bloom/portal';
 import { expoRouterScrollAdapter } from '@oxy.so/bloom/scroll/expo-router';
@@ -47,6 +47,10 @@ function AuthSetup({ children }: { children: React.ReactNode }) {
   const { oxyServices } = useOxy();
 
   setTokenGetter(() => oxyServices.session.accessToken || null);
+
+  // The account's colour wears the Bloom theme for every Oxy app; signed out,
+  // Bloom's default stays.
+  useAccountColor();
 
   // Resolve public Oxy file IDs using the rendition requested by Bloom.
   // No rendition means the original; Avatar explicitly requests its thumbnail.

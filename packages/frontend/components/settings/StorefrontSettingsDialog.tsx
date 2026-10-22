@@ -171,7 +171,7 @@ export default function StorefrontSettingsDialog(state: SettingsDialogState) {
   const pages: Record<StorefrontSettingsPage, SettingsModalPage> = {
     account: { title: t('settings.sections.account'), content: <AccountPage /> },
     general: { title: t('settings.sections.general'), content: <GeneralSettingsPage /> },
-    appearance: { title: titles.appearance, content: <AppearanceSettingsPage accent /> },
+    appearance: { title: titles.appearance, content: <AppearanceSettingsPage /> },
     addresses: { title: t('settings.sections.addresses'), content: <AddressesSettingsPage /> },
     feedback: { title: t('feedback.title'), content: <FeedbackSettingsPage /> },
     referrals: { title: t('settings.sections.referrals'), content: <ReferralsSettingsPage /> },

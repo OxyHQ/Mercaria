@@ -1043,7 +1043,8 @@
         "system": "Sistema",
         "light": "Claro",
         "dark": "Oscuro",
-        "color": "Color de la app"
+        "color": "Color de la app",
+        "colorFailed": "No se pudo guardar el color de la app. Inténtalo de nuevo."
       },
       "language": {
         "title": "Idioma",
