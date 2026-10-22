@@ -42,6 +42,7 @@ import { join } from 'node:path';
 import { log } from '../lib/logger.js';
 import { parseBillingCohort } from '../services/billing/cohort-config.js';
 import { oxyServiceClient } from '../capabilities/oxy-service-client.js';
+import { sealKeyReferenceResolves } from '../services/digital-retail/secrets.js';
 
 /**
  * Parse an integer environment variable, falling back to `fallback` when the
@@ -3292,15 +3293,12 @@ export interface MerchantDemandConfig {
 /**
  * Zero-profit cost reconciliation (#128).
  *
- * ONE lever, and it gates the LOOP only. Every durable record this domain
- * writes — a revision, an exception, a customer adjustment, a supplier credit,
- * a ledger posting — is written by a path an operator can drive by hand, and
- * `retail-reconciliation-isolation.test.ts` fails the build if any module but
- * the runner reads this flag. Switching a sweep off during an incident should
- * park work, not lose the record of it, and the record here is money owed to
- * buyers.
+ * The sweep always runs; these are its tunables, and only the runner reads
+ * them (`retail-reconciliation-isolation.test.ts`). Every durable record this
+ * domain writes — a revision, an exception, a customer adjustment, a supplier
+ * credit, a ledger posting — is written by a path an operator can drive by hand.
  *
- * There is deliberately no separate "recognition enabled" lever. Recognizing a
+ * There is deliberately no "recognition enabled" lever. Recognizing a
  * positive variance is what makes ADR 0004 D7 proof 2 true — recovery bounded
  * by cost, because every excess is extracted before finality — so a deployment
  * that reconciled without recognizing would be one whose books report margin on
@@ -3308,8 +3306,6 @@ export interface MerchantDemandConfig {
  * make unreachable.
  */
 export interface RetailReconciliationConfig {
-  /** `RETAIL_RECONCILIATION_ENABLED` — does the sweep timer run. Default false. */
-  readonly enabled: boolean;
   /** How many retail orders one page reconciles. */
   readonly batchSize: number;
   readonly pollIntervalMs: number;
@@ -3340,7 +3336,7 @@ export interface RetailEligibilityConfig {
 /**
  * Live supplier preflight (#122).
  *
- * Four independent levers, and the interaction is the part worth stating:
+ * The levers, and the interaction is the part worth stating:
  *
  *  - `enabled` gates whether a PROVIDER IS CALLED at all. Off, every preflight
  *    still runs, still records its attempt and still writes a durable quote —
@@ -3350,14 +3346,10 @@ export interface RetailEligibilityConfig {
  *    withheld here, only a supplier not being asked, and the answer to not
  *    having asked is `unknown`, which is exactly what the domain's honesty rule
  *    requires.
- *  - `sweepEnabled` gates the LOOP that releases lapsed holds and evaluates
- *    health. Off, holds still lapse on the supplier's own clock and quotes
- *    still expire against theirs — what stops is Mercaria recording it, which
- *    is the ordinary outbox inversion.
- *  - `fakeAdapterEnabled` is the failure-injection tooling (#122 operations 8).
- *    It is double-gated: this flag AND the supplier account being in the `test`
- *    environment, so a `live` account can never be served a fabricated answer
- *    however the flag is set.
+ *  - `fakeAdapterEnabled` is the failure-injection tooling (#122 operations 8),
+ *    DERIVED: true everywhere but `NODE_ENV=production`. It is double-gated:
+ *    that AND the supplier account being in the `test` environment, so a
+ *    `live` account can never be served a fabricated answer.
  *  - `fingerprintKey` is demanded whenever `enabled` is true — the
  *    half-configuration rule `GUEST_COMMERCE_ENABLED` established. An unset key
  *    would mean an unkeyed request digest, which is an offline oracle over
@@ -3366,13 +3358,11 @@ export interface RetailEligibilityConfig {
 export interface SupplierPreflightConfig {
   /** `SUPPLIER_PREFLIGHT_ENABLED` — may an adapter be called. Default false. */
   readonly enabled: boolean;
-  /** `SUPPLIER_PREFLIGHT_SWEEP_ENABLED` — does the release/health loop run. */
-  readonly sweepEnabled: boolean;
   readonly sweepIntervalMs: number;
   readonly sweepBatchSize: number;
   /** How many times a lapsed hold's release is retried before it is left visible. */
   readonly maxReleaseAttempts: number;
-  /** `SUPPLIER_PREFLIGHT_FAKE_ADAPTER_ENABLED` — the failure-injection adapter. */
+  /** The failure-injection adapter may be registered: `NODE_ENV !== 'production'`. */
   readonly fakeAdapterEnabled: boolean;
   /** HMAC key for the request digest. 64 hex characters; validated on first use. */
   readonly fingerprintKey: string;
@@ -3388,32 +3378,14 @@ export interface SupplierPreflightConfig {
 /**
  * The supplier ORDER orchestration (#124).
  *
- * THREE independent loop levers, and the independence is the point (#124
- * polling and webhooks 10: "keep provider fetch and public-order projection
- * independently pausable"):
- *
- *  - {@link orchestrationEnabled} gates the dispatcher that SUBMITS and CANCELS.
- *    Off, a paid retail order's job is parked and delivers when it is back on.
- *  - {@link providerFetchEnabled} gates OUTBOUND reads — polling and status
- *    lookups. Off, webhooks are still received and still stored; Mercaria just
- *    stops asking.
- *  - {@link eventProcessingEnabled} gates APPLYING stored events, which is what
- *    moves a purchase order and therefore what a customer sees. Off, events
- *    accumulate durably and nothing customer-visible changes.
- *
- * None of the three gates a durable record, and a static gate fails the build
- * if one starts to. The PER-SUPPLIER kill switch is a different mechanism
- * entirely — `supplier_accounts.state = 'killed'` (#118) — and stops NEW
- * submissions while status, cancellation, return and reconciliation keep
- * working, which is #124 acceptance 5.
+ * Three loops — submit/cancel, status polling, applying stored provider events —
+ * and they always run; these are their tunables. What stops a supplier is the
+ * PER-SUPPLIER kill switch — `supplier_accounts.state = 'killed'` (#118) — which
+ * stops NEW submissions while status, cancellation, return and reconciliation
+ * keep working (#124 acceptance 5). What stops a NEW retail order reaching this
+ * domain at all is `MERCARIA_RETAIL_ENABLED`, at checkout entry.
  */
 export interface ProcurementConfig {
-  /** `PROCUREMENT_ORCHESTRATION_ENABLED` — the submit/cancel dispatcher. Default false. */
-  readonly orchestrationEnabled: boolean;
-  /** `PROCUREMENT_PROVIDER_FETCH_ENABLED` — outbound status reads and polling. */
-  readonly providerFetchEnabled: boolean;
-  /** `PROCUREMENT_EVENT_PROCESSING_ENABLED` — applying stored provider events. */
-  readonly eventProcessingEnabled: boolean;
   readonly outboxBatchSize: number;
   readonly outboxPollIntervalMs: number;
   readonly outboxLeaseMs: number;
@@ -3430,7 +3402,7 @@ export interface ProcurementConfig {
   readonly callTimeoutMs: number;
   /** How old an unresolved attempt must be before the converger picks it up. */
   readonly convergenceGraceMs: number;
-  /** `PROCUREMENT_FAKE_ADAPTER_ENABLED` — the conformance/rehearsal adapter. */
+  /** The conformance/rehearsal adapter may be registered: `NODE_ENV !== 'production'`. */
   readonly fakeAdapterEnabled: boolean;
 }
 
@@ -3774,30 +3746,18 @@ export interface BuyerRequestsConfig {
 /**
  * Retail cancellations, returns, warranties, supplier RMAs and refunds (#127).
  *
- * TWO levers, and the split is #110's for #110's reason. `requestsEnabled` gates
- * the buyer-facing WRITE paths and is a 503 rather than a 403: this deployment
- * DOES do retail returns, it has temporarily stopped taking new ones, and
- * retrying later is the client's correct response. Reads, decisions, refunds,
- * return cases, warranty cases, supplier recoveries and every request already
- * filed are unaffected — a buyer waiting for a refund must not lose it because
- * somebody paused intake.
+ * The buyer-facing paths and the settlement sweep are always on; these are the
+ * sweep's tunables. Every request the sweep advances is also advanced by the
+ * operator surface's `complete`, which drives the same idempotent path, and by
+ * the buyer's own portal read, which shows the true rail state.
  *
- * `reconcilerEnabled` gates the settlement sweep LOOP and nothing else. Every
- * request it would advance is also advanced by the operator surface's
- * `complete`, which drives the same idempotent path, and by the buyer's own
- * portal read, which shows the true rail state whatever the loop is doing.
- *
- * **Neither is `MERCARIA_RETAIL_ENABLED`, and this domain never reads it.**
+ * **This domain never reads `MERCARIA_RETAIL_ENABLED`.**
  * #127 acceptance 8 is *"existing cases remain operable after new retail
  * checkout or supplier integration is paused"*, and
  * `retail-service-isolation.test.ts` fails the build if any module here learns
  * to read `config.retail` or a supplier account's kill switch.
  */
 export interface RetailServiceRequestsConfig {
-  /** Gates the buyer-facing WRITE paths. Reads and decisions stay open. */
-  readonly requestsEnabled: boolean;
-  /** Gates the refund-settlement sweep LOOP, never a row. */
-  readonly reconcilerEnabled: boolean;
   readonly reconcileIntervalMs: number;
   readonly reconcileBatchSize: number;
   readonly reconcileGraceMs: number;
@@ -4106,43 +4066,16 @@ export interface AppConfig {
 }
 
 /**
- * The digital-commerce levers (#1015 acceptance criterion 19, ADR 0010 D13).
+ * Digital commerce configuration (#1015, ADR 0010 D13).
  *
- * FIVE independent switches, and the independence is the requirement rather than
- * a nicety: *"feature flags can independently disable uploads, publication, paid
- * checkout, downloads or a digital vertical WITHOUT STRANDING PRIOR PURCHASES"*.
- * One master flag could not do that — turning it off to stop new uploads would
- * also stop every existing buyer re-downloading what they already own, which is
- * the one outcome none of these levers may cause.
- *
- * So they are ordered by how much they take away, and `downloadsEnabled` is the
- * only one that touches an existing right. It defaults TRUE and is an INCIDENT
- * lever, not a rollout one — the shape `guest.issuanceEnabled` has, and for the
- * same reason: the thing you reach for mid-incident must not be the thing that
- * destroys what buyers hold.
- *
- * Everything else defaults FALSE, because digital commerce has a launch gate in
- * front of it that is not a code review: #1015 W11 requirement 9 and acceptance
- * criterion 15 require payment-provider, tax and legal sign-off PER MARKET, and a
- * deployment that shipped this enabled would be selling electronically supplied
- * services before that happened.
+ * Downloads and publication have no deployment lever. A download is authorized
+ * by the buyer's right alone, and a version becomes sellable only when every
+ * file passed the malware scan and the inspection — with no scanner registered,
+ * nothing is publishable. Selling is gated by `paidCheckoutEnabled` and by the
+ * vertical allow-list, because #1015 W11 requirement 9 and acceptance criterion
+ * 15 require payment-provider, tax and legal sign-off PER MARKET.
  */
 export interface DigitalCommerceConfig {
-  /**
-   * Whether a creator may upload asset files at all — `DIGITAL_UPLOADS_ENABLED`.
-   *
-   * Gates the MOUNT of the creator upload routes (404 when off, the
-   * `STRIPE_ENABLED` rule: an unconfigured surface does not exist rather than
-   * answering 401). Off does not touch a published asset.
-   */
-  readonly uploadsEnabled: boolean;
-  /**
-   * Whether a version may move to `published` — `DIGITAL_PUBLICATION_ENABLED`.
-   *
-   * Separate from uploads so a creator can stage work while publication is
-   * paused, which is what a moderation backlog actually needs.
-   */
-  readonly publicationEnabled: boolean;
   /**
    * Whether a digital offer may be CHECKED OUT for money —
    * `DIGITAL_PAID_CHECKOUT_ENABLED`.
@@ -4151,16 +4084,6 @@ export interface DigitalCommerceConfig {
    * works; on, it is a tax and consumer-law surface in every market it is on in.
    */
   readonly paidCheckoutEnabled: boolean;
-  /**
-   * Whether download grants may be minted — `DIGITAL_DOWNLOADS_ENABLED`,
-   * default TRUE.
-   *
-   * The only lever that reaches an existing right, hence the only one defaulting
-   * on. Turning it off refuses new grants with `downloads_disabled` and leaves
-   * every right `active`, so flipping it back restores access with nothing to
-   * repair.
-   */
-  readonly downloadsEnabled: boolean;
   /**
    * The verticals this deployment sells — `DIGITAL_ENABLED_VERTICALS`, a
    * comma-separated list of {@link DigitalVertical} keys, default empty.
@@ -4173,52 +4096,29 @@ export interface DigitalCommerceConfig {
 }
 
 /**
- * The authorized digital retail levers (#1016 Workstream 22, ADR 0011 D14).
+ * Authorized digital retail configuration (#1016 Workstream 22, ADR 0011 D14).
  *
- * FIVE, mirroring {@link DigitalCommerceConfig} exactly, and for its reason:
- * disabling new sales must never strand an existing purchase. They are ordered by
- * how much they take away, and `revealEnabled` is the only one that reaches
- * something a buyer already holds — so it defaults ON and is an INCIDENT lever
- * rather than a rollout one.
- *
- * These are DEPLOYMENT levers and they do not replace the per-row kill switches:
- * `supplier_accounts.state = 'killed'` and `digital_supplier_capabilities.state`
- * are what an incident about ONE supplier reaches for, because a deployment lever
- * cannot be that precise. The epic asks for eleven independent switches; five are
- * here and the rest are rows.
+ * There are no deployment levers: an incident about ONE supplier reaches for the
+ * per-row kill switches — `supplier_accounts.state = 'killed'` and
+ * `digital_supplier_capabilities.state` — because a deployment lever cannot be
+ * that precise. Buying is not wired yet (#57); when it is, it is gated by
+ * `MERCARIA_RETAIL_ENABLED`.
  */
 export interface DigitalRetailConfig {
-  /** Whether supplier catalogues may be pulled — `DIGITAL_RETAIL_CATALOG_SYNC_ENABLED`. */
-  readonly catalogSyncEnabled: boolean;
-  /** Whether a retail offer may become publishable — `DIGITAL_RETAIL_PUBLICATION_ENABLED`. */
-  readonly publicationEnabled: boolean;
-  /** Whether a digital-retail line may be checked out — `DIGITAL_RETAIL_CHECKOUT_ENABLED`. */
-  readonly checkoutEnabled: boolean;
   /**
-   * Whether anything may be SUBMITTED to a supplier — `DIGITAL_RETAIL_PROCUREMENT_ENABLED`.
-   *
-   * Separate from checkout so an order already taken can still be fulfilled after
-   * checkout is closed, and so a supplier-side incident stops buying without
-   * stopping the orders already paid for from being recovered.
+   * Whether anything may be SUBMITTED to a supplier — DERIVED: true iff
+   * {@link sealKeyReference} is set and resolves to a key. A deployment that
+   * procured without one would fail after spending money, unable to seal what
+   * it bought.
    */
   readonly procurementEnabled: boolean;
-  /**
-   * Whether a buyer may reveal an artifact they already own —
-   * `DIGITAL_RETAIL_REVEAL_ENABLED`, default TRUE.
-   *
-   * The only lever that reaches something a buyer already holds, hence the only
-   * one defaulting on. Turning it off refuses new reveals and leaves every
-   * fulfilment intact, so flipping it back restores access with nothing to repair.
-   */
-  readonly revealEnabled: boolean;
   /**
    * The secret-store path of the key new artifacts are sealed with —
    * `DIGITAL_RETAIL_SEAL_KEY_REFERENCE`.
    *
    * A PATH, never a key; the shape is checked at the sealing boundary and by the
-   * column's own CHECK. Empty means this deployment can seal nothing, which is
-   * why `procurementEnabled` defaults off: a deployment that procured without a
-   * key configured would fail after spending money.
+   * column's own CHECK. Empty means this deployment can seal nothing, and so
+   * procures nothing.
    */
   readonly sealKeyReference: string;
   /**
@@ -4365,6 +4265,14 @@ function resolveEbayEnvironment(): EbayEnvironment {
   return (EBAY_ENVIRONMENTS as readonly string[]).includes(raw)
     ? (raw as EbayEnvironment)
     : 'sandbox';
+}
+
+/** `DIGITAL_ENABLED_VERTICALS`, a comma-separated allow-list of vertical keys. */
+function resolveDigitalEnabledVerticals(): string[] {
+  return strEnv('DIGITAL_ENABLED_VERTICALS', '')
+    .split(',')
+    .map((value) => value.trim().toLowerCase())
+    .filter((value) => value !== '');
 }
 
 /**
@@ -4981,14 +4889,7 @@ export const config: AppConfig = Object.freeze({
     // compare-and-swap for no benefit.
     reconcileGraceMs: intEnv('BUYER_REQUEST_RECONCILE_GRACE_MS', 30_000),
   }),
-  /**
-   * #127. Defaults ON, like #110's, and for the same reason: a deployment that
-   * sells retail owes its buyers a way to cancel and return, and shipping that
-   * capability switched off would be shipping it broken.
-   */
   retailService: Object.freeze({
-    requestsEnabled: boolEnv('RETAIL_SERVICE_REQUESTS_ENABLED', true),
-    reconcilerEnabled: boolEnv('RETAIL_SERVICE_RECONCILER_ENABLED', true),
     reconcileIntervalMs: intEnv('RETAIL_SERVICE_RECONCILE_INTERVAL_MS', MINUTE_MS),
     reconcileBatchSize: intEnv('RETAIL_SERVICE_RECONCILE_BATCH_SIZE', 50),
     // A grace before a committed refund is swept. The buyer's own portal read
@@ -5025,19 +4926,15 @@ export const config: AppConfig = Object.freeze({
   }),
   supplierPreflight: Object.freeze({
     enabled: resolveSupplierPreflightEnabled(),
-    sweepEnabled: boolEnv('SUPPLIER_PREFLIGHT_SWEEP_ENABLED', true),
     sweepIntervalMs: intEnv('SUPPLIER_PREFLIGHT_SWEEP_INTERVAL_MS', 30_000),
     sweepBatchSize: intEnv('SUPPLIER_PREFLIGHT_SWEEP_BATCH_SIZE', 50),
     maxReleaseAttempts: intEnv('SUPPLIER_PREFLIGHT_MAX_RELEASE_ATTEMPTS', 5),
-    fakeAdapterEnabled: boolEnv('SUPPLIER_PREFLIGHT_FAKE_ADAPTER_ENABLED', false),
+    fakeAdapterEnabled: process.env.NODE_ENV !== 'production',
     fingerprintKey: strEnv('SUPPLIER_PREFLIGHT_FINGERPRINT_KEY', ''),
     operatorOxyUserIds: Object.freeze(resolveProcurementOperatorIds()),
     operatorSurfaceEnabled: resolveProcurementOperatorIds().length > 0,
   }),
   procurement: Object.freeze({
-    orchestrationEnabled: boolEnv('PROCUREMENT_ORCHESTRATION_ENABLED', false),
-    providerFetchEnabled: boolEnv('PROCUREMENT_PROVIDER_FETCH_ENABLED', true),
-    eventProcessingEnabled: boolEnv('PROCUREMENT_EVENT_PROCESSING_ENABLED', true),
     outboxBatchSize: intEnv('PROCUREMENT_OUTBOX_BATCH_SIZE', 25),
     outboxPollIntervalMs: intEnv('PROCUREMENT_OUTBOX_POLL_INTERVAL_MS', 5_000),
     outboxLeaseMs: intEnv('PROCUREMENT_OUTBOX_LEASE_MS', 60_000),
@@ -5049,7 +4946,7 @@ export const config: AppConfig = Object.freeze({
     eventLagSlaMs: intEnv('PROCUREMENT_EVENT_LAG_SLA_MS', 3_600_000),
     callTimeoutMs: intEnv('PROCUREMENT_CALL_TIMEOUT_MS', 20_000),
     convergenceGraceMs: intEnv('PROCUREMENT_CONVERGENCE_GRACE_MS', 60_000),
-    fakeAdapterEnabled: boolEnv('PROCUREMENT_FAKE_ADAPTER_ENABLED', false),
+    fakeAdapterEnabled: process.env.NODE_ENV !== 'production',
   }),
   retail: Object.freeze({
     enabled: resolveMercariaRetailEnabled(),
@@ -5065,7 +4962,6 @@ export const config: AppConfig = Object.freeze({
     sessionTtlSeconds: intEnv('NL_INTENT_SESSION_TTL_SECONDS', 30 * 60),
   }),
   retailReconciliation: Object.freeze({
-    enabled: boolEnv('RETAIL_RECONCILIATION_ENABLED', false),
     batchSize: intEnv('RETAIL_RECONCILIATION_BATCH_SIZE', 25),
     pollIntervalMs: intEnv('RETAIL_RECONCILIATION_POLL_INTERVAL_MS', 60_000),
   }),
@@ -5151,23 +5047,11 @@ export const config: AppConfig = Object.freeze({
     pageSize: intEnv('CATALOG_PROPOSAL_PAGE_SIZE', 50),
   }),
   digital: Object.freeze({
-    uploadsEnabled: boolEnv('DIGITAL_UPLOADS_ENABLED', false),
-    publicationEnabled: boolEnv('DIGITAL_PUBLICATION_ENABLED', false),
     paidCheckoutEnabled: boolEnv('DIGITAL_PAID_CHECKOUT_ENABLED', false),
-    downloadsEnabled: boolEnv('DIGITAL_DOWNLOADS_ENABLED', true),
-    enabledVerticals: Object.freeze(
-      strEnv('DIGITAL_ENABLED_VERTICALS', '')
-        .split(',')
-        .map((value) => value.trim().toLowerCase())
-        .filter((value) => value !== ''),
-    ),
+    enabledVerticals: Object.freeze(resolveDigitalEnabledVerticals()),
   }),
   digitalRetail: Object.freeze({
-    catalogSyncEnabled: boolEnv('DIGITAL_RETAIL_CATALOG_SYNC_ENABLED', false),
-    publicationEnabled: boolEnv('DIGITAL_RETAIL_PUBLICATION_ENABLED', false),
-    checkoutEnabled: boolEnv('DIGITAL_RETAIL_CHECKOUT_ENABLED', false),
-    procurementEnabled: boolEnv('DIGITAL_RETAIL_PROCUREMENT_ENABLED', false),
-    revealEnabled: boolEnv('DIGITAL_RETAIL_REVEAL_ENABLED', true),
+    procurementEnabled: sealKeyReferenceResolves(strEnv('DIGITAL_RETAIL_SEAL_KEY_REFERENCE', '')),
     sealKeyReference: strEnv('DIGITAL_RETAIL_SEAL_KEY_REFERENCE', ''),
     recoveryDelaySeconds: intEnv('DIGITAL_RETAIL_RECOVERY_DELAY_SECONDS', 60),
   }),

@@ -16,6 +16,7 @@ import {
   environmentKeyResolver,
   maskedHintFor,
   sealArtifactSecret,
+  sealKeyReferenceResolves,
   unsealArtifactSecret,
 } from '../secrets.js';
 
@@ -234,6 +235,25 @@ describe('sealing an artifact', () => {
     await expect(
       sealArtifactSecret('ABCD-EFGH', '/oxy/mercaria/suppliers/acme/api-key', RESOLVER),
     ).rejects.toThrow(/must live under/);
+  });
+});
+
+describe('whether a deployment can seal at all — what turns procurement on', () => {
+  const env = { DIGITAL_RETAIL_SEAL_KEY_TEST: Buffer.alloc(32, 7).toString('base64') };
+
+  it('is true only for a reference that resolves to a 32-byte key', () => {
+    expect(sealKeyReferenceResolves(KEY_REFERENCE, env as NodeJS.ProcessEnv)).toBe(true);
+  });
+
+  it('is false for an unset, raw, foreign, unkeyed or short-keyed reference', () => {
+    const short = { DIGITAL_RETAIL_SEAL_KEY_TEST: Buffer.alloc(16, 7).toString('base64') };
+    expect(sealKeyReferenceResolves('', env as NodeJS.ProcessEnv)).toBe(false);
+    expect(sealKeyReferenceResolves('sk_live_51Habc', env as NodeJS.ProcessEnv)).toBe(false);
+    expect(sealKeyReferenceResolves('/oxy/mercaria/suppliers/acme', env as NodeJS.ProcessEnv)).toBe(
+      false,
+    );
+    expect(sealKeyReferenceResolves(KEY_REFERENCE, {} as NodeJS.ProcessEnv)).toBe(false);
+    expect(sealKeyReferenceResolves(KEY_REFERENCE, short as NodeJS.ProcessEnv)).toBe(false);
   });
 });
 
