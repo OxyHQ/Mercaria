@@ -372,7 +372,7 @@ export async function importOxyFileFromUrl(
   let answer: unknown;
   try {
     // Retried on 429: Oxy answers the same file per (owner, URL).
-    answer = await withOxyRateLimitRetry(() =>
+    answer = await withOxyRateLimitRetry<unknown>(() =>
       owner.kind === 'application'
         ? oxy.assets.importAppFile(sourceUrl, { visibility: 'public', ...revalidate })
         : oxy.assets.importUserMedia(owner.oxyUserId, sourceUrl, {

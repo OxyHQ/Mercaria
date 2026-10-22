@@ -80,8 +80,6 @@ export default function DashboardSettingsDialog(state: SettingsDialogState) {
       pages={{
         account: { title: titles.account, content: <AccountPage /> },
         language: { title: titles.language, content: <LanguagePage /> },
-        // No colour preset: `BloomProvider` pins the dashboard's (controlled
-        // `colorPreset`), so a choice here would do nothing.
         appearance: { title: titles.appearance, content: <AppearanceSettingsPage /> },
       }}
     />

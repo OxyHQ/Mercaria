@@ -4,12 +4,9 @@ import {
   SegmentedControlItemText,
 } from '@oxy.so/bloom/segmented-control';
 import { SettingsGeneralPage, type SettingsPageSection } from '@oxy.so/bloom/settings-modal';
-import {
-  COLOR_PRESET_REGISTRY,
-  FREE_COLOR_NAMES,
-  useBloomTheme,
-  type AppColorName,
-} from '@oxy.so/bloom/theme';
+import { toast } from '@oxy.so/bloom/toast';
+import { COLOR_PRESET_REGISTRY, useBloomTheme } from '@oxy.so/bloom/theme';
+import { useAccountColorSave, useOxy } from '@oxy.so/services/ui/client';
 import { useSharedUiTranslation } from '../i18n/ui-translation';
 import { SettingsSelect } from './SettingsSelect';
 
@@ -22,26 +19,16 @@ const MODE_LABEL_KEYS: Record<Mode, string> = {
   dark: 'ui.settings.appearance.dark',
 };
 
-const FREE = new Set<AppColorName>(FREE_COLOR_NAMES);
-const PRESETS = COLOR_PRESET_REGISTRY.filter((preset) => FREE.has(preset.name));
-
-export interface AppearanceSettingsPageProps {
-  /**
-   * Offer the colour preset. Off where the app pins its colour (the dashboard
-   * passes a controlled `colorPreset` to `BloomProvider`, so a choice here
-   * would do nothing).
-   */
-  accent?: boolean;
-}
-
 /**
- * Light, dark or the system's, and the colour preset. Both are Bloom's own
- * persisted theme state (each app's `persistKey`), so a choice re-themes the
- * app at once and stays on this device.
+ * Light, dark or the system's (Bloom's own persisted theme state), and — for a
+ * signed-in account — the Oxy account colour, which is the account's, not the
+ * device's: it is saved to the account and every Oxy app wears it.
  */
-export function AppearanceSettingsPage({ accent = false }: AppearanceSettingsPageProps) {
+export function AppearanceSettingsPage() {
   const t = useSharedUiTranslation();
-  const { mode: bloomMode, setMode, colorPreset, setColorPreset } = useBloomTheme();
+  const { isAuthenticated } = useOxy();
+  const { colors, value, saveColor } = useAccountColorSave();
+  const { mode: bloomMode, setMode } = useBloomTheme();
   const mode: Mode = bloomMode === 'light' || bloomMode === 'dark' ? bloomMode : 'system';
 
   const sections: SettingsPageSection[] = [
@@ -69,7 +56,7 @@ export function AppearanceSettingsPage({ accent = false }: AppearanceSettingsPag
       ],
     },
   ];
-  if (accent) {
+  if (isAuthenticated) {
     sections.push({
       key: 'color',
       rows: [
@@ -79,11 +66,17 @@ export function AppearanceSettingsPage({ accent = false }: AppearanceSettingsPag
           control: (
             <SettingsSelect
               label={t('ui.settings.appearance.color')}
-              value={colorPreset}
-              onChange={(next) => setColorPreset(next)}
+              value={value}
+              onChange={(next) => {
+                saveColor(next).catch(() => toast.error(t('ui.settings.appearance.colorFailed')));
+              }}
               // Bloom's preset names are its own and untranslated — palette
-              // names, read like a brand name — exactly as Allo shows them.
-              items={PRESETS.map((preset) => ({ value: preset.name, label: preset.displayName }))}
+              // names, read like a brand name.
+              items={colors.map((name) => ({
+                value: name,
+                label:
+                  COLOR_PRESET_REGISTRY.find((preset) => preset.name === name)?.displayName ?? name,
+              }))}
             />
           ),
         },

@@ -10,7 +10,7 @@
  */
 export { SettingsDialogShell, type SettingsDialogShellProps } from './SettingsDialogShell';
 export { AccountSettingsPage, type AccountSettingsPageProps } from './AccountSettingsPage';
-export { AppearanceSettingsPage, type AppearanceSettingsPageProps } from './AppearanceSettingsPage';
+export { AppearanceSettingsPage } from './AppearanceSettingsPage';
 export {
   LanguageSettingsPage,
   useLanguageSettingsSection,
