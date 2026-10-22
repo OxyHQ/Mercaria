@@ -243,11 +243,11 @@ const SUPPLIER_REFERENCE =
  * The retail ENTRY levers.
  *
  * #127 acceptance 8: *"existing cases remain operable after new retail checkout
- * or supplier integration is paused"*. `MERCARIA_RETAIL_ENABLED` gates checkout
+ * or supplier integration is paused"*. `config.retail.enabled` gates checkout
  * ENTRY and a supplier account's `killed` state stops NEW submissions; neither
  * may reach a case that already exists, so nothing here reads either.
  */
-const RETAIL_ENTRY_LEVER_REFERENCE = /config\.retail\b|MERCARIA_RETAIL_ENABLED|['"]killed['"]/;
+const RETAIL_ENTRY_LEVER_REFERENCE = /config\.retail\b|['"]killed['"]/;
 
 /** The ledger. #128 books what this domain classifies (ADR 0004 D7). */
 const LEDGER_REFERENCE =
@@ -495,7 +495,7 @@ describe('retail service isolation (static)', () => {
   });
 
   it('nothing in the domain reads a retail ENTRY lever', () => {
-    // #127 acceptance 8. A case already filed must survive `MERCARIA_RETAIL_ENABLED`
+    // #127 acceptance 8. A case already filed must survive `config.retail.enabled`
     // going false and a supplier account being killed, and the way that is made
     // true is by nothing here being able to see either.
     for (const path of DOMAIN_PATHS) {

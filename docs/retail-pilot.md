@@ -36,8 +36,10 @@ not, in the order they bite:
    variable is a list nobody can review, nobody can attribute a line of, and
    which silently admits everything on a typo.
 
-The one thing that IS a variable is `MERCARIA_RETAIL_ENABLED` (#123), and it
-stays one: a kill switch has to be flippable without a migration.
+The one thing that IS a variable is whether retail is configured at all
+(`config.retail.enabled`, #123 — on exactly when the retail seller identity and
+its prerequisites are set), and it stays one: turning retail off has to be
+possible without a migration.
 
 ## The rules that are load-bearing
 
@@ -167,8 +169,8 @@ every one of them advisory).
 
 The pilot adds **no environment variable**. That is the design: its bounds are
 rows. What it reads is `PROCUREMENT_OPERATOR_OXY_USER_IDS` (whether the operator
-surface mounts at all) and, indirectly, `MERCARIA_RETAIL_ENABLED` (#123's entry
-switch, checked before this gate is reached).
+surface mounts at all) and, indirectly, whether retail is configured (#123's
+entry gate, `config.retail.enabled`, checked before this gate is reached).
 
 ## Seams left to their owners
 

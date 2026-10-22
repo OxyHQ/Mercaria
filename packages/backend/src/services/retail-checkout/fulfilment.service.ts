@@ -30,7 +30,7 @@
  *
  * ## Neither direction reads a feature flag, and a gate asserts it
  *
- * `MERCARIA_RETAIL_ENABLED` gates checkout ENTRY (ADR 0004 D4 concern 13). A
+ * `config.retail.enabled` gates checkout ENTRY (ADR 0004 D4 concern 13). A
  * rollback must leave in-flight procurement, refunds and reconciliation
  * draining, so `retail-checkout-isolation.test.ts` fails the build if this
  * module learns to read `config.retail`. The per-supplier kill switch is a

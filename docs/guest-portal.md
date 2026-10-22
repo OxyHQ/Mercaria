@@ -400,7 +400,7 @@ Five levers now, and the interaction is the part worth knowing:
 
 | Flag | Default | Gates |
 |---|---|---|
-| `GUEST_COMMERCE_ENABLED` | false | the whole guest domain — no credential resolves at all |
+| guest commerce itself (no flag: on exactly when `GUEST_PII_ENCRYPTION_KEY` and `GUEST_EMAIL_HASH_KEY` both resolve) | — | the whole guest domain — without both keys no credential resolves at all |
 | `GUEST_SESSION_ISSUANCE_ENABLED` | true | NEW sessions only |
 | `GUEST_CART_ENABLED` | true | whether a credential may own commerce state |
 | `GUEST_INLINE_DESTINATION_ENABLED` | true | whether a guest may place an order |
@@ -413,12 +413,12 @@ checkout "never the durable records: existing portal grants and magic-link
 recovery for already-placed guest orders keep working with the flag off".
 `guest-portal-isolation.test.ts` fails the build if a read path learns to read
 one, and `guest-portal.integration.test.ts` runs its whole suite on a deployment
-where `GUEST_COMMERCE_ENABLED` is off — asserting the premise, so the file
-cannot quietly start relying on it.
+where guest commerce is off (only the email hash key set) — asserting the
+premise, so the file cannot quietly start relying on it.
 
 The ONE interaction that IS real: `POST /guest/orders/confirmation` needs a live
-guest SESSION, which only resolves while `GUEST_COMMERCE_ENABLED` is on. With
-guest commerce switched off mid-flight, a buyer who has already paid reaches
+guest SESSION, which only resolves while guest commerce is on. With guest
+commerce switched off mid-flight (a key removed), a buyer who has already paid reaches
 their orders through the emailed link rather than from the tab they paid in.
 That is the correct trade — the confirmation grant is a NEW credential derived
 from one the deployment has stopped honouring.
@@ -465,9 +465,9 @@ Everything below is unfinished work, not a suggestion.
    transport, and wire its bounce and complaint feedback into
    `suppressGuestContact`. Until then the suppression list only grows from
    Mercaria's own permanent failures.
-5. **Record the M8 security and privacy review** on #111 before
-   `GUEST_COMMERCE_ENABLED=true` in any non-test environment (ADR 0003
-   acceptance 8).
+5. **Record the M8 security and privacy review** on #111 before guest
+   commerce's two keys resolve in any non-test environment — they are what turn
+   it on (ADR 0003 acceptance 8).
 
 ## Deferred, each a named contract rather than a stub
 

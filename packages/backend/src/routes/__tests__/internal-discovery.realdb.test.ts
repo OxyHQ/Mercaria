@@ -112,7 +112,7 @@ async function build(options: {
   vi.resetModules();
   process.env.ANALYTICS_OPERATOR_OXY_USER_IDS = options.operators;
   process.env.PAYMENT_OPERATOR_OXY_USER_IDS = PAYMENTS_OPERATOR;
-  process.env.STRIPE_ENABLED = 'false';
+  process.env.STRIPE_SECRET_KEY = '';
 
   const graph = options.withDatabase ? await import('../../db/postgres.js') : null;
   const db = graph ? await graph.connectPostgres() : null;
@@ -152,7 +152,7 @@ afterAll(async () => {
   try {
     delete process.env.ANALYTICS_OPERATOR_OXY_USER_IDS;
     delete process.env.PAYMENT_OPERATOR_OXY_USER_IDS;
-    delete process.env.STRIPE_ENABLED;
+    delete process.env.STRIPE_SECRET_KEY;
     await Promise.all([enabled, disabled].map((deployment) => deployment.closeServer()));
     if (slot) await slot.release();
   } finally {

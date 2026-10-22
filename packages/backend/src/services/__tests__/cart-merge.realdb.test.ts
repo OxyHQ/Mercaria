@@ -57,7 +57,6 @@ function isAppendOnlyRefusal(error: unknown): boolean {
 }
 
 beforeAll(async () => {
-  process.env.GUEST_COMMERCE_ENABLED = 'true';
   process.env.GUEST_PII_ENCRYPTION_KEY = 'cart-merge-realdb-pii-key';
   process.env.GUEST_EMAIL_HASH_KEY = 'cart-merge-realdb-email-hash-key';
   // Explicit, not assumed: vitest may run several files in one worker thread,

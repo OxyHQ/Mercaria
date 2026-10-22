@@ -18,7 +18,7 @@
  *     offer ON"). Here every published variant SELECTS one and the converger is
  *     driven, so real `offers` rows exist and the reads that consume them can be
  *     driven. What the product page then does with them is the finding this file
- *     records rather than the outcome it assumed: with `STRIPE_ENABLED` off — the
+ *     records rather than the outcome it assumed: with the Stripe rail unconfigured — the
  *     suite's configuration, and any
  *     deployment without Stripe — every native offer is EXCLUDED from the
  *     comparison as `seller_not_payment_ready`, while the search result's own
@@ -548,7 +548,7 @@ describe.each(PAIRS)('the footwear journey in $name', (pair) => {
      * The offers exist, are fresh, and are in the search result's own offer
      * summary (the case above asserts that). The comparison still refuses them,
      * because `readSellerPaymentReadiness` returns an EMPTY map when
-     * `STRIPE_ENABLED` is off and `offer-projection.ts` coerces a missing entry
+     * the Stripe rail is unconfigured and `offer-projection.ts` coerces a missing entry
      * to `false` — so `deriveNativeCheckoutEligibility` reports
      * `seller_not_payment_ready` and #74's rule 7 excludes the offer.
      *

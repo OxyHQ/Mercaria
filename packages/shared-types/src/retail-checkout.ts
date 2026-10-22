@@ -55,7 +55,7 @@ import type { CurrencyCode } from './money';
  *  7. `currency_unsupported` — the presentment currency is outside what the
  *     rail may charge (ADR 0001 D8).
  *  8. `retail_disabled` — a supplier, market or platform kill switch is set,
- *     or `MERCARIA_RETAIL_ENABLED` is off. ONE code for every switch, so a
+ *     or retail is not configured on this deployment. ONE code for every switch, so a
  *     client cannot map the switchboard one input at a time (ADR 0006's rule).
  *  9. `guest_not_eligible` — the signed-out buyer is outside the guest rollout
  *     for this exact supplier, market, destination, currency or fulfilment.

@@ -177,8 +177,11 @@ AFTER checkout, so a mock deployment must behave like one with no rail.
 
 **Peable outranks Stripe** when both are configured. A deployment with both is
 mid-migration by definition, and a checkout opening today should open on the
-rail the migration is heading to; it also makes `PEABLE_ENABLED=false` the
-complete rollback, with no second switch to remember. `undefined` — no rail —
+rail the migration is heading to; it also makes removing `PEABLE_WEBHOOK_SECRET`
+the complete rollback, with no second switch to remember. (Amended 2026-10-16:
+`PEABLE_ENABLED` was removed; the rail is on exactly when `PEABLE_WEBHOOK_SECRET`
+is set and Mercaria has an Oxy identity, and `PEABLE_BASE_URL` defaults to the
+production gateway.) `undefined` — no rail —
 stays an ordinary answer: those deployments place orders exactly as they did
 before any of this existed.
 

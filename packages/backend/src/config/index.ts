@@ -190,43 +190,6 @@ function resolveDatabaseUrl(): string {
 }
 
 /**
- * Whether guest commerce is switched on — ADR 0003 M8.
- *
- * `GUEST_COMMERCE_ENABLED=true` requires BOTH `GUEST_PII_ENCRYPTION_KEY` and
- * `GUEST_EMAIL_HASH_KEY`, the `CROWDSOURCE_ENABLED` half-configuration rule:
- * a deployment able to mint guest sessions but not to encrypt a guest
- * checkout's contact (#105–#107) or route a magic link (#108) would take carts
- * it can never carry to an order confirmation. Half-configured stays OFF and
- * says so once at boot. The two keys are SEPARATE by design (D12): the hash
- * key must be usable by the lookup path without ever being able to decrypt.
- *
- * There is deliberately no `GUEST_TOKEN_PEPPER` and none may be added: the
- * session token hashes are keyless SHA-256 on purpose (256-bit random
- * preimages need no key, and a pepper would make every stored hash
- * unverifiable the day it rotated), while the email hash is keyed for the
- * opposite entropy reason — the ADR's Environment section states both.
- *
- * This flag gates ISSUANCE surfaces (the `/guest/session` mount, new-session
- * minting), never durable records: sessions issued while it was on are purged
- * by the retention sweep on their own schedule whatever this says.
- */
-function resolveGuestCommerceEnabled(): boolean {
-  if (!boolEnv('GUEST_COMMERCE_ENABLED', false)) return false;
-
-  const missing = (['GUEST_PII_ENCRYPTION_KEY', 'GUEST_EMAIL_HASH_KEY'] as const).filter(
-    (name) => (process.env[name]?.trim() ?? '') === '',
-  );
-  if (missing.length === 0) return true;
-
-  log.general.error(
-    { missing },
-    '[Guest] GUEST_COMMERCE_ENABLED is set but the integration is incomplete; staying OFF. ' +
-      'No guest session is issued and the /guest/session surface is not mounted.',
-  );
-  return false;
-}
-
-/**
  * `GUEST_ABUSE_CONTROLS_ENABLED`, subject to the half-configuration rule (#111).
  *
  * Enabling the controls without `GUEST_ABUSE_SUBJECT_HASH_KEY` would leave every
@@ -261,8 +224,8 @@ function resolveGuestAbuseControlsEnabled(): boolean {
  * Enabling preflight without `SUPPLIER_PREFLIGHT_FINGERPRINT_KEY` would leave
  * the request digest unkeyed, and a country plus a postal code is a space small
  * enough to enumerate — so an unkeyed digest is an offline oracle over buyers'
- * addresses sitting in a column. The same argument `GUEST_COMMERCE_ENABLED`
- * makes for its two keys, and it resolves the same way: stay OFF and say so,
+ * addresses sitting in a column. The same argument guest commerce makes for its
+ * two keys, and it resolves the same way: stay OFF and say so,
  * rather than run in a weaker mode nobody chose.
  *
  * Staying off is SAFE here in a way it would not be for a delivery queue: every
@@ -412,16 +375,9 @@ function resolveFeedImportEnabled(): boolean {
 }
 
 /**
- * `MERCARIA_RETAIL_ENABLED`, with ADR 0004 D13's half-configuration rule.
- *
- * Both demands are things without which retail checkout would be ON and refuse
- * every line, which is worse than being off: a catalogue that shows retail
- * offers nobody can buy produces support tickets rather than an error somebody
- * fixes. See {@link MercariaRetailConfig} for why each of the two matters.
- *
- * It logs ONCE at boot and stays off, rather than throwing: refusing to boot
- * would take an otherwise healthy marketplace down over a feature that is off
- * by default.
+ * `MERCARIA_RETAIL_SELLER_LEGAL_ENTITY`, trimmed — see
+ * {@link resolveMercariaRetailEnabled}, which reads it as the deployment's
+ * statement that it sells retail.
  */
 function retailSellerLegalEntityName(): string {
   return strEnv('MERCARIA_RETAIL_SELLER_LEGAL_ENTITY', '').trim();
@@ -439,9 +395,24 @@ function retailSellerLegalEntityCountry(): string {
   return strEnv('MERCARIA_RETAIL_SELLER_COUNTRY', '').trim().toUpperCase();
 }
 
+/**
+ * Whether Mercaria Retail checkout ENTRY is open — ADR 0004 D13.
+ *
+ * There is no switch: retail is ON exactly when the deployment holds every
+ * prerequisite it cannot sell without, and OFF otherwise. Each one is a thing
+ * without which retail checkout would be on and refuse every line, which is
+ * worse than being off: a catalogue that shows retail offers nobody can buy
+ * produces support tickets rather than an error somebody fixes. See
+ * {@link MercariaRetailConfig} for why each matters.
+ *
+ * The seller identity is the deployment's statement that it sells retail at
+ * all, so a deployment that names no seller stays off SILENTLY — that is the
+ * shipped default, not a misconfiguration. One that names a seller and lacks a
+ * sibling prerequisite logs ONCE at boot and stays off, rather than throwing:
+ * refusing to boot would take an otherwise healthy marketplace down over one
+ * missing value.
+ */
 function resolveMercariaRetailEnabled(): boolean {
-  if (!boolEnv('MERCARIA_RETAIL_ENABLED', false)) return false;
-
   const hasPreflight = resolveSupplierPreflightEnabled();
   const hasRetailOperators = resolveRetailOperatorIds().length > 0;
   // #126: a retail order's role snapshot names the selling entity, is written
@@ -452,6 +423,10 @@ function resolveMercariaRetailEnabled(): boolean {
     retailSellerLegalEntityName() !== '' && /^[A-Z]{2}$/.test(retailSellerLegalEntityCountry());
   if (hasPreflight && hasRetailOperators && hasSeller) return true;
 
+  const namesSeller =
+    retailSellerLegalEntityName() !== '' || retailSellerLegalEntityCountry() !== '';
+  if (!namesSeller) return false;
+
   const missing = [
     hasPreflight ? undefined : 'SUPPLIER_PREFLIGHT_ENABLED',
     hasRetailOperators ? undefined : 'RETAIL_OPERATOR_OXY_USER_IDS',
@@ -459,9 +434,9 @@ function resolveMercariaRetailEnabled(): boolean {
   ].filter((name): name is string => name !== undefined);
   log.general.error(
     { missing },
-    '[MercariaRetail] MERCARIA_RETAIL_ENABLED is set but the retail stack is incomplete; ' +
+    '[MercariaRetail] A retail seller is configured but the retail stack is incomplete; ' +
       'staying OFF. Placed retail orders, their procurement, refunds and reconciliation are ' +
-      'unaffected — this flag gates checkout ENTRY only (ADR 0004 D4 concern 13).',
+      'unaffected — this gates checkout ENTRY only (ADR 0004 D4 concern 13).',
   );
   return false;
 }
@@ -507,7 +482,9 @@ function resolveMerchantBillingEnabled(): boolean {
 
   log.general.error(
     {
-      missing: ['STRIPE_ENABLED or a complete MERCHANT_BILLING_PEABLE_COHORT and an Oxy identity'],
+      missing: [
+        'a configured Stripe rail or a complete MERCHANT_BILLING_PEABLE_COHORT and an Oxy identity',
+      ],
     },
     '[MerchantBilling] MERCHANT_BILLING_ENABLED is set but no billing rail is configured; ' +
       'staying OFF. Entitlements, existing subscriptions and provider events are unaffected — ' +
@@ -622,33 +599,19 @@ function resolveReferralOperatorIds(): readonly string[] {
 }
 
 /**
- * Whether the Stripe rail is switched on.
+ * The Peable rail is ON exactly when everything it cannot work without is
+ * present. There is no switch: holding the webhook secret IS the decision.
  *
- * The `resolveCrowdSourceEnabled` rule, applied to a rail where the consequence
- * of getting it wrong is money rather than reviewer time. `STRIPE_ENABLED=true`
- * requires the secret key AND BOTH webhook secrets (ADR 0001, "Environment"),
- * because the two endpoints are two independent halves of the same integration:
- * a deployment with the platform secret and no Connect secret verifies payment
- * events and rejects every `account.updated`, so sellers silently stop becoming
- * payment-ready while charges keep succeeding. Half-configured is worse than off
- * and says so once at boot.
+ * A CONJUNCTION, and the same shape every other integration in this file uses:
+ * a half-configured rail that accepted a checkout and failed mid-request on the
+ * first missing secret is strictly worse than one that stayed off and said so
+ * at boot.
  *
- * There is no `STRIPE_ACCOUNT_ID`: the platform account is implied by the key,
- * and connected-account ids live only in provider-account records (#46).
- */
-/**
- * The Peable rail is ON only when the operator asked for it AND every secret it
- * cannot work without is present.
- *
- * A CONJUNCTION, not a flag, and the same shape every other integration in this
- * file uses: a half-configured rail that accepted a checkout and failed
- * mid-request on the first missing secret is strictly worse than one that stayed
- * off and said so at boot.
- *
- * `PEABLE_WEBHOOK_SECRET` is in the required set even though nothing is charged
+ * `PEABLE_WEBHOOK_SECRET` is the required value even though nothing is charged
  * without it: Mercaria reaches `paid` ONLY from a verified event (ADR 0001), so
  * a rail that can create a payment and cannot verify its settlement takes money
- * and leaves every order unpaid.
+ * and leaves every order unpaid. `PEABLE_BASE_URL` is NOT required — it has a
+ * default (the production gateway) and is set only to point somewhere else.
  *
  * There is no Peable credential: the SDK is handed Mercaria's own Oxy identity
  * (the task role on ECS, oxy ADR 0026; a full `OXY_APPLICATION_*` pair off it),
@@ -656,37 +619,54 @@ function resolveReferralOperatorIds(): readonly string[] {
  * an identity the rail could not authenticate a single call, so it is required.
  */
 function resolvePeableEnabled(): boolean {
-  if (!boolEnv('PEABLE_ENABLED', false)) return false;
-
-  const missing: string[] = (['PEABLE_BASE_URL', 'PEABLE_WEBHOOK_SECRET'] as const).filter(
-    (name) => (process.env[name]?.trim() ?? '') === '',
-  );
-  if (oxyServiceClient() === null) {
-    missing.push(
-      'an Oxy identity (ECS task role, or OXY_APPLICATION_KEY + OXY_APPLICATION_SECRET)',
-    );
-  }
-  if (missing.length === 0) return true;
+  if ((process.env.PEABLE_WEBHOOK_SECRET?.trim() ?? '') === '') return false;
+  if (oxyServiceClient() !== null) return true;
 
   log.general.error(
-    { missing },
-    '[Peable] PEABLE_ENABLED is set but the integration is incomplete; staying OFF. ' +
+    {
+      missing: ['an Oxy identity (ECS task role, or OXY_APPLICATION_KEY + OXY_APPLICATION_SECRET)'],
+    },
+    '[Peable] PEABLE_WEBHOOK_SECRET is set but the integration is incomplete; staying OFF. ' +
       'No payment can be created on this rail and no webhook endpoint is mounted.',
   );
   return false;
 }
 
+/**
+ * Whether the Stripe rail is on: exactly when it is fully configured.
+ *
+ * There is no switch. The rail requires the secret key AND BOTH webhook
+ * secrets (ADR 0001, "Environment"), because the two endpoints are two
+ * independent halves of the same integration: a deployment with the platform
+ * secret and no Connect secret verifies payment events and rejects every
+ * `account.updated`, so sellers silently stop becoming payment-ready while
+ * charges keep succeeding. Half-configured is worse than off and says so once
+ * at boot; holding none of the three is simply a deployment without the rail.
+ *
+ * A deployment that holds only the key and the platform webhook secret BESIDE a
+ * `MERCHANT_BILLING_PEABLE_COHORT` is the billing-cohort shape
+ * (`resolveBillingCohortConfigured`), and it stays OFF here without a log line:
+ * that is a configuration somebody chose.
+ *
+ * There is no `STRIPE_ACCOUNT_ID`: the platform account is implied by the key,
+ * and connected-account ids live only in provider-account records (#46).
+ */
 function resolveStripeEnabled(): boolean {
-  if (!boolEnv('STRIPE_ENABLED', false)) return false;
-
   const missing = (
     ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_CONNECT_WEBHOOK_SECRET'] as const
   ).filter((name) => (process.env[name]?.trim() ?? '') === '');
   if (missing.length === 0) return true;
+  // Nothing configured, or exactly the billing cohort's two values beside a
+  // cohort: a chosen configuration, so no log.
+  const isBillingCohortShape =
+    missing.length === 1 &&
+    missing[0] === 'STRIPE_CONNECT_WEBHOOK_SECRET' &&
+    strEnv('MERCHANT_BILLING_PEABLE_COHORT', '') !== '';
+  if (missing.length === 3 || isBillingCohortShape) return false;
 
   log.general.error(
     { missing },
-    '[Stripe] STRIPE_ENABLED is set but the integration is incomplete; staying OFF. ' +
+    '[Stripe] The Stripe rail is partly configured; staying OFF. ' +
       'No webhook endpoint is mounted and no payment can be created.',
   );
   return false;
@@ -806,8 +786,8 @@ function resolveHighValueHoldThresholds(): Readonly<Partial<Record<CurrencyCode,
  *
  * `card` is re-added whatever the variable says, and that is not a silent
  * override of an operator's intent — it is the difference between narrowing a
- * checkout and breaking it. "No card form at all" is `STRIPE_ENABLED=false`,
- * which also unmounts the webhooks and is a decision with a blast radius; a
+ * checkout and breaking it. "No card form at all" is an unconfigured Stripe
+ * rail, which also unmounts the webhooks and is a decision with a blast radius; a
  * method list that could produce it by typo would be an incident lever whose
  * worst failure is silent.
  */
@@ -878,8 +858,8 @@ function blockedListEnv(name: string, casing: 'upper' | 'lower'): readonly strin
  * ## Empty means the surface does not exist
  *
  * Not "nobody may use it" — the routes are not mounted at all, and every path
- * under `/internal/payments` answers 404. That follows `STRIPE_ENABLED`'s rule
- * rather than the outbox's: there is nothing to park here, and a 401 would tell
+ * under `/internal/payments` answers 404. That follows the Stripe webhook
+ * mount's rule rather than the outbox's: there is nothing to park here, and a 401 would tell
  * an unauthenticated caller that an operator surface exists on this deployment.
  */
 function resolvePaymentOperatorIds(): readonly string[] {
@@ -1429,7 +1409,7 @@ export interface StripeConfig {
    * incident.
    *
    * `card` is refused as a removal: a checkout with no way to enter a card is
-   * a checkout nobody can complete, and the lever for that is `STRIPE_ENABLED`.
+   * a checkout nobody can complete, and that is an unconfigured Stripe rail.
    * Narrowing to the empty set therefore cannot happen by typo.
    *
    * This can only ever REMOVE a surface. Adding `link` here does not add
@@ -1506,8 +1486,8 @@ export interface StripeConfig {
  */
 export interface ReconciliationConfig {
   /**
-   * Whether the sweeps RUN. Like the outbox's flag and unlike `STRIPE_ENABLED`,
-   * this gates only the loop: the discrepancy rows a manual run writes are
+   * Whether the sweeps RUN. Like the outbox's flag and unlike the rail's own
+   * configuration, this gates only the loop: the discrepancy rows a manual run writes are
    * durable whatever it says, and switching it off during an incident stops the
    * sweeps competing with whatever an operator is doing by hand.
    */
@@ -1548,8 +1528,9 @@ export interface ReconciliationConfig {
  */
 export interface PeableConfig {
   /**
-   * True only when `PEABLE_ENABLED` is set, every required secret is present
-   * AND Mercaria has an Oxy identity to authenticate with.
+   * DERIVED, never configured: true exactly when `PEABLE_WEBHOOK_SECRET` is
+   * present AND Mercaria has an Oxy identity to authenticate with — see
+   * `resolvePeableEnabled`.
    */
   readonly enabled: boolean;
   readonly baseUrl: string;
@@ -1644,10 +1625,26 @@ export interface PaymentsConfig {
  */
 export interface GuestConfig {
   /**
-   * Whether guest commerce exists on this deployment — see
-   * `resolveGuestCommerceEnabled`. Gates the `/guest/session` MOUNT (an
-   * unconfigured deployment answers 404, the `STRIPE_ENABLED` rule) and the
-   * resolver's willingness to read guest credentials at all.
+   * Whether guest commerce exists on this deployment — DERIVED, never
+   * configured: true exactly when BOTH {@link piiEncryptionKey} and
+   * {@link emailHashKey} resolve (ADR 0003 M8). A deployment able to mint guest
+   * sessions but not to encrypt a guest checkout's contact (#105–#107) or route
+   * a magic link (#108) would take carts it can never carry to an order
+   * confirmation, so without both it stays OFF. The two keys are SEPARATE by
+   * design (D12): the hash key must be usable by the lookup path without ever
+   * being able to decrypt.
+   *
+   * Gates the `/guest/session` MOUNT (an unconfigured deployment answers 404,
+   * the Stripe webhook mount rule) and the resolver's willingness to read guest
+   * credentials at all — ISSUANCE surfaces, never durable records: sessions
+   * issued while it was on are purged by the retention sweep on their own
+   * schedule whatever this says.
+   *
+   * There is deliberately no `GUEST_TOKEN_PEPPER` and none may be added: the
+   * session token hashes are keyless SHA-256 on purpose (256-bit random
+   * preimages need no key, and a pepper would make every stored hash
+   * unverifiable the day it rotated), while the email hash is keyed for the
+   * opposite entropy reason — the ADR's Environment section states both.
    */
   readonly enabled: boolean;
   /**
@@ -1656,7 +1653,8 @@ export interface GuestConfig {
    * Distinct from `enabled` on purpose: flipping THIS off during an abuse
    * incident stops new sessions being minted while every existing session
    * keeps resolving, rotating and revoking — nobody's cart is destroyed to
-   * stop a farmer. Flipping `enabled` off is a decommission, not a lever.
+   * stop a farmer. Turning `enabled` off (removing a key) is a decommission,
+   * not a lever.
    */
   readonly issuanceEnabled: boolean;
   /**
@@ -1781,8 +1779,8 @@ export interface GuestGovernanceConfig {
    *
    * Default off, unlike the three guest levers that default on, and the
    * discriminator is whether the flag demands a SECRET.
-   * `GUEST_COMMERCE_ENABLED` and `SUPPLIER_PREFLIGHT_ENABLED` both do and both
-   * default off, for the reason this one does: a flag that defaults ON and
+   * `SUPPLIER_PREFLIGHT_ENABLED` does and defaults off, for the reason this
+   * one does: a flag that defaults ON and
    * demands a key it has not been given makes every unconfigured deployment log
    * an error at boot about a feature nobody asked for, and an error nobody can
    * act on is one everybody learns to scroll past.
@@ -1848,9 +1846,9 @@ export interface GuestClaimConfig {
    * `GUEST_CLAIM_ENABLED` — may a group be claimed right now. Default TRUE.
    *
    * Default true rather than false, matching `cartEnabled` and
-   * `inlineDestinationEnabled`: `GUEST_COMMERCE_ENABLED` is the flag that is
-   * off by default and gates the whole domain, and an inner lever defaulting
-   * off would mean a deployment that turned the portal on gets a claim endpoint
+   * `inlineDestinationEnabled`: guest commerce's two keys gate the whole
+   * domain, and an inner lever defaulting off would mean a deployment that
+   * holds them gets a claim endpoint
    * refusing for a reason nobody chose. This is an incident lever — the case it
    * exists for is an abuse pattern in claiming specifically, where the remedy
    * must not be switching guest commerce off underneath people who have already
@@ -1898,18 +1896,18 @@ export interface GuestClaimConfig {
  * "Existing guest orders remain accessible when guest checkout creation is
  * feature-disabled later" — so the portal router mounts unconditionally, the
  * exchange resolves unconditionally, and recovery answers unconditionally. Not
- * one of the four levers above (`GUEST_COMMERCE_ENABLED`,
+ * one of the four levers above (`guest.enabled`,
  * `GUEST_SESSION_ISSUANCE_ENABLED`, `GUEST_CART_ENABLED`,
  * `GUEST_INLINE_DESTINATION_ENABLED`) is read by any portal read path, and
  * `guest-portal-isolation.test.ts` fails the build if one starts to be. ADR
- * 0003 M8 states it in as many words: the flag gates issuance and guest
+ * 0003 M8 states it in as many words: the gate covers issuance and guest
  * checkout, "never the durable records: existing portal grants and magic-link
  * recovery for already-placed guest orders keep working with the flag off".
  *
  * The ONE interaction worth stating, because it is a real consequence rather
  * than an oversight: `POST /guest/orders/confirmation` mints a `post_checkout`
- * grant from a live guest SESSION, and a session only resolves while
- * `GUEST_COMMERCE_ENABLED` is on. With guest commerce switched off mid-flight,
+ * grant from a live guest SESSION, and a session only resolves while guest
+ * commerce is on. With guest commerce off mid-flight (its keys removed),
  * a buyer who has already paid reaches their orders through the emailed link
  * rather than from the tab they paid in. That is the correct trade: the
  * confirmation grant is a NEW credential derived from a credential the
@@ -2108,11 +2106,11 @@ export interface GuestCheckoutRolloutConfig {
  *
  * ## `enabled` gates ENTRY and nothing else, and that is the whole design
  *
- * ADR 0004 D4 concern 13 is explicit: the flag gates offer visibility and NEW
+ * ADR 0004 D4 concern 13 is explicit: the gate covers offer visibility and NEW
  * retail checkouts. It never gates the outbox, the purchase-order
  * orchestration, refunds or reconciliation, because a rollback that stranded
  * those would leave buyers who had already been charged with no procurement and
- * no refund — the failure the flag exists to avoid.
+ * no refund — the failure the gate exists to avoid.
  *
  * This is the payment domain's standing "gate the loop, never the durable
  * record" with ENTRY as the gated thing, and it is enforced structurally rather
@@ -2122,9 +2120,10 @@ export interface GuestCheckoutRolloutConfig {
  *
  * ## Half-configured is OFF, and the two demands are not decoration
  *
- * `MERCARIA_RETAIL_ENABLED=true` requires supplier preflight to be enabled and
- * an eligibility operator list to exist — the `CROWDSOURCE_ENABLED` validation
- * pattern. Without preflight every retail line refuses at checkout anyway
+ * Retail is on exactly when the seller identity below is configured, supplier
+ * preflight is enabled and an eligibility operator list exists — there is no
+ * switch beyond those (`resolveMercariaRetailEnabled`). Without preflight every
+ * retail line refuses at checkout anyway
  * (#122's quote answers `unknown` with the loop off), so enabling retail
  * without it produces a catalogue of items nobody can buy and no message saying
  * why. Without `RETAIL_OPERATOR_OXY_USER_IDS` nobody can publish an eligibility
@@ -2141,7 +2140,10 @@ export interface GuestCheckoutRolloutConfig {
  * reused).
  */
 export interface MercariaRetailConfig {
-  /** `MERCARIA_RETAIL_ENABLED`, default FALSE (ADR 0004 D13's shipped default). */
+  /**
+   * DERIVED, never configured — see `resolveMercariaRetailEnabled`. False on a
+   * deployment that names no retail seller (ADR 0004 D13's shipped default).
+   */
   readonly enabled: boolean;
   /** `RETAIL_BLOCKED_SUPPLIERS` — supplier ids withdrawn from sale entirely. */
   readonly blockedSuppliers: readonly string[];
@@ -3359,7 +3361,7 @@ export interface RetailEligibilityConfig {
  *    environment, so a `live` account can never be served a fabricated answer
  *    however the flag is set.
  *  - `fingerprintKey` is demanded whenever `enabled` is true — the
- *    half-configuration rule `GUEST_COMMERCE_ENABLED` established. An unset key
+ *    half-configuration rule guest commerce's two keys established. An unset key
  *    would mean an unkeyed request digest, which is an offline oracle over
  *    buyers' postal codes.
  */
@@ -3787,7 +3789,8 @@ export interface BuyerRequestsConfig {
  * `complete`, which drives the same idempotent path, and by the buyer's own
  * portal read, which shows the true rail state whatever the loop is doing.
  *
- * **Neither is `MERCARIA_RETAIL_ENABLED`, and this domain never reads it.**
+ * **Neither is the retail entry gate (`config.retail.enabled`), and this domain
+ * never reads it.**
  * #127 acceptance 8 is *"existing cases remain operable after new retail
  * checkout or supplier integration is paused"*, and
  * `retail-service-isolation.test.ts` fails the build if any module here learns
@@ -4108,9 +4111,12 @@ export interface AppConfig {
 /**
  * The digital-commerce levers (#1015 acceptance criterion 19, ADR 0010 D13).
  *
- * FIVE independent switches, and the independence is the requirement rather than
+ * Independent switches, and the independence is the requirement rather than
  * a nicety: *"feature flags can independently disable uploads, publication, paid
  * checkout, downloads or a digital vertical WITHOUT STRANDING PRIOR PURCHASES"*.
+ * Paid checkout has no switch of its own: it is on for exactly the verticals in
+ * {@link enabledVerticals}, so enabling a vertical IS the decision to sell it
+ * (ADR 0010 D15's per-market sign-offs must precede it).
  * One master flag could not do that — turning it off to stop new uploads would
  * also stop every existing buyer re-downloading what they already own, which is
  * the one outcome none of these levers may cause.
@@ -4132,7 +4138,7 @@ export interface DigitalCommerceConfig {
    * Whether a creator may upload asset files at all — `DIGITAL_UPLOADS_ENABLED`.
    *
    * Gates the MOUNT of the creator upload routes (404 when off, the
-   * `STRIPE_ENABLED` rule: an unconfigured surface does not exist rather than
+   * Stripe webhook mount rule: an unconfigured surface does not exist rather than
    * answering 401). Off does not touch a published asset.
    */
   readonly uploadsEnabled: boolean;
@@ -4143,14 +4149,6 @@ export interface DigitalCommerceConfig {
    * paused, which is what a moderation backlog actually needs.
    */
   readonly publicationEnabled: boolean;
-  /**
-   * Whether a digital offer may be CHECKED OUT for money —
-   * `DIGITAL_PAID_CHECKOUT_ENABLED`.
-   *
-   * The launch gate. Off, a digital listing is browsable and a FREE claim still
-   * works; on, it is a tax and consumer-law surface in every market it is on in.
-   */
-  readonly paidCheckoutEnabled: boolean;
   /**
    * Whether download grants may be minted — `DIGITAL_DOWNLOADS_ENABLED`,
    * default TRUE.
@@ -4168,6 +4166,12 @@ export interface DigitalCommerceConfig {
    * An ALLOW-list, never a block-list, for `services/payments/redact.ts`'s
    * reason: a block-list is correct only until a new vertical is added, and the
    * new one would then be live in every market on the day it merged.
+   *
+   * THE launch gate for paid digital checkout: a vertical listed here can be
+   * checked out for money AND claimed free; one not listed can be neither. It
+   * is a tax and consumer-law surface in every market it is on in, so the
+   * payment-provider, tax and legal sign-offs ADR 0010 D15 requires per market
+   * come BEFORE a vertical is added (`docs/digital-commerce.md`).
    */
   readonly enabledVerticals: readonly string[];
 }
@@ -4849,7 +4853,11 @@ export const config: AppConfig = Object.freeze({
     operatorSurfaceEnabled: resolvePaymentOperatorIds().length > 0,
   }),
   guest: Object.freeze({
-    enabled: resolveGuestCommerceEnabled(),
+    // Derived from the two key fields below rather than from the environment,
+    // so however those keys come to resolve, the gate follows them.
+    get enabled(): boolean {
+      return this.piiEncryptionKey !== '' && this.emailHashKey !== '';
+    },
     issuanceEnabled: boolEnv('GUEST_SESSION_ISSUANCE_ENABLED', true),
     cartEnabled: boolEnv('GUEST_CART_ENABLED', true),
     inlineDestinationEnabled: boolEnv('GUEST_INLINE_DESTINATION_ENABLED', true),
@@ -5153,7 +5161,6 @@ export const config: AppConfig = Object.freeze({
   digital: Object.freeze({
     uploadsEnabled: boolEnv('DIGITAL_UPLOADS_ENABLED', false),
     publicationEnabled: boolEnv('DIGITAL_PUBLICATION_ENABLED', false),
-    paidCheckoutEnabled: boolEnv('DIGITAL_PAID_CHECKOUT_ENABLED', false),
     downloadsEnabled: boolEnv('DIGITAL_DOWNLOADS_ENABLED', true),
     enabledVerticals: Object.freeze(
       strEnv('DIGITAL_ENABLED_VERTICALS', '')

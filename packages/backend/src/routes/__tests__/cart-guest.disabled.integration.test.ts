@@ -35,7 +35,6 @@ let listingId: string;
 let variantId: string;
 
 beforeAll(async () => {
-  process.env.GUEST_COMMERCE_ENABLED = 'true';
   process.env.GUEST_PII_ENCRYPTION_KEY = 'cart-disabled-pii-key';
   process.env.GUEST_EMAIL_HASH_KEY = 'cart-disabled-email-hash-key';
   process.env.GUEST_SESSION_ISSUANCE_ENABLED = 'true';

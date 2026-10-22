@@ -624,8 +624,9 @@ out: a task naming a parameter that does not exist fails at start.
   `docs/payments.md`, `docs/retail-eligibility.md` and `docs/referral-pilots.md`
   §"Production-readiness checklist".
 - **Referral payouts need FOUR things, not one:** the operator list populated;
-  `STRIPE_ENABLED` plus a payment-ready connected account per partner (with the
-  rail off every partner's readiness reads `unknown`, which BLOCKS); a partner
+  the Stripe rail configured (its key and both webhook secrets — there is no
+  switch) plus a payment-ready connected account per partner (with the rail off
+  every partner's readiness reads `unknown`, which BLOCKS); a partner
   who actually enrolled — agreement AND tax questionnaire
   (`REFERRAL_PARTNER_ENROLLMENT_ENABLED`, ADR 0005 D15 gate 2); and a published
   pilot cohort, since a programme with no active cohort attributes NOTHING.
