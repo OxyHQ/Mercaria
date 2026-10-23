@@ -112,6 +112,9 @@ describe('the deploy workflow and the migrator agree', () => {
     expect(register?.run).toContain('<<<"$RELEASE_ENVIRONMENT"');
     expect(register?.run).toContain('$pinned_names | index($n) | not');
     expect(register?.run).toContain('+ $pinned_env');
+    // The retired media bucket (never written; oxy-infra deleted it) leaves the
+    // running revision on the next release instead of being carried forward.
+    expect(register?.run).toContain('.name != "AWS_S3_BUCKET"');
     expect(register?.env?.GOWAY_API_URL).toBeUndefined();
     expect(JSON.parse(jobs.deploy.env?.RELEASE_ENVIRONMENT ?? '{}')).toEqual({
       OXY_API_URL: 'https://api.oxy.so',
