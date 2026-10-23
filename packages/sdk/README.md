@@ -88,16 +88,26 @@ const mercaria = createMercariaClient({
 - Today the only authenticated difference is `product.viewer`, which is
   `{ saved }` for a signed-in caller and `null` for an anonymous one.
 
-**Service-to-service authority is not provided.** There is no client secret,
-API key or service token option, and the SDK does not fake one. When a
-Mercaria method needs service authority, it will use Oxy's canonical service
-authorization and be added here explicitly.
+**An Oxy service reading the public catalogue** uses the shared workload client:
 
-**An Oxy service reading on its own behalf** (a search backend, an agent) may
-return its Oxy service token from `getAccessToken`. It grants nothing a read
-does not already have; Mercaria meters the caller as that service application
-rather than per address, so a backend behind one IP does not spend an
-anonymous allowance meant for people.
+```ts
+import { mercariaForOxyService } from '@mercaria.co/sdk/server';
+const mercaria = mercariaForOxyService(oxyServer);
+const page = await mercaria.catalog.search({ query: 'headphones' });
+// Dispose when the owning service/component closes, not after every request.
+mercaria.dispose();
+```
+
+The factory pins Mercaria's receiving audience. Oxy owns workload authentication,
+refresh and origin protection; no internal scopes or customer keys are passed.
+Public payloads and visibility stay identical to anonymous reads. The verified
+application supplies the rate-budget identity, never a fabricated user. This
+factory exposes public catalogue reads, not account-private materials operations.
+The existing `createMercariaClient({ getAccessToken })` API remains available for
+external/user credentials. Its meaning is not promoted by an Oxy brand.
+
+Deploy the receiver that understands canonical workload identity before enabling
+this factory in a backend. SDK publication by itself changes no running caller.
 
 ## Products and search
 

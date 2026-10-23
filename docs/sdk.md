@@ -48,7 +48,7 @@ is the SDK's one `dependency`. Consumers import only `@mercaria.co/sdk`.
 | A location carries no place fact; `goWayPlaceId` is how a consumer reads them | the place is GoWay's (ADR 0013); a copy here would be a second answer to "when does this shop open" | the contract's `locations.ts` |
 | `service_unavailable` on a location read is `MercariaUnavailableError`, never gone | Mercaria could not ask GoWay; a consumer must not drop a good ref for an outage | `src/transport.ts` |
 | Token getter called per request, never cached | Oxy owns the session and its refresh | `src/transport.ts` |
-| No service-to-service auth option | none exists yet; the SDK must not fake one | README |
+| Own public catalogue reads use `mercariaForOxyService` | shared workload identity, canonical audience, no fabricated user or private materials authority | SDK `src/server.ts` |
 | Locale is the only context dimension | public reads serve native currency and convert nothing | README |
 | No retries | retryability is exposed; policy belongs to the caller | `src/errors.ts` |
 | `instanceof` answers from a `Symbol.for` brand | the ESM and CJS builds are two class identities in one process | `src/errors.ts` |

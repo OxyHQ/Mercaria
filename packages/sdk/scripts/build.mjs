@@ -96,26 +96,39 @@ const shared = {
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
 
-await esbuild.build({ ...shared, format: 'esm', outfile: join(dist, 'index.js') });
-await esbuild.build({ ...shared, format: 'cjs', outfile: join(dist, 'index.cjs') });
+for (const name of ['index', 'server']) {
+  const currentEntry = join(root, 'src', `${name}.ts`);
+  await esbuild.build({
+    ...shared,
+    entryPoints: [currentEntry],
+    format: 'esm',
+    outfile: join(dist, `${name}.js`),
+  });
+  await esbuild.build({
+    ...shared,
+    entryPoints: [currentEntry],
+    format: 'cjs',
+    outfile: join(dist, `${name}.cjs`),
+  });
 
-const bundle = await rollup({
-  input: entry,
-  external: isExternal,
-  plugins: [dts({ respectExternal: true, tsconfig: join(root, 'tsconfig.json') })],
-  onwarn(warning, warn) {
-    // A circular re-export inside the contract package is harmless for
-    // declarations and would otherwise print on every build.
-    if (warning.code === 'CIRCULAR_DEPENDENCY') return;
-    warn(warning);
-  },
-});
-const { output } = await bundle.generate({ format: 'es' });
-await bundle.close();
-const declarations = output.find((chunk) => chunk.type === 'chunk');
-if (!declarations) throw new Error('rollup-plugin-dts produced no declaration chunk');
-await writeFile(join(dist, 'index.d.ts'), dropOrphanedDocblocks(declarations.code));
-await copyFile(join(dist, 'index.d.ts'), join(dist, 'index.d.cts'));
+  const bundle = await rollup({
+    input: currentEntry,
+    external: isExternal,
+    plugins: [dts({ respectExternal: true, tsconfig: join(root, 'tsconfig.json') })],
+    onwarn(warning, warn) {
+      // A circular re-export inside the contract package is harmless for
+      // declarations and would otherwise print on every build.
+      if (warning.code === 'CIRCULAR_DEPENDENCY') return;
+      warn(warning);
+    },
+  });
+  const { output } = await bundle.generate({ format: 'es' });
+  await bundle.close();
+  const declarations = output.find((chunk) => chunk.type === 'chunk');
+  if (!declarations) throw new Error('rollup-plugin-dts produced no declaration chunk');
+  await writeFile(join(dist, `${name}.d.ts`), dropOrphanedDocblocks(declarations.code));
+  await copyFile(join(dist, `${name}.d.ts`), join(dist, `${name}.d.cts`));
+}
 
 /**
  * Keep only the comment that DOCUMENTS each top-level declaration.
@@ -147,4 +160,4 @@ function dropOrphanedDocblocks(code) {
   return result;
 }
 
-console.log('built dist/index.js, dist/index.cjs, dist/index.d.ts, dist/index.d.cts');
+console.log('built index and server entries (ESM, CJS and declarations)');

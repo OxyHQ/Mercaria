@@ -77,6 +77,10 @@ const EXPECTED_FILES = [
   'package/dist/index.d.cts',
   'package/dist/index.d.ts',
   'package/dist/index.js',
+  'package/dist/server.cjs',
+  'package/dist/server.d.cts',
+  'package/dist/server.d.ts',
+  'package/dist/server.js',
   'package/package.json',
 ];
 
@@ -141,7 +145,16 @@ async function main() {
 
   try {
     // ── Stage and pack ────────────────────────────────────────────────────────
-    for (const file of ['index.js', 'index.cjs', 'index.d.ts', 'index.d.cts']) {
+    for (const file of [
+      'index.js',
+      'index.cjs',
+      'index.d.ts',
+      'index.d.cts',
+      'server.js',
+      'server.cjs',
+      'server.d.ts',
+      'server.d.cts',
+    ]) {
       await stat(join(root, 'dist', file)).catch(() =>
         fail(`dist/${file} is missing — run the build first`),
       );
@@ -159,10 +172,10 @@ async function main() {
 
     const packDir = join(scratch, 'pack');
     await mkdir(packDir);
-    const packed = JSON.parse(
-      run('npm', ['pack', '--json', '--pack-destination', packDir], stage, 'pack'),
-    );
-    const tarball = join(packDir, packed[0].filename);
+    run('bun', ['pm', 'pack', '--destination', packDir], stage, 'pack');
+    const packed = (await readdir(packDir)).filter((name) => name.endsWith('.tgz'));
+    if (packed.length !== 1) fail('Expected exactly one packed SDK');
+    const tarball = join(packDir, packed[0]);
     const tarballBytes = (await stat(tarball)).size;
 
     // ── 1. File list ──────────────────────────────────────────────────────────
@@ -232,19 +245,10 @@ async function main() {
       join(consumer, 'package.json'),
       '{ "name": "sdk-smoke-consumer", "private": true }\n',
     );
-    // `--prefer-offline`: `zod` comes from the npm cache when it is there, and
-    // from the registry when it is not — exactly what a consumer's install does.
+    // Install the packed artifact with the repository's Bun release tooling.
     run(
-      'npm',
-      [
-        'install',
-        tarball,
-        '--no-audit',
-        '--no-fund',
-        '--ignore-scripts',
-        '--no-package-lock',
-        '--prefer-offline',
-      ],
+      'bun',
+      ['add', tarball, '--minimum-release-age=0', '--ignore-scripts'],
       consumer,
       'install tarball',
     );
@@ -311,16 +315,8 @@ async function main() {
       ),
     ).version;
     run(
-      'npm',
-      [
-        'install',
-        `@types/node@${nodeTypes}`,
-        '--no-audit',
-        '--no-fund',
-        '--ignore-scripts',
-        '--no-package-lock',
-        '--prefer-offline',
-      ],
+      'bun',
+      ['add', `@types/node@${nodeTypes}`, '--minimum-release-age=0', '--ignore-scripts'],
       consumer,
       'install @types/node',
     );
@@ -357,12 +353,14 @@ async function main() {
 
     if (keepDir) {
       await mkdir(keepDir, { recursive: true });
-      await cp(tarball, join(keepDir, packed[0].filename));
+      await cp(tarball, join(keepDir, packed[0]));
     }
 
-    const unpackedBytes = packed[0].unpackedSize;
+    const unpackedBytes = (
+      await Promise.all(listed.map((file) => stat(join(stage, file.slice('package/'.length)))))
+    ).reduce((total, file) => total + file.size, 0);
     console.log(
-      `sdk smoke passed — ${checks.length} checks; ${packed[0].filename}: ${(tarballBytes / 1024).toFixed(1)} KB packed, ` +
+      `sdk smoke passed — ${checks.length} checks; ${packed[0]}: ${(tarballBytes / 1024).toFixed(1)} KB packed, ` +
         `${(unpackedBytes / 1024).toFixed(1)} KB unpacked${keepDir ? `; kept in ${keepDir}` : ''}`,
     );
   } finally {
@@ -413,9 +411,21 @@ async function exercise(sdk) {
 
 const CONSUMER_ESM = `${SHARED_PROGRAM}
 import * as esm from '@mercaria.co/sdk';
+import { mercariaForOxyService } from '@mercaria.co/sdk/server';
 import { createRequire } from 'node:module';
 const cjs = createRequire(import.meta.url)('@mercaria.co/sdk');
 await exercise(esm);
+for (const factory of [mercariaForOxyService, createRequire(import.meta.url)('@mercaria.co/sdk/server').mercariaForOxyService]) {
+  let disposed = false;
+  const client = factory({ createServiceClient: ({ audience }) => {
+    check(audience === 'oxy-service:6a37d0cc5d4b5f15482a9340', 'canonical receiver audience');
+    return { fetch, dispose: () => { disposed = true; } };
+  }});
+  check(!('materials' in client), 'public workload factory has no account-private commands');
+  client.dispose();
+  check(disposed, 'factory disposes shared transport');
+}
+
 const fromCjs = await exercise(cjs);
 check(esm.MercariaGoneError !== cjs.MercariaGoneError, 'the ESM and CJS builds are two copies');
 check(fromCjs instanceof esm.MercariaGoneError, 'a CJS-thrown error is instanceof the ESM class');
@@ -434,6 +444,10 @@ export const url = createMercariaClient().links.product(productRef('p'));
 `;
 
 const CONSUMER_TYPES = `
+import { mercariaForOxyService } from '@mercaria.co/sdk/server';
+const workload = mercariaForOxyService({ createServiceClient: () => ({ fetch, dispose() {} }) });
+workload.products.get('p');
+workload.dispose();
 import {
   createMercariaClient,
   MercariaGoneError,
