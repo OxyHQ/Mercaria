@@ -112,18 +112,22 @@ By GitHub Actions only — Actions → **Release packages** (`release-packages.y
 Oxy's shared `npm-release.yml`), never from a laptop and with no `NPM_TOKEN`: npm trusted
 publishing (OIDC) with provenance. `~/Oxy/docs/npm-releases.md` has the steps.
 
-1. Dispatch it on `main` with `package` `@mercaria.co/sdk`, the merged commit as
-   `expected_source_sha`, `dry_run` first, then again with `dry_run` off.
+1. Merge the version bump to `main`. Each push queues an automatic release;
+   the shared workflow waits for CI on that exact commit and plans public
+   package versions missing from npm. An inputless manual dispatch retries
+   the current `main` head when needed; it does not select a package or commit.
 2. The build job runs `prepublishOnly` (typecheck, test, build), then `release:pack`:
    `smoke.mjs --out` packs the tarball from a staging directory (a manifest whose only
    dependency is `zod`, no scripts and no `workspace:`), tests the installed tarball from
    Node ESM and CJS, Bun, a browser bundle, a React Native bundle and a `nodenext`
    type-check as a Node and as a browser consumer, fails if any shipped file names
-   `@mercaria/`, and keeps that exact tarball. A version already on the registry is refused.
+   `@mercaria/`, and keeps that exact tarball. Versions already on the registry
+   are omitted from the release plan.
 3. The publish job rebuilds and repacks the same way from a fresh checkout, the bytes must
    match, and only then `npm publish <tarball>` — the tarball `smoke.mjs` tested, never a
    re-pack of the package directory.
-4. Tag the commit `sdk-v<version>` and push the tag.
+4. The shared workflow records the package release tag (`@mercaria.co/sdk@<version>`)
+   at the released commit. Do not publish or create a separate release tag locally.
 
 ## The contract test against the real backend
 
