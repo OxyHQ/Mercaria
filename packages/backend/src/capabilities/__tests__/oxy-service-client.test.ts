@@ -1,44 +1,38 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({
-  constructed: vi.fn(),
-  canAttest: vi.fn(() => false),
-  dispose: vi.fn(),
+const mocks = vi.hoisted(() => ({ fetch: vi.fn(), dispose: vi.fn(), create: vi.fn() }));
+vi.mock('../../middleware/auth.js', () => ({
+  oxyClient: { createServiceClient: (...args: unknown[]) => mocks.create(...args) },
 }));
-vi.mock('@oxy.so/core/server', () => ({
-  canAttestWorkloadIdentity: () => mocks.canAttest(),
-  OxyServer: class {
-    constructor(options: unknown) {
-      mocks.constructed(options);
-    }
-    dispose() {
-      mocks.dispose();
-    }
-  },
-}));
+import { oxyClient } from '../../middleware/auth.js';
 import {
   oxyServiceClient,
   requiredOxyServiceClient,
+  oxyPlatformTransport,
   resetOxyServiceClientForTests,
 } from '../oxy-service-client.js';
 beforeEach(() => {
   resetOxyServiceClientForTests();
-  delete process.env.OXY_APPLICATION_KEY;
-  delete process.env.OXY_APPLICATION_SECRET;
-  for (const mock of Object.values(mocks)) mock.mockReset();
-  mocks.canAttest.mockReturnValue(false);
+  vi.clearAllMocks();
+  mocks.create.mockReturnValue({ fetch: mocks.fetch, dispose: mocks.dispose });
 });
 describe('Mercaria workload client', () => {
-  it('never promotes a customer key pair into own authority', () => {
-    process.env.OXY_APPLICATION_KEY = 'external-key';
-    process.env.OXY_APPLICATION_SECRET = 'external-secret';
-    expect(oxyServiceClient()).toBeNull();
-    expect(() => requiredOxyServiceClient()).toThrow('no attestable Oxy workload identity');
-    expect(mocks.constructed).not.toHaveBeenCalled();
+  it('shares the receiver client without customer key fallback or an ECS-only gate', () => {
+    vi.stubEnv('OXY_APPLICATION_KEY', 'external-key');
+    vi.stubEnv('OXY_APPLICATION_SECRET', 'external-secret');
+    expect(oxyServiceClient()).toBe(oxyClient);
+    expect(requiredOxyServiceClient()).toBe(oxyClient);
+    expect(mocks.create).not.toHaveBeenCalled();
+    vi.unstubAllEnvs();
   });
-  it('uses one workload client even when retired key configuration remains', () => {
-    mocks.canAttest.mockReturnValue(true);
-    process.env.OXY_APPLICATION_SECRET = 'retired-secret';
-    expect(requiredOxyServiceClient()).toBe(oxyServiceClient());
-    expect(mocks.constructed).toHaveBeenCalledExactlyOnceWith({ baseURL: 'https://api.oxy.so' });
+  it('keeps one lazy platform transport and disposes only that transport on reset', async () => {
+    mocks.fetch.mockResolvedValue(new Response('{}'));
+    await oxyPlatformTransport.fetch('https://api.oxy.so/resource');
+    await oxyPlatformTransport.fetch('https://api.oxy.so/other');
+    expect(mocks.create).toHaveBeenCalledExactlyOnceWith({
+      baseURL: 'https://api.oxy.so',
+      audience: 'oxy-api',
+    });
+    resetOxyServiceClientForTests();
+    expect(mocks.dispose).toHaveBeenCalledOnce();
   });
 });

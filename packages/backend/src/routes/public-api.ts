@@ -17,7 +17,7 @@ import { publicApiRoute, sendPublicError } from '../controllers/public-api.contr
  * Registry order is what puts `/stores/lookup` before `/stores/:id`.
  *
  * Catalog GETs and authenticated donated-material operations. `optionalAuth` attaches a verified Oxy caller when a bearer token is
- * presented (a token that does not verify is read as anonymous), which is what
+ * presented (invalid credentials fail closed), which is what
  * lets `viewer.saved` forward the calling application's own authority. The CORS
  * policy for this prefix is `lib/allowed-origins.ts`'s `isPublicReadCorsRequest`.
  */

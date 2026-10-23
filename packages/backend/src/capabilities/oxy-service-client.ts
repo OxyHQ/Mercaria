@@ -1,21 +1,16 @@
-import { canAttestWorkloadIdentity, OxyServer } from '@oxy.so/core/server';
+import type { OxyServer } from '@oxy.so/core/server';
+import { oxyClient } from '../middleware/auth.js';
 
 const OXY_API_URL = (process.env.OXY_API_URL ?? 'https://api.oxy.so').replace(/\/$/, '');
-let client: OxyServer | null | undefined;
 let transport: ReturnType<OxyServer['createServiceClient']> | undefined;
 
 /** Registered workload identity; application customer keys never become own authority. */
-export function oxyServiceClient(): OxyServer | null {
-  if (client === undefined) {
-    client = canAttestWorkloadIdentity() ? new OxyServer({ baseURL: OXY_API_URL }) : null;
-  }
-  return client;
+export function oxyServiceClient(): OxyServer {
+  return oxyClient;
 }
 
 export function requiredOxyServiceClient(): OxyServer {
-  const configured = oxyServiceClient();
-  if (!configured) throw new Error('Mercaria has no attestable Oxy workload identity');
-  return configured;
+  return oxyClient;
 }
 
 /** Lazy so an inactive integration does not require credentials at process boot. */
@@ -32,6 +27,4 @@ export const oxyPlatformTransport = {
 export function resetOxyServiceClientForTests(): void {
   transport?.dispose();
   transport = undefined;
-  client?.dispose();
-  client = undefined;
 }

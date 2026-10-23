@@ -35,3 +35,34 @@ Europe/Bucharest timezone; no reporting/financial logic was changed. Backend
 TypeScript and production build passed. Payment provider tests exercise actual
 SDK HTTP transport, refresh and idempotency; public MCP tests retain the selected
 account and external token boundary.
+
+## Public catalogue receiver and SDK release order
+
+SDK 0.7.0 adds `mercariaForOxyService` on `@mercaria.co/sdk/server`. It owns only
+public catalogue reads; it does not expose the materials account commands.
+Clarity and other own callers use its canonical receiver audience
+`oxy-service:6a37d0cc5d4b5f15482a9340`. The shared Oxy middleware verifies the live
+workload and preserves external service-token scope intersection and revocation.
+Anonymous reads remain available, while a supplied invalid token fails closed.
+A service reading on its own behalf has no fabricated user or viewer; payload,
+visibility and public cache rules are unchanged. Both the general and public API
+rate limiters use the same receiver audience and verified application identity.
+
+The receiver and outbound clients share the same OxyServer with the temporary
+AWS role/SSO provider. Missing ECS environment variables do not disable a valid
+local provider; actual attestation determines readiness. There is no key fallback.
+
+Publish the additive SDK separately before backend changes to avoid the
+Clarity/Mercaria package dependency cycle. Then pin published Oxy core 7 and
+Clarity SDK 0.10, deploy the receiver, and only then enable canonical caller
+transport. The finite legacy workload transition belongs to central Oxy; Mercaria
+never promotes a customer key or a persisted tier label. Source implementation
+and local candidate validation do not assert production cutover.
+
+Receiver checkpoint: 42 tests across four suites pass, including the real SDK
+HTTP mint/verification composition and the existing public API SDK/PostgreSQL
+contract suite. Wrong audience, missing account proof, revocation, external live
+scope intersection and redirect isolation are exercised. Backend source/test
+typecheck and production build pass with local Oxy/CrowdSource/Peable candidates;
+Clarity 0.10.0 is pinned from its published registry artifact. Candidate overrides
+were restored before commit. The final registry pins remain a release gate.

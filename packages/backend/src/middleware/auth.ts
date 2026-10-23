@@ -35,6 +35,8 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
+import { MERCARIA_SERVICE_AUDIENCE } from '@mercaria.co/sdk/server';
+import { createAwsWorkloadCredentialProvider } from '@oxy.so/core/server/aws';
 import {
   createOptionalOxyAuth,
   createOxyAuthMiddleware,
@@ -46,6 +48,7 @@ import {
 const OXY_API_URL = process.env.OXY_API_URL || 'https://api.oxy.so';
 export const oxyClient = new OxyServer({
   baseURL: OXY_API_URL,
+  workloadCredentials: createAwsWorkloadCredentialProvider(),
 });
 
 /**
@@ -83,7 +86,7 @@ declare global {
  * Validates JWT tokens (including service tokens) and sets req.userId, req.user, req.accessToken
  */
 export const authenticateToken = createOxyAuthMiddleware(oxyClient, {
-  auth: { debug: AUTH_DEBUG },
+  auth: { debug: AUTH_DEBUG, expectedAudience: MERCARIA_SERVICE_AUDIENCE },
 });
 
 /** Anonymous public reads stay available. A supplied bearer must verify:
@@ -91,7 +94,11 @@ export const authenticateToken = createOxyAuthMiddleware(oxyClient, {
  * authority outage is 503. All of those decisions remain inside the Oxy SDK.
  */
 const oxyOptionalAuth = createOptionalOxyAuth(oxyClient, {
-  auth: { debug: AUTH_DEBUG, strictOptionalBearer: true },
+  auth: {
+    debug: AUTH_DEBUG,
+    strictOptionalBearer: true,
+    expectedAudience: MERCARIA_SERVICE_AUDIENCE,
+  },
 });
 
 export function optionalAuth(req: Request, res: Response, next: NextFunction): void {
