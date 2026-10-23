@@ -4,6 +4,11 @@
 
 # Changelog
 
+## 0.7.1
+
+Require Zod 4.6.7 or newer in major 4, including the oversized-array validation
+fix (GHSA-mrhx-c7xc-m3w5). The public SDK and workload factory APIs are unchanged.
+
 ## 0.6.0
 
 - Add `catalog`: `search`, `get` and `resolveRef` over the comparison catalogue
