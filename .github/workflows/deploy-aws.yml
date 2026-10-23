@@ -482,8 +482,16 @@ jobs:
                  if .name == $name then
                    .image = $image
                    | ($pinned_env | map(.name)) as $pinned_names
+                   # AWS_S3_BUCKET named oxy-mercaria-media-usw2, a bucket
+                   # Mercaria never wrote (it has no S3 client; media is Oxy
+                   # Files). oxy-infra retired the bucket and its terraform
+                   # value, so a release removes the entry an earlier revision
+                   # still carries instead of rendering it forward forever.
                    | .environment = (
-                       ((.environment // []) | map(select(.name as $n | $pinned_names | index($n) | not)))
+                       ((.environment // []) | map(select(
+                         (.name as $n | $pinned_names | index($n) | not) and
+                         .name != "AWS_S3_BUCKET"
+                       )))
                        + $pinned_env
                      )
                    # Mercaria authenticates to Oxy as its task role
