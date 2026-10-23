@@ -519,12 +519,12 @@ function resolveMerchantBillingEnabled(): boolean {
 function resolveCrowdSourceEnabled(): boolean {
   if (!boolEnv('CROWDSOURCE_ENABLED', false)) return false;
 
-  const hasServiceKey = (process.env.CROWDSOURCE_SERVICE_KEY?.trim() ?? '') !== '';
+  const hasWorkloadIdentity = oxyServiceClient() !== null;
   const hasWebhookSecret = (process.env.CROWDSOURCE_WEBHOOK_SECRET?.trim() ?? '') !== '';
-  if (hasServiceKey && hasWebhookSecret) return true;
+  if (hasWorkloadIdentity && hasWebhookSecret) return true;
 
   const missing = [
-    hasServiceKey ? undefined : 'CROWDSOURCE_SERVICE_KEY',
+    hasWorkloadIdentity ? undefined : 'Oxy workload identity',
     hasWebhookSecret ? undefined : 'CROWDSOURCE_WEBHOOK_SECRET',
   ].filter((name): name is string => name !== undefined);
   log.general.error(
@@ -662,9 +662,7 @@ function resolvePeableEnabled(): boolean {
     (name) => (process.env[name]?.trim() ?? '') === '',
   );
   if (oxyServiceClient() === null) {
-    missing.push(
-      'an Oxy identity (ECS task role, or OXY_APPLICATION_KEY + OXY_APPLICATION_SECRET)',
-    );
+    missing.push('a registered Oxy workload identity (ECS task role)');
   }
   if (missing.length === 0) return true;
 
@@ -1262,17 +1260,6 @@ export interface WebConfig {
 export interface CrowdSourceConfig {
   /** Whether the outbox dispatcher delivers. Never gates the durable record. */
   readonly enabled: boolean;
-  /**
-   * `applicationId:credentialId:secret` — ONE opaque value, parsed by the SDK.
-   *
-   * There is deliberately no `CROWDSOURCE_APP_ID` here or anywhere else, and
-   * adding one would be a security regression rather than a convenience.
-   * `applicationId` is read OFF this credential; a separate variable holding it
-   * could only ever disagree with the credential, and any surface able to carry
-   * an `applicationId` independently is the cross-tenant IDOR the tenancy model
-   * exists to prevent.
-   */
-  readonly serviceKey: string;
   /** Optional override; the SDK defaults to the one deployment. */
   readonly baseUrl?: string;
   readonly outboxBatchSize: number;
@@ -4740,7 +4727,6 @@ export const config: AppConfig = Object.freeze({
   }),
   crowdSource: Object.freeze({
     enabled: resolveCrowdSourceEnabled(),
-    serviceKey: strEnv('CROWDSOURCE_SERVICE_KEY', ''),
     ...(process.env.CROWDSOURCE_BASE_URL?.trim()
       ? { baseUrl: process.env.CROWDSOURCE_BASE_URL.trim() }
       : {}),

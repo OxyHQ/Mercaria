@@ -54,9 +54,9 @@ import type {
   ReverseTransferRequest,
   SettlingPaymentProvider,
 } from '../provider.js';
-import { Peable, PeableError } from '@peable.to/sdk';
+import { type Peable, PeableError, peableForOxyService } from '@peable.to/sdk';
 import { config } from '../../../config/index.js';
-import { oxyServiceTokenProvider } from '../../../capabilities/oxy-service-client.js';
+import { requiredOxyServiceClient } from '../../../capabilities/oxy-service-client.js';
 import { verifyPeableSignature } from './verify.js';
 
 // SDK response types remain upstream. The gateway's existing create/retrieve
@@ -191,8 +191,8 @@ export class PeablePaymentProvider
     // Mercaria's own Oxy identity (the task role on ECS); no Peable credential.
     this.client =
       client ??
-      new Peable({
-        tokenProvider: oxyServiceTokenProvider,
+      peableForOxyService({
+        oxy: requiredOxyServiceClient(),
         baseURL: config.payments.peable.baseUrl,
         requestTimeoutMs: 20_000,
       });

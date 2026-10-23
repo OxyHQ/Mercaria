@@ -26,14 +26,17 @@ vi.mock('@oxy.so/mcp', async (importOriginal) => {
       options: Parameters<typeof actual.createCatalogMcpHttpService>[0],
     ) => {
       const {
-        getServiceToken,
-        invalidateServiceToken,
-        introspectionEndpoint,
-        introspectToken,
-        ...transport
+        transport: workloadTransport,
+        getServiceToken: _getToken,
+        invalidateServiceToken: _invalidate,
+        fetch: _fetch,
+        introspectionEndpoint: _endpoint,
+        introspectToken: _introspect,
+        ...base
       } = options;
+      if (!workloadTransport) throw new Error('Mercaria must use shared workload transport');
       return actual.createCatalogMcpHttpService({
-        ...transport,
+        ...base,
         introspectToken: async () => {
           if (!authority.active) return null;
           const now = Math.floor(Date.now() / 1000);

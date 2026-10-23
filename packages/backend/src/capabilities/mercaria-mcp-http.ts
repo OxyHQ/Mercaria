@@ -4,7 +4,7 @@ import { log } from '../lib/logger.js';
 import { authorizeMercariaCatalogInvocation } from './mercaria-domain-authority.js';
 import { MERCARIA_CAPABILITY_CATALOG } from './mercaria.catalog.js';
 import { MERCARIA_MCP_HANDLERS } from './mercaria.handlers.js';
-import { invalidateOxyServiceToken, requiredOxyServiceToken } from './oxy-service-client.js';
+import { oxyPlatformTransport } from './oxy-service-client.js';
 
 const DEFAULT_ALLOWED_ORIGINS = ['https://chatgpt.com', 'https://claude.ai'] as const;
 
@@ -27,8 +27,7 @@ export function createMercariaMcpHttpService() {
     catalog: MERCARIA_CAPABILITY_CATALOG,
     handlers: MERCARIA_MCP_HANDLERS,
     authorizationServer: process.env.OXY_API_URL ?? 'https://api.oxy.so',
-    getServiceToken: requiredOxyServiceToken,
-    invalidateServiceToken: invalidateOxyServiceToken,
+    transport: oxyPlatformTransport,
     allowedOrigins: parseMercariaMcpAllowedOrigins(),
     authorize: async (input, context) => {
       const decision = await authorizeMercariaCatalogInvocation(

@@ -49,6 +49,23 @@ const wire: FakeRequest[] = [];
 const bearers: (string | undefined)[] = [];
 let mintCount = 0;
 let identityToken: string | null = null;
+function fixtureServiceToken(sequence: number): string {
+  const payload = Buffer.from(
+    JSON.stringify({
+      type: 'service',
+      appId: 'fixture',
+      credentialId: 'wl_fixture',
+      ownerAccountId: 'owner',
+      environment: 'development',
+      aud: 'oxy-service:6a2f851751b784a86fd0e958',
+      iss: 'https://api.oxy.test',
+      authority: 'first_party',
+      exp: 2_100_000_000,
+      jti: String(sequence),
+    }),
+  ).toString('base64url');
+  return `e30.${payload}.fixture`;
+}
 let rejectRequests = 0;
 let forcedStatus: number | null = null;
 let dropAfterEffect = false;
@@ -338,23 +355,29 @@ afterAll(async () => {
   );
 });
 
-// Mercaria's Oxy identity as the SDK's `tokenProvider` sees it: one cached token,
-// minted afresh after `invalidate()`. Counting mints here keeps the 401
-// assertions meaning what they meant when the SDK minted from a key pair.
-vi.mock('../../../capabilities/oxy-service-client.js', () => ({
-  oxyServiceTokenProvider: {
-    getToken: async () => {
-      if (identityToken === null) {
+// Real shared transport owns the bearer and its single 401 refresh. Only the
+// workload mint is replaced; requests still traverse the SDK and HTTP gateway.
+vi.mock('../../../capabilities/oxy-service-client.js', async () => {
+  const { OxyServer } = await import('@oxy.so/core/server');
+  const oxy = new OxyServer({ baseURL: 'https://unused.oxy.test' });
+  Object.assign(oxy, {
+    workloadServiceToken: async (audience: string) => {
+      expect(audience).toBe('oxy-service:6a2f851751b784a86fd0e958');
+      const cache = Reflect.get(oxy, 'serviceTokens') as Map<string, { token: string }>;
+      const key = JSON.stringify([audience, 'workload-identity:2', null]);
+      if (identityToken === null || !cache.has(key)) {
         mintCount += 1;
-        identityToken = `oxy-identity-token-${String(mintCount)}`;
+        identityToken = fixtureServiceToken(mintCount);
+        cache.set(key, { token: identityToken });
       }
       return identityToken;
     },
-    invalidate: () => {
+    invalidateServiceToken: () => {
       identityToken = null;
     },
-  },
-}));
+  });
+  return { requiredOxyServiceClient: () => oxy, oxyServiceClient: () => oxy };
+});
 
 vi.mock('../../../config/index.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../config/index.js')>();
@@ -670,7 +693,10 @@ describe('published SDK HTTP parity', () => {
     expect(mintCount).toBe(2);
     expect(wire).toHaveLength(2);
     // Mercaria's own identity is the bearer, and the 401 invalidated it.
-    expect(bearers).toEqual(['Bearer oxy-identity-token-1', 'Bearer oxy-identity-token-2']);
+    expect(bearers).toEqual([
+      `Bearer ${fixtureServiceToken(1)}`,
+      `Bearer ${fixtureServiceToken(2)}`,
+    ]);
     expect(wire.map((row) => row.idempotencyKey)).toEqual([
       request.idempotencyKey,
       request.idempotencyKey,

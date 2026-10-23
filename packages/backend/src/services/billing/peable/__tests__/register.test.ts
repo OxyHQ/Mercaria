@@ -5,7 +5,7 @@ const seam = vi.hoisted(() => ({
   enabled: true,
   live: false,
   identity: true,
-  tokenProvider: { getToken: vi.fn(), invalidate: vi.fn() },
+  oxy: {},
   account: vi.fn(),
   merchant: vi.fn(),
   constructed: vi.fn(),
@@ -43,7 +43,7 @@ vi.mock('../../../payments/stripe/client.js', () => ({
 }));
 vi.mock('../../../../capabilities/oxy-service-client.js', () => ({
   oxyServiceClient: () => (seam.identity ? {} : null),
-  oxyServiceTokenProvider: seam.tokenProvider,
+  requiredOxyServiceClient: () => seam.oxy,
 }));
 vi.mock('../../stripe/cohort-reader.js', () => ({
   createBillingCohortStripeReader: () => ({
@@ -53,11 +53,9 @@ vi.mock('../../stripe/cohort-reader.js', () => ({
 }));
 vi.mock('@peable.to/sdk', async (original) => ({
   ...(await original<object>()),
-  Peable: class {
-    merchants = { retrieve: seam.merchant };
-    constructor(config: unknown) {
-      seam.constructed(config);
-    }
+  peableForOxyService: (config: unknown) => {
+    seam.constructed(config);
+    return { merchants: { retrieve: seam.merchant } };
   },
 }));
 import { registerMerchantBillingProvider } from '../../register.js';
@@ -264,7 +262,7 @@ describe('billing cohort registration', () => {
     seam.raw = JSON.stringify(cohort);
     await registerMerchantBillingProvider();
     expect(seam.constructed).toHaveBeenCalledExactlyOnceWith({
-      tokenProvider: seam.tokenProvider,
+      oxy: seam.oxy,
       baseURL: 'http://unused',
     });
   });

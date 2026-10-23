@@ -6,11 +6,14 @@ const publisher = vi.hoisted(() => ({
   observeSocket: vi.fn(),
   stop: vi.fn(async () => {}),
 }));
+const canAttest = vi.hoisted(() => vi.fn(() => true));
 const create = vi.hoisted(() => vi.fn((_options: unknown) => publisher));
 vi.mock('@oxy.so/core/server', () => ({
   createEcosystemTraffic: create,
-  canAttestWorkloadIdentity: () => false,
-  OxyServer: class {},
+  canAttestWorkloadIdentity: canAttest,
+  OxyServer: class {
+    dispose() {}
+  },
 }));
 import { resetOxyServiceClientForTests } from '../capabilities/oxy-service-client';
 import {
@@ -23,8 +26,7 @@ import {
 describe('ecosystem activity lifecycle', () => {
   beforeEach(() => {
     vi.stubEnv('OXY_ECOSYSTEM_ACTIVITY_ENABLED', 'true');
-    vi.stubEnv('OXY_APPLICATION_KEY', 'test-key');
-    vi.stubEnv('OXY_APPLICATION_SECRET', 'test-secret');
+    canAttest.mockReturnValue(true);
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.clearAllMocks();
     resetOxyServiceClientForTests();
@@ -67,9 +69,9 @@ describe('ecosystem activity lifecycle', () => {
     expect(publisher.installFetch).not.toHaveBeenCalled();
   });
 
-  it('refuses a partially provisioned publishing credential', () => {
-    vi.stubEnv('OXY_APPLICATION_SECRET', '');
-    expect(() => startEcosystemActivity(() => true)).toThrow('OXY_APPLICATION_SECRET');
+  it('refuses publishing without workload identity', () => {
+    canAttest.mockReturnValue(false);
+    expect(() => startEcosystemActivity(() => true)).toThrow('attestable task role');
     expect(create).not.toHaveBeenCalled();
   });
 

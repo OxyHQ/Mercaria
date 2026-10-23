@@ -1,6 +1,6 @@
 import { createEcosystemTraffic } from '@oxy.so/core/server';
 import type { RequestHandler } from 'express';
-import { oxyServiceClient, requiredOxyServiceToken } from './capabilities/oxy-service-client';
+import { oxyServiceClient } from './capabilities/oxy-service-client';
 
 let activity: ReturnType<typeof createEcosystemTraffic> | undefined;
 
@@ -15,14 +15,11 @@ export function startEcosystemActivity(ready: () => boolean): void {
     return;
   }
   if (!oxyServiceClient()) {
-    throw new Error(
-      'Ecosystem activity requires an Oxy identity: an attestable task role or OXY_APPLICATION_KEY and OXY_APPLICATION_SECRET',
-    );
+    throw new Error('Ecosystem activity requires an Oxy identity: an attestable task role');
   }
   if (activity) return;
   activity = createEcosystemTraffic({
     service: 'mercaria',
-    credential: requiredOxyServiceToken,
     ready,
   });
   activity.installFetch();

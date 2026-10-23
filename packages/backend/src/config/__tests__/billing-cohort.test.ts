@@ -18,10 +18,10 @@ async function read(actions: boolean, extra: Record<string, string> = {}) {
     STRIPE_SECRET_KEY: 'sk_test_fixture',
     STRIPE_WEBHOOK_SECRET: 'whsec_fixture',
     MERCHANT_BILLING_PEABLE_COHORT: JSON.stringify(cohort),
-    // Mercaria's Oxy identity off ECS; no task role to attest here.
-    OXY_APPLICATION_KEY: 'fixture-public',
-    OXY_APPLICATION_SECRET: 'fixture-secret',
-    AWS_CONTAINER_CREDENTIALS_RELATIVE_URI: '',
+    // Workload metadata availability; these config tests do not mint a token.
+    OXY_APPLICATION_KEY: '',
+    OXY_APPLICATION_SECRET: '',
+    AWS_CONTAINER_CREDENTIALS_RELATIVE_URI: '/v2/credentials/fixture',
     AWS_CONTAINER_CREDENTIALS_FULL_URI: '',
     MERCHANT_BILLING_ENABLED: String(actions),
     ...extra,
@@ -38,10 +38,9 @@ it('enables the existing action flag through only the explicit billing cohort', 
 it('keeps new actions off independently of durable cohort maintenance', async () => {
   expect((await read(false)).merchantBilling.enabled).toBe(false);
 });
-// Half a key pair is no identity at all.
+// A workload identity and the billing configuration remain required.
 for (const name of [
-  'OXY_APPLICATION_KEY',
-  'OXY_APPLICATION_SECRET',
+  'AWS_CONTAINER_CREDENTIALS_RELATIVE_URI',
   'STRIPE_WEBHOOK_SECRET',
   'MERCHANT_BILLING_PEABLE_COHORT',
 ])
@@ -58,8 +57,12 @@ it('accepts the ECS task role as the Oxy identity, with no key pair at all', asy
   expect(config.payments.peable).not.toHaveProperty('publicKey');
   expect(config.payments.peable).not.toHaveProperty('secret');
 });
-it('fails closed with neither a key pair nor a task role', async () => {
-  const config = await read(true, { OXY_APPLICATION_KEY: '', OXY_APPLICATION_SECRET: '' });
+it('does not use a customer key as a workload identity', async () => {
+  const config = await read(true, {
+    AWS_CONTAINER_CREDENTIALS_RELATIVE_URI: '',
+    OXY_APPLICATION_KEY: 'external-key',
+    OXY_APPLICATION_SECRET: 'external-secret',
+  });
   expect(config.merchantBilling.enabled).toBe(false);
 });
 it('rejects a key for the other mode without enabling actions', async () => {

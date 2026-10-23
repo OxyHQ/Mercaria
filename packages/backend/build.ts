@@ -79,14 +79,14 @@ await esbuild.build({
   // workspace packages (e.g. shared-types) are inlined so the runtime image needs
   // neither their dist nor their build-time devDependencies.
   //
-  // @oxy.so/* MUST stay external. The @oxy.so/crowdsource* packages are published as
+  // @oxy.so/* MUST stay external. The @crowdsource.you/core* packages are published as
   // CommonJS ("type": "commonjs"), and inlining CJS into this ESM bundle rewrites
   // each of their internal require() calls into an esbuild shim that throws the
   // moment it runs:
   //   Error: Dynamic require of "zod" is not supported
   // Reproduced here 2026-07-31 by running the bundle: it threw from
-  // @oxy.so/crowdsource-contracts/dist/primitives.js, reached through
-  // @oxy.so/crowdsource-express — the throwing frame is not the package you imported.
+  // @crowdsource.you/contracts/dist/primitives.js, reached through
+  // @crowdsource.you/core/express — the throwing frame is not the package you imported.
   // The same crash took Moovo's API down at container start. Node's own ESM loader
   // imports those CJS packages correctly, so leave the resolution to Node; the
   // runtime image ships production node_modules (see the Dockerfile), so they
