@@ -15,7 +15,7 @@
  * What Mercaria DOES own is the five operations it needs and the payload it is
  * willing to disclose (#126's `MoovoTransportRequest`, an allow-list expressed
  * as a type). This port is stated in exactly those terms. The implementer —
- * #159, once `OxyHQ/oxy#878` supplies an audience-aware service client — owns
+ * #159, using OxyServer.createServiceClient with the registered receiver audience — owns
  * the mapping onto whatever Moovo publishes, which is the half that belongs to
  * Moovo rather than to this repository.
  *

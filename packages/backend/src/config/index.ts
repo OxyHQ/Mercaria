@@ -3646,16 +3646,10 @@ export type MoovoEnvironment = (typeof MOOVO_ENVIRONMENTS)[number];
 /**
  * Mercaria's Moovo service client (#156).
  *
- * **There is deliberately NO client id or client secret variable, and adding
- * one today would be a security regression rather than progress.** #156 item 5
- * asks that they come from the deployment secret manager, and they will — but
- * `@oxy.so/core` cannot yet mint a token bound to another application's
- * audience (`OxyHQ/oxy#878`, open): `getServiceToken()` POSTs `{apiKey,
- * apiSecret}` and every token it returns carries the hardcoded `oxy-api`
- * audience. A credential configured now could therefore only be used to send a
- * WRONG-AUDIENCE token to Moovo, which is the confused-deputy shape audience
- * binding exists to prevent. The variables arrive with the transport that can
- * use them correctly.
+ * Own calls use OxyServer.createServiceClient and registered workload identity,
+ * with the receiver's canonical audience (Oxy ADR 0049). No client secret or
+ * internal OAuth scopes are provisioned. The logistics receiver/API contracts
+ * remain the product dependencies before booking can be enabled.
  *
  * `resourceApplicationId` is NOT that credential — it names the Moovo Oxy
  * Application a token must be minted FOR, and it is the value the whole
