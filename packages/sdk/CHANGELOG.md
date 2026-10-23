@@ -1,3 +1,7 @@
+## 0.7.0
+
+- Add `@mercaria.co/sdk/server` public-read workload factory, using the shared Oxy transport and explicit disposal. External credentials and public payloads remain unchanged. Deploy the compatible receiver before caller cutover.
+
 # Changelog
 
 ## 0.6.0
