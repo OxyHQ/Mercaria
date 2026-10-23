@@ -17,7 +17,6 @@ import { MercariaAskProvider } from '@/components/alia/MercariaAskProvider';
 import { AppErrorBoundary } from '@/components/error-boundary';
 import AppSplashScreen from '@/components/AppSplashScreen';
 import { StorefrontSettingsProvider } from '@/components/settings/StorefrontSettingsProvider';
-import { KeyboardProvider } from '@/lib/keyboard';
 import { SharedUiTranslationProvider, useColorScheme } from '@mercaria/ui';
 import { AppFxProvider } from '@/lib/fx';
 import { setTokenGetter } from '@/lib/api/client';
@@ -96,26 +95,23 @@ function AuthSetup({ children }: { children: React.ReactNode }) {
 function AppContent() {
   const { colors } = useColorScheme();
 
-  return (
-    <KeyboardProvider>
-      {/* WEB: <Slot/>, so the matched route stays in normal document flow and
-          Bloom's AppShell can scroll the DOCUMENT (sticky navigation, scroll
-          restoration). A web Stack wraps every scene in a viewport-clamped
-          card, which is a scroll container between the root and the shell. */}
-      {Platform.OS === 'web' ? (
-        <Slot />
-      ) : (
-        <Stack
-          screenOptions={{
-            contentStyle: {
-              backgroundColor: colors.background,
-            },
-          }}
-        >
-          <Stack.Screen name="(app)" options={{ headerShown: false }} />
-        </Stack>
-      )}
-    </KeyboardProvider>
+  // OxyProvider mounts the one KeyboardProvider; a second one nested with it took the native keyboard events.
+  // WEB: <Slot/>, so the matched route stays in normal document flow and
+  // Bloom's AppShell can scroll the DOCUMENT (sticky navigation, scroll
+  // restoration). A web Stack wraps every scene in a viewport-clamped
+  // card, which is a scroll container between the root and the shell.
+  return Platform.OS === 'web' ? (
+    <Slot />
+  ) : (
+    <Stack
+      screenOptions={{
+        contentStyle: {
+          backgroundColor: colors.background,
+        },
+      }}
+    >
+      <Stack.Screen name="(app)" options={{ headerShown: false }} />
+    </Stack>
   );
 }
 
