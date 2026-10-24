@@ -22,8 +22,8 @@ The backend can boot with inactive integrations without minting a token.
 
 This source was validated with the Oxy core 7/contracts 6/MCP 1.4 candidate,
 CrowdSource SDK containing commit `99db506ab`, Peable SDK containing `5ca41fe`, and
-Clarity SDK containing `a6deb86`. Local tarball paths are deliberately absent from
-committed manifests. Before deploying, publish these SDK changes through their
+the published Clarity SDK 0.10.0. Local tarball paths are deliberately absent from
+committed manifests. Before deploying, publish the remaining SDK changes through their
 repositories' release workflows, update registry pins and lockfile, and rerun
 backend typecheck, tests and build with those published artifacts. The historical
 registry pins alone do not contain all factory changes.
@@ -38,7 +38,7 @@ account and external token boundary.
 
 ## Public catalogue receiver and SDK release order
 
-SDK 0.7.0 adds `mercariaForOxyService` on `@mercaria.co/sdk/server`. It owns only
+SDK 0.7 adds `mercariaForOxyService` on `@mercaria.co/sdk/server`. It owns only
 public catalogue reads; it does not expose the materials account commands.
 Clarity and other own callers use its canonical receiver audience
 `oxy-service:6a37d0cc5d4b5f15482a9340`. The shared Oxy middleware verifies the live
@@ -66,3 +66,25 @@ scope intersection and redirect isolation are exercised. Backend source/test
 typecheck and production build pass with local Oxy/CrowdSource/Peable candidates;
 Clarity 0.10.0 is pinned from its published registry artifact. Candidate overrides
 were restored before commit. The final registry pins remain a release gate.
+
+## Patched contract composition
+
+The SDK-only release 0.7.1 is published from `9ba9d541`, with the patched Zod
+`^4.6.7` runtime dependency. The private backend and contracts use that same
+minimum. This runtime branch is rebased on that release; the SDK publication did
+not enable the backend receiver or outbound workload clients.
+
+Deployment order remains Oxy API preparation, Clarity reader, old Clarity writer
+and worker drain plus reviewed legacy-job reconciliation, Mercaria receiver,
+and finally Clarity's canonical Mercaria caller. Clarity's producer changes must
+not enter the reader deployment. Registry Oxy core 7/contracts 6 and the remaining
+product factory pins are still required before this backend can be released.
+
+The final patched Oxy contract candidate passes 42 receiver/SDK/HTTP/PostgreSQL
+tests plus four company-directory PostgreSQL tests, backend source/test
+TypeScript and production build. The directory fixture now uses the SDK's
+returned organization type, so its nullable fields are present as the wire
+response requires; no production identity logic changed. Oxy core 7/contracts 6
+are published, but this checkpoint still awaits the CrowdSource and Peable
+factory releases before the final complete registry composition. No candidate
+paths or overrides are committed.

@@ -103,11 +103,10 @@ no second store, no `src/models/` and no rollback target.
 
 ## Auth and the identity surfaces
 
-- **There is no Mercaria service principal.** `middleware/auth.ts` is three exports
-  composed from `@oxy.so/core/server`. An Oxy-to-Oxy caller mounts
-  `oxyClient.serviceAuth(...)` on the route that needs it; there is deliberately no
-  pre-exported unmounted service-auth middleware. **Never build a second verifier.**
-  A provider webhook is a different principal and verifies its own signature.
+- **No local service principal or verifier.** Use Oxy's shared middleware with
+  the canonical audience; public reads use the optional receiver documented in
+  `docs/first-party-authority.md`, never a synthetic user. Provider webhooks
+  verify their own signatures; never add unmounted auth primitives.
 - **Every `/internal/*` surface is gated by an Oxy-user-id allow-list, and empty
   means NOT MOUNTED (404, never 401).** A new surface joins the list whose power it
   already shares (`docs/house-invariants.md`).

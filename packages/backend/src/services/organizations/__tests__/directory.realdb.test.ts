@@ -1,15 +1,21 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { inArray } from 'drizzle-orm';
 import { uuidv7 } from '@oxy.so/db';
-import type { Organization } from '@oxy.so/contracts';
 import { closePostgres, connectPostgres, getDb } from '../../../db/postgres.js';
 import { organizations } from '../../../db/schema/organizations.js';
 import { oxyClient } from '../../../middleware/auth.js';
 import { assertSameCanonicalOrganization, getPublicOrganizations } from '../directory.js';
 
+type DirectoryOrganization = Awaited<
+  ReturnType<typeof oxyClient.organizations.batch>
+>['items'][number]['organization'];
+
 const prefix = uuidv7();
 const ids = Array.from({ length: 202 }, (_, i) => `${prefix}-${i}`);
-const canonical = (accountId: string, overrides: Partial<Organization> = {}): Organization => ({
+const canonical = (
+  accountId: string,
+  overrides: Partial<DirectoryOrganization> = {},
+): DirectoryOrganization => ({
   accountId,
   name: 'Live canonical company',
   username: null,
