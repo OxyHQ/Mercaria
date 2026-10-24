@@ -19,7 +19,7 @@
  *
  * `app.ts` registers this router only when `PAYMENT_OPERATOR_OXY_USER_IDS` names
  * somebody, so a deployment with no operators answers 404 on every path here —
- * `STRIPE_ENABLED`'s rule rather than the outbox's. There is nothing to park,
+ * the Stripe webhook mount's rule rather than the outbox's. There is nothing to park,
  * and a 401 would tell an unauthenticated caller that an operator surface exists
  * on this deployment. `requirePaymentOperator` repeats the check anyway, because
  * the mount and the gate are in different files and that is exactly the pair

@@ -159,7 +159,7 @@ function unavailable<T>(operation: MoovoLogisticsOperation): MoovoOperationResul
  * The shipped implementation: refuse everything, and say which issue is owed.
  *
  * `debug` rather than `warn`, matching `unconsumedProcurementOutcome`: with
- * `MERCARIA_RETAIL_ENABLED` off — the shipped default — no retail order exists
+ * retail unconfigured — the shipped default — no retail order exists
  * to arrange transport for, so a warning per call would train whoever reads the
  * logs to ignore the level that matters. When retail is on, the intents sitting
  * without a transport are visible in `retail_fulfilment_intents_awaiting_transport_idx`

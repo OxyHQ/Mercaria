@@ -252,7 +252,7 @@ beforeAll(async () => {
   ]) {
     process.env[lever] = 'true';
   }
-  process.env.STRIPE_ENABLED = 'false';
+  process.env.STRIPE_SECRET_KEY = '';
   // #367 line 814: the localization, internal-taxonomy and internal-attribute
   // surfaces are allow-list gated, and an EMPTY list is 404 FROM THE MOUNT —
   // so without this the routes would not exist to be censused, and the

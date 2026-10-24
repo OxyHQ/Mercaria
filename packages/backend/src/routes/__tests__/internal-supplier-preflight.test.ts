@@ -105,7 +105,7 @@ async function buildApp(procurementOperatorIds: string): Promise<express.Express
   process.env.PAYMENT_OPERATOR_OXY_USER_IDS = PAYMENTS_OPERATOR;
   process.env.CATALOG_OPERATOR_OXY_USER_IDS = CATALOG_OPERATOR;
   process.env.RETAIL_OPERATOR_OXY_USER_IDS = RETAIL_OPERATOR;
-  process.env.STRIPE_ENABLED = 'false';
+  process.env.STRIPE_SECRET_KEY = '';
   const { createApp } = await import('../../app.js');
   return createApp();
 }
@@ -128,7 +128,7 @@ afterAll(async () => {
   delete process.env.PAYMENT_OPERATOR_OXY_USER_IDS;
   delete process.env.CATALOG_OPERATOR_OXY_USER_IDS;
   delete process.env.RETAIL_OPERATOR_OXY_USER_IDS;
-  delete process.env.STRIPE_ENABLED;
+  delete process.env.STRIPE_SECRET_KEY;
   await Promise.all(
     [enabledServer, disabledServer].map(
       (server) =>

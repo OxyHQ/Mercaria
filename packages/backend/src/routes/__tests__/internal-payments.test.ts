@@ -116,7 +116,7 @@ async function listen(app: express.Express): Promise<{ server: Server; url: stri
 async function buildApp(operatorIds: string): Promise<express.Express> {
   vi.resetModules();
   process.env.PAYMENT_OPERATOR_OXY_USER_IDS = operatorIds;
-  process.env.STRIPE_ENABLED = 'false';
+  process.env.STRIPE_SECRET_KEY = '';
   const { createApp } = await import('../../app.js');
   return createApp();
 }
@@ -187,7 +187,7 @@ async function call(
 
 describe('the operator allow-list', () => {
   it('lets an allow-listed Oxy account through the gate on every path', async () => {
-    // Past the gate is the assertion, not a 200: `STRIPE_ENABLED` is off and
+    // Past the gate is the assertion, not a 200: the Stripe rail is off and
     // the database is stubbed, so the handlers themselves answer 409 or 500.
     // What matters here is that NONE of them answers 403 or 404 — which is
     // exactly what a gate that refused the right caller would produce.

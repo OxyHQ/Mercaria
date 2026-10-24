@@ -29,7 +29,7 @@
  *
  * The empty allow-list is answered by NOT MOUNTING the router at all (see
  * `app.ts`), so Express's own 404 handles it and no code here runs. That follows
- * `STRIPE_ENABLED`'s rule rather than the outbox's: there is nothing to park,
+ * the Stripe webhook mount's rule rather than the outbox's: there is nothing to park,
  * and a 401 would tell an unauthenticated caller that an operator surface exists
  * on this deployment.
  *

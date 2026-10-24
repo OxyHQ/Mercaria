@@ -46,13 +46,13 @@ appearing where an Oxy id is expected.
   a 60 s `previous_token_hash` grace; the 7-day activity rotation answers in
   kind from the resolver. Purge = two expiry-sweep targets (7 d past
   expiry/revocation), hard DELETE.
-- **Flags (M8):** `GUEST_COMMERCE_ENABLED` (default false) gates the MOUNT and
-  requires BOTH `GUEST_PII_ENCRYPTION_KEY` and `GUEST_EMAIL_HASH_KEY` (the
-  half-configuration rule; keys are consumed by #105+/#108 but demanded now).
+- **Flags (M8):** guest commerce has no switch: it is ON exactly when BOTH
+  `GUEST_PII_ENCRYPTION_KEY` and `GUEST_EMAIL_HASH_KEY` resolve, and that gates
+  the MOUNT (keys are consumed by #105+/#108 but demanded now).
   `GUEST_SESSION_ISSUANCE_ENABLED` (default true) is the incident kill switch:
   stops NEW sessions only — existing ones keep resolving/rotating/revoking.
   `GUEST_SESSION_IDLE_DAYS=30`, `GUEST_SESSION_ABSOLUTE_DAYS=90`. Production
-  stays OFF until the M8 security + privacy review clears.
+  must not hold both keys until the M8 security + privacy review clears.
 - **Conversion is a SEAM here:** `converted_at`/`converted_to_oxy_user_id` are
   written only by #104/#109; there is deliberately no generic "reassign
   session" endpoint, and `/guest/session` is the WHOLE public surface
@@ -116,7 +116,7 @@ there is nothing guest-shaped to fork, and no `GuestCart` model.
   ADR 0003 does not grant — not calling the endpoint IS the choice) are all
   deliberately absent.
 - **Flags are three independent levers**, and #105–#107 adds a fourth:
-  `GUEST_COMMERCE_ENABLED` (the domain), `GUEST_SESSION_ISSUANCE_ENABLED` (the
+  the two keys (the domain), `GUEST_SESSION_ISSUANCE_ENABLED` (the
   incident kill switch for NEW credentials), `GUEST_CART_ENABLED` (may a
   credential own commerce state). With the cart lever off, reads answer empty
   and writes get `GUEST_CART_DISABLED` (403) — but the MERGE stays available,
@@ -209,7 +209,7 @@ widening on `db/schema/orders.ts`. Schema decisions:
   idempotency converge would strand one. `placeOrders` is the same body either
   way (ADR 0003 I9).
 - **Flags are FOUR independent levers**, and the interaction matters:
-  `GUEST_COMMERCE_ENABLED` off = no credential resolves at all (decommission);
+  guest commerce off (a key missing) = no credential resolves at all (decommission);
   `GUEST_CART_ENABLED` off = a session resolves but owns no cart, so there is
   nothing to check out; `GUEST_INLINE_DESTINATION_ENABLED` off (the #105 lever,
   default true) = the cart survives and checkout is refused with

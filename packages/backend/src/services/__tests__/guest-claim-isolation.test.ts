@@ -297,7 +297,7 @@ const NO_FLAG_PATHS = [
 ];
 
 /** Reading a guest feature lever. */
-const GUEST_FLAG_REFERENCE = /config\.guest|GUEST_CLAIM_ENABLED|GUEST_COMMERCE_ENABLED/;
+const GUEST_FLAG_REFERENCE = /config\.guest|GUEST_CLAIM_ENABLED/;
 
 /** Read a path in the claim set, refusing an empty or moved file. */
 function readClaimSource(relative: string): string {

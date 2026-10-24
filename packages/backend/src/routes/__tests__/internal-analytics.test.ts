@@ -112,7 +112,7 @@ async function buildApp(analyticsOperatorIds: string): Promise<express.Express> 
   // test here is the OPERATOR list, not the collection flag.
   process.env.ANALYTICS_COLLECTION_MODE = 'full';
   process.env.ANALYTICS_ENABLED = 'true';
-  process.env.STRIPE_ENABLED = 'false';
+  process.env.STRIPE_SECRET_KEY = '';
   const { createApp } = await import('../../app.js');
   return createApp();
 }

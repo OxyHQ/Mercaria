@@ -657,7 +657,7 @@ export interface GuestSecuritySignalDefinition {
  *    flag, deliberately, until #112;
  *  - the Stripe CLIENT PATH, because ADR 0006 G2 puts both actor kinds on one
  *    component and a guest-only path lever would be a second answer to
- *    `STRIPE_ENABLED`.
+ *    whether the Stripe rail is configured.
  *
  * Guest PICKUP was a fourth until #93 landed, and the correction is the reason
  * this register is worth keeping accurate: `null` here does not mean "nobody
@@ -1719,7 +1719,8 @@ export const GUEST_FEATURE_GATE_REGISTER: readonly GuestFeatureGateRecord[] = [
     scopes: [],
     whenOff:
       'STRUCTURAL: ADR 0006 G2 puts both actor kinds on one CardPaymentStep, so a guest-only path ' +
-      'lever would be a second answer to STRIPE_ENABLED and would make the two paths diverge ' +
+      'lever would be a second answer to the Stripe rail configuration and would make the two ' +
+      'paths diverge ' +
       'exactly where they must not.',
     affectsPlacedOrders: false,
     rollbackOrder: 99,
@@ -1855,7 +1856,8 @@ export const GUEST_LAUNCH_GATE_REGISTER: readonly GuestLaunchGateDefinition[] = 
     discipline: 'engineering',
     evidenceKind: 'automated_check',
     requiredFromStage: 'stage_1_staff_canary',
-    criterion: 'STRIPE_ENABLED is true with a key and BOTH webhook secrets configured.',
+    criterion:
+      'The Stripe rail is configured: the secret key and BOTH webhook secrets are present.',
   },
   {
     gate: 'webhooks_reconciliation_runbooks_operational',

@@ -72,7 +72,7 @@ describe('the native rail', () => {
    * The preference, which is a decision rather than an accident of ordering: a
    * deployment with both configured is mid-migration, and a checkout opening
    * today should open on the rail the migration is heading to (ADR 0009). It
-   * also makes `PEABLE_ENABLED=false` the complete rollback, with no second
+   * also makes removing `PEABLE_WEBHOOK_SECRET` the complete rollback, with no second
    * switch to remember.
    */
   it('prefers Peable when a mid-migration deployment has both', () => {

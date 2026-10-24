@@ -21,7 +21,6 @@ const servers: Server[] = [];
 let closePostgres: typeof import('../../db/postgres.js').closePostgres;
 
 beforeAll(async () => {
-  process.env.GUEST_COMMERCE_ENABLED = 'true';
   process.env.GUEST_PII_ENCRYPTION_KEY = 'kill-switch-test-pii-key';
   process.env.GUEST_EMAIL_HASH_KEY = 'kill-switch-test-email-hash-key';
   process.env.GUEST_SESSION_ISSUANCE_ENABLED = 'false';

@@ -19,7 +19,7 @@ key's actual platform account, the key mode and the Peable SDK credential's
 resolved merchant/application/environment before installing any provider.
 Malformed/mismatched configuration leaves no legacy fallback for that process.
 
-An explicit cohort is registered independently of `STRIPE_ENABLED`. The bounded
+An explicit cohort is registered independently of the general Stripe rail. The bounded
 reader exposes only platform-account and exact-subscription GETs, checks the
 existing key mode against the cohort environment, and verifies the platform
 account before registering. Mercaria must have an Oxy identity before any remote
@@ -29,8 +29,11 @@ handed that identity as its `tokenProvider` (SDK 0.2.5-oxy-one.0); there is no
 Peable credential, and the gateway resolves the merchant from the token's
 application id and environment. `PEABLE_APP_PUBLIC_KEY`/`PEABLE_APP_SECRET` are
 no longer read, and a release removes them from the task definition.
-The general client and direct legacy Stripe mutations remain disabled when
-`STRIPE_ENABLED` is off, including stores outside the cohort. A malformed cohort
+The general client and direct legacy Stripe mutations remain disabled while the
+general Stripe rail is off — which, since it has no switch, means while
+`STRIPE_CONNECT_WEBHOOK_SECRET` (or another of its three values) is absent —
+including stores outside the cohort. **Once all three are present the general rail
+is ON and the store allowlist no longer bounds merchant billing.** A malformed cohort
 also rejects startup in that state. This does not enable checkout actions: the
 existing `MERCHANT_BILLING_ENABLED` flag remains separate. See the
 [cohort registration proof](../audits/2026-10-04-cohort-independent-rail/README.md).
@@ -117,8 +120,9 @@ Dashboard tests exercise persistence/coalescing and failure retention.
 It defaults to false. Platform webhook handling, scoped automatic event recovery,
 subscription reads, invoice posting and reconciliation remain independent of it.
 With general Stripe disabled, both the status projection and all three actions
-require the registered store allowlist. `STRIPE_ENABLED` and `PEABLE_ENABLED`
-control marketplace rails; enabling recurring merchant actions does not enable
+require the registered store allowlist. The marketplace rails are on exactly
+when configured (Stripe: key and both webhook secrets; Peable:
+`PEABLE_WEBHOOK_SECRET` and an Oxy identity); enabling recurring merchant actions does not enable
 marketplace checkout, Connect onboarding, transfers or referral payouts.
 
 For the existing two-store cohort, the prospective configuration change is

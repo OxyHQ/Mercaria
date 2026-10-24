@@ -38,7 +38,6 @@ let service: {
 beforeAll(async () => {
   // Before the dynamic import: `config/index.ts` freezes at module load, and
   // the resolver only reads guest credentials when guest commerce is enabled.
-  process.env.GUEST_COMMERCE_ENABLED = 'true';
   process.env.GUEST_PII_ENCRYPTION_KEY = 'unit-test-pii-key';
   process.env.GUEST_EMAIL_HASH_KEY = 'unit-test-email-hash-key';
 

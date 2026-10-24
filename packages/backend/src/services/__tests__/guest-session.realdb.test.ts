@@ -51,7 +51,6 @@ async function issueTracked(): Promise<{
 }
 
 beforeAll(async () => {
-  process.env.GUEST_COMMERCE_ENABLED = 'true';
   process.env.GUEST_PII_ENCRYPTION_KEY = 'realdb-test-pii-key';
   process.env.GUEST_EMAIL_HASH_KEY = 'realdb-test-email-hash-key';
   // Explicit, not assumed: vitest may run several files in one worker thread,

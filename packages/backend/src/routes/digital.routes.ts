@@ -8,7 +8,7 @@
  * ## The creator MOUNT is gated; the buyer mount is not, and that is the point
  *
  * `DIGITAL_UPLOADS_ENABLED` gates the creator router's mount, the
- * `STRIPE_ENABLED` rule: a deployment that does not do creator uploads answers
+ * Stripe webhook mount rule: a deployment that does not do creator uploads answers
  * 404 rather than 401, because a 401 tells an unauthenticated caller that the
  * surface exists here. It defaults OFF (ADR 0010 D13).
  *

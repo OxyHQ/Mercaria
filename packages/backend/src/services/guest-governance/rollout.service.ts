@@ -81,7 +81,7 @@ export interface GateStatus {
  * Every gate's status for one stage.
  *
  * An automated gate's SIGN-OFF is ignored, deliberately and in both directions:
- * a signature cannot make `STRIPE_ENABLED` true, and it cannot make it false
+ * a signature cannot make the Stripe rail configured, and it cannot make it unconfigured
  * either. What a person can do about an automated gate is change the thing it
  * measures.
  */

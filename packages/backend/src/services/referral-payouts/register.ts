@@ -19,8 +19,8 @@
  * There is deliberately NO flag on this. #145's three levers gate the LOOPS —
  * vesting, batch settlement, reconciliation — and a fourth gating the
  * REGISTRATION would be a second way to stop payouts whose off position looks
- * exactly like a deployment that has not shipped #146 yet. `STRIPE_ENABLED` is
- * already the switch that decides whether the rail can do anything, and both
+ * exactly like a deployment that has not shipped #146 yet. Whether the Stripe
+ * rail is configured already decides whether it can do anything, and both
  * halves check it themselves and answer honestly rather than silently.
  */
 

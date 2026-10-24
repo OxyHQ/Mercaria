@@ -140,7 +140,7 @@ test('seeded product variants and guest cart work through the real API', async (
   await page.getByRole('button', { name: 'Add to cart', exact: true }).click();
   expect(
     (await added).ok(),
-    'Local API needs GUEST_COMMERCE_ENABLED and its two configured keys',
+    'Local API needs GUEST_PII_ENCRYPTION_KEY and GUEST_EMAIL_HASH_KEY configured',
   ).toBeTruthy();
   const cartNavigation = page.getByRole('button', { name: 'Cart', exact: true });
   const badge = cartNavigation.getByText(/^\d+$/);

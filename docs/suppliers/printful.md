@@ -364,7 +364,7 @@ own message never lands in a column** — only the closed code it maps to.
 | Switch | What it stops | Default |
 |---|---|---|
 | `PRINTFUL_ENABLED` | Registers the adapters at all. Off ⇒ every preflight answers `provider_unconfigured` (which blocks) and every purchase order refuses with `adapter_missing`. Never gates a durable record | `false` |
-| `MERCARIA_RETAIL_ENABLED` (#123) | Retail checkout ENTRY | `false` |
+| The retail seller identity (#123) — `MERCARIA_RETAIL_SELLER_LEGAL_ENTITY` + `MERCARIA_RETAIL_SELLER_COUNTRY`; with supplier preflight and `RETAIL_OPERATOR_OXY_USER_IDS` it opens retail (no `*_ENABLED` switch) | Retail checkout ENTRY | unset (off) |
 | `PROCUREMENT_ORCHESTRATION_ENABLED` (#124) | Submitting and cancelling supplier orders | `false` |
 | `PROCUREMENT_PROVIDER_FETCH_ENABLED` (#124) | Outbound reads and polling; webhooks are still received and stored | `true` |
 | A published pilot cohort | Everything. **No active cohort ⇒ every retail line is refused** (`no_active_cohort`), which is why the pilot needs no kill switch of its own: an empty pilot IS the off position | none published |
@@ -460,8 +460,10 @@ is what a deployment must additionally do, in order:
 7. ☐ Draft a pilot cohort version with all thirteen stop thresholds, the ≤ 25
    allow-listed SKUs and the §10 bounds; publish it. The operator surface
    refuses a draft missing any threshold.
-8. ☐ Set `MERCARIA_RETAIL_ENABLED=true` and
-   `PROCUREMENT_ORCHESTRATION_ENABLED=true`, in that order.
+8. ☐ Set `MERCARIA_RETAIL_SELLER_LEGAL_ENTITY` and
+   `MERCARIA_RETAIL_SELLER_COUNTRY` (which, with the preflight and operator list
+   above, opens retail entry), then `PROCUREMENT_ORCHESTRATION_ENABLED=true`, in
+   that order.
 
 ## Rollback procedure
 
@@ -478,11 +480,13 @@ paths reads any of them.
    stops; the catalogue, the marketplace and every placed order are untouched.
 4. **Stop procuring** — `PROCUREMENT_ORCHESTRATION_ENABLED=false`. Paid orders'
    jobs park and deliver when it is back on; nothing is lost.
-5. **Stop retail entirely** — `MERCARIA_RETAIL_ENABLED=false`.
+5. **Stop retail entirely** — unset `MERCARIA_RETAIL_SELLER_LEGAL_ENTITY` (retail
+   has no switch; without a named seller it is off). Prefer a `pilot`-scoped stop
+   (step 3), which needs no deploy.
 6. **Disconnect Printful** — `PRINTFUL_ENABLED=false`. Every preflight answers
    `provider_unconfigured`, which blocks; stored rows are untouched and turning
    it back on drains the backlog.
 
-**Do not use `STRIPE_ENABLED=false` as a rollback.** It unmounts the webhook
-endpoints and strands verified events — ADR 0006's rule, and it applies here
-unchanged.
+**Do not unconfigure the Stripe rail as a rollback.** Removing a Stripe secret
+turns the rail off, which unmounts the webhook endpoints and strands verified
+events — ADR 0006's rule, and it applies here unchanged.

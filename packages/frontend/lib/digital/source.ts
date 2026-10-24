@@ -101,7 +101,7 @@ export type DigitalSurfaceUnavailableReason =
    *
    * ONE member, and it is deliberately not split into "the flag is off" and "the
    * route does not exist": a client cannot tell those apart and must not guess.
-   * `DIGITAL_PAID_CHECKOUT_ENABLED` and friends are server-side levers a client
+   * `DIGITAL_ENABLED_VERTICALS` and friends are server-side levers a client
    * never sees — the `useFacets` posture, where a 404 means "no rail" and never
    * "an empty rail".
    */

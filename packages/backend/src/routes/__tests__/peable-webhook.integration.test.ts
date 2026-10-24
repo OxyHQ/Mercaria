@@ -80,12 +80,12 @@ let paymentProviderEvents: typeof import('../../db/schema/payments.js').paymentP
  * request a 404, and the raw-body assertion vacuous.
  */
 beforeAll(async () => {
-  process.env.PEABLE_ENABLED = 'true';
   // Everything `resolvePeableEnabled` requires, not just what this file
-  // exercises: the flag is a CONJUNCTION, so omitting `PEABLE_BASE_URL` or
-  // Mercaria's Oxy identity leaves the rail off and every request here a 404 —
+  // exercises: the rail is a CONJUNCTION, so omitting `PEABLE_WEBHOOK_SECRET` or
+  // Mercaria's Oxy identity leaves it off and every request here a 404 —
   // which would make the raw-body assertion vacuous while still looking like a
-  // wiring bug.
+  // wiring bug. `PEABLE_BASE_URL` is not required; it points at a dead host so
+  // nothing here can reach the real gateway.
   process.env.PEABLE_BASE_URL = 'https://api.peable.invalid';
   process.env.OXY_APPLICATION_KEY = 'oxy_dk_not_a_real_key';
   process.env.OXY_APPLICATION_SECRET = 'oxy_secret_not_a_real_key';
