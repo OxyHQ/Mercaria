@@ -9,15 +9,11 @@
  * is wrong, so a dead letter here is logged at error level and shows up in the
  * operator queue rather than only in a counter.
  *
- * ## The LOOP is gated, the record never is
+ * ## Receipt and interpretation are separate loops
  *
- * `PROCUREMENT_EVENT_PROCESSING_ENABLED` stops interpretation while receipt
- * carries on, which is #124 polling-and-webhooks item 10's "keep provider fetch
- * and public-order projection independently pausable": with it off, events
- * accumulate durably and nothing customer-visible moves; with
- * `PROCUREMENT_PROVIDER_FETCH_ENABLED` off instead, Mercaria stops ASKING while
- * still processing what it is told. Two genuinely independent levers, neither
- * of which gates a durable row.
+ * Receipt stores the event; this loop interprets it. A failure here leaves the
+ * event stored and retried, so nothing a supplier told Mercaria is lost while
+ * interpretation is behind.
  */
 
 import { randomUUID } from 'node:crypto';

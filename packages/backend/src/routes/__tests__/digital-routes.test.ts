@@ -239,14 +239,12 @@ const started: Server[] = [];
  * their factories close over module-scope `vi.fn()`s rather than creating new
  * ones.
  */
-async function buildApp(flags: {
-  uploads?: boolean;
-  publication?: boolean;
-  verticals?: string;
-}): Promise<TestApp> {
-  process.env.DIGITAL_UPLOADS_ENABLED = flags.uploads ? 'true' : 'false';
-  process.env.DIGITAL_PUBLICATION_ENABLED = flags.publication ? 'true' : 'false';
-  process.env.DIGITAL_ENABLED_VERTICALS = flags.verticals ?? 'three_d';
+async function buildApp(setup: { identity: boolean; verticals?: string }): Promise<TestApp> {
+  // The creator mount is DERIVED: an Oxy service identity (a key pair here) and
+  // at least one vertical.
+  process.env.OXY_APPLICATION_KEY = setup.identity ? 'digital-routes-key' : '';
+  process.env.OXY_APPLICATION_SECRET = setup.identity ? 'digital-routes-secret' : '';
+  process.env.DIGITAL_ENABLED_VERTICALS = setup.verticals ?? 'three_d';
   vi.resetModules();
   const router = (await import('../digital.routes.js')).default;
 
@@ -262,18 +260,20 @@ async function buildApp(flags: {
   return { url: `http://127.0.0.1:${port}`, server };
 }
 
-let uploadsOff: TestApp;
+let noIdentity: TestApp;
+let noVerticals: TestApp;
 let uploadsOn: TestApp;
-let publishing: TestApp;
 
 beforeAll(async () => {
   process.env.DATABASE_URL ??= 'postgres://mercaria:mercaria@127.0.0.1:5435/mercaria_dev';
-  uploadsOff = await buildApp({ uploads: false });
-  uploadsOn = await buildApp({ uploads: true, publication: false });
-  publishing = await buildApp({ uploads: true, publication: true });
+  noIdentity = await buildApp({ identity: false });
+  noVerticals = await buildApp({ identity: true, verticals: '' });
+  uploadsOn = await buildApp({ identity: true });
 });
 
 afterAll(async () => {
+  process.env.OXY_APPLICATION_KEY = '';
+  process.env.OXY_APPLICATION_SECRET = '';
   await Promise.all(
     started.map((server) => new Promise<void>((resolve) => server.close(() => resolve()))),
   );
@@ -354,26 +354,32 @@ const CREATE_ASSET = { vertical: 'three_d', title: 'A printable thing' };
 
 /* -------------------------------------------------------------------------- */
 
-describe('the creator MOUNT follows DIGITAL_UPLOADS_ENABLED', () => {
-  it('404s every creator route with the lever off', async () => {
-    const { status } = await post(uploadsOff, `/digital/stores/${STORE_ID}/assets`, CREATE_ASSET);
+describe('the creator MOUNT follows the deployment’s configuration', () => {
+  it('404s every creator route without an Oxy service identity', async () => {
+    const { status } = await post(noIdentity, `/digital/stores/${STORE_ID}/assets`, CREATE_ASSET);
     // 404 and never 401: an unconfigured surface does not exist, rather than
     // telling an unauthenticated caller that it is here and refusing them.
     expect(status).toBe(404);
     expect(insertDigitalAsset).not.toHaveBeenCalled();
   });
 
-  it('still serves the BUYER half with the lever off', async () => {
-    // The control for the case above AND the point of the split mount: a 404 on
+  it('404s every creator route with no vertical enabled', async () => {
+    const { status } = await post(noVerticals, `/digital/stores/${STORE_ID}/assets`, CREATE_ASSET);
+    expect(status).toBe(404);
+    expect(insertDigitalAsset).not.toHaveBeenCalled();
+  });
+
+  it('still serves the BUYER half when the creator half is not mounted', async () => {
+    // The control for the cases above AND the point of the split mount: a 404 on
     // the creator path has to mean "no creator surface", not "no /digital at
-    // all". ADR 0010 D13 — a lever may not strand a prior purchase, and turning
-    // creator uploads off is not a reason to take away somebody's library.
+    // all". A deployment without creator uploads is not a reason to take away
+    // somebody's library.
     listBuyerLibrary.mockResolvedValue([]);
-    const { status } = await get(uploadsOff, '/digital/library', { 'x-test-actor': 'guest' });
+    const { status } = await get(noIdentity, '/digital/library', { 'x-test-actor': 'guest' });
     expect(status).toBe(200);
   });
 
-  it('serves the creator route with the lever on', async () => {
+  it('serves the creator route when configured', async () => {
     insertDigitalAsset.mockResolvedValue({ id: ASSET_ID });
     const { status } = await post(uploadsOn, `/digital/stores/${STORE_ID}/assets`, CREATE_ASSET);
     expect(status).toBe(201);
@@ -581,20 +587,12 @@ describe('registering a file takes the three facts from the asset service', () =
   });
 });
 
-describe('publication asks the lever, the scan gate AND the inspection gate', () => {
+describe('publication asks the scan gate AND the inspection gate', () => {
   const publishPath = `/digital/stores/${STORE_ID}/assets/${ASSET_ID}/versions/${VERSION_ID}/publish`;
-
-  it('refuses with DIGITAL_PUBLICATION_ENABLED off, before reading any verdict', async () => {
-    const { status } = await post(uploadsOn, publishPath, {});
-    expect(status).toBe(409);
-    expect(everyFileScannedClean).not.toHaveBeenCalled();
-    expect(everyFileInspectionAcceptable).not.toHaveBeenCalled();
-    expect(publishAssetVersion).not.toHaveBeenCalled();
-  });
 
   it('refuses a version whose files are not all clean', async () => {
     everyFileScannedClean.mockResolvedValue(false);
-    const { status } = await post(publishing, publishPath, {});
+    const { status } = await post(uploadsOn, publishPath, {});
     expect(status).toBe(409);
     expect(publishAssetVersion).not.toHaveBeenCalled();
     // And it short-circuits: a version that failed the scan is not also inspected,
@@ -608,17 +606,17 @@ describe('publication asks the lever, the scan gate AND the inspection gate', ()
     // the version below would publish.
     everyFileScannedClean.mockResolvedValue(true);
     everyFileInspectionAcceptable.mockResolvedValue(false);
-    const { status } = await post(publishing, publishPath, {});
+    const { status } = await post(uploadsOn, publishPath, {});
     expect(status).toBe(409);
     expect(publishAssetVersion).not.toHaveBeenCalled();
   });
 
-  it('publishes when the lever is on and BOTH gates pass — the control', async () => {
+  it('publishes when BOTH gates pass — the control', async () => {
     everyFileScannedClean.mockResolvedValue(true);
     everyFileInspectionAcceptable.mockResolvedValue(true);
     publishAssetVersion.mockResolvedValue(true);
     findAssetVersion.mockResolvedValue({ id: VERSION_ID, assetId: ASSET_ID, state: 'draft' });
-    const { status } = await post(publishing, publishPath, {});
+    const { status } = await post(uploadsOn, publishPath, {});
     expect(status).toBe(200);
     expect(publishAssetVersion).toHaveBeenCalledWith(VERSION_ID, expect.any(Date));
   });
@@ -627,7 +625,7 @@ describe('publication asks the lever, the scan gate AND the inspection gate', ()
     everyFileScannedClean.mockResolvedValue(true);
     everyFileInspectionAcceptable.mockResolvedValue(true);
     publishAssetVersion.mockResolvedValue(false);
-    const { status } = await post(publishing, publishPath, {});
+    const { status } = await post(uploadsOn, publishPath, {});
     expect(status).toBe(409);
   });
 });
@@ -903,15 +901,6 @@ describe('minting a grant', () => {
     expect(status).toBe(404);
     // The message says nothing about which of the two it was, and names no id.
     expect(body.message).not.toContain(RIGHT_ID);
-  });
-
-  it('answers 503 for `downloads_disabled`, because nothing the buyer owns changed', async () => {
-    mintDownloadGrant.mockResolvedValue({ outcome: 'refused', reason: 'downloads_disabled' });
-    const { status, body } = await post(uploadsOn, '/digital/downloads', mintBody, {
-      'x-test-actor': 'oxy',
-    });
-    expect(status).toBe(503);
-    expect(body.message).toContain('purchases are unaffected');
   });
 
   it('maps the remaining refusals to distinct, non-200 statuses', async () => {

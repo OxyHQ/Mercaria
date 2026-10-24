@@ -24,10 +24,9 @@ import type { DigitalSurfaceUnavailableReason } from '@/lib/digital/source';
  *
  * The second line is the one that matters to somebody who already owns
  * something: nothing a buyer holds is affected by this surface being dark.
- * `asset_rights` has no delete path, `DIGITAL_DOWNLOADS_ENABLED` is the only
- * lever that reaches an existing right and it defaults ON (ADR 0010 D13), so a
- * dark storefront is never a lost purchase — and a reader should not have to
- * infer that.
+ * `asset_rights` has no delete path and a download is authorized by the right
+ * alone (ADR 0010 D13), so a dark storefront is never a lost purchase — and a
+ * reader should not have to infer that.
  */
 
 export interface DigitalSurfaceNoticeProps {

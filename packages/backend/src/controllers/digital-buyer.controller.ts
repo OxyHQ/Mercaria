@@ -72,8 +72,8 @@ function requireBuyerKey(req: Request): string {
  * `no_right` is 404 and covers BOTH "no such right" and "somebody else's" —
  * `download.service` already collapses them, and a 403 here would re-open the
  * oracle by telling the two apart at the status line. `downloads_disabled` is
- * 503 because the caller did nothing wrong and retrying later is correct: it is
- * an INCIDENT lever, and every right stays `active` while it is off.
+ * no longer produced (downloads have no deployment lever); it stays in the
+ * stored refusal vocabulary because `asset_download_events`' CHECK carries it.
  */
 const REFUSAL_STATUS: Record<AssetDownloadRefusalReason, number> = {
   no_right: 404,
