@@ -13,13 +13,13 @@ counts only. It found zero guest sessions, zero guest-order access grants
 Guest commerce and referral issuance were disabled in the observed deployment.
 The operator recorded an exit-zero task and removed its diagnostic definition;
 no customer identifiers, credential values, cart contents or database writes
-were involved. The sanitized receipt is
-`mercaria-cookie-population-20261025.json` in the rollout evidence archive.
+were involved. The [committed sanitized evidence](evidence/2026-10-25-cookie-free-commerce-population.json)
+records exact source/image, timestamps, aggregate results and operator/receipt
+SHA-256 values. No credential or customer identifiers are included.
 
 A second aggregate diagnostic at **2026-10-25T15:29:53.639Z** also found zero
 `guest_checkouts` and zero guest-origin orders, alongside the same zero session/
-grant counts and three Oxy-owned carts. Its receipt is
-`mercaria-cookie-population-v2-20261025.json`. This closes the additional question
+grant counts and three Oxy-owned carts. Its result and cleanup metadata are included in the same committed evidence. This closes the additional question
 of an existing guest purchase recovering a new portal grant during the cutover;
 it does not change the earlier fixed referral cutoff.
 
@@ -60,6 +60,13 @@ to reinterpret an arbitrary old cookie as account authority.
   Legacy native raw SecureStore values keep their exact token and original key;
   unknown local expiry/generation remain unknown until a real server issuance
   or rotation supplies metadata.
+- Existing guests with known unavailable persistence send
+  `X-Mercaria-Guest-Persistence: unavailable`. The central CommerceActor
+  resolver returns `503 COMMERCE_STORAGE_UNAVAILABLE` before lookup, touch or
+  rotation, including on reads. It does not substitute an anonymous actor.
+  Public routes remain public and a verified Oxy actor keeps precedence. This
+  is storage-availability negotiation, not a permission or scope; the frontend
+  does not mirror a list of backend route mounts.
 - Switching an Oxy account does not erase an independent guest cart or portal
   grant. Oxy authenticated ownership wins; merge/claim verify both proofs.
   Query state and pending responses are isolated across account changes.

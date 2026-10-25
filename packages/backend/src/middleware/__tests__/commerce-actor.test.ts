@@ -170,7 +170,11 @@ describe('explicit commerce credentials', () => {
     service.rotationDue.mockReturnValue(true);
     const req = makeReq({
       userId: 'oxy-1',
-      headers: { authorization: 'Bearer verified', 'x-mercaria-guest-token': WELL_FORMED_TOKEN },
+      headers: {
+        authorization: 'Bearer verified',
+        'x-mercaria-guest-token': WELL_FORMED_TOKEN,
+        'x-mercaria-guest-persistence': 'unavailable',
+      },
     });
     await resolve(req, makeRes());
     expect(req.commerceActor).toEqual({
@@ -179,6 +183,22 @@ describe('explicit commerce credentials', () => {
       presentedGuestSessionId: 'gs-row-1',
     });
     expect(service.rotateGuestSession).not.toHaveBeenCalled();
+  });
+
+  it('refuses an unavailable persistence marker before guest lookup, touch or rotation', async () => {
+    const req = makeReq({
+      headers: {
+        'x-mercaria-guest-token': WELL_FORMED_TOKEN,
+        'x-mercaria-guest-persistence': 'unavailable',
+      },
+    });
+    const fake = makeRes();
+    expect((await resolve(req, fake)).nextCalls).toBe(0);
+    expect(fake.status()).toBe(503);
+    expect(req.commerceActor).toBeUndefined();
+    expect(service.resolveGuestSessionByToken).not.toHaveBeenCalled();
+    expect(service.rotateGuestSession).not.toHaveBeenCalled();
+    expect(service.issueGuestSession).not.toHaveBeenCalled();
   });
 
   it('uses header B even beside legacy cookie A, retaining the persisted web cohort', async () => {

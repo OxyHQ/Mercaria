@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Evidence for omitting a guest/portal cookie redemption bridge; no deployment acceptance claim",
+  "source": {
+    "sha": "6d077057888cadf68dcb9e6d27eab128a087b73c",
+    "service": "mercaria",
+    "taskDefinitionRevision": 145,
+    "imageDigest": "sha256:16552ee70aa10cd686b4a2586027e538a0d042f500427edc65e87b5c3f8443f3",
+    "runtimeObservedAt": "2026-10-25T13:04:03.898239+00:00"
+  },
+  "configuration": {
+    "guestObservedAt": "2026-10-25T14:53:42.437087+00:00",
+    "referralsObservedAt": "2026-10-25T14:58:11.773763+00:00",
+    "guestCommerceEnabled": false,
+    "referralsEnabled": false,
+    "basis": "Flags absent from environment and secret-injection names; defaults false at recorded source",
+    "ssmValuesRead": false,
+    "statelessReferralCookieAbsenceProven": false
+  },
+  "observations": [
+    {
+      "observedAt": "2026-10-25T15:00:46.286Z",
+      "readOnly": true,
+      "success": true,
+      "selectedIds": false,
+      "selectedTokens": false,
+      "counts": {
+        "guestSessions": {
+          "total": 0,
+          "active_all_transports": 0,
+          "active_web_cookie_candidates": 0
+        },
+        "carts": {
+          "total": 3,
+          "guest_owned": 0,
+          "oxy_owned": 3,
+          "active_guest_owned": 0
+        },
+        "portalGrants": {
+          "total": 0,
+          "active_portal_all_transports": 0,
+          "active_exchange": 0
+        },
+        "idleDays": 30
+      },
+      "operatorSha256": "08d9e46e951627e24e1065f183e030753ae0195a79f04cdd5880edbdcf8a8bb8",
+      "receiptSha256": "f8d84ab44d542309157b071fc6e774be20a33cf1bc8ce352b228dd0036f3e057"
+    },
+    {
+      "observedAt": "2026-10-25T15:29:53.639Z",
+      "readOnly": true,
+      "success": true,
+      "selectedIds": false,
+      "selectedTokens": false,
+      "counts": {
+        "guestCheckouts": {
+          "total": 0
+        },
+        "guestOrders": {
+          "guest_origin": 0
+        },
+        "guestSessions": {
+          "total": 0,
+          "active_all_transports": 0,
+          "active_web_cookie_candidates": 0
+        },
+        "carts": {
+          "total": 3,
+          "guest_owned": 0,
+          "oxy_owned": 3,
+          "active_guest_owned": 0
+        },
+        "portalGrants": {
+          "total": 0,
+          "active_portal_all_transports": 0,
+          "active_exchange": 0
+        },
+        "idleDays": 30
+      },
+      "operatorSha256": "a35e062f776783a60813559c59a24d0075cba87b5167f41d9f1e156c4557d85b",
+      "receiptSha256": "862f99c75a91ab891c7b7d1477d38fb334e5a7b8d2e5e45c1dd259bff8116f4e"
+    }
+  ],
+  "diagnosticCleanup": {
+    "v2ObservedAt": "2026-10-25T15:34:27.445294+00:00",
+    "v2TaskStoppedExitZero": true,
+    "v2DefinitionInactive": true,
+    "noDataWrites": true,
+    "noServiceMutation": true
+  },
+  "preservation": {
+    "oxyOwnedCarts": 3,
+    "guestPortalBridgeRequiredByObservedPopulation": false,
+    "recheckBeforeRollout": true,
+    "featureFlagsMustRemainUnchanged": true
+  },
+  "referralMigration": {
+    "cutoff": "2026-10-25T15:00:46Z",
+    "deadline": "2027-01-23T15:00:46Z",
+    "originalSignedBytesAndExpiryPreserved": true
+  },
+  "configurationContinued": {
+    "observedAt": "2026-10-25T15:49:49.327351+00:00",
+    "taskDefinitionRevision": 145,
+    "running": 1,
+    "desired": 1,
+    "pending": 0,
+    "singleDeploymentCompleted": true,
+    "flagsExplicitEnvironment": {},
+    "flagsSecretNames": [],
+    "secretValuesRead": false,
+    "receiptSha256": "1624f78c7e242c4a3e6d722ab6c2a0722c16b2792843a3b3c1139de03b7cc61b"
+  }
+}

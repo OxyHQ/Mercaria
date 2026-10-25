@@ -116,6 +116,20 @@ async function resolveGuestHalf(req: Request, res: Response, next: NextFunction)
   // refusal above (bearer-fail-401) has already run, so nothing downgrades.
   const presented = config.guest.enabled ? headerValue(req, GUEST_TOKEN_HEADER) : undefined;
 
+  // Reads can rotate a guest bearer too. A client that cannot durably retain
+  // its successor must fail before lookup/touch/rotation, never become anonymous.
+  // Oxy ownership still wins; its accompanying guest proof is inert here.
+  if (presented && !oxyUserId && req.headers['x-mercaria-guest-persistence'] === 'unavailable') {
+    res.setHeader('Cache-Control', 'no-store');
+    sendError(
+      res,
+      ErrorCodes.COMMERCE_STORAGE_UNAVAILABLE,
+      'Storage is unavailable. Enable storage and reload to continue with your existing cart.',
+      503,
+    );
+    return;
+  }
+
   if (!presented && !oxyUserId && hasLegacyCommerceCookie(req, 'guest')) {
     sendCommerceUpgradeRequired(res);
     return;

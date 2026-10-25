@@ -97,6 +97,42 @@ describe('header-only guest commerce through the real app', () => {
     expect(Number.isFinite(Date.parse(issued.expiresAt))).toBe(true);
   });
 
+  it('does not rotate or touch a guest read when the client cannot persist its successor', async () => {
+    const issued = await issue();
+    const { getDb } = await import('../../db/postgres.js');
+    const { guestSessions } = await import('../../db/schema/guests.js');
+    const { eq } = await import('drizzle-orm');
+    const [before] = await getDb()
+      .update(guestSessions)
+      .set({ createdAt: new Date(Date.now() - 8 * 86400000) })
+      .where(eq(guestSessions.id, issued.id))
+      .returning();
+    const refused = await fetch(`${baseUrl}/guest/session`, {
+      headers: {
+        [TOKEN_HEADER]: issued.token,
+        'x-mercaria-guest-persistence': 'unavailable',
+      },
+    });
+    expect(refused.status).toBe(503);
+    const refusedBody = (await refused.json()) as { error: string };
+    expect(refusedBody.error).toBe('COMMERCE_STORAGE_UNAVAILABLE');
+    expect(refused.headers.get(TOKEN_HEADER)).toBeNull();
+    expect(refused.headers.get('cache-control')).toBe('no-store');
+    const [after] = await getDb()
+      .select()
+      .from(guestSessions)
+      .where(eq(guestSessions.id, issued.id));
+    expect(after).toEqual(before);
+    const usable = await fetch(`${baseUrl}/guest/session`, {
+      headers: { [TOKEN_HEADER]: issued.token },
+    });
+    expect(usable.status).toBe(200);
+    expect(usable.headers.get(TOKEN_HEADER)).toMatch(/^mgs_/);
+    expect(usable.headers.get(TOKEN_HEADER)).not.toBe(issued.token);
+    const usableBody = (await usable.json()) as { data: { id: string } };
+    expect(usableBody.data.id).toBe(issued.id);
+  });
+
   it('requires an explicit header client before first issuance, regardless of valid Origin', async () => {
     for (const headers of [{}, { origin: ALLOWED_ORIGIN }]) {
       const res = await fetch(`${baseUrl}/guest/session`, { method: 'POST', headers });
@@ -214,12 +250,15 @@ describe('header-only guest commerce through the real app', () => {
         origin: ALLOWED_ORIGIN,
         'access-control-request-method': 'POST',
         'access-control-request-headers':
-          'x-mercaria-guest-transport,x-mercaria-portal-token,x-mercaria-referral-state',
+          'x-mercaria-guest-transport,x-mercaria-guest-persistence,x-mercaria-portal-token,x-mercaria-referral-state',
       },
     });
     expect(res.status).toBe(200);
     expect(res.headers.get('access-control-allow-credentials')).toBeNull();
     expect(res.headers.get('access-control-allow-headers')).toContain('X-Mercaria-Portal-Token');
+    expect(res.headers.get('access-control-allow-headers')).toContain(
+      'X-Mercaria-Guest-Persistence',
+    );
     const issued = await fetch(`${baseUrl}/guest/session`, {
       method: 'POST',
       headers: { origin: ALLOWED_ORIGIN, 'x-mercaria-guest-transport': 'header' },

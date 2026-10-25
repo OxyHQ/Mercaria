@@ -256,6 +256,7 @@ export function createApp(): express.Express {
         'X-Workspace-Id',
         'X-Mercaria-Guest-Token',
         'X-Mercaria-Guest-Transport',
+        'X-Mercaria-Guest-Persistence',
         'X-Mercaria-Guest-Client',
         'X-Mercaria-Portal-Token',
         'X-Mercaria-Portal-Transport',
