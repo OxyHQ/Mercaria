@@ -130,3 +130,20 @@ transport through the shared Oxy session; the app keeps its existing provider,
 agent selection and UI. No app-local bearer refresh or internal permission prompt
 is introduced. Package installation was checked against the published artifact;
 source adoption and deployment are separate rollout steps.
+## Dashboard and POS session transport
+
+Dashboard and POS bind their existing Axios facade to the provider's
+`createLinkedClient().fetchOptional`. Oxy owns the bearer, refresh, origin fence,
+and account epoch; provider disposal releases that binding. Axios leaves JSON
+bodies as strings so the shared transport can replay one rejected 401 after
+refresh. Multipart boundaries belong to Fetch. There is no application retry or
+manual token getter.
+
+The HTTP regressions in each application's `lib/api/__tests__/client.http.test.ts`
+exercise the published core transport, JSON POST refresh, multipart uploads,
+forged headers, redirects, account switching and disposal.
+
+Storefront migration remains separate: ADR 0003 D9's guest and portal HttpOnly
+commerce cookies, including guest cart merge alongside an Oxy session, must not
+be silently discarded by the cookie-free shared identity transport. This change
+does not claim that storefront's existing token getter has been retired.
