@@ -3,7 +3,12 @@ import { createCommerceCredential, type CommerceCredentialState } from './commer
 import { commerceStorage } from './commerce-storage';
 
 /** Cart authority, independent from Oxy and the separately scoped order portal. */
-export const guestCredential = createCommerceCredential(commerceStorage('mercaria.guest.token'));
+export const guestCredential = createCommerceCredential(
+  commerceStorage('mercaria.guest.token'),
+  Date.now,
+  false,
+  { rotationPreservesAuthority: true },
+);
 export function useGuestCredentialStore<T>(selector: (state: CommerceCredentialState) => T): T {
   return useStore(guestCredential.store, selector);
 }

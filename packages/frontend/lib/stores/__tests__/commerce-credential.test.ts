@@ -97,3 +97,27 @@ test('restored expiry is enforced before any request', async () => {
   expect(credential.current().token).toBeNull();
   expect(disk.read()).toBeNull();
 });
+
+test('a lost cross-tab compare/write recognizes the newer stored grant as durable, not the rejected revision', async () => {
+  const newer = JSON.stringify({
+    token: 'mgs_newer',
+    expiresAt: Date.parse(expiry),
+    generation: 3,
+  });
+  let value: string | null = null;
+  const credential = createCommerceCredential({
+    read: async () => value,
+    write: async () => {},
+    remove: async () => {},
+    compareWrite: async () => {
+      value = newer;
+      return false;
+    },
+  });
+  await credential.ready;
+  const rejectedRevision = credential.snapshot().accept('mgs_older', expiry, '2');
+  await credential.settled();
+  expect(credential.current().token).toBe('mgs_newer');
+  expect(await credential.persisted(rejectedRevision)).toBe(false);
+  expect(await credential.persisted()).toBe(true);
+});

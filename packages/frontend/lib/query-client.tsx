@@ -11,7 +11,7 @@ export function QueryProvider({ oxy, children }: { oxy: OxyServices; children: R
       createCommerceQueryScope(
         oxy,
         [guestCredential, portalCredential].map(({ store }) => ({
-          revision: () => store.getState().externalRevision,
+          revision: () => store.getState().authorityRevision,
           subscribe: (listener: () => void) => store.subscribe(listener),
         })),
       ),

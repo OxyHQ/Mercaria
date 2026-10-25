@@ -92,6 +92,9 @@ function PortalBody() {
     // route parameter is the same value and has already been stripped.
     const token = takeTokenFromBrowserUrl() ?? params.token ?? null;
     if (token === null || !token.startsWith(EXCHANGE_PREFIX)) return;
+    // A successful exchange changes domain authority and remounts scoped caches.
+    // Remove the native/router copy too, so that remount cannot consume it twice.
+    if (params.token) router.setParams({ token: undefined });
     exchange.mutate(token, { onError: () => setLinkRefused(true) });
     // `exchange` is a stable mutation object and `params.token` is read once by
     // design — re-running this effect would consume a second link.
