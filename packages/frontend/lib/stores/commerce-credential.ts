@@ -16,6 +16,7 @@ export interface CommerceCredentialState {
   storageAvailable: boolean;
   revision: number;
   externalRevision: number;
+  authorityRevision: number;
   cleared: boolean;
 }
 
@@ -24,6 +25,7 @@ export function createCommerceCredential(
   storage: CredentialStorage,
   now = Date.now,
   retainClearMarker = false,
+  { rotationPreservesAuthority = false }: { rotationPreservesAuthority?: boolean } = {},
 ) {
   const empty = { token: null, expiresAt: null, generation: null, cleared: false };
   const store = createStore<CommerceCredentialState>(() => ({
@@ -32,9 +34,11 @@ export function createCommerceCredential(
     storageAvailable: true,
     revision: 0,
     externalRevision: 0,
+    authorityRevision: 0,
   }));
   let writes = Promise.resolve(true);
   let stored: string | null = null;
+  let durableRevision = -1;
   let issuance: Promise<unknown> = Promise.resolve();
   function decode(raw: string | null) {
     if (!raw) return empty;
@@ -78,7 +82,10 @@ export function createCommerceCredential(
       ...(record ?? empty),
       revision: state.revision + 1,
       externalRevision: state.externalRevision + 1,
+      authorityRevision:
+        state.authorityRevision + (state.token !== (record?.token ?? null) ? 1 : 0),
     }));
+    durableRevision = store.getState().revision;
   }
   const unsubscribe = storage.subscribe?.((raw) => external(raw));
   function persist(value: string | null) {
@@ -95,6 +102,7 @@ export function createCommerceCredential(
         } else if (value === null) await storage.remove();
         else await storage.write(value);
         stored = value;
+        if (store.getState().revision === revision) durableRevision = revision;
         store.setState({ storageAvailable: true });
         return true;
       })
@@ -104,7 +112,12 @@ export function createCommerceCredential(
       });
   }
   function clear() {
-    store.setState((state) => ({ ...empty, cleared: true, revision: state.revision + 1 }));
+    store.setState((state) => ({
+      ...empty,
+      cleared: true,
+      revision: state.revision + 1,
+      authorityRevision: state.authorityRevision + 1,
+    }));
     persist(retainClearMarker ? JSON.stringify({ ...empty, cleared: true }) : null);
   }
   const ready = (async () => {
@@ -119,6 +132,7 @@ export function createCommerceCredential(
         return;
       }
       store.setState(record);
+      durableRevision = store.getState().revision;
     } catch {
       store.setState({ storageAvailable: false });
     } finally {
@@ -132,14 +146,23 @@ export function createCommerceCredential(
   }
   function snapshot() {
     const state = current();
+    let authorityRevision = state.authorityRevision;
+    const isCurrent = () => store.getState().authorityRevision === authorityRevision;
     return {
+      isCurrent,
+      onAuthorityChange(listener: () => void) {
+        return store.subscribe(() => {
+          if (!isCurrent()) listener();
+        });
+      },
       token: state.token,
       revision: state.revision,
       accept(token: string | null, expiry: string | null, generation: string | null) {
         if (store.getState().revision !== state.revision || token === null) return;
         if (!token) {
+          authorityRevision = state.authorityRevision + 1;
           clear();
-          return;
+          return store.getState().revision;
         }
         const expiresAt = expiry === null ? NaN : Date.parse(expiry);
         const version = generation !== null && /^\d+$/.test(generation) ? Number(generation) : NaN;
@@ -151,7 +174,11 @@ export function createCommerceCredential(
           (state.generation !== null && version < state.generation)
         )
           return;
+        authorityRevision =
+          state.authorityRevision +
+          ((!state.token || !rotationPreservesAuthority) && state.token !== token ? 1 : 0);
         store.setState({
+          authorityRevision,
           token,
           expiresAt,
           generation: version,
@@ -159,6 +186,7 @@ export function createCommerceCredential(
           revision: state.revision + 1,
         });
         persist(JSON.stringify({ token, expiresAt, generation: version }));
+        return state.revision + 1;
       },
     };
   }
@@ -188,8 +216,9 @@ export function createCommerceCredential(
       return queued;
     },
     async persisted(revision = store.getState().revision) {
+      await writes;
       return (
-        (await writes) &&
+        durableRevision === revision &&
         store.getState().revision === revision &&
         store.getState().storageAvailable
       );

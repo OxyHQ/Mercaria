@@ -35,3 +35,51 @@ test('cached orders/cart/merge results and late writes never cross account switc
     oxy.dispose();
   }
 });
+
+test('local domain clear and portal replacement clear private cache; same-owner guest rotation keeps it', async () => {
+  const { createCommerceCredential } = await import('../stores/commerce-credential');
+  const storage = (token: string) => ({
+    read: async () => token,
+    write: async () => {},
+    remove: async () => {},
+  });
+  const guest = createCommerceCredential(storage('mgs_ownerA'), Date.now, false, {
+    rotationPreservesAuthority: true,
+  });
+  const portal = createCommerceCredential(storage('mgp_groupA'));
+  await Promise.all([guest.ready, portal.ready]);
+  const oxy = new OxyServices({ baseURL: 'http://localhost:4010' });
+  const scope = createCommerceQueryScope(
+    oxy,
+    [guest, portal].map(({ store }) => ({
+      revision: () => store.getState().authorityRevision,
+      subscribe: (listener: () => void) => store.subscribe(listener),
+    })),
+  );
+  const unsubscribe = scope.subscribe(() => {});
+  const expiry = new Date(Date.now() + 86400000).toISOString();
+  try {
+    const original = scope.getSnapshot();
+    original.client.setQueryData(['cart'], { owner: 'A' });
+    guest.snapshot().accept('mgs_ownerA_rotated', expiry, '1');
+    await guest.settled();
+    expect(scope.getSnapshot().client).toBe(original.client);
+    guest.clear();
+    await guest.settled();
+    const cleared = scope.getSnapshot();
+    expect(cleared.client).not.toBe(original.client);
+    expect(cleared.client.getQueryData(['cart'])).toBeUndefined();
+    cleared.client.setQueryData(['guestPortal'], { group: 'A' });
+    portal.snapshot().accept('mgp_groupB', expiry, '2');
+    await portal.settled();
+    const replaced = scope.getSnapshot();
+    expect(replaced.client).not.toBe(cleared.client);
+    expect(replaced.client.getQueryData(['guestPortal'])).toBeUndefined();
+    original.client.setQueryData(['cart'], { owner: 'A', late: true });
+    expect(replaced.client.getQueryData(['cart'])).toBeUndefined();
+  } finally {
+    unsubscribe();
+    scope.dispose();
+    oxy.dispose();
+  }
+});
