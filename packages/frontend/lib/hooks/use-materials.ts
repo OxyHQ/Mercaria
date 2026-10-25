@@ -1,18 +1,19 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useOxy } from '@oxy.so/services/ui/client';
-import { createMercariaClient } from '@mercaria.co/sdk';
+import { createMaterialsSessionClient } from '../api/materials-session-client';
 import config from '../config';
 
 export function useMaterialsClient() {
   const { oxyServices } = useOxy();
-  return useMemo(
-    () =>
-      createMercariaClient({
-        apiBaseUrl: config.apiUrl,
-        getAccessToken: () => oxyServices.session.accessToken || null,
-      }).materials,
+  const client = useMemo(
+    () => createMaterialsSessionClient(oxyServices, config.apiUrl),
     [oxyServices],
   );
+  useEffect(() => {
+    client.activate();
+    return () => client.dispose();
+  }, [client]);
+  return client.materials;
 }
 
 /** Uniqueness token, never a credential. Preserve it on an uncertain response. */

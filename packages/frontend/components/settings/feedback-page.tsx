@@ -4,7 +4,7 @@ import { Icon, Text, useSettingsDialog } from '@mercaria/ui';
 import { Textarea } from '@oxy.so/bloom/textarea';
 import { useState } from 'react';
 import { useOxy } from '@oxy.so/services/ui/client';
-import { generateAPIUrl } from '@/lib/generate-api-url';
+import config from '@/lib/config';
 import {
   MessageSquare,
   Bug,
@@ -85,25 +85,25 @@ export function FeedbackSettingsPage() {
     try {
       setSubmitting(true);
 
-      const apiUrl = generateAPIUrl('/feedback');
-      const token = oxyServices.session.accessToken;
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (token) headers.Authorization = `Bearer ${token}`;
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          type: selectedType,
-          message: message.trim(),
-          rating: rating,
-          metadata: {
-            platform: Platform.OS,
-            appVersion: '1.0.0',
-          },
-        }),
-      });
+      const linked = oxyServices.createLinkedClient({ baseURL: config.apiUrl });
+      let response: Response;
+      try {
+        response = await linked.fetchOptional('/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: selectedType,
+            message: message.trim(),
+            rating: rating,
+            metadata: {
+              platform: Platform.OS,
+              appVersion: '1.0.0',
+            },
+          }),
+        });
+      } finally {
+        linked.dispose();
+      }
 
       if (response.ok) {
         toast.success(t('feedback.thankYou'));

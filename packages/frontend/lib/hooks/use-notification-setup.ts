@@ -6,13 +6,13 @@
  * Call once in the authenticated app layout.
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { useQueryClient } from '@tanstack/react-query';
 import { useOxy } from '@oxy.so/services/ui/client';
-import { io as socketIO } from 'socket.io-client';
+import { connectNotificationSocket } from '../api/notification-socket';
 import config from '@/lib/config';
 import apiClient from '@/lib/api/client';
 
@@ -22,9 +22,7 @@ const PROJECT_ID = Constants.expoConfig?.extra?.eas?.projectId;
 export function useNotificationSetup() {
   const { user, oxyServices, isAuthenticated } = useOxy();
   const queryClient = useQueryClient();
-  // Re-establish the notification socket when the access token changes so the
-  // handshake always carries a valid token.
-  const accessToken = oxyServices.session.accessToken;
+  const [socketContextRevision, setSocketContextRevision] = useState(0);
   const tokenRef = useRef<string | null>(null);
   const webPushRegisteredRef = useRef(false);
 
@@ -173,28 +171,14 @@ export function useNotificationSetup() {
 
   // ── Socket.IO real-time notification subscription ──────────────
   useEffect(() => {
-    if (!isAuthenticated || !accessToken) return;
-
-    const socket = socketIO(config.apiUrl, {
-      transports: ['websocket'],
-      reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 10000,
-      // Callback form so each (re)connect reads a FRESH token; the server
-      // verifies it (io.use(authSocket())) and auto-joins the user's room.
-      auth: (cb) => cb({ token: oxyServices.session.accessToken ?? '' }),
+    if (!isAuthenticated) return;
+    return connectNotificationSocket(oxyServices, config.apiUrl, {
+      onNotification: () => {
+        queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      },
+      onContextEnd: () => setSocketContextRevision(socketContextRevision + 1),
     });
-
-    socket.on('notification', () => {
-      // Invalidate React Query caches so notification list + unread count refresh
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-    });
-
-    return () => {
-      socket.disconnect();
-    };
-  }, [isAuthenticated, accessToken, oxyServices, queryClient]);
+  }, [isAuthenticated, oxyServices, queryClient, socketContextRevision]);
 }
 
 // ── Helpers ──────────────────────────────────────────────────────

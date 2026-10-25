@@ -9,14 +9,22 @@ vi.mock('@tanstack/react-query', async (importOriginal) => ({
   useMutation: vi.fn(() => ({})),
   useQueryClient: vi.fn(),
 }));
-vi.mock('react', () => ({ useMemo: (factory: () => unknown) => factory() }));
+vi.mock('react', () => ({
+  useMemo: (factory: () => unknown) => factory(),
+  useEffect: (setup: () => (() => void) | undefined) => {
+    const cleanup = setup();
+    if (cleanup) effectCleanups.push(cleanup);
+  },
+}));
 vi.mock('@oxy.so/services/ui/client', () => ({
   useOxy: () => ({ oxyServices: { session: { accessToken: null } } }),
 }));
 vi.mock('../../i18n', () => ({ useTranslation: () => ({ locale: 'en' }) }));
 vi.mock('../../config', () => ({ GOWAY_API_URL: undefined }));
 const clients: QueryClient[] = [];
+const effectCleanups: (() => void)[] = [];
 afterEach(() => {
+  for (const cleanup of effectCleanups.splice(0)) cleanup();
   clients.splice(0).forEach((client) => client.clear());
   vi.clearAllMocks();
 });

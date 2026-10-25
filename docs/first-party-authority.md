@@ -130,6 +130,7 @@ transport through the shared Oxy session; the app keeps its existing provider,
 agent selection and UI. No app-local bearer refresh or internal permission prompt
 is introduced. Package installation was checked against the published artifact;
 source adoption and deployment are separate rollout steps.
+
 ## Dashboard and POS session transport
 
 Dashboard and POS bind their existing Axios facade to the provider's
@@ -147,3 +148,21 @@ Storefront migration remains separate: ADR 0003 D9's guest and portal HttpOnly
 commerce cookies, including guest cart merge alongside an Oxy session, must not
 be silently discarded by the cookie-free shared identity transport. This change
 does not claim that storefront's existing token getter has been retired.
+
+## Additional browser product clients
+
+The storefront materials client and the dashboard GoWay client pass the shared
+Oxy linked fetch into their product SDKs. The SDK retains its wire schema,
+error handling and idempotency contract; Oxy owns refresh, origin protection and
+account-context fencing. Hook resources are lazy, released on cleanup and
+reactivated on repeated effect setup without retaining a bearer. Feedback also
+uses linked fetch and releases its client after the request.
+
+Notification sockets resolve each handshake through target-bound
+`getAccessToken`, disconnect immediately on an account/session-context change,
+and abort pending handshakes on disposal. The HTTP and Socket.IO tests in the
+frontend/dashboard API directories exercise the real SDK and network transports.
+
+These paths do not use guest/portal commerce credentials. The storefront's main
+Axios client still carries ADR 0003's independent guest contract; its migration
+requires the explicit cross-repository cookie decision and is not included here.
