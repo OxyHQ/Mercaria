@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 import { Button } from '@oxy.so/bloom/button';
 import { Text } from '@mercaria/ui';
-import { create } from 'zustand';
+import { useState } from 'react';
 import { useTranslation } from '@/lib/i18n';
 import { useReferralDisclosureStore } from '@/lib/hooks/use-referral-binding';
 
@@ -18,17 +18,11 @@ import { useReferralDisclosureStore } from '@/lib/hooks/use-referral-binding';
  * Dismissed in memory, per terms: a reload while the click is still held shows
  * it again, and terms that arrive after a dismissal are new and shown.
  */
-const useDismissed = create<{ terms: string | null; dismiss: (terms: string) => void }>((set) => ({
-  terms: null,
-  dismiss: (terms) => set({ terms }),
-}));
-
 export function ReferralDisclosureNotice() {
   const { t } = useTranslation();
   const required = useReferralDisclosureStore((state) => state.required);
   const termsSummary = useReferralDisclosureStore((state) => state.termsSummary);
-  const dismissedTerms = useDismissed((state) => state.terms);
-  const dismiss = useDismissed((state) => state.dismiss);
+  const [dismissedTerms, dismiss] = useState<string | null>(null);
 
   const terms = termsSummary ?? '';
   if (!required || dismissedTerms === terms) return null;

@@ -15,11 +15,7 @@ import {
   removeDiscount,
   mergeGuestCart,
 } from '../api/cart';
-import {
-  USES_HEADER_TRANSPORT,
-  discardGuestToken,
-  useGuestCredentialStore,
-} from '../stores/guest-credential-store';
+import { useGuestCredentialStore } from '../stores/guest-credential-store';
 import { queryKeys } from './query-keys';
 
 /** One minute — cart freshness window (balanced against mutation optimism). */
@@ -117,42 +113,23 @@ export function useRemoveDiscount() {
  * plus the merge's row locks make a repeat converge on the first result — which
  * is what lets the client be this relaxed about when it fires.
  *
- * `enabled` differs by transport, because "do I still hold a guest credential?"
- * is answerable on native and NOT on web: the web credential is an `HttpOnly`
- * cookie this code cannot see, so web asks the server (which answers
- * `merged: false` when there is nothing to merge) and native asks its own
- * store, which avoids a pointless request on every cold start.
+ * All platforms wait for credential hydration before attempting the merge.
  */
 export function useGuestCartMerge(enabled = true) {
-  const { isAuthenticated } = useOxy();
+  const { isAuthenticated, user } = useOxy();
   const queryClient = useQueryClient();
   const hydrated = useGuestCredentialStore((state) => state.hydrated);
-  const nativeToken = useGuestCredentialStore((state) => state.token);
+  const guestToken = useGuestCredentialStore((state) => state.token);
 
   return useQuery<CartMergeResult>({
-    queryKey: queryKeys.cart.merge,
+    queryKey: [...queryKeys.cart.merge, user?.id],
     queryFn: async () => {
       const result = await mergeGuestCart();
-      // The server revoked the credential inside the merge transaction, so the
-      // client must stop presenting it. Web's cookie was cleared by the same
-      // response; native has nothing server-side to clear, which is exactly
-      // what `guestCredentialRevoked` is the instruction for (ADR 0003 D9).
-      if (result.guestCredentialRevoked) {
-        discardGuestToken();
-      }
+      // The transport applies the response's revocation header with its request fence.
       queryClient.setQueryData(queryKeys.cart.all, result.cart);
       return result;
     },
-    enabled:
-      enabled &&
-      isAuthenticated &&
-      (USES_HEADER_TRANSPORT
-        ? // Native can SEE whether it holds a credential, so it asks only when
-          // there is something to merge — and only once storage has answered.
-          hydrated && nativeToken !== null
-        : // Web cannot: the credential is an `HttpOnly` cookie. It asks the
-          // server, which answers `merged: false` when there is nothing to do.
-          true),
+    enabled: enabled && isAuthenticated && hydrated && guestToken !== null,
     staleTime: Infinity,
     gcTime: Infinity,
     retry: 1,
