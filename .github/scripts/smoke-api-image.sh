@@ -44,14 +44,15 @@ fi
 for _ in 1 2; do
   one_shot bun packages/backend/dist/scripts/provision-taxonomy.js
 done
-# No Oxy identity exists in CI, so registration must refuse — after loading.
+# No infrastructure credentials exist in CI. The built command must load, reach
+# the shared AWS provider, and refuse there without a customer-key fallback.
 set +e
 catalog_out=$(one_shot bun packages/backend/dist/register-capability-catalog.js 2>&1)
 catalog_code=$?
 set -e
-if [ "$catalog_code" = 0 ] || ! grep -q 'no Oxy identity' <<<"$catalog_out"; then
+if [ "$catalog_code" = 0 ] || ! grep -qx 'Could not load credentials from any providers' <<<"$catalog_out"; then
   printf '%s\n' "$catalog_out"
-  echo "::error::register-capability-catalog did not reach its identity check (exit $catalog_code)"
+  echo "::error::register-capability-catalog did not reach its workload credential provider (exit $catalog_code)"
   exit 1
 fi
 
