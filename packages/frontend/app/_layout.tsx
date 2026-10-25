@@ -19,7 +19,8 @@ import AppSplashScreen from '@/components/AppSplashScreen';
 import { StorefrontSettingsProvider } from '@/components/settings/StorefrontSettingsProvider';
 import { SharedUiTranslationProvider, useColorScheme } from '@mercaria/ui';
 import { AppFxProvider } from '@/lib/fx';
-import { setTokenGetter } from '@/lib/api/client';
+import { bindApiClient, releaseApiClient } from '@/lib/api/client';
+import { QueryProvider } from '@/lib/query-client';
 import { useGuestCartMerge } from '@/lib/hooks/use-cart';
 import { useReferralBinding } from '@/lib/hooks/use-referral-binding';
 import { OXY_CLIENT_ID } from '@/lib/config';
@@ -45,6 +46,20 @@ const OXY_API_URL = process.env.EXPO_PUBLIC_OXY_API_URL || 'https://api.oxy.so';
 const AUTH_REDIRECT_URI = Linking.createURL('/');
 
 function AuthSetup({ children }: { children: React.ReactNode }) {
+  const { oxyServices } = useOxy();
+  bindApiClient(oxyServices);
+  useEffect(() => {
+    bindApiClient(oxyServices);
+    return () => releaseApiClient(oxyServices);
+  }, [oxyServices]);
+  return (
+    <QueryProvider oxy={oxyServices}>
+      <CommerceContext>{children}</CommerceContext>
+    </QueryProvider>
+  );
+}
+
+function CommerceContext({ children }: { children: React.ReactNode }) {
   const { oxyServices, user, isAuthenticated } = useOxy();
   const supervision = useSupervision();
   const ordinaryShopping =
@@ -52,8 +67,6 @@ function AuthSetup({ children }: { children: React.ReactNode }) {
     (!!user && user.kind !== 'personal') ||
     (!!supervision.data &&
       (supervision.data.self === null || supervision.data.self.status === 'ended'));
-
-  setTokenGetter(() => oxyServices.session.accessToken || null);
 
   // The account's colour wears the Bloom theme for every Oxy app; signed out,
   // Bloom's default stays.

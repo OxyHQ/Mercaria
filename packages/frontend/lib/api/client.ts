@@ -1,122 +1,63 @@
+import type { OxyServices } from '@oxy.so/core';
 import axios from 'axios';
 import { Platform } from 'react-native';
 import config from '../config';
-import {
-  USES_HEADER_TRANSPORT,
-  currentGuestToken,
-  recordGuestToken,
-} from '../stores/guest-credential-store';
-import { currentPortalToken, recordPortalToken } from '../stores/portal-credential-store';
+import { guestCredential } from '../stores/guest-credential-store';
+import { portalCredential } from '../stores/portal-credential-store';
+import { referralCredential } from '../stores/referral-credential-store';
+import { createCommerceTransport } from './commerce-transport';
+import { createCommerceCredentials } from './commerce-credentials';
+import { migrateLegacyReferral } from './referral-migration';
 
-/**
- * The ONE HTTP client every Mercaria API call goes through.
- *
- * ## Two credentials, and they never mix (#104, ADR 0003 D2/D9)
- *
- * An Oxy bearer token when the person is signed in, and — only when they are
- * not — Mercaria's own guest credential. The server decides which one wins
- * (Oxy always does), so this layer attaches whatever it has and never chooses;
- * a client that picked would be a second precedence rule to keep in step with
- * the resolver.
- *
- * `withCredentials` is what makes the WEB half work at all: the guest
- * credential is an `HttpOnly` cookie on the API origin, so without it the
- * browser neither stores nor sends one and every signed-out cart request looks
- * like a brand-new visitor. `mercaria.co → api.mercaria.co` is same-site, so
- * `SameSite=Lax` passes it, and the backend's CORS layer already answers
- * `credentials: true` for the allow-listed origins.
- *
- * Native has no cookie jar to rely on, so it declares header transport and
- * carries the token itself. The response interceptor is where a freshly issued
- * or ROTATED token is picked up — rotation answers in kind (D3/D9), so a token
- * can change under a native client at any time and the only correct place to
- * notice is here, once, rather than in each call site.
- */
+let referralMigration: Promise<void> | undefined;
+let owner: OxyServices | undefined;
+let transport: ReturnType<typeof createCommerceTransport> | undefined;
+
+/** Shared Oxy identity plus independent, origin-bound commerce header credentials. */
 const apiClient = axios.create({
   baseURL: config.apiUrl,
   timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
+  adapter: 'fetch',
+  withCredentials: false,
+  xsrfCookieName: '',
+  withXSRFToken: false,
+  env: {
+    // @ts-expect-error Axios supports null to preserve replayable JSON; its types omit null.
+    Request: null,
+    fetch: (input, init) => {
+      if (!transport) throw new Error('The Oxy provider has not bound the product API');
+      return transport.fetch(input, init);
+    },
   },
-  // Web: send and accept the `__Host-mercaria_guest` cookie. Harmless on native,
-  // where there is no cookie jar and the header transport is used instead.
-  withCredentials: true,
 });
 
-// Token getter - will be set by AuthSetup component
-let getAccessToken: (() => string | null) | null = null;
-
-export function setTokenGetter(getter: () => string | null) {
-  getAccessToken = getter;
+export function bindApiClient(oxy: OxyServices): void {
+  if (owner === oxy) return;
+  transport?.dispose();
+  owner = oxy;
+  transport = createCommerceTransport(oxy, config.apiUrl, {
+    ...createCommerceCredentials(
+      oxy,
+      { guestCredential, portalCredential, referralCredential },
+      Platform.OS === 'ios' ? 'ios' : Platform.OS === 'android' ? 'android' : 'web',
+      async () => {
+        if (Platform.OS === 'web') {
+          referralMigration ??= migrateLegacyReferral(config.apiUrl, referralCredential).catch(
+            () => {},
+          );
+          await referralMigration;
+        }
+      },
+    ),
+  });
 }
 
-/**
- * The audit-only client class a guest session is issued to (ADR 0003 D3).
- * Never authorization, never a device binding — a dimension for operators.
- */
-const GUEST_CLIENT_CLASS =
-  Platform.OS === 'ios' ? 'ios' : Platform.OS === 'android' ? 'android' : 'web';
-
-// Request interceptor: the Oxy bearer, and the guest credential's header half.
-apiClient.interceptors.request.use(
-  (config) => {
-    if (getAccessToken) {
-      const token = getAccessToken();
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-    }
-
-    if (USES_HEADER_TRANSPORT) {
-      // Declared on EVERY request rather than only on the issuing write: the
-      // server reads it only when it mints, and a client that declared it once
-      // and then forgot would be handed a cookie it cannot store.
-      config.headers['X-Mercaria-Guest-Transport'] = 'header';
-      config.headers['X-Mercaria-Guest-Client'] = GUEST_CLIENT_CLASS;
-      const guestToken = currentGuestToken();
-      if (guestToken) {
-        config.headers['X-Mercaria-Guest-Token'] = guestToken;
-      }
-
-      // The ORDER PORTAL credential (#108) — a second, independent header, for
-      // the reason the server resolves it in a second middleware: a cart token
-      // and a portal token have different scopes and different lifetimes, and
-      // one header carrying either would make the server's structural scoping
-      // (ADR 0003 D3/I3) a matter of which one the client happened to send.
-      config.headers['X-Mercaria-Portal-Transport'] = 'header';
-      const portalToken = currentPortalToken();
-      if (portalToken) {
-        config.headers['X-Mercaria-Portal-Token'] = portalToken;
-      }
-    }
-
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  },
-);
-
-// Response interceptor: pick up an issued or rotated guest token (native only).
-apiClient.interceptors.response.use(
-  (response) => {
-    if (USES_HEADER_TRANSPORT) {
-      const issued = response.headers['x-mercaria-guest-token'];
-      if (typeof issued === 'string' && issued.length > 0) {
-        recordGuestToken(issued);
-      }
-      const portalIssued = response.headers['x-mercaria-portal-token'];
-      if (typeof portalIssued === 'string' && portalIssued.length > 0) {
-        recordPortalToken(portalIssued);
-      }
-    }
-    return response;
-  },
-  (error) => {
-    // Let components handle auth errors
-    return Promise.reject(error);
-  },
-);
+export function releaseApiClient(oxy: OxyServices): void {
+  if (owner !== oxy) return;
+  transport?.dispose();
+  transport = undefined;
+  owner = undefined;
+}
 
 /**
  * The message a failed API call should SHOW a person.
