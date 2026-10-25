@@ -84,6 +84,7 @@ describe('header-only guest commerce through the real app', () => {
       headers: { [TOKEN_HEADER]: issued.token },
     });
     expect(inspect.status).toBe(200);
+    expect(inspect.headers.get('cache-control')).toBe('no-store');
     expect(((await inspect.json()) as { data: { id: string } }).data.id).toBe(issued.id);
     const again = await fetch(`${baseUrl}/guest/session`, {
       method: 'POST',
@@ -162,12 +163,14 @@ describe('header-only guest commerce through the real app', () => {
   it('anonymous reads issue nothing and invalid headers never consult a cookie', async () => {
     const bare = await fetch(`${baseUrl}/guest/session`);
     expect(bare.status).toBe(404);
+    expect(bare.headers.get('cache-control')).toBe('no-store');
     expect(bare.headers.getSetCookie()).toEqual([]);
     const issued = await issue();
     const invalid = await fetch(`${baseUrl}/guest/session`, {
       headers: { [TOKEN_HEADER]: 'invalid', cookie: `${DEV_COOKIE}=${issued.token}` },
     });
     expect(invalid.status).toBe(401);
+    expect(invalid.headers.get('cache-control')).toBe('no-store');
   });
 
   it('revokes the explicit credential, with uniform invalid-token responses and no cookie', async () => {
@@ -183,6 +186,7 @@ describe('header-only guest commerce through the real app', () => {
     for (const token of [issued.token, 'malformed', `mgs_${'Z'.repeat(43)}`]) {
       const res = await fetch(`${baseUrl}/guest/session`, { headers: { [TOKEN_HEADER]: token } });
       expect(res.status).toBe(401);
+      expect(res.headers.get('cache-control')).toBe('no-store');
       bodies.push(await res.json());
     }
     expect(bodies[1]).toEqual(bodies[0]);
@@ -240,6 +244,7 @@ describe('header-only guest commerce through the real app', () => {
         headers: { authorization, [TOKEN_HEADER]: issued.token },
       });
       expect(res.status).toBe(401);
+      expect(res.headers.get('cache-control')).toBe('no-store');
     },
   );
 

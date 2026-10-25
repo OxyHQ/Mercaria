@@ -204,6 +204,9 @@ async function resolveGuestHalf(req: Request, res: Response, next: NextFunction)
  * every handler behind it reads `req.commerceActor` and nothing else.
  */
 export const resolveCommerceActor: RequestHandler = (req, res, next) => {
+  // Even an anonymous cart response must not be reused for a later custom-header owner.
+  // Public catalog routes do not pass through this buyer-context boundary.
+  res.setHeader('Cache-Control', 'no-store');
   optionalAuth(req, res, (authError?: unknown) => {
     if (authError !== undefined && authError !== null) {
       next(authError);

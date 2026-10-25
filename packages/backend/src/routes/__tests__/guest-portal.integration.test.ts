@@ -126,6 +126,14 @@ describe('recovery answers identically whatever happened (ADR 0003 T5, acceptanc
 });
 
 describe('the exchange refuses everything uniformly (magic-link rule 8)', () => {
+  it('does not cache absent or invalid portal access', async () => {
+    for (const headers of [{}, { [TOKEN_HEADER]: 'invalid' }]) {
+      const response = await fetch(`${baseUrl}/guest/orders/session`, { headers });
+      expect(response.status).toBe(401);
+      expect(response.headers.get('cache-control')).toBe('no-store');
+    }
+  });
+
   it('malformed, unknown and wrong-prefix tokens all answer 401 with one message', async () => {
     const answers = await Promise.all(
       [
@@ -136,6 +144,7 @@ describe('the exchange refuses everything uniformly (magic-link rule 8)', () => 
         '',
       ].map(async (token) => {
         const res = await post('/guest/orders/exchange', { token });
+        expect(res.headers.get('cache-control')).toBe('no-store');
         return { status: res.status, body: await res.text() };
       }),
     );
@@ -208,6 +217,7 @@ describe('legacy portal clients fail before consuming access links', () => {
         headers: { [TOKEN_HEADER]: portal, authorization: 'Basic irrelevant-to-portal' },
       });
       expect(inspect.status).toBe(200);
+      expect(inspect.headers.get('cache-control')).toBe('no-store');
       expect(
         (
           await fetch(`${baseUrl}/guest/orders/another-group`, {

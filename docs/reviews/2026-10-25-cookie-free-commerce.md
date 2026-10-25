@@ -40,7 +40,10 @@ to reinterpret an arbitrary old cookie as account authority.
   their existing guest and portal headers. Issuance requires the corresponding
   `X-Mercaria-*-Transport: header` declaration before any mint or one-time link
   consumption. Credential responses are `no-store` and include the server's
-  absolute expiry and generation.
+  absolute expiry and generation. Buyer-context and portal responses are also
+  `no-store`, including anonymous/error responses, so a cached empty cart cannot
+  be reused for a later header-authenticated owner. Public catalog caching is
+  unchanged.
 - Native credentials stay in SecureStore; web credentials use localStorage.
   This deliberately replaces HttpOnly protection: trusted script, CSP and
   origin controls remain relevant to XSS. The server retains hashed storage,

@@ -53,6 +53,8 @@ export function clearPortalCredential(res: Response): void {
  * requiring an Oxy actor run the strict CommerceActor resolver separately.
  */
 export const resolvePortalSession: RequestHandler = (req, res, next) => {
+  // Portal state varies by a custom credential header, including absent/invalid results.
+  res.setHeader('Cache-Control', 'no-store');
   void resolve(req, res, next).catch((error: unknown) => next(error));
 };
 
