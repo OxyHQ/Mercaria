@@ -490,7 +490,8 @@ jobs:
                    | .environment = (
                        ((.environment // []) | map(select(
                          (.name as $n | $pinned_names | index($n) | not) and
-                         .name != "AWS_S3_BUCKET"
+                         .name != "AWS_S3_BUCKET" and
+                         .name != "SERVICE_SECRET"
                        )))
                        + $pinned_env
                      )
@@ -499,12 +500,15 @@ jobs:
                    # ADR 0026), so a release carries no application key pair and
                    # removes one an earlier revision still names. Peable takes
                    # the same identity, so its aliases of that pair go too.
+                   # SERVICE_SECRET has no runtime reader; never inherit the
+                   # retired shared-secret reference from a historical revision.
                    | .secrets = (
                        (.secrets // []) | map(select(
                          .name != "OXY_APPLICATION_KEY" and
                          .name != "OXY_APPLICATION_SECRET" and
                          .name != "PEABLE_APP_PUBLIC_KEY" and
-                         .name != "PEABLE_APP_SECRET"
+                         .name != "PEABLE_APP_SECRET" and
+                         .name != "SERVICE_SECRET"
                        ))
                      )
                  else . end
