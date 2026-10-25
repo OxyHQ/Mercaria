@@ -29,7 +29,7 @@ import { isCheckoutRefusal } from '../refusal.js';
 const GUEST: CommerceActor = {
   kind: 'guest',
   guestSessionId: 'gs-activation',
-  transport: 'cookie',
+  clientClass: 'web',
 };
 const OXY: CommerceActor = { kind: 'oxy', oxyUserId: 'buyer-activation' };
 

@@ -43,11 +43,7 @@ import { routeParam } from '../utils/request.js';
 // reads a metric, and `cart-merge-isolation.test.ts` already scans this path for
 // everything else it must not reach.
 import { emitAnalyticsEvent } from '../services/analytics/emit.js';
-import {
-  clearGuestCredential,
-  issueGuestActor,
-  type GuestTransport,
-} from '../middleware/commerce-actor.js';
+import { clearGuestCredential, issueGuestActor } from '../middleware/commerce-actor.js';
 import {
   addItem,
   applyDiscountCode,
@@ -99,7 +95,7 @@ function cartView(req: Request): CartView | null {
  * The view for a WRITE, issuing a guest session when the actor has none and
  * the deployment allows it.
  *
- * Returns `null` when the response has already been answered (a CSRF refusal
+ * Returns `null` when the response has already been answered (a transport refusal
  * inside `issueGuestActor`, or the guest-cart flag being off), so the caller
  * returns without writing anything further.
  */
@@ -133,7 +129,7 @@ async function cartViewForWrite(req: Request, res: Response): Promise<CartView |
   }
 
   const context = await issueGuestActor(req, res);
-  if (!context) return null; // refused (CSRF) — already answered
+  if (!context) return null; // refused — already answered
   return cartView(req);
 }
 
@@ -324,11 +320,9 @@ export async function mergeGuestCartHandler(req: Request, res: Response): Promis
       ...(currency === undefined ? {} : { requestedCurrency: currency }),
     });
 
-    // Answer the revocation in the carriage the credential arrived in (D9).
-    // Header transport has nothing server-side to clear; `guestCredentialRevoked`
-    // in the body is that client's discard instruction.
-    const transport: GuestTransport = req.presentedGuestTransport ?? 'cookie';
-    clearGuestCredential(res, transport);
+    // Clear only the request credential after the merge transaction succeeds.
+    // The client applies this response through its credential revision fence.
+    clearGuestCredential(res);
     // The merge OUTCOME, as a bounded reason code — never the session id, never
     // a line, never a discount code. `cart_merges` already records the counts
     // durably; this event exists so the funnel can show where a sign-in landed,

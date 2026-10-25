@@ -117,7 +117,7 @@ no second store, no `src/models/` and no rollback target.
 - **Buyer, seller and `oxy_user_id` ids are a foreign SERVICE's keys** (Oxy
   owns identity) and carry no foreign key.
 - **CORS:** `packages/backend/src/lib/allowed-origins.ts` is the ONE origin authority
-  (CORS and the guest CSRF gate) and must carry `mercaria.co`, `dashboard.mercaria.co`
+  (CORS and the bounded referral-cookie migration gate) and must carry `mercaria.co`, `dashboard.mercaria.co`
   and `pos.mercaria.co`. The central Oxy API's `allowedOrigins.ts` must carry
   `https://mercaria.co` and `/^https:\/\/[a-z0-9-]+\.mercaria\.co$/`, or
   `auth/refresh-all` fails with CORS from every Mercaria app.

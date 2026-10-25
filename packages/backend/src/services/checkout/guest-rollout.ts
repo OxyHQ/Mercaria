@@ -53,28 +53,17 @@ import { checkoutRefusal } from './refusal.js';
 import type { EligibilitySellerGroup } from './fulfilment-eligibility.js';
 
 /**
- * Which client a guest checkout came from, as the rollout lever sees it.
- *
- * DERIVED from the credential's carriage (ADR 0003 D9: the `__Host-` cookie is
- * the web transport, the `X-Mercaria-Guest-Token` header is the native one), so
- * the value is server-observed rather than read off a name a client chose. It
- * is still an operational lever and not a security boundary — a native build
- * that presented a cookie would be counted as web — which is precisely why
- * every gate that carries security weight (seller readiness, the P2P exclusion,
- * the currency and market gates) is derived from server state and none of them
- * appears on a rollout list.
- *
- * Two values rather than four (`web | ios | android | other`, the
- * `GuestClientClass` vocabulary): the client class is DECLARED by a header and
- * is therefore a client's own claim, and a kill switch keyed on a claim can be
- * walked around by editing one string. The transport cannot be, without also
- * changing how the credential is stored.
+ * Operational cohort from the session's persisted issuance-time client class.
+ * Web stays web after switching to header carriage; ios/android/other retain
+ * the previous native cohort. Later request headers cannot rewrite it.
+ * This declaration is not proof of identity: seller readiness, market, currency
+ * and P2P security boundaries continue to derive from their own domain records.
  */
 export type GuestCheckoutPlatform = 'web' | 'native';
 
-/** The platform a guest actor's credential arrived on. */
+/** The operational platform recorded when this guest session was issued. */
 export function guestCheckoutPlatform(actor: GuestActor): GuestCheckoutPlatform {
-  return actor.transport === 'cookie' ? 'web' : 'native';
+  return actor.clientClass === 'web' ? 'web' : 'native';
 }
 
 /**

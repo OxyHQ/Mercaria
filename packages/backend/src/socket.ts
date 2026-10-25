@@ -79,7 +79,7 @@ export function initSocket(server: http.Server) {
     cors: {
       origin: ALLOWED_ORIGINS,
       methods: ['GET', 'POST'],
-      credentials: true,
+      credentials: false,
     },
     transports: ['websocket', 'polling'],
   });

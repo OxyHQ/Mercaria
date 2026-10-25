@@ -144,10 +144,13 @@ The HTTP regressions in each application's `lib/api/__tests__/client.http.test.t
 exercise the published core transport, JSON POST refresh, multipart uploads,
 forged headers, redirects, account switching and disposal.
 
-Storefront migration remains separate: ADR 0003 D9's guest and portal HttpOnly
-commerce cookies, including guest cart merge alongside an Oxy session, must not
-be silently discarded by the cookie-free shared identity transport. This change
-does not claim that storefront's existing token getter has been retired.
+The owner approved cookie-free storefront commerce on 2026-10-25. Its main
+Axios facade now uses the same shared linked transport for Oxy identity, while
+independent guest/cart and portal credentials use explicit headers. ADR 0003
+D9/D10 retain their ownership, expiry, rotation and revocation semantics.
+The [cutover review](reviews/2026-10-25-cookie-free-commerce.md) records the
+zero-credential production census, preservation of the three Oxy-owned carts,
+finite referral-only exchange and rollout checks.
 
 ## Additional browser product clients
 
@@ -163,6 +166,8 @@ Notification sockets resolve each handshake through target-bound
 and abort pending handshakes on disposal. The HTTP and Socket.IO tests in the
 frontend/dashboard API directories exercise the real SDK and network transports.
 
-These paths do not use guest/portal commerce credentials. The storefront's main
-Axios client still carries ADR 0003's independent guest contract; its migration
-requires the explicit cross-repository cookie decision and is not included here.
+These product clients do not use guest/portal commerce credentials. The main
+storefront transport composes those separate domain credentials with shared
+Oxy identity; it never converts them into Oxy sessions. The earlier cookie
+exception is superseded by the accepted ADR amendment, not a pending decision.
+Source migration and production rollout acceptance remain separate milestones.

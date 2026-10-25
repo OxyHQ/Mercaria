@@ -1,7 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useOxy } from '@oxy.so/services/ui/client';
 import { Platform } from 'react-native';
-import { create } from 'zustand';
+import { useStore } from 'zustand';
+import { referralCredential } from '../stores/referral-credential-store';
 import type { Cart, ReferralBindingResult, ReferralClientSurface } from '@mercaria/shared-types';
 import { fetchCart } from '../api/cart';
 import {
@@ -24,7 +25,7 @@ import { queryKeys } from './query-keys';
  *  - **Signing in** — the bearer makes the request the Oxy account's.
  *  - **The first cart write** — it creates the guest commerce session, and the
  *    cart coming back non-empty is the client-visible sign that one exists
- *    (the web credential is an `HttpOnly` cookie this code cannot see).
+ *    (the transport keeps the independent cart credential).
  *
  * WEB ONLY: a referral link opens in the browser, because the app claims no
  * universal link (docs/referral-attribution.md, "Named seams"), so a native
@@ -42,25 +43,28 @@ interface ReferralDisclosureState {
   required: boolean;
   /** The program's own buyer-facing sentence, rendered verbatim once bound. */
   termsSummary?: string;
-  record: (view: { disclosureRequired: boolean; publicTermsSummary?: string }) => void;
 }
 
-/**
- * A store rather than a query, because three writers feed one notice: the
- * state read, a bind and a typed code — and the notice must keep showing what a
- * bind said after the carrier it redeemed is gone.
- */
-export const useReferralDisclosureStore = create<ReferralDisclosureState>((set) => ({
-  required: false,
-  record: (view) =>
-    set({ required: view.disclosureRequired, termsSummary: view.publicTermsSummary }),
-}));
-
-function recordDisclosure(view: {
-  disclosureRequired: boolean;
-  publicTermsSummary?: string;
-}): void {
-  useReferralDisclosureStore.getState().record(view);
+const disclosureKey = ['referral-disclosure'] as const;
+export function useReferralDisclosureStore<T>(selector: (state: ReferralDisclosureState) => T): T {
+  const { data } = useQuery<ReferralDisclosureState>({
+    queryKey: disclosureKey,
+    initialData: { required: false },
+    enabled: false,
+  });
+  return selector(data);
+}
+function recordDisclosure(
+  client: QueryClient,
+  view: {
+    disclosureRequired: boolean;
+    publicTermsSummary?: string;
+  },
+): void {
+  client.setQueryData(disclosureKey, {
+    required: view.disclosureRequired,
+    termsSummary: view.publicTermsSummary,
+  });
 }
 
 /**
@@ -75,13 +79,14 @@ export function useReferralBinding(): void {
   const { canUsePrivateApi, user } = useOxy();
   const queryClient = useQueryClient();
 
+  const carrierRevision = useStore(referralCredential.store, (state) => state.revision);
   const carrier = useQuery({
-    queryKey: queryKeys.referrals.state,
+    queryKey: [...queryKeys.referrals.state, carrierRevision],
     queryFn: async () => {
       const view = await fetchReferralState();
       // A held carrier is proof a link was followed, so the disclosure is owed
       // before any bind. Nothing held says nothing about what a bind said.
-      if (view.disclosureRequired) recordDisclosure(view);
+      if (view.disclosureRequired) recordDisclosure(queryClient, view);
       return view;
     },
     enabled: IS_WEB,
@@ -116,7 +121,7 @@ export function useReferralBinding(): void {
       // carrier: nothing is left to bind, and what the bind said is now the
       // disclosure. `pending` keeps the carrier and waits for the next subject.
       if (result.state !== 'pending') {
-        recordDisclosure(result);
+        recordDisclosure(queryClient, result);
         queryClient.setQueryData(queryKeys.referrals.state, NO_REFERRAL_STATE);
       }
       return result;
@@ -133,12 +138,13 @@ export function useReferralBinding(): void {
  * D4. It needs a subject, so the page offers it only when signed in.
  */
 export function useEnterReferralCode() {
+  const queryClient = useQueryClient();
   return useMutation<ReferralBindingResult, Error, string>({
     mutationFn: (code) => enterReferralCode({ code, surface: REFERRAL_CLIENT_SURFACE }),
     onSuccess: (result) => {
       // A refused code changes nothing, so it must not hide a link's notice.
       if (result.state === 'attributed' || result.state === 'recorded_not_attributed') {
-        recordDisclosure(result);
+        recordDisclosure(queryClient, result);
       }
     },
   });

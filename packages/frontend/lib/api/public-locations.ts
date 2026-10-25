@@ -18,10 +18,8 @@ const MAX_PAGES = 4;
  * public: published, live, unrestricted and named back by their GoWay place
  * (ADR 0013). The body is parsed with the contract's own schema.
  *
- * Deliberately NOT through `apiClient`: that client sends the guest cookie
- * (`withCredentials`), and `/public/v1` answers browsers with a wildcard origin
- * and no credentials — a pair the browser refuses to combine. This read is
- * public and carries nothing of the shopper.
+ * This public read carries neither Oxy nor commerce credentials.
+ * `/public/v1` has the same anonymous response for every shopper.
  */
 export async function fetchStoreLocations(
   storeId: string,

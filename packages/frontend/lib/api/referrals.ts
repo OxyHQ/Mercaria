@@ -11,9 +11,9 @@ import apiClient from './client';
  * The BUYER's side of referrals (#143): what a referral link left in this
  * browser, and the calls that turn it into an attribution.
  *
- * `GET /r/:token` leaves the click in an `HttpOnly` cookie on the API host, so
- * this code can never read or replay it; it only asks the server what it is
- * holding and asks it to bind. Not the partner surface (`referral-partner.ts`):
+ * `GET /r/:token` redirects with a signed attribution fragment. Bootstrap strips
+ * it before routing; the shared product transport carries its dedicated header
+ * and the server alone verifies and binds it. Not the partner surface (`referral-partner.ts`):
  * nothing here names a partner, a program or a code owner, and nothing here
  * could — the server's views carry none.
  *

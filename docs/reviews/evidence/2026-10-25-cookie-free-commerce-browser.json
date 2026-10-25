@@ -1,0 +1,113 @@
+{
+  "observedAt": "2026-10-25T16:00:24.013Z",
+  "fixtureTime": "2026-10-25T15:00:47.000Z",
+  "sourceCommit": "ba81c79385cabb4870d94be01f8d9988051fdae3",
+  "sourceFiles": {
+    "packages/backend/src/app.ts": "7d76b085785f42b925e4c64b5e2521e7b13dd8ef44f28df993b0ba2906f3aa2d",
+    "packages/backend/src/routes/referral-cookie-migration.ts": "84fc9306e15afec427c1a38ed7f0ba3565018e87667cfbd3994116635b985e51",
+    "packages/backend/src/middleware/commerce-transport.ts": "992380db0ad2c06066437e09f00ca5ca82f082f13cf2b3bfdb7956923d90dcdd",
+    "packages/backend/src/middleware/commerce-actor.ts": "b71821cf31decd04b7e2d6818563269177e336c6abb08b689ff63a21f33e5412",
+    "packages/backend/src/middleware/guest-portal.ts": "b95798e09544af63304709368dde8a5dfa1156014cb9668c0ff3dafea94a2e3a",
+    "packages/backend/src/services/referrals/referral-state.ts": "3493fdf32cd0bf3bb6eaa832e3c0f6bbe820a40b357ca175e01aac2c2f734da1",
+    "packages/backend/src/lib/allowed-origins.ts": "641723d254d16a710cb3125839f5dd88540960231d2d4106f1568524aaf1c6a2"
+  },
+  "browserVersion": "156.0.8078.4",
+  "checks": [
+    "trusted browser preflight+exchange succeeds; original carrier survives lost response/retry",
+    "actual createApp CORS and general rate limiter exercised",
+    "explicit header never falls back to cookie",
+    "ACK after durable browser storage removes exact HttpOnly cookie",
+    "old credentialed browser sees CORS failure; server safely returns426 without ordinary ACAC",
+    "ordinary omit read succeeds anonymously without ambient cookie owner",
+    "foreign-origin browser denied at preflight; POST never dispatched",
+    "referral feature remains disabled despite migration route"
+  ],
+  "requests": [
+    {
+      "method": "OPTIONS",
+      "path": "/referrals/legacy-cookie-exchange",
+      "status": 200,
+      "acac": "true",
+      "rateLimit": null
+    },
+    {
+      "method": "POST",
+      "path": "/referrals/legacy-cookie-exchange",
+      "status": 204,
+      "acac": "true",
+      "rateLimit": "600"
+    },
+    {
+      "method": "OPTIONS",
+      "path": "/referrals/legacy-cookie-exchange",
+      "status": 200,
+      "acac": "true",
+      "rateLimit": null
+    },
+    {
+      "method": "POST",
+      "path": "/referrals/legacy-cookie-exchange",
+      "status": 204,
+      "acac": "true",
+      "rateLimit": "600"
+    },
+    {
+      "method": "OPTIONS",
+      "path": "/referrals/legacy-cookie-exchange",
+      "status": 200,
+      "acac": "true",
+      "rateLimit": null
+    },
+    {
+      "method": "POST",
+      "path": "/referrals/legacy-cookie-exchange",
+      "status": 204,
+      "acac": "true",
+      "rateLimit": "600"
+    },
+    {
+      "method": "OPTIONS",
+      "path": "/referrals/legacy-cookie-ack",
+      "status": 200,
+      "acac": "true",
+      "rateLimit": null
+    },
+    {
+      "method": "POST",
+      "path": "/referrals/legacy-cookie-ack",
+      "status": 204,
+      "acac": "true",
+      "rateLimit": "600"
+    },
+    {
+      "method": "GET",
+      "path": "/guest/session",
+      "status": 426,
+      "acac": null,
+      "rateLimit": "600"
+    },
+    {
+      "method": "GET",
+      "path": "/guest/session",
+      "status": 404,
+      "acac": null,
+      "rateLimit": "600"
+    },
+    {
+      "method": "OPTIONS",
+      "path": "/referrals/legacy-cookie-exchange",
+      "status": 500,
+      "acac": null,
+      "rateLimit": null
+    },
+    {
+      "method": "GET",
+      "path": "/referrals/state",
+      "status": 404,
+      "acac": null,
+      "rateLimit": "600"
+    }
+  ],
+  "syntheticOnly": true,
+  "productionAccess": false
+}

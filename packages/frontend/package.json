@@ -15,7 +15,8 @@
     "typecheck": "bun ../../scripts/generate-router-types.mjs && tsc --noEmit",
     "test": "vitest run",
     "lint": "biome check . && bun run lint:expo",
-    "lint:expo": "eslint ."
+    "lint:expo": "eslint .",
+    "test:commerce-browser": "vitest run --config vitest.commerce-browser.config.ts"
   },
   "dependencies": {
     "@alia.onl/sdk": "^22.0.0",

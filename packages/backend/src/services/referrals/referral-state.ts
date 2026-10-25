@@ -41,7 +41,7 @@
  * ## The window anchor is INSIDE the signature
  *
  * `clickedAt` is stamped once, at the redirect, and travels signed. Presenting
- * the carrier again does not move it, and neither does re-issuing the cookie —
+ * the carrier again does not move it, and neither does migrating its carriage —
  * so "do not extend the window forever through every page view" (#143 web rule
  * 7) is arithmetic on a value the client cannot edit, not a rule some later
  * navigation handler has to remember.
@@ -52,7 +52,6 @@ import { verifySecret } from '@oxy.so/core/server';
 import { z } from 'zod';
 import type { Response } from 'express';
 import { config } from '../../config/index.js';
-import { log } from '../../lib/logger.js';
 
 /**
  * The credential's prefix. Distinct from every #103/#108 prefix by
@@ -60,19 +59,13 @@ import { log } from '../../lib/logger.js';
  */
 export const REFERRAL_STATE_PREFIX = 'mrf_';
 
-/** The response header a NATIVE client receives the carrier on. */
+/** Explicit response header for carrier transfer or clear instructions. */
 export const REFERRAL_STATE_HEADER = 'X-Mercaria-Referral-State';
 
-/** Declared on any response that issues the carrier by header (#103's shape). */
-export const REFERRAL_STATE_TRANSPORT_HEADER = 'X-Mercaria-Referral-Transport';
-
-/** The request header a native client presents the carrier back on. */
+/** The explicit request header used by every client. */
 export const REFERRAL_STATE_REQUEST_HEADER = 'x-mercaria-referral-state';
 
-/** How the carrier reached, or will reach, the client. */
-export type ReferralStateTransport = 'cookie' | 'header';
-
-/** The signed claims. Short keys: this travels in a cookie on every request. */
+/** Compact signed claims carried explicitly in fragments and headers. */
 const statePayloadSchema = z
   .object({
     /** `referral_links.id`. */
@@ -120,7 +113,7 @@ function sign(payloadB64: string): string {
  *
  * `lifetimeSeconds` comes from the program's own attribution window, capped by
  * {@link REFERRAL_STATE_MAX_LIFETIME_SECONDS}: a program may not hand a browser
- * a cookie that outlives any window it could serve.
+ * a carrier that outlives any window it could serve.
  */
 export function mintReferralState(input: {
   linkId: string;
@@ -152,7 +145,7 @@ export function mintReferralState(input: {
  * The absolute ceiling on a carrier's life — 90 days, matching the longest
  * window ADR 0005 D4 describes (30 days touch→signup plus 90 days
  * signup→activation is a MERCHANT runway measured from a stored row, not from
- * a browser's cookie jar).
+ * client storage).
  */
 export const REFERRAL_STATE_MAX_LIFETIME_SECONDS = 90 * 24 * 60 * 60;
 
@@ -169,7 +162,7 @@ export function verifyReferralState(
   now: Date,
 ): ReferralStateClaims | null {
   if (token === undefined || !token.startsWith(REFERRAL_STATE_PREFIX)) return null;
-  // Bound the work before any crypto: a cookie is attacker-controlled bytes.
+  // Bound the work before any crypto: a presented carrier is attacker-controlled bytes.
   if (token.length > 1_024) return null;
 
   const body = token.slice(REFERRAL_STATE_PREFIX.length);
@@ -199,123 +192,8 @@ export function verifyReferralState(
   };
 }
 
-/**
- * The web cookie profile — ADR 0003 D9's shape, applied to a different
- * credential.
- *
- * Production: `__Host-mercaria_referral` — `HttpOnly; Secure; SameSite=Lax;
- * Path=/`, no `Domain`. `SameSite=Lax` rather than `Strict` because the carrier
- * is SET on a top-level navigation arriving from a partner's own site, which is
- * exactly the cross-site case `Strict` drops.
- *
- * Development: `mercaria_referral_dev` without `Secure`, under a DIFFERENT
- * name, logged once at first use — an explicit downgrade, never a silent one.
- */
-export function referralStateCookieProfile(maxAgeMs: number): {
-  name: string;
-  options: {
-    httpOnly: boolean;
-    secure: boolean;
-    sameSite: 'lax';
-    path: string;
-    maxAge: number;
-  };
-} {
-  const production = process.env.NODE_ENV === 'production';
-  return {
-    name: production ? '__Host-mercaria_referral' : 'mercaria_referral_dev',
-    options: {
-      httpOnly: true,
-      secure: production,
-      sameSite: 'lax',
-      path: '/',
-      maxAge: maxAgeMs,
-    },
-  };
-}
-
-let devProfileLogged = false;
-
-/** The profile for a WRITE, logging the dev downgrade exactly once. */
-function activeCookieProfile(maxAgeMs: number): ReturnType<typeof referralStateCookieProfile> {
-  const profile = referralStateCookieProfile(maxAgeMs);
-  if (!profile.options.secure && !devProfileLogged) {
-    devProfileLogged = true;
-    log.general.info(
-      { cookieName: profile.name },
-      '[Referrals] development referral-state cookie profile in use (no Secure attribute, ' +
-        'non-__Host name). Production uses __Host-mercaria_referral with Secure — an explicit ' +
-        'dev-only downgrade.',
-    );
-  }
-  return profile;
-}
-
-/**
- * Read the carrier out of a `Cookie` header by hand.
- *
- * No global cookie-parser joins this app's middleware chain — the four
- * raw-body webhook mounts depend on it staying that way — so this scans, and
- * bounds its work on adversarial input first (8 KiB is Node's default header
- * cap).
- */
-export function readReferralStateCookie(
-  cookieHeader: string | undefined,
-  name: string,
-): string | undefined {
-  if (cookieHeader === undefined || cookieHeader.length === 0) return undefined;
-  if (cookieHeader.length > 8_192) return undefined;
-  for (const part of cookieHeader.split(';')) {
-    const separator = part.indexOf('=');
-    if (separator <= 0) continue;
-    if (part.slice(0, separator).trim() !== name) continue;
-    const raw = part.slice(separator + 1).trim();
-    if (raw.length === 0) return undefined;
-    try {
-      return decodeURIComponent(raw);
-    } catch {
-      return undefined;
-    }
-  }
-  return undefined;
-}
-
-/** Attach a freshly minted carrier to the response, in kind. */
-export function setReferralState(
-  res: Response,
-  token: string,
-  transport: ReferralStateTransport,
-  maxAgeMs: number,
-): void {
-  if (transport === 'header') {
-    res.setHeader(REFERRAL_STATE_HEADER, token);
-    res.setHeader(REFERRAL_STATE_TRANSPORT_HEADER, 'header');
-    return;
-  }
-  const profile = activeCookieProfile(maxAgeMs);
-  res.cookie(profile.name, token, profile.options);
-}
-
-/**
- * Clear the carrier — the supersession half of #143 web rule 8.
- *
- * Called once a carrier has been REDEEMED into a touch, so a second bind of the
- * same click is not even attempted, and when a request declares consent
- * `denied`.
- */
-export function clearReferralState(res: Response, transport: ReferralStateTransport): void {
-  if (transport === 'header') {
-    // A header carrier is cleared by handing back an empty one; a native client
-    // stores what it is given, and there is no jar to expire.
-    res.setHeader(REFERRAL_STATE_HEADER, '');
-    res.setHeader(REFERRAL_STATE_TRANSPORT_HEADER, 'header');
-    return;
-  }
-  const profile = activeCookieProfile(0);
-  res.clearCookie(profile.name, {
-    httpOnly: profile.options.httpOnly,
-    secure: profile.options.secure,
-    sameSite: profile.options.sameSite,
-    path: profile.options.path,
-  });
+/** Tell the client to discard attribution evidence after redemption or refusal. */
+export function clearReferralState(res: Response): void {
+  res.setHeader(REFERRAL_STATE_HEADER, '');
+  res.setHeader('Cache-Control', 'no-store');
 }

@@ -697,18 +697,18 @@ describe('CORS', () => {
     expect(preflight.headers.get('access-control-allow-methods')).toBe('GET,HEAD,OPTIONS');
   });
 
-  it('still refuses that foreign origin everywhere else, and leaves the allow-list credentialed', async () => {
+  it('still refuses foreign origins elsewhere and never enables ordinary ambient credentials', async () => {
     const refused = await call('/categories', { headers: { origin: FOREIGN } });
     expect(refused.headers.get('access-control-allow-origin')).toBeNull();
 
     const own = await call('/categories', { headers: { origin: 'https://mercaria.co' } });
     expect(own.headers.get('access-control-allow-origin')).toBe('https://mercaria.co');
-    expect(own.headers.get('access-control-allow-credentials')).toBe('true');
+    expect(own.headers.get('access-control-allow-credentials')).toBeNull();
 
     const { isAllowedBrowserOrigin, isPublicReadCorsRequest } = await import(
       '../../lib/allowed-origins.js'
     );
-    // The guest CSRF gate reads this, and it is unchanged.
+    // The finite migration gate reads the same unchanged origin authority.
     expect(isAllowedBrowserOrigin(FOREIGN)).toBe(false);
     expect(isPublicReadCorsRequest('GET', '/public/v1/products')).toBe(true);
     expect(isPublicReadCorsRequest('POST', '/public/v1/products')).toBe(false);

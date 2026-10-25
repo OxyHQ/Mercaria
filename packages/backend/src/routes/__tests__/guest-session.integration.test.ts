@@ -4,8 +4,8 @@
  * `createApp()` builds the actual middleware chain production runs — CORS,
  * the raw-body webhook mounts, `express.json()`, the resolver — so what is
  * asserted here is the wire behaviour a browser or the Expo app actually
- * gets: which transport carries the token, which requests the CSRF gate
- * refuses, and that the token never appears in a response body.
+ * gets: explicit credential headers, refusal before unsupported issuance,
+ * and tokens never appearing in response bodies or newly issued cookies.
  *
  * ## Env is set BEFORE any import, like the Stripe webhook file beside this
  *
@@ -15,13 +15,6 @@
  * keys. The kill-switch and disabled-mount deployments are each their own
  * file for the same reason — one process, one frozen config.
  *
- * ## Under NODE_ENV=test the DEV cookie profile is active
- *
- * `mercaria_guest_dev`, HttpOnly, SameSite=Lax, Path=/, WITHOUT `Secure` —
- * the explicit dev downgrade. The production profile (`__Host-mercaria_guest`
- * + `Secure`) is pinned in `middleware/__tests__/commerce-actor.test.ts`
- * under a stubbed NODE_ENV; a browser refuses Secure cookies over plain HTTP,
- * so asserting it here against a loopback listener would test nothing real.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -61,243 +54,222 @@ afterAll(async () => {
   await closePostgres();
 });
 
-/** The `Set-Cookie` for the guest cookie, or undefined. */
-function guestSetCookie(res: Response): string | undefined {
-  return res.headers.getSetCookie().find((cookie) => cookie.startsWith(`${DEV_COOKIE}=`));
-}
-
-/** The bare `name=value` pair out of a `Set-Cookie` line, for replay. */
-function cookiePair(setCookie: string): string {
-  const [pair] = setCookie.split(';');
-  return pair;
-}
-
-/** The token value inside a guest `Set-Cookie` line. */
-function cookieToken(setCookie: string): string {
-  const [pair] = setCookie.split(';');
-  return pair.slice(pair.indexOf('=') + 1);
-}
-
-describe('cookie transport (web) — issuance, reuse, resolution', () => {
-  it('issues once on the ensure WRITE, sets an HttpOnly Lax cookie, and never bodies the token', async () => {
-    const res = await fetch(`${baseUrl}/guest/session`, {
-      method: 'POST',
-      headers: { origin: ALLOWED_ORIGIN },
-    });
-    expect(res.status).toBe(201);
-
-    const setCookie = guestSetCookie(res);
-    expect(setCookie).toBeDefined();
-    if (!setCookie) return;
-    expect(setCookie).toContain('HttpOnly');
-    expect(setCookie).toContain('SameSite=Lax');
-    expect(setCookie).toContain('Path=/');
-    expect(cookieToken(setCookie)).toMatch(/^mgs_[A-Za-z0-9_-]{43}$/);
-
-    // Acceptance 8's response half: the token exists ONLY in Set-Cookie.
-    const body = (await res.json()) as { success: boolean; data: { id: string; status: string } };
-    expect(body.success).toBe(true);
-    expect(body.data.status).toBe('active');
-    expect(JSON.stringify(body)).not.toContain('mgs_');
-    expect(res.headers.get(TOKEN_HEADER)).toBeNull();
+async function issue(): Promise<{ token: string; id: string; expiresAt: string }> {
+  const res = await fetch(`${baseUrl}/guest/session`, {
+    method: 'POST',
+    headers: {
+      'x-mercaria-guest-transport': 'header',
+      'x-mercaria-guest-client': 'web',
+      origin: ALLOWED_ORIGIN,
+    },
   });
+  expect(res.status).toBe(201);
+  expect(res.headers.getSetCookie()).toEqual([]);
+  expect(res.headers.get('cache-control')).toBe('no-store');
+  const token = res.headers.get(TOKEN_HEADER);
+  expect(token).toMatch(/^mgs_[A-Za-z0-9_-]{43}$/);
+  const body = (await res.json()) as { data: { id: string } };
+  expect(JSON.stringify(body)).not.toContain('mgs_');
+  return {
+    token: token ?? '',
+    id: body.data.id,
+    expiresAt: res.headers.get('x-mercaria-guest-expires-at') ?? '',
+  };
+}
 
-  it('resolves the same actor on every subsequent request, and REUSES on a repeated ensure', async () => {
-    const first = await fetch(`${baseUrl}/guest/session`, {
-      method: 'POST',
-      headers: { origin: ALLOWED_ORIGIN },
+describe('header-only guest commerce through the real app', () => {
+  it('issues once and reuses the same owner and absolute expiry', async () => {
+    const issued = await issue();
+    const inspect = await fetch(`${baseUrl}/guest/session`, {
+      headers: { [TOKEN_HEADER]: issued.token },
     });
-    const setCookie = guestSetCookie(first);
-    expect(setCookie).toBeDefined();
-    if (!setCookie) return;
-    const cookie = cookiePair(setCookie);
-    const issued = ((await first.json()) as { data: { id: string } }).data.id;
-
-    const inspect = await fetch(`${baseUrl}/guest/session`, { headers: { cookie } });
     expect(inspect.status).toBe(200);
-    expect(((await inspect.json()) as { data: { id: string } }).data.id).toBe(issued);
-
-    // A retried first write CONVERGES: same session, 200 not 201, no new cookie.
+    expect(inspect.headers.get('cache-control')).toBe('no-store');
+    expect(((await inspect.json()) as { data: { id: string } }).data.id).toBe(issued.id);
     const again = await fetch(`${baseUrl}/guest/session`, {
       method: 'POST',
-      headers: { origin: ALLOWED_ORIGIN, cookie },
+      headers: { [TOKEN_HEADER]: issued.token, 'x-mercaria-guest-transport': 'header' },
     });
     expect(again.status).toBe(200);
-    expect(((await again.json()) as { data: { id: string } }).data.id).toBe(issued);
+    const reused = (await again.json()) as { data: { id: string; expiresAt: string } };
+    expect(reused.data.id).toBe(issued.id);
+    expect(reused.data.expiresAt).toBe(issued.expiresAt);
+    expect(again.headers.getSetCookie()).toEqual([]);
+    expect(Number.isFinite(Date.parse(issued.expiresAt))).toBe(true);
   });
 
-  it('creates NOTHING for a credential-less read — no cookie, no row handle (acceptance 7)', async () => {
-    const res = await fetch(`${baseUrl}/guest/session`);
-    expect(res.status).toBe(404);
-    expect(res.headers.getSetCookie()).toHaveLength(0);
-    expect(res.headers.get(TOKEN_HEADER)).toBeNull();
-  });
-});
-
-describe('header transport (native)', () => {
-  it('returns the token in the response HEADER exactly once, with no cookie involved', async () => {
-    const res = await fetch(`${baseUrl}/guest/session`, {
-      method: 'POST',
-      headers: { 'x-mercaria-guest-transport': 'header', 'x-mercaria-guest-client': 'ios' },
+  it('does not rotate or touch a guest read when the client cannot persist its successor', async () => {
+    const issued = await issue();
+    const { getDb } = await import('../../db/postgres.js');
+    const { guestSessions } = await import('../../db/schema/guests.js');
+    const { eq } = await import('drizzle-orm');
+    const [before] = await getDb()
+      .update(guestSessions)
+      .set({ createdAt: new Date(Date.now() - 8 * 86400000) })
+      .where(eq(guestSessions.id, issued.id))
+      .returning();
+    const refused = await fetch(`${baseUrl}/guest/session`, {
+      headers: {
+        [TOKEN_HEADER]: issued.token,
+        'x-mercaria-guest-persistence': 'unavailable',
+      },
     });
-    expect(res.status).toBe(201);
-
-    const token = res.headers.get(TOKEN_HEADER);
-    expect(token).toMatch(/^mgs_[A-Za-z0-9_-]{43}$/);
-    expect(res.headers.getSetCookie()).toHaveLength(0);
-
-    const body = (await res.json()) as { data: { id: string; clientClass: string } };
-    expect(body.data.clientClass).toBe('ios');
-    expect(JSON.stringify(body)).not.toContain('mgs_');
-
-    // Identical semantics after the middleware boundary (issue #103, native 7).
-    const inspect = await fetch(`${baseUrl}/guest/session`, {
-      headers: { [TOKEN_HEADER]: token ?? '' },
+    expect(refused.status).toBe(503);
+    const refusedBody = (await refused.json()) as { error: string };
+    expect(refusedBody.error).toBe('COMMERCE_STORAGE_UNAVAILABLE');
+    expect(refused.headers.get(TOKEN_HEADER)).toBeNull();
+    expect(refused.headers.get('cache-control')).toBe('no-store');
+    const [after] = await getDb()
+      .select()
+      .from(guestSessions)
+      .where(eq(guestSessions.id, issued.id));
+    expect(after).toEqual(before);
+    const usable = await fetch(`${baseUrl}/guest/session`, {
+      headers: { [TOKEN_HEADER]: issued.token },
     });
-    expect(inspect.status).toBe(200);
-    expect(((await inspect.json()) as { data: { id: string } }).data.id).toBe(body.data.id);
-  });
-});
-
-describe('CSRF (D10, acceptance 3)', () => {
-  async function issueCookie(): Promise<string> {
-    const res = await fetch(`${baseUrl}/guest/session`, {
-      method: 'POST',
-      headers: { origin: ALLOWED_ORIGIN },
-    });
-    const setCookie = guestSetCookie(res);
-    if (!setCookie) throw new Error('issuance did not set the guest cookie');
-    return cookiePair(setCookie);
-  }
-
-  it('refuses a cookie-authenticated write from a foreign Origin, and one with no Origin at all', async () => {
-    const cookie = await issueCookie();
-
-    // In the REAL chain a foreign Origin dies at the CORS layer (whose
-    // error-throwing callback lands in the 500 handler) before the CSRF gate
-    // can see it — both read the SAME allowlist, which is D10's point. The
-    // gate's own foreign-origin refusal (403, defence in depth should the
-    // CORS handler ever soften) is pinned in the middleware unit tests; what
-    // matters at the wire is that the write is REFUSED.
-    const foreign = await fetch(`${baseUrl}/guest/session/rotate`, {
-      method: 'POST',
-      headers: { cookie, origin: 'https://evil.example' },
-    });
-    expect(foreign.ok).toBe(false);
-    expect(foreign.headers.getSetCookie()).toHaveLength(0);
-
-    // No Origin and no Referer passes CORS (curl-shaped) — THIS is the case
-    // only the CSRF gate can catch, and it must answer 403.
-    const originless = await fetch(`${baseUrl}/guest/session/rotate`, {
-      method: 'POST',
-      headers: { cookie },
-    });
-    expect(originless.status).toBe(403);
+    expect(usable.status).toBe(200);
+    expect(usable.headers.get(TOKEN_HEADER)).toMatch(/^mgs_/);
+    expect(usable.headers.get(TOKEN_HEADER)).not.toBe(issued.token);
+    const usableBody = (await usable.json()) as { data: { id: string } };
+    expect(usableBody.data.id).toBe(issued.id);
   });
 
-  it('refuses cookie-transport ISSUANCE without an allow-listed Origin — no cross-site minting', async () => {
-    const res = await fetch(`${baseUrl}/guest/session`, { method: 'POST' });
-    expect(res.status).toBe(403);
-    expect(res.headers.getSetCookie()).toHaveLength(0);
+  it('requires an explicit header client before first issuance, regardless of valid Origin', async () => {
+    for (const headers of [{}, { origin: ALLOWED_ORIGIN }]) {
+      const res = await fetch(`${baseUrl}/guest/session`, { method: 'POST', headers });
+      expect(res.status).toBe(426);
+      expect(res.headers.get(TOKEN_HEADER)).toBeNull();
+      expect(res.headers.getSetCookie()).toEqual([]);
+    }
   });
 
-  it('passes an allow-listed Origin, and never gates the header transport', async () => {
-    const cookie = await issueCookie();
-    const rotated = await fetch(`${baseUrl}/guest/session/rotate`, {
-      method: 'POST',
-      headers: { cookie, origin: ALLOWED_ORIGIN },
+  it('an old cookie cannot silently become an empty or replacement owner; headers preserve the original owner', async () => {
+    const issued = await issue();
+    for (const method of ['GET', 'POST']) {
+      const old = await fetch(`${baseUrl}/guest/session`, {
+        method,
+        headers: { cookie: `${DEV_COOKIE}=${issued.token}`, origin: ALLOWED_ORIGIN },
+      });
+      expect(old.status).toBe(426);
+      expect(old.headers.get(TOKEN_HEADER)).toBeNull();
+    }
+    const current = await fetch(`${baseUrl}/guest/session`, {
+      headers: { [TOKEN_HEADER]: issued.token, cookie: `${DEV_COOKIE}=another-owner` },
     });
-    expect(rotated.status).toBe(200);
-    const fresh = guestSetCookie(rotated);
-    expect(fresh).toBeDefined();
-    if (!fresh) return;
-    expect(cookieToken(fresh)).not.toBe(cookie.slice(cookie.indexOf('=') + 1));
-
-    // Native rotation: custom-header carriage, no Origin, answered in kind.
-    const native = await fetch(`${baseUrl}/guest/session`, {
-      method: 'POST',
-      headers: { 'x-mercaria-guest-transport': 'header' },
-    });
-    const nativeToken = native.headers.get(TOKEN_HEADER);
-    const nativeRotate = await fetch(`${baseUrl}/guest/session/rotate`, {
-      method: 'POST',
-      headers: { [TOKEN_HEADER]: nativeToken ?? '' },
-    });
-    expect(nativeRotate.status).toBe(200);
-    expect(nativeRotate.headers.get(TOKEN_HEADER)).toMatch(/^mgs_/);
-    expect(nativeRotate.headers.getSetCookie()).toHaveLength(0);
+    expect(current.status).toBe(200);
+    expect(((await current.json()) as { data: { id: string } }).data.id).toBe(issued.id);
   });
-});
 
-describe('uniform rejection and revocation (acceptance 5)', () => {
-  it('answers 401 with ONE indistinguishable body for malformed, unknown and revoked credentials', async () => {
-    const malformed = await fetch(`${baseUrl}/guest/session`, {
-      headers: { cookie: `${DEV_COOKIE}=not-even-close` },
+  it('anonymous reads issue nothing and invalid headers never consult a cookie', async () => {
+    const bare = await fetch(`${baseUrl}/guest/session`);
+    expect(bare.status).toBe(404);
+    expect(bare.headers.get('cache-control')).toBe('no-store');
+    expect(bare.headers.getSetCookie()).toEqual([]);
+    const issued = await issue();
+    const invalid = await fetch(`${baseUrl}/guest/session`, {
+      headers: { [TOKEN_HEADER]: 'invalid', cookie: `${DEV_COOKIE}=${issued.token}` },
     });
-    const unknown = await fetch(`${baseUrl}/guest/session`, {
-      headers: { [TOKEN_HEADER]: `mgs_${'A'.repeat(43)}` },
-    });
+    expect(invalid.status).toBe(401);
+    expect(invalid.headers.get('cache-control')).toBe('no-store');
+  });
 
-    // A real session, revoked through the surface itself.
-    const issued = await fetch(`${baseUrl}/guest/session`, {
-      method: 'POST',
-      headers: { origin: ALLOWED_ORIGIN },
-    });
-    const setCookie = guestSetCookie(issued);
-    expect(setCookie).toBeDefined();
-    if (!setCookie) return;
-    const cookie = cookiePair(setCookie);
-    const revoke = await fetch(`${baseUrl}/guest/session`, {
+  it('revokes the explicit credential, with uniform invalid-token responses and no cookie', async () => {
+    const issued = await issue();
+    const revoked = await fetch(`${baseUrl}/guest/session`, {
       method: 'DELETE',
-      headers: { cookie, origin: ALLOWED_ORIGIN },
+      headers: { [TOKEN_HEADER]: issued.token },
     });
-    expect(revoke.status).toBe(204);
-    // Revocation clears the cookie (web transport rule 6).
-    const cleared = guestSetCookie(revoke);
-    expect(cleared).toBeDefined();
-    expect(cleared === undefined ? '' : cookieToken(cleared)).not.toMatch(/^mgs_/);
-
-    const revoked = await fetch(`${baseUrl}/guest/session`, { headers: { cookie } });
-
-    expect(malformed.status).toBe(401);
-    expect(unknown.status).toBe(401);
-    expect(revoked.status).toBe(401);
-    const bodies = await Promise.all([malformed.json(), unknown.json(), revoked.json()]);
+    expect(revoked.status).toBe(204);
+    expect(revoked.headers.get(TOKEN_HEADER)).toBe('');
+    expect(revoked.headers.getSetCookie()).toEqual([]);
+    const bodies = [];
+    for (const token of [issued.token, 'malformed', `mgs_${'Z'.repeat(43)}`]) {
+      const res = await fetch(`${baseUrl}/guest/session`, { headers: { [TOKEN_HEADER]: token } });
+      expect(res.status).toBe(401);
+      expect(res.headers.get('cache-control')).toBe('no-store');
+      bodies.push(await res.json());
+    }
     expect(bodies[1]).toEqual(bodies[0]);
     expect(bodies[2]).toEqual(bodies[0]);
+    for (const token of [undefined, 'malformed', issued.token]) {
+      const repeated = await fetch(`${baseUrl}/guest/session`, {
+        method: 'DELETE',
+        headers: token ? { [TOKEN_HEADER]: token } : {},
+      });
+      expect(repeated.status).toBe(204);
+      expect(repeated.headers.getSetCookie()).toEqual([]);
+    }
   });
 
-  it('revocation is idempotent and non-enumerating: DELETE answers 204 whatever was presented', async () => {
-    const bare = await fetch(`${baseUrl}/guest/session`, {
-      method: 'DELETE',
-      headers: { origin: ALLOWED_ORIGIN },
+  it('rotation retains owner and absolute expiry, with the previous token usable only during grace', async () => {
+    const issued = await issue();
+    const rotated = await fetch(`${baseUrl}/guest/session/rotate`, {
+      method: 'POST',
+      headers: { [TOKEN_HEADER]: issued.token },
     });
-    expect(bare.status).toBe(204);
-
-    const garbage = await fetch(`${baseUrl}/guest/session`, {
-      method: 'DELETE',
-      headers: { origin: ALLOWED_ORIGIN, cookie: `${DEV_COOKIE}=garbage` },
-    });
-    expect(garbage.status).toBe(204);
+    expect(rotated.status).toBe(200);
+    const current = rotated.headers.get(TOKEN_HEADER) ?? '';
+    expect(current).not.toBe(issued.token);
+    expect(current).toMatch(/^mgs_[A-Za-z0-9_-]{43}$/);
+    expect(rotated.headers.get('x-mercaria-guest-expires-at')).toBe(issued.expiresAt);
+    const state = (await rotated.json()) as { data: { id: string; expiresAt: string } };
+    expect(state.data.id).toBe(issued.id);
+    expect(state.data.expiresAt).toBe(issued.expiresAt);
+    expect(
+      (await fetch(`${baseUrl}/guest/session`, { headers: { [TOKEN_HEADER]: issued.token } }))
+        .status,
+    ).toBe(200);
+    const { getDb } = await import('../../db/postgres.js');
+    const { guestSessions } = await import('../../db/schema/guests.js');
+    const { eq } = await import('drizzle-orm');
+    // Advance only this fixture's grace boundary, never global clocks or rows.
+    await getDb()
+      .update(guestSessions)
+      .set({ previousTokenExpiresAt: new Date(Date.now() - 1) })
+      .where(eq(guestSessions.id, issued.id));
+    expect(
+      (await fetch(`${baseUrl}/guest/session`, { headers: { [TOKEN_HEADER]: issued.token } }))
+        .status,
+    ).toBe(401);
+    expect(
+      (await fetch(`${baseUrl}/guest/session`, { headers: { [TOKEN_HEADER]: current } })).status,
+    ).toBe(200);
   });
-});
 
-describe('Oxy precedence at the wire (D2)', () => {
-  it('answers 401 for a Bearer that does not verify — never a downgrade to the guest cookie', async () => {
-    // 'garbage' fails JWT decode locally, so no network is involved: the SDK's
-    // optional auth passes through with no user, and the resolver's own D2
-    // refusal — not the SDK — is what must produce this 401.
+  it.each(['', 'Basic invalid', 'Bearer', 'Bearer invalid'])(
+    'refuses invalid Authorization %j beside a valid guest token',
+    async (authorization) => {
+      const issued = await issue();
+      const res = await fetch(`${baseUrl}/guest/session`, {
+        headers: { authorization, [TOKEN_HEADER]: issued.token },
+      });
+      expect(res.status).toBe(401);
+      expect(res.headers.get('cache-control')).toBe('no-store');
+    },
+  );
+
+  it('exposes only explicit commerce headers to allowed browsers, without credentialed CORS', async () => {
+    const res = await fetch(`${baseUrl}/guest/session`, {
+      method: 'OPTIONS',
+      headers: {
+        origin: ALLOWED_ORIGIN,
+        'access-control-request-method': 'POST',
+        'access-control-request-headers':
+          'x-mercaria-guest-transport,x-mercaria-guest-persistence,x-mercaria-portal-token,x-mercaria-referral-state',
+      },
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('access-control-allow-credentials')).toBeNull();
+    expect(res.headers.get('access-control-allow-headers')).toContain('X-Mercaria-Portal-Token');
+    expect(res.headers.get('access-control-allow-headers')).toContain(
+      'X-Mercaria-Guest-Persistence',
+    );
     const issued = await fetch(`${baseUrl}/guest/session`, {
       method: 'POST',
-      headers: { origin: ALLOWED_ORIGIN },
+      headers: { origin: ALLOWED_ORIGIN, 'x-mercaria-guest-transport': 'header' },
     });
-    const setCookie = guestSetCookie(issued);
-    expect(setCookie).toBeDefined();
-    if (!setCookie) return;
-
-    const res = await fetch(`${baseUrl}/guest/session`, {
-      headers: { cookie: cookiePair(setCookie), authorization: 'Bearer garbage' },
-    });
-    expect(res.status).toBe(401);
+    expect(issued.headers.get('access-control-expose-headers')).toContain(
+      'X-Mercaria-Guest-Expires-At',
+    );
   });
 });

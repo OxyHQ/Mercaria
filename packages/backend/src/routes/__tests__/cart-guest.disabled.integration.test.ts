@@ -21,7 +21,6 @@ import type { Server } from 'node:http';
 import { inArray } from 'drizzle-orm';
 
 const ALLOWED_ORIGIN = 'https://mercaria.co';
-const DEV_COOKIE = 'mercaria_guest_dev';
 
 let baseUrl: string;
 const servers: Server[] = [];
@@ -111,7 +110,7 @@ describe('guest carts are gateable independently of guest sessions', () => {
     // throwaway database serves the whole suite and vitest runs files in
     // parallel, so a count is a cross-file race — and a session is only ever
     // reachable through the credential anyway (ADR 0003 D9).
-    expect(res.headers.getSetCookie().some((c) => c.startsWith(`${DEV_COOKIE}=`))).toBe(false);
+    expect(res.headers.getSetCookie()).toEqual([]);
     expect(res.headers.get('x-mercaria-guest-token')).toBeNull();
   });
 
@@ -128,19 +127,16 @@ describe('guest carts are gateable independently of guest sessions', () => {
     // fail here, which is what makes this file worth its own process.
     const issued = await fetch(`${baseUrl}/guest/session`, {
       method: 'POST',
-      headers: { origin: ALLOWED_ORIGIN },
+      headers: { origin: ALLOWED_ORIGIN, 'x-mercaria-guest-transport': 'header' },
     });
     expect(issued.status).toBe(201);
 
-    const setCookie = issued.headers
-      .getSetCookie()
-      .find((cookie) => cookie.startsWith(`${DEV_COOKIE}=`));
-    expect(setCookie).toBeDefined();
-    if (!setCookie) return;
-    const cookie = setCookie.split(';')[0];
+    const token = issued.headers.get('x-mercaria-guest-token') ?? '';
+    expect(token).toMatch(/^mgs_/);
+    expect(issued.headers.getSetCookie()).toEqual([]);
 
     const inspected = await fetch(`${baseUrl}/guest/session`, {
-      headers: { origin: ALLOWED_ORIGIN, cookie },
+      headers: { origin: ALLOWED_ORIGIN, 'x-mercaria-guest-token': token },
     });
     expect(inspected.status).toBe(200);
 
@@ -148,7 +144,11 @@ describe('guest carts are gateable independently of guest sessions', () => {
     // the refusal is about the cart lever, not about the credential.
     const write = await fetch(`${baseUrl}/cart/items`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', origin: ALLOWED_ORIGIN, cookie },
+      headers: {
+        'content-type': 'application/json',
+        origin: ALLOWED_ORIGIN,
+        'x-mercaria-guest-token': token,
+      },
       body: JSON.stringify({ listingId, variantId, quantity: 1 }),
     });
     expect(write.status).toBe(403);
@@ -156,7 +156,7 @@ describe('guest carts are gateable independently of guest sessions', () => {
 
     await fetch(`${baseUrl}/guest/session`, {
       method: 'DELETE',
-      headers: { origin: ALLOWED_ORIGIN, cookie },
+      headers: { origin: ALLOWED_ORIGIN, 'x-mercaria-guest-token': token },
     });
   });
 });

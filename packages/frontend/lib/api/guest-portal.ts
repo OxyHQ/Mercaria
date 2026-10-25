@@ -2,8 +2,7 @@
  * The guest order portal's API calls (#108).
  *
  * Every request here goes through `apiClient`, which carries the portal
- * credential in a cookie (web, `withCredentials`) or the
- * `X-Mercaria-Portal-Token` header (native). Nothing in this module reads,
+ * credential in the `X-Mercaria-Portal-Token` header on every platform. Nothing in this module reads,
  * writes or returns a token: the exchange hands one to the interceptor via a
  * RESPONSE HEADER and the caller never sees it.
  */
@@ -15,6 +14,7 @@ import type {
   GuestPortalSessionState,
 } from '@mercaria/shared-types';
 import apiClient from './client';
+import { portalCredential } from '../stores/portal-credential-store';
 
 /**
  * Unwrap the API envelope, or throw the message a person should see.
@@ -103,5 +103,12 @@ export async function requestPortalRecovery(input: {
 
 /** Sign this credential out. Always succeeds. */
 export async function signOutOfPortal(): Promise<void> {
-  await apiClient.delete('/guest/orders/session');
+  await portalCredential.ready;
+  const selected = portalCredential.snapshot();
+  try {
+    await apiClient.delete('/guest/orders/session');
+  } finally {
+    selected.accept('', null, null);
+    await portalCredential.settled();
+  }
 }

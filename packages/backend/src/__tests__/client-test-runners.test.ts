@@ -119,12 +119,23 @@ const placeholderPackages = declaresTestScript
 const gatingSteps = workflow.jobs[GATING_JOB]?.steps ?? [];
 
 /** `bun run --filter <name> test`, as every test step in this workflow spells it. */
-const FILTERED_TEST_RUN = /--filter\s+(\S+)\s+test\b/u;
+const FILTERED_TEST_RUN = /--filter\s+(\S+)\s+test(?=$|[\s;&|])/u;
 
 const filteredTestTargets = gatingSteps
   .map((step) => FILTERED_TEST_RUN.exec(step.run ?? ''))
   .filter((match) => match !== null)
   .map((match) => match[1]);
+
+it('counts the main test script rather than separate browser/watch commands', () => {
+  expect(FILTERED_TEST_RUN.exec('bun run --filter @mercaria/frontend test')?.[1]).toBe(
+    '@mercaria/frontend',
+  );
+  expect(FILTERED_TEST_RUN.test('bun run --filter @mercaria/frontend test --run')).toBe(true);
+  expect(FILTERED_TEST_RUN.test('bun run --filter @mercaria/frontend test:commerce-browser')).toBe(
+    false,
+  );
+  expect(FILTERED_TEST_RUN.test('bun run --filter @mercaria/frontend test:watch')).toBe(false);
+});
 
 describe('the CI workflow is readable and non-vacuous', () => {
   it('parses, and carries the job every other assertion reads', () => {

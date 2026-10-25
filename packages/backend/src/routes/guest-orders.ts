@@ -1,3 +1,4 @@
+import { requireHeaderTransport } from '../middleware/commerce-transport.js';
 /**
  * The guest order portal's public surface (#108).
  *
@@ -34,8 +35,6 @@ import { log } from '../lib/logger.js';
 import { respondWithError } from '../lib/errors/error-codes.js';
 import {
   clearPortalCredential,
-  declaredPortalTransport,
-  passesPortalCookieCsrf,
   requirePortalSession,
   resolvePortalSession,
   setPortalCredential,
@@ -176,9 +175,8 @@ function requestRecovery(req: Request, res: Response): void {
  * `POST /guest/orders/exchange` — trade a magic-link token for a portal session.
  *
  * The token arrives in the BODY because the client read it from the fragment,
- * which never leaves the browser. The credential leaves in a `Set-Cookie` or
- * the `X-Mercaria-Portal-Token` header and NEVER in the body, on either
- * transport.
+ * which never leaves the browser. The credential leaves only in the
+ * `X-Mercaria-Portal-Token` header, with expiry and generation metadata.
  *
  * A rotation is possible here: if the caller already held a portal session and
  * the link was a step-up, the old credential is revoked inside the exchange
@@ -193,10 +191,9 @@ async function exchangeToken(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const transport = declaredPortalTransport(req);
-  // The exchange SETS a cookie, so it is as CSRF-relevant as a write
-  // authenticated by one (ADR 0003 D10).
-  if (transport === 'cookie' && !passesPortalCookieCsrf(req, res)) return;
+  if (!requireHeaderTransport(req, res, 'portal')) return;
+  // Negotiate before consuming the one-time link: old bundles cannot retain
+  // a response credential they do not understand (ADR 0003 D10).
 
   const now = new Date();
   const credential = await exchangeMagicLinkToken({
@@ -219,7 +216,7 @@ async function exchangeToken(req: Request, res: Response): Promise<void> {
     now,
   });
 
-  setPortalCredential(res, credential.token, transport);
+  setPortalCredential(res, credential.token, credential.grant);
   // The GRANT's row id, never the token: an id authorizes nothing and cannot be
   // presented anywhere, which is why the analytics vocabulary has a column it
   // may sit in and no column a credential could.
@@ -260,8 +257,7 @@ async function mintConfirmation(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const transport = declaredPortalTransport(req);
-  if (transport === 'cookie' && !passesPortalCookieCsrf(req, res)) return;
+  if (!requireHeaderTransport(req, res, 'portal')) return;
 
   const result = await mintPostCheckoutGrant({
     checkoutGroupId: parsed.data.checkoutGroupId,
@@ -282,7 +278,7 @@ async function mintConfirmation(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  setPortalCredential(res, result.credential.token, transport);
+  setPortalCredential(res, result.credential.token, result.credential.grant);
   sendSuccess(res, result.credential.state, 201);
 }
 
@@ -445,7 +441,7 @@ async function fileDataRequest(req: Request, res: Response): Promise<void> {
     sendError(res, ErrorCodes.NOT_FOUND, 'Order not found', 404);
     return;
   }
-  clearPortalCredential(res, req.portalTransport ?? 'cookie');
+  clearPortalCredential(res);
   sendSuccess(res, outcome.receipt, 201);
 }
 
@@ -495,8 +491,7 @@ async function readClaimPreview(req: Request, res: Response): Promise<void> {
  * parameter for any of them either.
  *
  * A success clears the portal credential, because the claim revoked it: leaving
- * a dead cookie in the jar would make the next portal read a confusing 401
- * rather than an obvious "you are signed in now".
+ * a revoked local grant would otherwise keep failing subsequent portal reads.
  */
 async function performClaim(req: Request, res: Response): Promise<void> {
   const grant = req.portalGrant;
@@ -535,7 +530,7 @@ async function performClaim(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  clearPortalCredential(res, req.portalTransport ?? 'cookie');
+  clearPortalCredential(res);
   emitAnalyticsEvent(req, {
     eventType: 'guest_claim_completed',
     buyerOrigin: 'guest',
@@ -607,15 +602,15 @@ function refuseClaim(
  * `DELETE /guest/orders/session` — sign this credential out.
  *
  * Always 204: revocation is idempotent, and answering differently for a live,
- * expired or absent credential would make this a validity oracle. The cookie is
- * cleared unconditionally, which is a no-op when none was set.
+ * expired or absent credential would make this a validity oracle. The clear
+ * header is unconditional and clients apply it to the request credential only.
  */
 async function signOut(req: Request, res: Response): Promise<void> {
   const grant = req.portalGrant;
   if (grant !== undefined) {
     await revokePortalGrant(grant.id, new Date());
   }
-  clearPortalCredential(res, req.portalTransport ?? 'cookie');
+  clearPortalCredential(res);
   res.status(204).end();
 }
 
