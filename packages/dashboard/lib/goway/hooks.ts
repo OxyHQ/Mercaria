@@ -8,18 +8,16 @@
  * authorizes a dashboard call exactly as it would one from goway.to, against
  * the store's claim on the place. Mercaria's backend never writes to GoWay.
  *
- * The token is read from the Oxy SDK before EVERY request and never kept here —
- * the SDK's own `getAccessToken` contract — so a sign-out ends GoWay access in
- * the same instant it ends Mercaria's.
+ * The GoWay SDK uses Oxy's linked transport; refresh and account isolation stay
+ * in the shared client, and the merchant's identity is never copied here.
  */
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useOxy } from '@oxy.so/services/ui/client';
 import {
   MAX_CLAIM_LIST_LIMIT,
   MAX_HOURS_EXCEPTION_LIST_LIMIT,
-  createGoWayClient,
   type GoWayClient,
   type Place,
   type PlaceClaim,
@@ -32,6 +30,7 @@ import {
   type StructuredGeocodeQuery,
 } from '@goway.to/sdk';
 import { GOWAY_API_URL } from '../config';
+import { createGoWaySessionClient } from './session-client';
 import { useTranslation } from '../i18n';
 import { queryKeys } from '../queryKeys';
 import { MERCARIA_STORE_CAPABILITY } from './place-link';
@@ -44,15 +43,15 @@ const SEARCH_LIMIT = 10;
 export function useGoWayClient(): GoWayClient {
   const { oxyServices } = useOxy();
   const { locale } = useTranslation();
-  return useMemo(
-    () =>
-      createGoWayClient({
-        ...(GOWAY_API_URL === undefined ? {} : { apiBaseUrl: GOWAY_API_URL }),
-        getAccessToken: () => oxyServices.session.accessToken || null,
-        locale,
-      }),
+  const bound = useMemo(
+    () => createGoWaySessionClient(oxyServices, GOWAY_API_URL, locale),
     [oxyServices, locale],
   );
+  useEffect(() => {
+    bound.activate();
+    return () => bound.dispose();
+  }, [bound]);
+  return bound.client;
 }
 
 /** One GoWay place, with its names and its hours exceptions. */

@@ -4,7 +4,8 @@ import { Icon, Text, useSettingsDialog } from '@mercaria/ui';
 import { Textarea } from '@oxy.so/bloom/textarea';
 import { useState } from 'react';
 import { useOxy } from '@oxy.so/services/ui/client';
-import { generateAPIUrl } from '@/lib/generate-api-url';
+import config from '@/lib/config';
+import { submitFeedback } from '@/lib/api/feedback';
 import {
   MessageSquare,
   Bug,
@@ -85,24 +86,11 @@ export function FeedbackSettingsPage() {
     try {
       setSubmitting(true);
 
-      const apiUrl = generateAPIUrl('/feedback');
-      const token = oxyServices.session.accessToken;
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (token) headers.Authorization = `Bearer ${token}`;
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          type: selectedType,
-          message: message.trim(),
-          rating: rating,
-          metadata: {
-            platform: Platform.OS,
-            appVersion: '1.0.0',
-          },
-        }),
+      const response = await submitFeedback(oxyServices, config.apiUrl, {
+        type: selectedType,
+        message: message.trim(),
+        rating,
+        metadata: { platform: Platform.OS, appVersion: '1.0.0' },
       });
 
       if (response.ok) {
@@ -112,8 +100,7 @@ export function FeedbackSettingsPage() {
         setRating(null);
         close();
       } else {
-        const error = await response.json();
-        toast.error(error.error || t('feedback.submitFailed'));
+        toast.error(response.error || t('feedback.submitFailed'));
       }
     } catch (error) {
       if (__DEV__) {

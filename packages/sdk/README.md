@@ -53,8 +53,8 @@ Every option is optional:
 | --- | --- | --- |
 | `apiBaseUrl` | `https://api.mercaria.co` | The API origin. |
 | `webBaseUrl` | `https://mercaria.co` | The origin links are built on. |
-| `fetch` | the global `fetch` | Looked up at request time. Pass one for tests or old runtimes. |
-| `getAccessToken` | none | Supplies the current Oxy access token. See below. |
+| `fetch` | the global `fetch` | Own apps pass the shared linked transport; also usable for tests. |
+| `getAccessToken` | none | Explicit external credential callback; own apps use shared transport. |
 | `locale` | none | Default locale for the list reads that take one; each call can override it. |
 | `timeoutMs` | `15000` | Per request, token acquisition and body included. |
 | `headers` | none | Extra non-auth headers (a tracing id, say). `Authorization` and `Accept` are refused. |
@@ -64,29 +64,39 @@ no state beyond its options.
 
 ## Anonymous and Oxy-authenticated reads
 
-With no `getAccessToken`, every request is anonymous. Every read in this
-release works anonymously.
+With the default fetch and no credential callback, requests are anonymous.
+Public catalogue reads remain available anonymously.
 
-To act as the signed-in Oxy user, hand the SDK a function that returns the
-current access token:
+**An Oxy app using the person's session** supplies its existing provider's linked
+transport. Oxy owns refresh, account-switch cancellation and destination checks:
 
 ```ts
+const apiBaseUrl = 'https://api.mercaria.co';
+const linked = oxyServices.createLinkedClient({ baseURL: apiBaseUrl });
 const mercaria = createMercariaClient({
-  getAccessToken: () => currentOxyAccessToken(), // however your app reads its Oxy session
+  apiBaseUrl,
+  fetch: linked.fetchOptional,
 });
+// Keep both for the owning component's lifetime; on its cleanup:
+// linked.dispose();
 ```
 
-- It is called before **every** request and its result is never cached,
-  stored or logged. Return `null`, `undefined` or `''` when there is no session:
-  that request is sent anonymously.
-- The token is sent as `Authorization: Bearer <token>` and nowhere else. The SDK
-  sends no cookies (`credentials: 'omit'`).
-- **Session ownership stays with Oxy.** Sign-in, refresh and sign-out belong to
-  Oxy's auth packages. The SDK never refreshes a token; if a request fails with
-  `MercariaUnauthorizedError`, refresh through Oxy and try again.
-- An error thrown by your getter is passed through unchanged.
-- Today the only authenticated difference is `product.viewer`, which is
-  `{ saved }` for a signed-in caller and `null` for an anonymous one.
+Use `linked.fetch` instead when the operation must require authentication.
+Do not copy `session.accessToken` or add an app-local refresh/retry loop. Bind the
+client to the current Oxy provider, and dispose it when that owner unmounts or is
+replaced. This identity transport omits cookies and follows no redirects. The
+separate Mercaria storefront guest/cart/portal cookie decision is not covered
+by this SDK example.
+
+**Explicit external credentials** retain the `getAccessToken` option. The
+callback is resolved for every request and is never cached, stored or logged;
+a missing value produces an anonymous request. The SDK sends a supplied token
+only as a bearer header and does not refresh it or promote it to own authority.
+Callback failures propagate unchanged. External credentials retain their server
+scope, revocation and account checks.
+
+The public catalogue's authenticated `product.viewer` value is `{ saved }` for
+a signed-in caller and `null` for an anonymous one.
 
 **An Oxy service reading the public catalogue** uses the shared workload client:
 
@@ -495,7 +505,9 @@ import {
   MercariaGoneError, MercariaNotFoundError,
 } from '@mercaria.co/sdk';
 
-const mercaria = createMercariaClient({ getAccessToken: () => session.accessToken ?? null });
+const linked = oxyServices.createLinkedClient({ baseURL: 'https://api.mercaria.co' });
+const mercaria = createMercariaClient({ fetch: linked.fetchOptional });
+// Dispose linked when this integration's owner closes.
 
 // Writing: persist only the ref.
 await db.attachments.insert({ postId, mercariaRef: picked.ref });
