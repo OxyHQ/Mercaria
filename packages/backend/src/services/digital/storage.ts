@@ -1,3 +1,4 @@
+import { MERCARIA_OXY_APP } from '../../config/oxy-identity.js';
 /**
  * The object-storage port for digital asset bytes (ADR 0010 D17, #1015 W1).
  *
@@ -231,7 +232,7 @@ export interface DigitalAssetStoragePort {
  * 2026-10-16), which never changes; reading it from the environment would turn
  * a fact into a silent mismatch.
  */
-export const MERCARIA_OXY_APP = '6a37d0cc5d4b5f15482a9340';
+export { MERCARIA_OXY_APP };
 
 /**
  * The `entityType` this service registers asset files under (Oxy ADR 0043 D4).

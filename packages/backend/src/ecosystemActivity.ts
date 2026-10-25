@@ -1,6 +1,6 @@
 import { createEcosystemTraffic } from '@oxy.so/core/server';
 import type { RequestHandler } from 'express';
-import { oxyServiceClient } from './capabilities/oxy-service-client';
+import { createAwsWorkloadCredentialProvider } from '@oxy.so/core/server/aws';
 
 let activity: ReturnType<typeof createEcosystemTraffic> | undefined;
 
@@ -14,12 +14,10 @@ export function startEcosystemActivity(ready: () => boolean): void {
     console.warn('Ecosystem activity is disabled for mercaria');
     return;
   }
-  if (!oxyServiceClient()) {
-    throw new Error('Ecosystem activity requires an Oxy identity: an attestable task role');
-  }
   if (activity) return;
   activity = createEcosystemTraffic({
     service: 'mercaria',
+    workloadCredentials: createAwsWorkloadCredentialProvider(),
     ready,
   });
   activity.installFetch();

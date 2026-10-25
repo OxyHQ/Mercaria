@@ -111,3 +111,12 @@ verified by the delivery coordinator. This receiver is ready for its own CI and
 release; deploy and verify it before Clarity's canonical Mercaria producer.
 This source checkpoint does not claim Mercaria deployment or retirement of the
 central finite legacy workload transition.
+
+The backend keeps its immutable application/audience constants in
+`src/config/oxy-identity.ts`; production modules do not import the public SDK
+through test-only TypeScript aliases. The ecosystem activity collector receives
+the shared AWS workload credential provider directly, including temporary local
+role credentials. Billing configuration does not infer authority from ECS
+environment variables: the shared transport verifies credentials when used,
+and customer keys never provide a fallback. The five affected CI suites (24
+tests), backend TypeScript and production build pass with these boundaries.

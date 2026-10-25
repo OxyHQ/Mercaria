@@ -24,7 +24,7 @@
  */
 
 import type { Request, RequestHandler, Response } from 'express';
-import { MERCARIA_SERVICE_AUDIENCE } from '@mercaria.co/sdk/server';
+import { MERCARIA_SERVICE_AUDIENCE } from '../config/oxy-identity.js';
 import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
 import { RedisStore } from 'rate-limit-redis';
 import { createOxyRateLimit, type OxyRateLimitOptions } from '@oxy.so/core/server';

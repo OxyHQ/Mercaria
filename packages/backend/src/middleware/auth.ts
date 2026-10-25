@@ -35,7 +35,7 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
-import { MERCARIA_SERVICE_AUDIENCE } from '@mercaria.co/sdk/server';
+import { MERCARIA_SERVICE_AUDIENCE } from '../config/oxy-identity.js';
 import { createAwsWorkloadCredentialProvider } from '@oxy.so/core/server/aws';
 import {
   createOptionalOxyAuth,
