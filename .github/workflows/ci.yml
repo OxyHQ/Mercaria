@@ -438,6 +438,12 @@ jobs:
       - name: Test App
         run: bun run --filter @mercaria/frontend test
 
+      - name: Install Chromium for commerce boundary tests
+        run: bun x playwright install --with-deps chromium
+
+      - name: Test commerce credential storage in Chromium
+        run: bun run --filter @mercaria/frontend test:commerce-browser
+
       - name: Typecheck POS
         run: bun run --filter @mercaria/pos typecheck
 
@@ -554,6 +560,19 @@ jobs:
         env:
           TEST_DATABASE_URL: postgres://mercaria:mercaria@127.0.0.1:5432/mercaria_ci
         run: bun run --filter @mercaria/backend test
+
+      - name: Test real commerce CORS and legacy referral retirement in Chromium
+        env:
+          TEST_DATABASE_URL: postgres://mercaria:mercaria@127.0.0.1:5432/mercaria_ci
+        run: bun run test:commerce-backend-browser
+
+      - name: Upload commerce browser evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: commerce-browser-evidence
+          path: test-results/commerce-backend/
+          if-no-files-found: ignore
 
       # Production runs the API on Bun (root Dockerfile), so the unit suite also
       # runs under Bun's runtime and test runner, not only under vitest on Node.

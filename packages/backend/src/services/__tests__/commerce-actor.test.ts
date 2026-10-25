@@ -11,14 +11,14 @@ describe('actorRateKey', () => {
   it('keys each actor kind into its own namespace', () => {
     expect(actorRateKey({ kind: 'oxy', oxyUserId: 'u1' }, '1.2.3.4')).toBe('oxy:u1');
     expect(
-      actorRateKey({ kind: 'guest', guestSessionId: 'gs1', transport: 'cookie' }, '1.2.3.4'),
+      actorRateKey({ kind: 'guest', guestSessionId: 'gs1', clientClass: 'web' }, '1.2.3.4'),
     ).toBe('guest:gs1');
     expect(actorRateKey({ kind: 'anonymous' }, '1.2.3.4')).toBe('ip:1.2.3.4');
   });
 
   it('keys off the ACTOR, not the transport — one guest is one bucket on both carriages', () => {
-    const cookie: CommerceActor = { kind: 'guest', guestSessionId: 'gs1', transport: 'cookie' };
-    const header: CommerceActor = { kind: 'guest', guestSessionId: 'gs1', transport: 'header' };
+    const cookie: CommerceActor = { kind: 'guest', guestSessionId: 'gs1', clientClass: 'web' };
+    const header: CommerceActor = { kind: 'guest', guestSessionId: 'gs1' };
     expect(actorRateKey(cookie, 'a')).toBe(actorRateKey(header, 'b'));
   });
 

@@ -13,6 +13,13 @@ it('redacts requester proofs from whole request logs', () => {
     },
   );
   logger.info({
+    res: {
+      headers: {
+        'X-Mercaria-Guest-Token': 'response-guest-canary',
+        'X-Mercaria-Portal-Token': 'response-portal-canary',
+        'X-Mercaria-Referral-State': 'response-referral-canary',
+      },
+    },
     req: {
       headers: {
         authorization: 'bearer-canary',
@@ -20,6 +27,10 @@ it('redacts requester proofs from whole request logs', () => {
         'x-oxy-requester-context': 'context-canary',
         'x-oxy-capability-ticket': 'ticket-canary',
         'x-oxy-presented-service-token': 'service-canary',
+        'x-mercaria-guest-token': 'guest-canary',
+        'x-mercaria-portal-token': 'portal-canary',
+        'x-mercaria-referral-state': 'referral-canary',
+        cookie: 'legacy-canary',
       },
       body: { subjectToken: 'subject-canary', connectionToken: 'connection-canary' },
       serviceActingAs: { requesterContext: 'acting-canary' },

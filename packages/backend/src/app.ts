@@ -108,6 +108,9 @@ import referralRedirectRouter from './routes/referral-redirect.js';
 import affiliateOutboundRouter from './routes/outbound.js';
 import internalAffiliateRouter from './routes/internal-affiliate.js';
 import referralsRouter from './routes/referrals.js';
+import referralCookieMigrationRouter, {
+  REFERRAL_COOKIE_MIGRATION_PATHS,
+} from './routes/referral-cookie-migration.js';
 import internalReferralsRouter from './routes/internal-referrals.js';
 import guestSessionRouter from './routes/guest-session.js';
 import guestOrdersRouter from './routes/guest-orders.js';
@@ -235,7 +238,7 @@ export function createApp(): express.Express {
           callback(new Error('Not allowed by CORS'));
         }
       },
-      credentials: true,
+      credentials: REFERRAL_COOKIE_MIGRATION_PATHS.some((path) => path === req.path),
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
       allowedHeaders: [
         'Content-Type',
@@ -254,8 +257,22 @@ export function createApp(): express.Express {
         'X-Mercaria-Guest-Token',
         'X-Mercaria-Guest-Transport',
         'X-Mercaria-Guest-Client',
+        'X-Mercaria-Portal-Token',
+        'X-Mercaria-Portal-Transport',
+        'X-Mercaria-Referral-State',
+        'X-Mercaria-Referral-Migration',
         'X-Oxy-Edge-Region',
         'X-Oxy-Activity-Id',
+      ],
+      exposedHeaders: [
+        'X-Mercaria-Guest-Token',
+        'X-Mercaria-Guest-Expires-At',
+        'X-Mercaria-Guest-Generation',
+        'X-Mercaria-Portal-Token',
+        'X-Mercaria-Portal-Expires-At',
+        'X-Mercaria-Portal-Generation',
+        'X-Mercaria-Referral-State',
+        'X-Mercaria-Referral-Expires-At',
       ],
       optionsSuccessStatus: 200,
     })(req, res, next);
@@ -350,6 +367,9 @@ export function createApp(): express.Express {
   // Global rate limiter — per-user for authenticated callers, per-IP for anon.
   // (The SDK exempts health probes + CORS preflight internally.)
   app.use(makeRateLimiter('general'));
+  // Independent of feature activation, but behind the ordinary rate limit:
+  // transfer existing signed evidence without enabling redirects or binds.
+  app.use('/referrals', referralCookieMigrationRouter);
 
   // Routes
   app.use('/_oxy/capabilities', capabilitiesRouter);

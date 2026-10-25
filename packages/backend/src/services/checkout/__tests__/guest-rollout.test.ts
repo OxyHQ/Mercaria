@@ -20,12 +20,11 @@ import type { EligibilitySellerGroup } from '../fulfilment-eligibility.js';
 const GUEST_WEB: CommerceActor = {
   kind: 'guest',
   guestSessionId: 'gs-rollout',
-  transport: 'cookie',
+  clientClass: 'web',
 };
 const GUEST_NATIVE: CommerceActor = {
   kind: 'guest',
   guestSessionId: 'gs-rollout-native',
-  transport: 'header',
 };
 const OXY: CommerceActor = { kind: 'oxy', oxyUserId: 'buyer-rollout' };
 

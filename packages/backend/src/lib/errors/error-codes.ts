@@ -26,6 +26,7 @@ const DEFAULT_HTTP_STATUS: Record<ErrorCode, number> = {
   [ErrorCodes.GONE]: 410,
   [ErrorCodes.UNKNOWN_ROUTE]: 404,
   [ErrorCodes.CONFLICT]: 409,
+  [ErrorCodes.COMMERCE_CLIENT_UPDATE_REQUIRED]: 426,
   [ErrorCodes.RATE_LIMITED]: 429,
   [ErrorCodes.OUT_OF_STOCK]: 409,
   [ErrorCodes.INTERNAL_ERROR]: 500,

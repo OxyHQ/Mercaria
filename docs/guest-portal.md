@@ -37,7 +37,7 @@ of the authorization.
 | | `mgx_` exchange | `mgp_` portal |
 |---|---|---|
 | Lives | 15 min (`GUEST_MAGIC_LINK_MINUTES`) | 30 days (`GUEST_PORTAL_GRANT_DAYS`) |
-| Carriage | the FRAGMENT of a link Mercaria mails | `__Host-mercaria_portal` cookie, or the `X-Mercaria-Portal-Token` header |
+| Carriage | the FRAGMENT of a link Mercaria mails | `X-Mercaria-Portal-Token` header on both web and native |
 | Use | single, atomic (`consumed_at` CAS) | many |
 | Reads | nothing — the only statement that accepts one CONSUMES it | its group, at its scope |
 
@@ -309,7 +309,7 @@ The full read goes through `authorizeOrderAccess` (#106) per order rather than
 re-implementing the rule. The route additionally compares the `:groupId` in the
 path against the credential's own — not redundant: it is what makes a client
 holding two credentials get a 404 instead of silently reading whichever the
-cookie named.
+explicit credential named.
 
 **A scope mismatch is a 403 and a group mismatch is a 404**, because "this group
 exists but is not yours" is a fact about somebody else's purchase.
@@ -326,42 +326,24 @@ ROTATES the session, so the window measures the newest proof.
 "Secure my access" spares the presenting credential. Without that, securing your
 access logs you out, and a control people avoid pressing protects nobody.
 
-## Transport and CSRF
+## Explicit transport and browser boundaries
 
-`middleware/guest-portal.ts` reuses `commerce-actor.ts`'s decisions verbatim,
-because they were argued once and a second answer could only disagree:
+Web and native use `X-Mercaria-Portal-Token` with the same grant, checkout group,
+permissions and expiry checks. An issuing exchange declares
+`X-Mercaria-Portal-Transport: header` before the single-use magic link is consumed.
+Responses carry no-store token/expiry/generation headers. Web persists on its own
+origin; native uses secure storage. No ordinary portal request authenticates a
+cookie, and old clients cannot consume a link then lose its unreadable result.
 
-- **Web:** `__Host-mercaria_portal` — HttpOnly, Secure, SameSite=Lax, Path=/, no
-  Domain. Dev uses `mercaria_portal_dev` WITHOUT Secure under a different name,
-  logged once at first use: an explicit downgrade, never a silent one.
-  `SameSite=Lax` rather than `Strict` because the portal is reached by clicking
-  a link in a mail client, and `Strict` drops the cookie on exactly that
-  navigation.
-- **Native:** the `X-Mercaria-Portal-Token` response header once, then
-  `expo-secure-store`, then the request header of the same name. Delivered by a
-  VERIFIED universal/app link and never a custom scheme, which any app on the
-  device can register (ADR 0003 T14).
-- **CSRF:** strict Origin (else Referer) verification against
-  `lib/allowed-origins.ts` — the SAME list CORS reads, no second authority and
-  no double-submit token — for every cookie-authenticated state change AND for
-  the exchange, which SETS a cookie. Header transport is exempt: a custom header
-  forces a CORS preflight the existing allowlist already refuses cross-site.
+Portal possession remains separate from Oxy identity: portal reads use the
+presented grant; claim and confirmation operations that require a commerce actor
+retain the strict Oxy-before-guest rule. Account switching cancels old operations
+and isolates UI data without inventing a new portal owner.
 
-### What the client must do, because the server cannot
-
-The token is in the fragment precisely so the server never sees it, which makes
-three obligations the storefront's (`app/(app)/guest-orders/portal.tsx`):
-
-1. **Strip it immediately** — `history.replaceState` removes it from the address
-   bar and from the entry the back button would return to, before the exchange
-   resolves. The value is captured into a local first: replacing the URL is what
-   makes it unreadable, so reading it has to come first.
-2. **`<meta name="referrer" content="no-referrer">`** on the portal and recovery
-   screens, so that even in the window before the strip no subresource can carry
-   the location to a third party.
-3. **Exchange ONCE** — a `useRef` guard plus `retry: false` on the mutation.
-   React's development double-invoke, a fast refresh or a query retry would each
-   burn a grant and leave the buyer told their link is invalid.
+See [ADR 0003 D9/D10](adr/0003-commerce-actor-guest-identity.md#d9-explicit-commerce-headers-on-web-and-native)
+for the web storage tradeoff and the production population evidence. There is no
+portal-cookie migration endpoint because no existing grant population was found;
+rollout rechecks that premise. Referral evidence has a separate bounded exchange.
 
 ## The operator surface
 

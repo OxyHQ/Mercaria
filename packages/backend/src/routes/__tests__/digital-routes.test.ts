@@ -196,7 +196,7 @@ vi.mock('../../middleware/commerce-actor.js', () => ({
       kind === 'oxy'
         ? { kind: 'oxy', oxyUserId: OWNER_USER }
         : kind === 'guest'
-          ? { kind: 'guest', guestSessionId: 'guest-session-1', transport: 'header' }
+          ? { kind: 'guest', guestSessionId: 'guest-session-1' }
           : { kind: 'anonymous' };
     next();
   },

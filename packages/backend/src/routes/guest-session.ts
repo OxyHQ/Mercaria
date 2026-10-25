@@ -13,9 +13,8 @@
  * reaches it, so acceptance 7 ("no page view alone creates a guest row")
  * holds by construction.
  *
- * The bearer token appears ONLY in `Set-Cookie` (cookie transport) or the
- * `X-Mercaria-Guest-Token` response header (header transport) — never in a
- * response body, on any path here (D9).
+ * The bearer appears only in `X-Mercaria-Guest-Token`, with absolute expiry
+ * and generation headers; never in a response body or cookie (D9).
  */
 
 import { Router, type Request, type Response } from 'express';
@@ -47,8 +46,8 @@ router.use(resolveCommerceActor);
  *   duplicate beside a live credential, and a retried ensure converges on the
  *   same session.
  * - An anonymous caller gets a fresh session (201), credential answered in
- *   the declared transport. An INVALID presented credential does not block
- *   re-issuance: this is a rate-limited WRITE, and a buyer whose cookie
+ *   the negotiated header. An INVALID presented credential does not block
+ *   re-issuance: this is a rate-limited WRITE, and a buyer whose credential
  *   expired must be able to start over (D2's no-minting rule is about READS).
  * - An Oxy-authenticated caller is refused (409): guest sessions exist for
  *   the person with no Oxy session, and nothing holds both actors at once.
@@ -72,7 +71,7 @@ async function ensureGuestSession(req: Request, res: Response): Promise<void> {
     }
 
     const context = await issueGuestActor(req, res);
-    if (!context) return; // refused (CSRF) — already answered
+    if (!context) return; // refused — already answered
     sendSuccess(res, toGuestSessionState(context.resolved.session, new Date()), 201);
   } catch (err) {
     if (err instanceof GuestIssuanceDisabledError) {
@@ -167,7 +166,7 @@ async function rotatePresentedSession(req: Request, res: Response): Promise<void
       return;
     }
 
-    setGuestCredential(res, rotated.token, context.transport);
+    setGuestCredential(res, rotated.token, rotated.session);
     sendSuccess(res, toGuestSessionState(rotated.session, now));
   } catch (err) {
     log.guest.error({ err }, 'Failed to rotate guest session');
@@ -176,24 +175,23 @@ async function rotatePresentedSession(req: Request, res: Response): Promise<void
 }
 
 /**
- * DELETE /guest/session — revoke the presented session and clear its cookie.
+ * DELETE /guest/session — revoke the presented session and return a clear header.
  *
  * Always 204, deliberately: revocation is idempotent, and answering
  * differently for a live, expired or absent credential would make this a
  * validity oracle. An Oxy caller's presented session is NOT revoked here —
- * that is the merge transaction's job (#104) — but the cookie is cleared,
- * since a signed-in browser has no use for it.
+ * that is the merge transaction's job (#104). This explicit forget action
+ * still returns a clear header for the credential presented by the caller.
  */
 async function revokePresentedSession(req: Request, res: Response): Promise<void> {
   try {
     const actor = req.commerceActor;
     if (actor?.kind === 'guest' && req.guestSessionContext) {
       await revokeGuestSession(req.guestSessionContext.resolved.session.id, new Date());
-      clearGuestCredential(res, req.guestSessionContext.transport);
+      clearGuestCredential(res);
     } else {
-      // Without a valid session the transport is unknowable; clearing the
-      // cookie unconditionally is a no-op when none was set.
-      clearGuestCredential(res, 'cookie');
+      // The same clear response hides whether a credential existed.
+      clearGuestCredential(res);
     }
     res.status(204).end();
   } catch (err) {

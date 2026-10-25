@@ -32,7 +32,7 @@ import type { Server } from 'node:http';
 import { eq } from 'drizzle-orm';
 
 const ALLOWED_ORIGIN = 'https://mercaria.co';
-const DEV_COOKIE = 'mercaria_guest_dev';
+const TOKEN_HEADER = 'x-mercaria-guest-token';
 
 /** A unique-per-run suffix so parallel workers never collide on an id. */
 const RUN = Math.random().toString(36).slice(2, 10);
@@ -163,37 +163,38 @@ afterAll(async () => {
  * drops when the suite ends.
  */
 
-/** The bare `name=value` pair out of a `Set-Cookie` line, for replay. */
-function cookiePair(setCookie: string): string {
-  return setCookie.split(';')[0];
-}
-
 /** Add a line to a fresh guest cart and return the credential to replay. */
 async function guestCartWithOneItem(): Promise<string> {
   const res = await fetch(`${baseUrl}/cart/items`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', origin: ALLOWED_ORIGIN },
+    headers: {
+      'content-type': 'application/json',
+      origin: ALLOWED_ORIGIN,
+      'x-mercaria-guest-transport': 'header',
+    },
     body: JSON.stringify({ listingId, variantId, quantity: 1 }),
   });
   expect(res.status).toBe(201);
-  const setCookie = res.headers.getSetCookie().find((c) => c.startsWith(`${DEV_COOKIE}=`));
-  expect(setCookie, 'the cart write should have minted a guest credential').toBeDefined();
-  return cookiePair(setCookie as string);
+  const token = res.headers.get(TOKEN_HEADER);
+  expect(token, 'the cart write should have minted a guest credential').toBeTruthy();
+  expect(res.headers.getSetCookie()).toEqual([]);
+  if (!token) throw new Error('Missing issued guest header');
+  return token;
 }
 
 /** `POST /checkout` with a guest credential. */
-async function guestCheckout(cookie: string, body: unknown): Promise<Response> {
+async function guestCheckout(token: string, body: unknown): Promise<Response> {
   return fetch(`${baseUrl}/checkout`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', origin: ALLOWED_ORIGIN, cookie },
+    headers: { 'content-type': 'application/json', origin: ALLOWED_ORIGIN, [TOKEN_HEADER]: token },
     body: JSON.stringify(body),
   });
 }
 
 describe('a guest places an order with an inline destination and contact', () => {
   it('accepts the new contract, snapshots the destination, and creates the contact record', async () => {
-    const cookie = await guestCartWithOneItem();
-    const res = await guestCheckout(cookie, {
+    const token = await guestCartWithOneItem();
+    const res = await guestCheckout(token, {
       destination: { type: 'inline_shipping_address', address: INLINE_ADDRESS },
       contact: { email: 'Jane.Doe@Example.COM', phone: '+34 600 123 456' },
     });
@@ -245,8 +246,8 @@ describe('a guest places an order with an inline destination and contact', () =>
   });
 
   it('records marketing consent separately, and only when it was given', async () => {
-    const cookie = await guestCartWithOneItem();
-    const res = await guestCheckout(cookie, {
+    const token = await guestCartWithOneItem();
+    const res = await guestCheckout(token, {
       destination: { type: 'inline_shipping_address', address: INLINE_ADDRESS },
       contact: { email: 'optin@example.com' },
       marketingOptIn: true,
@@ -262,7 +263,7 @@ describe('a guest places an order with an inline destination and contact', () =>
   });
 
   it('converges on the same group and the SAME contact for a repeated Idempotency-Key', async () => {
-    const cookie = await guestCartWithOneItem();
+    const token = await guestCartWithOneItem();
     const key = `idem-${RUN}-${Math.random().toString(36).slice(2, 8)}`;
     const body = {
       destination: { type: 'inline_shipping_address', address: INLINE_ADDRESS },
@@ -273,7 +274,7 @@ describe('a guest places an order with an inline destination and contact', () =>
       headers: {
         'content-type': 'application/json',
         origin: ALLOWED_ORIGIN,
-        cookie,
+        [TOKEN_HEADER]: token,
         'idempotency-key': key,
       },
       body: JSON.stringify(body),
@@ -289,7 +290,11 @@ describe('a guest places an order with an inline destination and contact', () =>
     // `orders_idempotency_key_key`, releases its own reservations and converges.
     await fetch(`${baseUrl}/cart/items`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', origin: ALLOWED_ORIGIN, cookie },
+      headers: {
+        'content-type': 'application/json',
+        origin: ALLOWED_ORIGIN,
+        [TOKEN_HEADER]: token,
+      },
       body: JSON.stringify({ listingId, variantId, quantity: 1 }),
     });
 
@@ -301,7 +306,7 @@ describe('a guest places an order with an inline destination and contact', () =>
       headers: {
         'content-type': 'application/json',
         origin: ALLOWED_ORIGIN,
-        cookie,
+        [TOKEN_HEADER]: token,
         'idempotency-key': key,
       },
       body: JSON.stringify({ ...body, contact: { email: 'different@example.com' } }),
@@ -336,10 +341,14 @@ describe('a guest places an order with an inline destination and contact', () =>
  */
 describe('a guest names the currency they were shown', () => {
   it('prices the order in the requested currency, from the QUERY string', async () => {
-    const cookie = await guestCartWithOneItem();
+    const token = await guestCartWithOneItem();
     const res = await fetch(`${baseUrl}/checkout?currency=EUR`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', origin: ALLOWED_ORIGIN, cookie },
+      headers: {
+        'content-type': 'application/json',
+        origin: ALLOWED_ORIGIN,
+        [TOKEN_HEADER]: token,
+      },
       body: JSON.stringify({
         destination: { type: 'inline_shipping_address', address: INLINE_ADDRESS },
         contact: { email: 'currency@example.com' },
@@ -363,8 +372,8 @@ describe('a guest names the currency they were shown', () => {
   });
 
   it('REFUSES the same value in the body, whatever the query string says', async () => {
-    const cookie = await guestCartWithOneItem();
-    const res = await guestCheckout(cookie, {
+    const token = await guestCartWithOneItem();
+    const res = await guestCheckout(token, {
       destination: { type: 'inline_shipping_address', address: INLINE_ADDRESS },
       contact: { email: 'currency-body@example.com' },
       currency: 'EUR',
@@ -378,8 +387,8 @@ describe('a guest names the currency they were shown', () => {
 
 describe('what a guest checkout is refused', () => {
   it('refuses a guest with no contact, before anything is reserved', async () => {
-    const cookie = await guestCartWithOneItem();
-    const res = await guestCheckout(cookie, {
+    const token = await guestCartWithOneItem();
+    const res = await guestCheckout(token, {
       destination: { type: 'inline_shipping_address', address: INLINE_ADDRESS },
     });
     expect(res.status).toBe(400);
@@ -388,8 +397,8 @@ describe('what a guest checkout is refused', () => {
   });
 
   it('refuses a guest naming a SAVED address, with an account-shaped reason', async () => {
-    const cookie = await guestCartWithOneItem();
-    const res = await guestCheckout(cookie, {
+    const token = await guestCartWithOneItem();
+    const res = await guestCheckout(token, {
       destination: { type: 'saved_address', addressId: 'someone-elses-address' },
       contact: { email: 'jane@example.com' },
     });
@@ -405,8 +414,8 @@ describe('what a guest checkout is refused', () => {
     // unconditionally — a `destination_incomplete` naming the seller keys —
     // which is exactly what #105 built the contract around, so no client had
     // to change.
-    const cookie = await guestCartWithOneItem();
-    const res = await guestCheckout(cookie, {
+    const token = await guestCartWithOneItem();
+    const res = await guestCheckout(token, {
       destination: {
         type: 'pickup',
         locationId: 'some-location',
@@ -426,8 +435,8 @@ describe('what a guest checkout is refused', () => {
   });
 
   it('refuses an invalid country and an invalid postal code by FIELD, never by value', async () => {
-    const cookie = await guestCartWithOneItem();
-    const bad = await guestCheckout(cookie, {
+    const token = await guestCartWithOneItem();
+    const bad = await guestCheckout(token, {
       destination: {
         type: 'inline_shipping_address',
         address: { ...INLINE_ADDRESS, country: 'ZZ' },
@@ -437,7 +446,7 @@ describe('what a guest checkout is refused', () => {
     expect(bad.status).toBe(400);
     expect(((await bad.json()) as { message: string }).message).toMatch(/ISO-3166/);
 
-    const badPostal = await guestCheckout(cookie, {
+    const badPostal = await guestCheckout(token, {
       destination: {
         type: 'inline_shipping_address',
         address: { ...INLINE_ADDRESS, postalCode: '999' },
@@ -449,8 +458,8 @@ describe('what a guest checkout is refused', () => {
   });
 
   it('refuses a body carrying BOTH contract versions rather than guessing', async () => {
-    const cookie = await guestCartWithOneItem();
-    const res = await guestCheckout(cookie, {
+    const token = await guestCartWithOneItem();
+    const res = await guestCheckout(token, {
       addressId: 'addr-1',
       destination: { type: 'inline_shipping_address', address: INLINE_ADDRESS },
       contact: { email: 'jane@example.com' },
@@ -460,8 +469,8 @@ describe('what a guest checkout is refused', () => {
   });
 
   it('refuses a card-shaped field outright — the schema is `.strict()`', async () => {
-    const cookie = await guestCartWithOneItem();
-    const res = await guestCheckout(cookie, {
+    const token = await guestCartWithOneItem();
+    const res = await guestCheckout(token, {
       destination: { type: 'inline_shipping_address', address: INLINE_ADDRESS },
       contact: { email: 'jane@example.com' },
       cardNumber: '4242424242424242',
@@ -472,7 +481,11 @@ describe('what a guest checkout is refused', () => {
   it('refuses an anonymous caller with no credential at all', async () => {
     const res = await fetch(`${baseUrl}/checkout`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', origin: ALLOWED_ORIGIN },
+      headers: {
+        'content-type': 'application/json',
+        origin: ALLOWED_ORIGIN,
+        'x-mercaria-guest-transport': 'header',
+      },
       body: JSON.stringify({
         destination: { type: 'inline_shipping_address', address: INLINE_ADDRESS },
         contact: { email: 'jane@example.com' },
@@ -485,8 +498,8 @@ describe('what a guest checkout is refused', () => {
 
 describe('the old `addressId` contract still reaches the server', () => {
   it('is ACCEPTED by the schema and refused only by the actor rule', async () => {
-    const cookie = await guestCartWithOneItem();
-    const res = await guestCheckout(cookie, {
+    const token = await guestCartWithOneItem();
+    const res = await guestCheckout(token, {
       addressId: 'addr-legacy',
       contact: { email: 'jane@example.com' },
     });
@@ -531,7 +544,11 @@ describe('P2P stays blocked for guests until #112', () => {
 
     const first = await fetch(`${baseUrl}/cart/items`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', origin: ALLOWED_ORIGIN },
+      headers: {
+        'content-type': 'application/json',
+        origin: ALLOWED_ORIGIN,
+        'x-mercaria-guest-transport': 'header',
+      },
       body: JSON.stringify({
         listingId: p2pListing.id,
         variantId: p2pVariant.id,
@@ -539,11 +556,11 @@ describe('P2P stays blocked for guests until #112', () => {
       }),
     });
     expect(first.status).toBe(201);
-    const cookie = cookiePair(
-      first.headers.getSetCookie().find((c) => c.startsWith(`${DEV_COOKIE}=`)) as string,
-    );
+    const token = first.headers.get(TOKEN_HEADER);
+    if (!token) throw new Error('Missing issued guest header');
+    expect(first.headers.getSetCookie()).toEqual([]);
 
-    const res = await guestCheckout(cookie, {
+    const res = await guestCheckout(token, {
       destination: { type: 'inline_shipping_address', address: INLINE_ADDRESS },
       contact: { email: 'jane@example.com' },
     });

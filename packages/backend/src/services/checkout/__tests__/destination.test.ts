@@ -25,7 +25,7 @@ const { addressBookOwnerForActor, destinationFromInput, resolveCheckoutContract 
 );
 
 const OXY: CommerceActor = { kind: 'oxy', oxyUserId: 'buyer-1' };
-const GUEST: CommerceActor = { kind: 'guest', guestSessionId: 'gs-1', transport: 'cookie' };
+const GUEST: CommerceActor = { kind: 'guest', guestSessionId: 'gs-1', clientClass: 'web' };
 const ANON: CommerceActor = { kind: 'anonymous' };
 
 const SAVED_ROW = {

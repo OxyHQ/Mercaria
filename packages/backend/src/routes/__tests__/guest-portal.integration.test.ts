@@ -3,7 +3,7 @@
  *
  * `createApp()` builds the middleware chain production runs, so what is
  * asserted here is the wire behaviour a browser or the Expo app actually gets:
- * which transport carries the credential, which requests the CSRF gate refuses,
+ * explicit credential headers, refusal before unsupported issuance,
  * that the token never appears in a response body, and — the property the whole
  * recovery flow rests on — that a matching address and a non-matching one
  * produce byte-identical answers.
@@ -16,13 +16,6 @@
  * switched off — #108 acceptance 10 and ADR 0003 M8. If this file ever needs to
  * turn it on to make the portal answer, that is the regression.
  *
- * ## Under NODE_ENV=test the DEV cookie profile is active
- *
- * `mercaria_portal_dev`, HttpOnly, SameSite=Lax, Path=/, WITHOUT `Secure` — the
- * explicit dev downgrade. The production profile (`__Host-mercaria_portal` +
- * `Secure`) is asserted separately below under a stubbed `NODE_ENV`, because a
- * browser refuses a Secure cookie over plain HTTP and pinning it against a
- * loopback listener would test nothing real.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -30,13 +23,11 @@ import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 
 const ALLOWED_ORIGIN = 'https://mercaria.co';
-const DEV_COOKIE = 'mercaria_portal_dev';
 const TOKEN_HEADER = 'x-mercaria-portal-token';
 
 let baseUrl: string;
 const servers: Server[] = [];
 let closePostgres: typeof import('../../db/postgres.js').closePostgres;
-let portalCookieProfile: typeof import('../../middleware/guest-portal.js').portalCookieProfile;
 let ACKNOWLEDGEMENT: string;
 
 beforeAll(async () => {
@@ -50,7 +41,6 @@ beforeAll(async () => {
   const postgres = await import('../../db/postgres.js');
   closePostgres = postgres.closePostgres;
   await postgres.connectPostgres();
-  ({ portalCookieProfile } = await import('../../middleware/guest-portal.js'));
   ({ GUEST_RECOVERY_ACKNOWLEDGEMENT: ACKNOWLEDGEMENT } = await import('../guest-orders.js'));
 
   const server = createApp().listen(0);
@@ -68,7 +58,12 @@ afterAll(async () => {
 async function post(path: string, body: unknown, headers: Record<string, string> = {}) {
   return await fetch(`${baseUrl}${path}`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', origin: ALLOWED_ORIGIN, ...headers },
+    headers: {
+      'content-type': 'application/json',
+      origin: ALLOWED_ORIGIN,
+      'x-mercaria-portal-transport': 'header',
+      ...headers,
+    },
     body: JSON.stringify(body),
   });
 }
@@ -160,55 +155,105 @@ describe('the exchange refuses everything uniformly (magic-link rule 8)', () => 
   });
 });
 
-describe('CSRF: a cookie-carried write needs an allow-listed Origin (D10)', () => {
-  it('refuses the exchange from a foreign Origin, and sets no cookie', async () => {
-    // In the REAL chain a foreign Origin dies at the CORS layer (whose
-    // error-throwing callback lands in the 500 handler) before the CSRF gate
-    // can see it — both read the SAME allowlist, which is D10's point. What
-    // matters at the wire is that the write is REFUSED and no credential
-    // leaves; the gate's own 403 is the defence in depth should the CORS
-    // handler ever soften, and it is what the originless case below pins.
-    const res = await post(
-      '/guest/orders/exchange',
-      { token: `mgx_${'A'.repeat(43)}` },
-      { origin: 'https://evil.example' },
-    );
-    expect(res.ok).toBe(false);
-    expect(res.headers.getSetCookie()).toHaveLength(0);
+describe('legacy portal clients fail before consuming access links', () => {
+  it('preserves a real single-use link for a header-capable client and keeps portal scope/revocation', async () => {
+    const { getDb } = await import('../../db/postgres.js');
+    const { guestCheckouts } = await import('../../db/schema/guests.js');
+    const { guestOrderAccessGrants } = await import('../../db/schema/guestPortal.js');
+    const { eq } = await import('drizzle-orm');
+    const { mintExchangeGrant } = await import('../../services/guest-portal/grant.service.js');
+    const db = getDb();
+    const group = `http-portal-${crypto.randomUUID()}`;
+    const [contact] = await db
+      .insert(guestCheckouts)
+      .values({
+        checkoutGroupId: group,
+        guestSessionId: `fixture-${crypto.randomUUID()}`,
+        emailCiphertext: 'v1:aaa:bbb:ccc',
+        emailHash: crypto.randomUUID(),
+        emailRedacted: 't***@example.com',
+        marketingOptIn: false,
+      })
+      .returning();
+    try {
+      const minted = await mintExchangeGrant(db, {
+        checkoutGroupId: group,
+        guestCheckoutId: contact.id,
+        reason: 'recovery',
+        now: new Date(),
+      });
+      const old = await fetch(`${baseUrl}/guest/orders/exchange`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', origin: ALLOWED_ORIGIN },
+        body: JSON.stringify({ token: minted.token }),
+      });
+      expect(old.status).toBe(426);
+      const [unconsumed] = await db
+        .select()
+        .from(guestOrderAccessGrants)
+        .where(eq(guestOrderAccessGrants.id, minted.grant.id));
+      expect(unconsumed.consumedAt).toBeNull();
+      const exchanged = await post('/guest/orders/exchange', { token: minted.token });
+      expect(exchanged.status).toBe(201);
+      const portal = exchanged.headers.get(TOKEN_HEADER) ?? '';
+      expect(portal).toMatch(/^mgp_/);
+      expect(exchanged.headers.getSetCookie()).toEqual([]);
+      const created = (await exchanged.json()) as {
+        data: { checkoutGroupId: string; expiresAt: string };
+      };
+      expect(created.data.checkoutGroupId).toBe(group);
+      expect(exchanged.headers.get('x-mercaria-portal-expires-at')).toBe(created.data.expiresAt);
+      // Portal possession is its own credential, not a downgrade from Oxy auth.
+      const inspect = await fetch(`${baseUrl}/guest/orders/session`, {
+        headers: { [TOKEN_HEADER]: portal, authorization: 'Basic irrelevant-to-portal' },
+      });
+      expect(inspect.status).toBe(200);
+      expect(
+        (
+          await fetch(`${baseUrl}/guest/orders/another-group`, {
+            headers: { [TOKEN_HEADER]: portal },
+          })
+        ).status,
+      ).toBe(404);
+      expect((await post('/guest/orders/exchange', { token: minted.token })).status).toBe(401);
+      const revoked = await fetch(`${baseUrl}/guest/orders/session`, {
+        method: 'DELETE',
+        headers: { [TOKEN_HEADER]: portal },
+      });
+      expect(revoked.status).toBe(204);
+      expect(revoked.headers.get(TOKEN_HEADER)).toBe('');
+      expect(
+        (await fetch(`${baseUrl}/guest/orders/session`, { headers: { [TOKEN_HEADER]: portal } }))
+          .status,
+      ).toBe(401);
+    } finally {
+      await db
+        .delete(guestOrderAccessGrants)
+        .where(eq(guestOrderAccessGrants.guestCheckoutId, contact.id));
+      await db.delete(guestCheckouts).where(eq(guestCheckouts.id, contact.id));
+    }
+  });
+  it('refuses an undeclared client even with a trusted Origin', async () => {
+    const res = await fetch(`${baseUrl}/guest/orders/exchange`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: ALLOWED_ORIGIN },
+      body: JSON.stringify({ token: `mgx_${'A'.repeat(43)}` }),
+    });
+    expect(res.status).toBe(426);
+    expect(res.headers.getSetCookie()).toEqual([]);
     expect(res.headers.get(TOKEN_HEADER)).toBeNull();
   });
 
-  it('refuses a cookie-transport exchange with NO Origin and no Referer', async () => {
-    const res = await fetch(`${baseUrl}/guest/orders/exchange`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ token: `mgx_${'A'.repeat(43)}` }),
+  it('does not authenticate a portal cookie or treat it as absent access', async () => {
+    const res = await fetch(`${baseUrl}/guest/orders/session`, {
+      headers: { cookie: `mercaria_portal_dev=mgp_${'A'.repeat(43)}` },
     });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(426);
   });
 
-  it('lets HEADER transport through without an Origin — a custom header forces a preflight', async () => {
-    const res = await fetch(`${baseUrl}/guest/orders/exchange`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-mercaria-portal-transport': 'header',
-      },
-      body: JSON.stringify({ token: `mgx_${'A'.repeat(43)}` }),
-    });
-    // Past the CSRF gate and refused by the token instead, which is the
-    // distinction: 401 means the credential was judged, 403 means it never was.
-    expect(res.status).toBe(401);
-  });
-
-  it('accepts an allow-listed Referer when Origin is absent', async () => {
-    const res = await fetch(`${baseUrl}/guest/orders/exchange`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        referer: `${ALLOWED_ORIGIN}/guest-orders/portal`,
-      },
-      body: JSON.stringify({ token: `mgx_${'A'.repeat(43)}` }),
+  it('an explicit invalid header never falls back to a cookie', async () => {
+    const res = await fetch(`${baseUrl}/guest/orders/session`, {
+      headers: { [TOKEN_HEADER]: 'invalid', cookie: `mercaria_portal_dev=mgp_${'A'.repeat(43)}` },
     });
     expect(res.status).toBe(401);
   });
@@ -260,35 +305,5 @@ describe('the portal is reachable with guest commerce OFF (acceptance 10)', () =
     // ...and the PORTAL is not. 202 and 401 are answers from the handlers.
     expect((await post('/guest/orders/recover', { email: 'a@example.com' })).status).toBe(202);
     expect((await fetch(`${baseUrl}/guest/orders/session`)).status).toBe(401);
-  });
-});
-
-describe('the cookie profile', () => {
-  it('is the explicit dev downgrade under a non-production NODE_ENV', () => {
-    const profile = portalCookieProfile();
-    expect(profile.name).toBe(DEV_COOKIE);
-    expect(profile.options.secure).toBe(false);
-    expect(profile.options.httpOnly).toBe(true);
-    expect(profile.options.sameSite).toBe('lax');
-    expect(profile.options.path).toBe('/');
-  });
-
-  it('is `__Host-` prefixed and Secure in production', () => {
-    // `__Host-` forbids a `Domain` attribute, so no sibling subdomain can plant
-    // or shadow the cookie (ADR 0003 T1). `SameSite=Lax` rather than `Strict`
-    // because the portal is reached by clicking a link in a mail client, and
-    // `Strict` drops the cookie on exactly that navigation.
-    const previous = process.env.NODE_ENV;
-    process.env.NODE_ENV = 'production';
-    try {
-      const profile = portalCookieProfile();
-      expect(profile.name).toBe('__Host-mercaria_portal');
-      expect(profile.options.secure).toBe(true);
-      expect(profile.options.httpOnly).toBe(true);
-      expect(profile.options.sameSite).toBe('lax');
-      expect(profile.options.path).toBe('/');
-    } finally {
-      process.env.NODE_ENV = previous;
-    }
   });
 });

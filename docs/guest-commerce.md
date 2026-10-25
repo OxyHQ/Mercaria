@@ -1,6 +1,6 @@
 # Guest commerce: sessions, cart ownership and inline checkout
 
-> #103, #104 and #105, moved out of `AGENTS.md` unchanged. ADR 0003 is binding.
+> #103, #104 and #105, updated for the 2026-10-25 cookie-free decision. ADR 0003 is binding.
 
 ## Guest sessions and the CommerceActor resolver (#103, ADR 0003)
 
@@ -16,25 +16,24 @@ appearing where an Oxy id is expected.
   existing `createOptionalOxyAuth` — never a second Oxy verifier. Cart/checkout
   adopt it in #104 (M6/M7); until then only `/guest/session` consumes it.
 - **Precedence (D2): Oxy wins; a failed Bearer is a 401, never a downgrade to
-  the guest cookie; an invalid guest credential resolves as ABSENT** (marked
+  a guest credential; an invalid guest credential resolves as ABSENT** (marked
   `req.guestCredential='invalid'`). A valid guest credential beside Oxy auth is
   surfaced ONLY as `presentedGuestSessionId`, whose only legitimate consumers
   are cart merge (#104) and claim (#109).
 - **Token:** `mgs_` + 32 CSPRNG bytes base64url; server stores hex SHA-256 only
   (`guest_sessions.token_hash`, unique). NO pepper — see `CONVENTIONS.md`
-  §guest domain. Plaintext exists in exactly two response carriages:
-  `Set-Cookie` (web) or the `X-Mercaria-Guest-Token` response header (native,
-  declared with `X-Mercaria-Guest-Transport: header` on the issuing write) —
-  NEVER a response body, log line, URL or analytics event.
-- **Web cookie (D9):** `__Host-mercaria_guest` — HttpOnly, Secure,
-  SameSite=Lax, Path=/, no Domain. Dev uses `mercaria_guest_dev` WITHOUT
-  Secure under a different name, logged at first use — an explicit downgrade,
-  never a silent one.
-- **CSRF (D10):** strict Origin (else Referer) verification for every
-  cookie-authenticated state-changing request AND cookie-transport issuance,
-  against `lib/allowed-origins.ts` — the SAME list CORS reads; do not create a
-  second origin authority or a double-submit token. Header transport is exempt
-  (custom header ⇒ CORS preflight).
+  §guest domain. Plaintext is returned only in `X-Mercaria-Guest-Token`, never
+  a response body, log, URL or analytics event. Issuing writes must declare
+  `X-Mercaria-Guest-Transport: header` before any session is created.
+- **Web and native:** explicit headers share the same server authority. Web
+  uses origin-isolated localStorage; native retains secure storage. Expiry and
+  generation response headers describe server state, not client-granted access.
+  Credential responses are `no-store`; ordinary requests omit cookies.
+- **Browser boundary:** the existing CORS origin list permits the explicit
+  headers and does not enable ambient credentials. Old undeclared clients are
+  refused before minting; cookie-only commerce is never silently replaced.
+  See [ADR 0003 D9/D10](adr/0003-commerce-actor-guest-identity.md#d9-explicit-commerce-headers-on-web-and-native)
+  and the [cutover review](reviews/2026-10-25-cookie-free-commerce.md).
 - **Issuance is LAZY and a WRITE** (`issueGuestActor`): the ensure endpoint
   today, cart writes in #104 — a page view never creates a row (T10).
   Rate-limited on the dedicated `rl:guest-issue:` bucket. Rejection of
@@ -43,8 +42,7 @@ appearing where an Oxy id is expected.
 - **Expiry (D3/D11):** `expires_at` (90 d absolute) is the only stored
   deadline; idle expiry (30 d from `last_seen_at`, written at ≥60 s
   granularity) lives in the resolver. Rotation swaps `token_hash` in place with
-  a 60 s `previous_token_hash` grace; the 7-day activity rotation answers in
-  kind from the resolver. Purge = two expiry-sweep targets (7 d past
+  a 60 s `previous_token_hash` grace; the 7-day activity rotation returns new headers from the resolver. Purge = two expiry-sweep targets (7 d past
   expiry/revocation), hard DELETE.
 - **Flags (M8):** `GUEST_COMMERCE_ENABLED` (default false) gates the MOUNT and
   requires BOTH `GUEST_PII_ENCRYPTION_KEY` and `GUEST_EMAIL_HASH_KEY` (the
@@ -126,10 +124,10 @@ there is nothing guest-shaped to fork, and no `GuestCart` model.
   allow-list beside payments and catalog for the reason those two are separate.
   Empty = not mounted (404). Read-only: every repair is already an idempotent
   path a buyer drives.
-- **Frontend:** `lib/stores/guest-credential-store.ts` holds the NATIVE token
-  (`expo-secure-store`, hydrated at module import so it is on the first
-  request); web holds nothing because the credential is an `HttpOnly` cookie
-  and `apiClient` sets `withCredentials`. `useGuestCartMerge` is a React Query
+- **Frontend:** `lib/stores/guest-credential-store.ts` persists the credential
+  in native SecureStore or web localStorage with server expiry and generation.
+  Requests wait for hydration and omit cookies; response updates are fenced
+  against account changes and newer credential revisions. `useGuestCartMerge` is a React Query
   QUERY, not an effect — `enabled` flipping true is the once-per-sign-in
   trigger. There is no analytics module in this app and #104 adds none;
   ADR 0003 I12's dimensions belong to #111's rollout work.

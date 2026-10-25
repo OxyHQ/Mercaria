@@ -19,7 +19,7 @@ import {
   type EligibilitySellerGroup,
 } from '../fulfilment-eligibility.js';
 
-const GUEST: CommerceActor = { kind: 'guest', guestSessionId: 'gs-1', transport: 'cookie' };
+const GUEST: CommerceActor = { kind: 'guest', guestSessionId: 'gs-1', clientClass: 'web' };
 
 const SHIPPING: ResolvedFulfilment = {
   kind: 'shipping',

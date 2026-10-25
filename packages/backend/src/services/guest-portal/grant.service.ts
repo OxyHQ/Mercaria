@@ -103,7 +103,7 @@ export const MAX_LIVE_POST_CHECKOUT_GRANTS = 5;
 
 /** A minted credential and the state its holder is shown. Plaintext, once. */
 export interface IssuedPortalCredential {
-  /** The plaintext bearer token. Carried in a cookie or a response header ONLY. */
+  /** The plaintext bearer token. Carried in an explicit response header ONLY. */
   readonly token: string;
   /** The safe projection of what was minted. Carries no secret. */
   readonly state: GuestPortalSessionState;

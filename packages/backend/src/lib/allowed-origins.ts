@@ -6,14 +6,11 @@
  *
  *  - the CORS layer in `app.ts`, which decides whose scripts may read
  *    responses;
- *  - the guest CSRF gate in `middleware/commerce-actor.ts`, which refuses a
- *    cookie-authenticated state-changing request whose `Origin` (or, absent
- *    that, `Referer`) is not listed here.
+ *  - the finite referral-cookie migration gate, which requires an exact
+ *    Origin on both exchange and acknowledgement; no Referer fallback.
  *
- * D10 chose strict Origin verification over double-submit precisely because
- * this list already exists — a second CSRF secret would be a second authority
- * to keep consistent, and its classic failure mode is only closed by the
- * `__Host-` cookie prefix the transport requires anyway.
+ * Normal commerce uses explicit headers and never ambient cookies. Only the
+ * two migration paths enable credentialed CORS while retiring old evidence.
  */
 
 /** Production web origins. `PRODUCTION_ORIGINS` per `AGENTS.md` §CORS. */
@@ -48,12 +45,9 @@ export const DEV_ORIGINS: readonly string[] = [
  * Every origin a browser may act from: an optional deployment override plus
  * the two lists above. Frozen — a mutation would widen CORS and CSRF at once.
  *
- * `DEV_ORIGINS` are EXCLUDED in production (M8-05). They were included
- * unconditionally, which allow-listed `http://localhost:5173` and ten other
- * development origins for credentialed CORS and for the guest CSRF gate on the
- * live API — inverting ADR 0003 D10, where Origin verification is the control
- * and `SameSite=Lax` only defence in depth. A production deployment that needs
- * one more origin names it in `WEB_URL`.
+ * `DEV_ORIGINS` remain excluded in production (M8-05). This transport change
+ * preserves the existing production allow-list; an extra deployed origin is
+ * configured explicitly through WEB_URL.
  */
 export const ALLOWED_ORIGINS: readonly string[] = allowedOriginsFor(process.env);
 
@@ -132,11 +126,10 @@ export const PUBLIC_READ_CORS_ALLOWED_HEADERS: readonly string[] = Object.freeze
  *    calling application already holds.
  *
  * It widens NOTHING else: {@link ALLOWED_ORIGINS} and
- * {@link isAllowedBrowserOrigin} are unchanged, so the guest CSRF gate — which
- * guards cookie-authenticated writes, none of which live under this path — reads
- * exactly the list it read before. The prefix match is case-SENSITIVE while
+ * {@link isAllowedBrowserOrigin} are unchanged, so the bounded referral migration
+ * gate continues to read exactly that list. The prefix match is case-SENSITIVE while
  * Express routing is not; a request spelled `/PUBLIC/v1/...` therefore reaches
- * the public router under the credentialed policy, which is the restrictive
+ * the public router under the ordinary origin allow-list, which is the restrictive
  * direction.
  */
 export function isPublicReadCorsRequest(method: string, path: string): boolean {

@@ -15,8 +15,6 @@ import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import {
   mintReferralState,
-  referralStateCookieProfile,
-  readReferralStateCookie,
   verifyReferralState,
   REFERRAL_STATE_MAX_LIFETIME_SECONDS,
   REFERRAL_STATE_PREFIX,
@@ -146,47 +144,5 @@ describe('mintReferralState / verifyReferralState', () => {
     // So a carrier is never a stable per-link identifier a third party could
     // correlate two visitors by.
     expect(mint().token).not.toBe(mint().token);
-  });
-});
-
-describe('referralStateCookieProfile', () => {
-  it('is HttpOnly, SameSite=Lax and Path=/ in every environment', () => {
-    const profile = referralStateCookieProfile(1_000);
-    expect(profile.options.httpOnly).toBe(true);
-    expect(profile.options.sameSite).toBe('lax');
-    expect(profile.options.path).toBe('/');
-  });
-
-  it('uses a DIFFERENT NAME when it drops Secure', () => {
-    // The #103 D9 rule: a dev downgrade is explicit, never a silently weaker
-    // production cookie. `__Host-` additionally forbids a Domain, so a sibling
-    // subdomain can never plant or shadow it.
-    const profile = referralStateCookieProfile(1_000);
-    expect(profile.options.secure ? profile.name : `${profile.name}!secure`).toBe(
-      profile.options.secure ? '__Host-mercaria_referral' : 'mercaria_referral_dev!secure',
-    );
-    expect(profile.name.startsWith('__Host-')).toBe(profile.options.secure);
-  });
-});
-
-describe('readReferralStateCookie', () => {
-  it('finds the named cookie among others', () => {
-    expect(
-      readReferralStateCookie('a=1; mercaria_referral_dev=mrf_x; b=2', 'mercaria_referral_dev'),
-    ).toBe('mrf_x');
-  });
-
-  it('answers undefined for absent, empty and oversized headers', () => {
-    expect(readReferralStateCookie(undefined, 'n')).toBeUndefined();
-    expect(readReferralStateCookie('', 'n')).toBeUndefined();
-    expect(readReferralStateCookie('n=', 'n')).toBeUndefined();
-    // Bounded before parsing: a cookie header is attacker-controlled bytes.
-    expect(readReferralStateCookie(`n=v; ${'x'.repeat(9_000)}`, 'n')).toBeUndefined();
-  });
-
-  it('does not confuse a cookie whose name is a suffix of another', () => {
-    expect(
-      readReferralStateCookie('other_mercaria_referral_dev=nope', 'mercaria_referral_dev'),
-    ).toBeUndefined();
   });
 });
