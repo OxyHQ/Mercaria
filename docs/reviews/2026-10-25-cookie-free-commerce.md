@@ -128,7 +128,10 @@ a synthetic HttpOnly cookie and a throwaway migrated database. It verified the
 real preflight, original-byte retries, header precedence, durable write before
 ACK, limiter headers, foreign-origin rejection before POST, ordinary credentialed
 CORS refusal, and the disabled referral feature. No production credentials or
-writes were used. The portable browser regression reproduces these checks.
+writes were used. The portable browser regression reproduces these checks; its
+[final composed receipt](evidence/2026-10-25-cookie-free-commerce-browser.json)
+records the source commit, exact source-file hashes, browser version and real
+observation time separately from the fixed in-window test clock.
 
 Backend HTTP and real-database tests preserve rotation/absolute expiry,
 60-second prior-token grace, uniform revocation, cart ownership, order-group
@@ -143,3 +146,29 @@ and normal portal recovery. Preserve existing Oxy-owned cart identifiers and
 ownership. A successful source test or image build is not a production
 acceptance receipt; the operator records the deployed source/digests and
 bounded readbacks separately.
+
+### Source validation checkpoint
+
+- Backend on Node 24.21.0: 848 suites, 13,113 passing tests and five existing
+  skips. This includes real PostgreSQL rotation/revocation, cart/checkout/portal
+  ownership, financial regressions and public catalog boundaries.
+- Backend under Bun 1.4.3: 7,744 tests across 497 files, with no failures.
+- Storefront: 208 tests in 33 suites, plus the real Chromium storage/HTTP gate.
+  The latter uses the actual Oxy transport and verifies concurrent first-cart
+  writes across two tabs, durable storage before ACK, and failure/reload fences.
+- The separate real `createApp` Chromium gate passed all eight boundary checks.
+  CI runs both browser gates and retains the backend's sanitized receipt.
+- Backend/frontend typechecks, backend build, frontend web export and lint passed.
+  This is source validation, not a claim of live rollout, native-device testing
+  or a production purchase.
+
+Reproduce the gates with the package scripts (`TEST_DATABASE_URL` must name a
+local/test server that permits disposable databases):
+
+```sh
+bun run --cwd packages/backend test
+bun run --cwd packages/backend test:bun
+bun run --cwd packages/frontend test
+bun run --cwd packages/frontend test:commerce-browser
+bun run test:commerce-backend-browser
+```
