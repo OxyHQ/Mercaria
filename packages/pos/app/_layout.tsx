@@ -17,7 +17,7 @@ import AppSplashScreen from '@/components/AppSplashScreen';
 import { PosSettingsProvider } from '@/components/settings/PosSettingsProvider';
 import { SharedUiTranslationProvider, useColorScheme } from '@mercaria/ui';
 import { AppFxProvider } from '@/lib/fx';
-import { setTokenGetter } from '@/lib/api/client';
+import { bindApiClient, releaseApiClient } from '@/lib/api/client';
 import { OXY_CLIENT_ID, OXY_API_URL } from '@/lib/config';
 import { BLOOM_THEME_PERSIST_KEY, BLOOM_THEME_STORAGE } from '@/lib/themePersistence';
 import 'react-native-reanimated';
@@ -46,7 +46,11 @@ const AUTH_REDIRECT_URI = Linking.createURL('/');
 function AuthSetup({ children }: { children: React.ReactNode }) {
   const { oxyServices } = useOxy();
 
-  setTokenGetter(() => oxyServices.session.accessToken || null);
+  bindApiClient(oxyServices);
+  useEffect(() => {
+    bindApiClient(oxyServices);
+    return () => releaseApiClient(oxyServices);
+  }, [oxyServices]);
 
   // The account's colour wears the Bloom theme for every Oxy app; signed out,
   // Bloom's default stays.
