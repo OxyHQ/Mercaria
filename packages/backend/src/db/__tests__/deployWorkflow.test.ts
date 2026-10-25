@@ -28,6 +28,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { parse } from 'yaml';
 import { MIGRATION_RUNS, POST_PHASE_GREP_PATTERN } from '@oxy.so/db/migrate';
@@ -140,6 +141,82 @@ describe('the deploy workflow and the migrator agree', () => {
     expect(ecsTaskScript).toContain('--task-definition "$TASK_DEFINITION"');
     expect(ecsTaskScript).toContain('EXIT_CODE');
   });
+
+  it.each(['mercaria', 'marketplace'])(
+    'renders a historical %s task without the retired shared secret while retaining provider bindings',
+    (formerProduct) => {
+      const steps = (parse(workflow) as WorkflowFile).jobs.deploy.steps;
+      const register = steps.find((step) =>
+        step.name?.startsWith('Resolve the ECS one-shot shape'),
+      );
+      // Execute the production jq filter, not a second implementation of it.
+      const filter = register?.run?.match(
+        /'(\{family,[\s\S]*?)'\s*\\\s*\n\s*<<<"\$DEFINITION"/,
+      )?.[1];
+      if (!filter) throw new Error('The deployment jq renderer was not found');
+      // Historical task data stays outside runtime source; the retirement census
+      // deliberately rejects the old secret name anywhere under backend/src.
+      const retired: { name: string; reference: string; syntheticPlaintext: string } = JSON.parse(
+        readFileSync(
+          join(REPO_ROOT, '.github/scripts/fixtures/retired-service-secret.json'),
+          'utf8',
+        ),
+      );
+      const retainedSecrets = [
+        { name: 'DATABASE_URL', valueFrom: '/oxy/mercaria/DATABASE_URL' },
+        { name: 'STRIPE_SECRET_KEY', valueFrom: '/oxy/mercaria/STRIPE_SECRET_KEY' },
+        { name: 'CONNECTOR_ENCRYPTION_KEY', valueFrom: '/oxy/mercaria/CONNECTOR_ENCRYPTION_KEY' },
+      ];
+      const render = (definition: unknown) =>
+        JSON.parse(
+          execFileSync(
+            'jq',
+            [
+              '--arg',
+              'name',
+              'mercaria',
+              '--arg',
+              'image',
+              'reviewed-image',
+              '--argjson',
+              'pinned_env',
+              '[{"name":"OXY_API_URL","value":"https://api.oxy.so"}]',
+              filter,
+            ],
+            { input: JSON.stringify(definition), encoding: 'utf8' },
+          ),
+        );
+      const actual = render({
+        family: 'oxy-mercaria',
+        taskRoleArn: 'arn:aws:iam::237343248947:role/oxy-mercaria-task',
+        containerDefinitions: [
+          {
+            name: 'mercaria',
+            image: 'previous-image',
+            environment: [
+              { name: retired.name, value: retired.syntheticPlaintext },
+              { name: 'INTEGRATIONS_URL', value: 'https://connector.example' },
+            ],
+            secrets: [
+              ...retainedSecrets,
+              {
+                name: retired.name,
+                valueFrom: retired.reference.replace('/mercaria/', `/${formerProduct}/`),
+              },
+            ],
+          },
+        ],
+      });
+      expect(actual.containerDefinitions[0].secrets).toEqual(retainedSecrets);
+      expect(actual.containerDefinitions[0].environment).toEqual([
+        { name: 'INTEGRATIONS_URL', value: 'https://connector.example' },
+        { name: 'OXY_API_URL', value: 'https://api.oxy.so' },
+      ]);
+      expect(actual.containerDefinitions[0].image).toBe('reviewed-image');
+      expect(actual.taskRoleArn).toBe('arn:aws:iam::237343248947:role/oxy-mercaria-task');
+      expect(render(actual)).toEqual(actual);
+    },
+  );
 
   it('verifies the exact ECS candidate before destructive migrations or catalog publication', () => {
     const steps = (parse(workflow) as WorkflowFile).jobs.deploy.steps;
