@@ -7,7 +7,8 @@ import { OxyServer, type OxyAuthRequest } from '@oxy.so/core/server';
 import { createMercariaClient } from '@mercaria.co/sdk';
 import { mercariaForOxyService, MERCARIA_SERVICE_AUDIENCE } from '@mercaria.co/sdk/server';
 
-const seen = vi.hoisted(() => ({ principals: [] as unknown[], redirect: '' }));
+const seen = { principals: [] as unknown[], redirect: '' };
+const originalApiUrl = process.env.OXY_API_URL;
 // Business projections are covered by public-api-sdk-contract.realdb.test.ts.
 // This suite keeps the actual router, shared auth, limiter, transport and HTTP.
 vi.mock('../../controllers/public-api.controller.js', () => ({
@@ -96,7 +97,7 @@ beforeAll(async () => {
   });
   app.use((_req, res) => res.status(403).json({ authorized: false }));
   authority = await listen(app);
-  vi.stubEnv('OXY_API_URL', authority.url);
+  process.env.OXY_API_URL = authority.url;
   const auth = await import('../auth.js');
   receiver = auth.oxyClient;
   const { makeRateLimiter } = await import('../../lib/rate-limit.js');
@@ -129,7 +130,8 @@ beforeEach(() => {
 afterAll(async () => {
   caller?.dispose();
   receiver?.dispose();
-  vi.unstubAllEnvs();
+  if (originalApiUrl === undefined) delete process.env.OXY_API_URL;
+  else process.env.OXY_API_URL = originalApiUrl;
   for (const fixture of [recipient, authority, leak]) {
     fixture?.server.closeAllConnections();
     if (fixture) await new Promise<void>((resolve) => fixture.server.close(() => resolve()));
