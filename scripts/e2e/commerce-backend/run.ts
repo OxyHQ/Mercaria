@@ -46,6 +46,8 @@ export async function runCommerceBrowserGate(tree = DEFAULT_ROOT): Promise<void>
     rateLimit?: string | number | string[] | null;
   }[] = [];
   const checks: string[] = [];
+  const RealDate = globalThis.Date;
+  let fixtureTime: number | undefined;
   const pageServer = () =>
     createServer((_req, res) => {
       res.setHeader('Content-Type', 'text/html');
@@ -91,6 +93,17 @@ export async function runCommerceBrowserGate(tree = DEFAULT_ROOT): Promise<void>
     const { REFERRAL_COOKIE_CUTOFF } = await import(
       `${tree}/packages/backend/src/routes/referral-cookie-migration.ts`
     );
+    const fixedTime = Number(REFERRAL_COOKIE_CUTOFF) + 1000;
+    fixtureTime = fixedTime;
+    // Date-only fixture in this isolated test process. Network/timer scheduling
+    // remains real; production code and its finite cutoff are not configurable.
+    globalThis.Date = new Proxy(RealDate, {
+      apply: () => new RealDate(fixedTime).toString(),
+      construct: (target, args, newTarget) =>
+        Reflect.construct(target, args.length ? args : [fixedTime], newTarget),
+      get: (target, property, receiver) =>
+        property === 'now' ? () => fixedTime : Reflect.get(target, property, receiver),
+    });
     const app = createApp();
     const api = await listen(
       createServer((req, res) => {
@@ -113,6 +126,7 @@ export async function runCommerceBrowserGate(tree = DEFAULT_ROOT): Promise<void>
     browser = await chromium.launch({ headless: true });
     const context = await browser.newContext();
     const page = await context.newPage();
+    await page.clock.setFixedTime(new RealDate(fixedTime));
     await page.goto(trusted);
     await context.addCookies([
       {
@@ -226,6 +240,7 @@ export async function runCommerceBrowserGate(tree = DEFAULT_ROOT): Promise<void>
     assert.equal(modern, 404);
     checks.push('ordinary omit read succeeds anonymously without ambient cookie owner');
     const foreignPage = await context.newPage();
+    await foreignPage.clock.setFixedTime(new RealDate(fixedTime));
     await foreignPage.goto(foreign);
     const before = requests.filter(
       (r) => r.method === 'POST' && r.path === '/referrals/legacy-cookie-exchange',
@@ -268,7 +283,8 @@ export async function runCommerceBrowserGate(tree = DEFAULT_ROOT): Promise<void>
       `${output}/receipt.json`,
       `${JSON.stringify(
         {
-          observedAt: new Date().toISOString(),
+          observedAt: new RealDate().toISOString(),
+          fixtureTime: fixtureTime === undefined ? null : new RealDate(fixtureTime).toISOString(),
           sourceCommit,
           sourceFiles: sourcesBefore,
           browserVersion: browser.version(),
@@ -286,13 +302,20 @@ export async function runCommerceBrowserGate(tree = DEFAULT_ROOT): Promise<void>
     writeFileSync(
       `${output}/failure.json`,
       `${JSON.stringify(
-        { observedAt: new Date().toISOString(), checks, requests, error: String(error) },
+        {
+          observedAt: new RealDate().toISOString(),
+          fixtureTime: fixtureTime === undefined ? null : new RealDate(fixtureTime).toISOString(),
+          checks,
+          requests,
+          error: String(error),
+        },
         null,
         2,
       )}\n`,
     );
     throw error;
   } finally {
+    globalThis.Date = RealDate;
     await browser?.close();
     for (const server of servers) {
       server.closeAllConnections();
