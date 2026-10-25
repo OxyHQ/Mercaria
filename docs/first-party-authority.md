@@ -18,7 +18,7 @@ Local development needs an attestable registered workload for enabled platform
 integrations. Customer keys never act as a fallback for own workload authority.
 The backend can boot with inactive integrations without minting a token.
 
-## Release gate
+## Earlier candidate validation
 
 This source was validated with the Oxy core 7/contracts 6/MCP 1.4 candidate,
 CrowdSource SDK containing commit `99db506ab`, Peable SDK containing `5ca41fe`, and
@@ -77,8 +77,8 @@ not enable the backend receiver or outbound workload clients.
 Deployment order remains Oxy API preparation, Clarity reader, old Clarity writer
 and worker drain plus reviewed legacy-job reconciliation, Mercaria receiver,
 and finally Clarity's canonical Mercaria caller. Clarity's producer changes must
-not enter the reader deployment. Registry Oxy core 7/contracts 6 and the remaining
-product factory pins are still required before this backend can be released.
+not enter the reader deployment. The registry composition below now satisfies
+the dependency gate; CI and ordered deployment remain required.
 
 The final patched Oxy contract candidate passes 42 receiver/SDK/HTTP/PostgreSQL
 tests plus four company-directory PostgreSQL tests, backend source/test
@@ -88,3 +88,26 @@ response requires; no production identity logic changed. Oxy core 7/contracts 6
 are published, but this checkpoint still awaits the CrowdSource and Peable
 factory releases before the final complete registry composition. No candidate
 paths or overrides are committed.
+
+## Published registry composition, 2026-10-25
+
+The runtime now pins public Oxy core 7.3.0, contracts 6.0.0, services 13.0.0,
+MCP 1.4.0, CrowdSource core 3.1.0/contracts 1.1.1 and Peable SDK 0.5.0. Clarity
+SDK 0.10.0 and Mercaria SDK 0.7.1 were already published. No candidate override
+or local dependency path remains. Installed Oxy/product candidates were removed
+from this worktree before a fresh registry-cache install and frozen verification;
+the installed contracts declaration matches the actual published Zod 4 artifact.
+
+Validation against these registry packages: 54 tests across the public receiver,
+shared workload client, retired middleware guard, real HTTP/PostgreSQL SDK
+contract and Moovo client isolation; backend types/build and all storefront,
+dashboard, POS and shared UI typechecks pass. AGENTS and Biome pass. The earlier
+full domain suite remains applicable to unchanged commerce logic; CI validates
+the complete final source. No financial, tenant, merchant or account rule was
+removed with the old inter-application scope checks.
+
+Clarity's reader and reviewed lineage reconciliation are now complete, as
+verified by the delivery coordinator. This receiver is ready for its own CI and
+release; deploy and verify it before Clarity's canonical Mercaria producer.
+This source checkpoint does not claim Mercaria deployment or retirement of the
+central finite legacy workload transition.
