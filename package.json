@@ -55,7 +55,8 @@
     "seed:digital-3d": "bun run --cwd packages/backend src/scripts/seed-digital-3d.ts",
     "postinstall": "bun run --filter @mercaria/shared-types build && bun run --filter @mercaria/contracts build && bun run --filter @mercaria.co/sdk build",
     "test:edge": "bun test scripts/asset-worker.test.ts",
-    "test:storefront:browser": "playwright test --config scripts/e2e/storefront/playwright.config.ts"
+    "test:storefront:browser": "playwright test --config scripts/e2e/storefront/playwright.config.ts",
+    "test:commerce-backend-browser": "bun --no-env-file scripts/e2e/commerce-backend/run.ts"
   },
   "keywords": [
     "monorepo",
