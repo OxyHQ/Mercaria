@@ -23,12 +23,12 @@ An explicit cohort is registered independently of `STRIPE_ENABLED`. The bounded
 reader exposes only platform-account and exact-subscription GETs, checks the
 existing key mode against the cohort environment, and verifies the platform
 account before registering. Mercaria must have an Oxy identity before any remote
-read: the ECS task role (`oxy-mercaria-task`, oxy ADR 0026), or a full
-`OXY_APPLICATION_KEY`/`OXY_APPLICATION_SECRET` pair off ECS. The Peable SDK is
-handed that identity as its `tokenProvider` (SDK 0.2.5-oxy-one.0); there is no
-Peable credential, and the gateway resolves the merchant from the token's
-application id and environment. `PEABLE_APP_PUBLIC_KEY`/`PEABLE_APP_SECRET` are
-no longer read, and a release removes them from the task definition.
+read: its registered ECS workload (`oxy-mercaria-task`, Oxy ADR 0049).
+`peableForOxyService({ oxy })` owns minting, the exact Peable audience and HTTP
+refresh. Customer key pairs are never a fallback for own authority. The gateway
+still resolves and checks the merchant's application and environment; the
+cohort also checks merchant id, platform Stripe account and livemode before
+registering. No financial consent or domain limit is removed by this change.
 The general client and direct legacy Stripe mutations remain disabled when
 `STRIPE_ENABLED` is off, including stores outside the cohort. A malformed cohort
 also rejects startup in that state. This does not enable checkout actions: the

@@ -12,9 +12,8 @@
  * variant, a price and a `productGroupKey` mean exactly what they meant when
  * Mercaria fetched the store itself, and no source object changes identity.
  *
- * Mercaria calls Clarity as itself: its Oxy service token (the ECS task role,
- * or the application key pair where one is set), which Oxy introspects as one
- * of Oxy's own applications. There is no Clarity credential to hold.
+ * Mercaria uses Clarity's shared workload SDK factory. Oxy verifies its live
+ * registered identity; external customer keys remain a separate scoped lane.
  */
 
 import {
@@ -23,7 +22,8 @@ import {
   type ProductFeedKind,
   type ProductFeedRecordPage,
 } from '@clarity.surf/sdk';
-import { requiredOxyServiceToken } from '../../capabilities/oxy-service-client.js';
+import { clarityForOxyService } from '@clarity.surf/sdk/server';
+import { requiredOxyServiceClient } from '../../capabilities/oxy-service-client.js';
 
 let client: ClarityClient | null = null;
 let testFetch: typeof fetch | null = null;
@@ -31,7 +31,7 @@ let testFetch: typeof fetch | null = null;
 function clarity(): ClarityClient {
   client ??=
     testFetch === null
-      ? new ClarityClient({ getAccessToken: requiredOxyServiceToken })
+      ? clarityForOxyService(requiredOxyServiceClient())
       : new ClarityClient({
           accessToken: 'test',
           fetch: testFetch,

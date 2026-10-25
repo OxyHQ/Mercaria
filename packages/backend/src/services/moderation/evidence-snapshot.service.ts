@@ -4,7 +4,7 @@
  * This composes the SDK's `ReportInput` — NOT a Case Envelope. The envelope,
  * resource ids, relations, digests, principal refs, the binding proof, the policy
  * version, privacy terms and the idempotency key are all derived by
- * `@oxy.so/crowdsource` from what this returns, and deliberately so: two shoppers
+ * `@crowdsource.you/core` from what this returns, and deliberately so: two shoppers
  * reporting one counterfeit listing must produce byte-identical resource lists, or
  * the dedup key differs and one incident opens two cases.
  *
@@ -35,7 +35,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import type { ReportInput } from '@oxy.so/crowdsource';
+import type { ReportInput } from '@crowdsource.you/core';
 import type { AbuseReportRecord } from '../../db/moderation/abuseReportRepository.js';
 import { toTaxonomyCodes } from './report-taxonomy.js';
 import { subjectProviderFor } from './subjects/registry.js';

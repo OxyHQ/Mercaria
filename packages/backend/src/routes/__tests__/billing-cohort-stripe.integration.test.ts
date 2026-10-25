@@ -19,6 +19,24 @@ vi.mock('stripe', async (original) => {
     },
   };
 });
+// Replace only workload minting; the real SDK service transport and HTTP
+// gateway still carry every merchant request and retry.
+vi.mock('@oxy.so/core/server', async (original) => {
+  const actual = await original<typeof import('@oxy.so/core/server')>();
+  return {
+    ...actual,
+    canAttestWorkloadIdentity: () => true,
+    OxyServer: class extends actual.OxyServer {
+      constructor(options: ConstructorParameters<typeof actual.OxyServer>[0]) {
+        super(options);
+        Object.assign(this, {
+          workloadServiceToken: async () =>
+            `e30.${Buffer.from(JSON.stringify({ type: 'service', appId: 'fixture', exp: 2_100_000_000 })).toString('base64url')}.fixture`,
+        });
+      }
+    },
+  };
+});
 const nonce = randomUUID().replaceAll('-', '');
 const otherCohortStoreId = randomUUID().replaceAll('-', '').slice(0, 24);
 const otherCohortCustomer = `cus_second${nonce}`;
@@ -130,9 +148,6 @@ beforeAll(async () => {
     STRIPE_WEBHOOK_SECRET: secret,
     STRIPE_CONNECT_WEBHOOK_SECRET: 'whsec_connect_fixture',
     MERCHANT_BILLING_ENABLED: String(actions),
-    // Mercaria's Oxy identity, minted from the fixture at OXY_API_URL.
-    OXY_APPLICATION_KEY: 'fixture-public',
-    OXY_APPLICATION_SECRET: 'fixture-secret',
     MERCHANT_BILLING_PEABLE_COHORT: JSON.stringify({
       merchantId: 'merchant-fixture',
       applicationId: 'app-fixture',

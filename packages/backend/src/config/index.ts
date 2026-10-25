@@ -519,12 +519,12 @@ function resolveMerchantBillingEnabled(): boolean {
 function resolveCrowdSourceEnabled(): boolean {
   if (!boolEnv('CROWDSOURCE_ENABLED', false)) return false;
 
-  const hasServiceKey = (process.env.CROWDSOURCE_SERVICE_KEY?.trim() ?? '') !== '';
+  const hasWorkloadIdentity = oxyServiceClient() !== null;
   const hasWebhookSecret = (process.env.CROWDSOURCE_WEBHOOK_SECRET?.trim() ?? '') !== '';
-  if (hasServiceKey && hasWebhookSecret) return true;
+  if (hasWorkloadIdentity && hasWebhookSecret) return true;
 
   const missing = [
-    hasServiceKey ? undefined : 'CROWDSOURCE_SERVICE_KEY',
+    hasWorkloadIdentity ? undefined : 'Oxy workload identity',
     hasWebhookSecret ? undefined : 'CROWDSOURCE_WEBHOOK_SECRET',
   ].filter((name): name is string => name !== undefined);
   log.general.error(
@@ -662,9 +662,7 @@ function resolvePeableEnabled(): boolean {
     (name) => (process.env[name]?.trim() ?? '') === '',
   );
   if (oxyServiceClient() === null) {
-    missing.push(
-      'an Oxy identity (ECS task role, or OXY_APPLICATION_KEY + OXY_APPLICATION_SECRET)',
-    );
+    missing.push('a registered Oxy workload identity (ECS task role)');
   }
   if (missing.length === 0) return true;
 
@@ -1262,17 +1260,6 @@ export interface WebConfig {
 export interface CrowdSourceConfig {
   /** Whether the outbox dispatcher delivers. Never gates the durable record. */
   readonly enabled: boolean;
-  /**
-   * `applicationId:credentialId:secret` — ONE opaque value, parsed by the SDK.
-   *
-   * There is deliberately no `CROWDSOURCE_APP_ID` here or anywhere else, and
-   * adding one would be a security regression rather than a convenience.
-   * `applicationId` is read OFF this credential; a separate variable holding it
-   * could only ever disagree with the credential, and any surface able to carry
-   * an `applicationId` independently is the cross-tenant IDOR the tenancy model
-   * exists to prevent.
-   */
-  readonly serviceKey: string;
   /** Optional override; the SDK defaults to the one deployment. */
   readonly baseUrl?: string;
   readonly outboxBatchSize: number;
@@ -3659,16 +3646,10 @@ export type MoovoEnvironment = (typeof MOOVO_ENVIRONMENTS)[number];
 /**
  * Mercaria's Moovo service client (#156).
  *
- * **There is deliberately NO client id or client secret variable, and adding
- * one today would be a security regression rather than progress.** #156 item 5
- * asks that they come from the deployment secret manager, and they will — but
- * `@oxy.so/core` cannot yet mint a token bound to another application's
- * audience (`OxyHQ/oxy#878`, open): `getServiceToken()` POSTs `{apiKey,
- * apiSecret}` and every token it returns carries the hardcoded `oxy-api`
- * audience. A credential configured now could therefore only be used to send a
- * WRONG-AUDIENCE token to Moovo, which is the confused-deputy shape audience
- * binding exists to prevent. The variables arrive with the transport that can
- * use them correctly.
+ * Own calls use OxyServer.createServiceClient and registered workload identity,
+ * with the receiver's canonical audience (Oxy ADR 0049). No client secret or
+ * internal OAuth scopes are provisioned. The logistics receiver/API contracts
+ * remain the product dependencies before booking can be enabled.
  *
  * `resourceApplicationId` is NOT that credential — it names the Moovo Oxy
  * Application a token must be minted FOR, and it is the value the whole
@@ -4740,7 +4721,6 @@ export const config: AppConfig = Object.freeze({
   }),
   crowdSource: Object.freeze({
     enabled: resolveCrowdSourceEnabled(),
-    serviceKey: strEnv('CROWDSOURCE_SERVICE_KEY', ''),
     ...(process.env.CROWDSOURCE_BASE_URL?.trim()
       ? { baseUrl: process.env.CROWDSOURCE_BASE_URL.trim() }
       : {}),

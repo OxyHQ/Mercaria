@@ -26,19 +26,19 @@
     "fees:provision": "bun run src/scripts/provision-fee-schedule.ts"
   },
   "dependencies": {
-    "@clarity.surf/sdk": "0.9.0",
+    "@aws-sdk/credential-provider-node": "^3.972.84",
+    "@clarity.surf/sdk": "0.10.0",
+    "@crowdsource.you/contracts": "1.1.1",
+    "@crowdsource.you/core": "3.1.0",
     "@goway.to/sdk": "0.3.0",
     "@mercaria/contracts": "workspace:*",
     "@mercaria/shared-types": "workspace:*",
-    "@oxy.so/contracts": "5.6.0",
-    "@oxy.so/core": "6.12.0",
-    "@oxy.so/crowdsource": "^1.2.0",
-    "@oxy.so/crowdsource-contracts": "^1.1.0",
-    "@oxy.so/crowdsource-express": "^1.1.0",
+    "@oxy.so/contracts": "6.0.0",
+    "@oxy.so/core": "7.3.0",
     "@oxy.so/db": "^1.3.0",
-    "@oxy.so/mcp": "1.3.1",
+    "@oxy.so/mcp": "1.4.0",
     "@oxy.so/moovo-sdk": "0.2.1",
-    "@peable.to/sdk": "0.2.5-oxy-one.0",
+    "@peable.to/sdk": "0.5.0",
     "@socket.io/redis-adapter": "^8.3.0",
     "bullmq": "^5.80.4",
     "cors": "^2.8.6",
@@ -56,7 +56,7 @@
     "socket.io": "^4.8.3",
     "stripe": "^22.4.0",
     "web-push": "^3.6.7",
-    "zod": "^4.5.4"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@mercaria.co/sdk": "workspace:*",

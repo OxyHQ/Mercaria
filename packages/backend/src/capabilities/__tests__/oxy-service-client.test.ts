@@ -1,89 +1,38 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-const mocks = vi.hoisted(() => ({
-  serviceToken: vi.fn(),
-  invalidateServiceToken: vi.fn(),
-  constructed: vi.fn(),
-  canAttest: vi.fn(() => false),
+const mocks = vi.hoisted(() => ({ fetch: vi.fn(), dispose: vi.fn(), create: vi.fn() }));
+vi.mock('../../middleware/auth.js', () => ({
+  oxyClient: { createServiceClient: (...args: unknown[]) => mocks.create(...args) },
 }));
-
-vi.mock('@oxy.so/core/server', () => ({
-  canAttestWorkloadIdentity: () => mocks.canAttest(),
-  OxyServer: class {
-    constructor(options: unknown) {
-      mocks.constructed(options);
-    }
-
-    serviceToken(): Promise<string> {
-      return mocks.serviceToken() as Promise<string>;
-    }
-
-    invalidateServiceToken(): void {
-      mocks.invalidateServiceToken();
-    }
-  },
-}));
-
+import { oxyClient } from '../../middleware/auth.js';
 import {
-  invalidateOxyServiceToken,
   oxyServiceClient,
-  requiredOxyServiceToken,
+  requiredOxyServiceClient,
+  oxyPlatformTransport,
   resetOxyServiceClientForTests,
 } from '../oxy-service-client.js';
-
 beforeEach(() => {
-  delete process.env.OXY_APPLICATION_KEY;
-  delete process.env.OXY_APPLICATION_SECRET;
   resetOxyServiceClientForTests();
-  for (const mock of Object.values(mocks)) mock.mockReset();
-  mocks.canAttest.mockReturnValue(false);
+  vi.clearAllMocks();
+  mocks.create.mockReturnValue({ fetch: mocks.fetch, dispose: mocks.dispose });
 });
-
-describe('Mercaria Oxy service client', () => {
-  it('fails closed when either application credential is absent', async () => {
-    process.env.OXY_APPLICATION_KEY = 'key-only';
-
-    expect(oxyServiceClient()).toBeNull();
-    await expect(requiredOxyServiceToken()).rejects.toThrow('Mercaria has no Oxy identity');
-    expect(mocks.constructed).not.toHaveBeenCalled();
+describe('Mercaria workload client', () => {
+  it('shares the receiver client without customer key fallback or an ECS-only gate', () => {
+    vi.stubEnv('OXY_APPLICATION_KEY', 'external-key');
+    vi.stubEnv('OXY_APPLICATION_SECRET', 'external-secret');
+    expect(oxyServiceClient()).toBe(oxyClient);
+    expect(requiredOxyServiceClient()).toBe(oxyClient);
+    expect(mocks.create).not.toHaveBeenCalled();
+    vi.unstubAllEnvs();
   });
-
-  it('configures one cached application client without handling user tokens', async () => {
-    process.env.OXY_APPLICATION_KEY = 'application-key';
-    process.env.OXY_APPLICATION_SECRET = 'application-secret';
-    mocks.serviceToken.mockResolvedValueOnce('service-token');
-
-    const first = oxyServiceClient();
-    const second = oxyServiceClient();
-
-    expect(first).toBe(second);
-    expect(mocks.constructed).toHaveBeenCalledTimes(1);
-    expect(mocks.constructed).toHaveBeenCalledWith(
-      expect.objectContaining({
-        serviceAuth: { apiKey: 'application-key', apiSecret: 'application-secret' },
-      }),
-    );
-    await expect(requiredOxyServiceToken()).resolves.toBe('service-token');
-    invalidateOxyServiceToken();
-    expect(mocks.invalidateServiceToken).toHaveBeenCalledTimes(1);
-  });
-
-  it('attests its task role when no key pair is configured', async () => {
-    mocks.canAttest.mockReturnValue(true);
-    mocks.serviceToken.mockResolvedValueOnce('workload-token');
-
-    expect(oxyServiceClient()).not.toBeNull();
-    expect(mocks.constructed).toHaveBeenCalledWith(
-      expect.not.objectContaining({ serviceAuth: expect.anything() }),
-    );
-    await expect(requiredOxyServiceToken()).resolves.toBe('workload-token');
-  });
-
-  it('never treats half a key pair as an attestation', () => {
-    mocks.canAttest.mockReturnValue(true);
-    process.env.OXY_APPLICATION_SECRET = 'secret-only';
-
-    expect(oxyServiceClient()).toBeNull();
-    expect(mocks.constructed).not.toHaveBeenCalled();
+  it('keeps one lazy platform transport and disposes only that transport on reset', async () => {
+    mocks.fetch.mockResolvedValue(new Response('{}'));
+    await oxyPlatformTransport.fetch('https://api.oxy.so/resource');
+    await oxyPlatformTransport.fetch('https://api.oxy.so/other');
+    expect(mocks.create).toHaveBeenCalledExactlyOnceWith({
+      baseURL: 'https://api.oxy.so',
+      audience: 'oxy-api',
+    });
+    resetOxyServiceClientForTests();
+    expect(mocks.dispose).toHaveBeenCalledOnce();
   });
 });

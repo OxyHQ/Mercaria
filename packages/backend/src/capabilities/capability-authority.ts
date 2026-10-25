@@ -8,7 +8,7 @@ import {
 import { CapabilityTicketError, verifyCapabilityTicket } from '@oxy.so/core/server';
 import { z } from 'zod';
 
-import { requiredOxyServiceToken } from './oxy-service-client.js';
+import { requiredOxyServiceClient } from './oxy-service-client.js';
 
 type AuditResult = z.infer<typeof auditResultSchema>;
 
@@ -68,15 +68,10 @@ export async function verifyMercariaCapabilityTicket(
 }
 
 async function authorityRequest(path: string, body: Record<string, unknown>): Promise<unknown> {
-  const token = await requiredOxyServiceToken();
-  const response = await fetch(`${OXY_API_URL}${path}`, {
-    method: 'POST',
-    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(10_000),
+  return requiredOxyServiceClient().serviceRequest('POST', path, body, {
+    timeout: 10_000,
+    cache: false,
   });
-  if (!response.ok) throw new Error(`Oxy capability authority returned ${response.status}`);
-  return response.json();
 }
 
 /** Recalculates mutable user, account, grant, credential and app authority. */

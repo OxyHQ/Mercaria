@@ -8,27 +8,11 @@
  * real client fails like an outage. So nothing is registered, every call is
  * refused visibly, and the refusal NAMES what is missing.
  *
- * ## What is missing is TWO things, and the refusal says both
- *
- * #156 cannot be finished by this repository alone, which is why
- * {@link MOOVO_TRANSPORT_BLOCKERS} is a list rather than a sentence:
- *
- *  - **`OxyHQ/oxy#878`** — `@oxy.so/core` has no audience-aware service client.
- *    Measured on the installed 19.1.0 and on `OxyHQServices@origin/main`:
- *    `createServiceClient` does not exist, and `getServiceToken()` POSTs
- *    `{apiKey, apiSecret}` to `/auth/service-token` with no parameter that
- *    could name a target application. Every token it mints carries the
- *    hardcoded audience `oxy-api`.
- *  - **`OxyHQ/Moovo#27` and `#28`** — Moovo has no service-authenticated
- *    surface and no logistics service API. Every logistics route there is
- *    `authenticateToken` (a real Oxy USER) plus "the caller IS the sender";
- *    `oxyServiceAuth` is exported and mounted on nothing.
- *
- * The second is why registering a transport built on today's SDK would be
- * worse than refusing: the only token Mercaria can mint is audience `oxy-api`,
- * and the only credential Moovo accepts is an end user's own bearer. Forwarding
- * a buyer's session to book their parcel is precisely the impersonation #156
- * acceptance 3 forbids, and it is the shortcut that is actually available.
+ * OxyServer.createServiceClient now supplies the own workload transport with
+ * an explicit receiver audience (Oxy ADR 0049), without application keys or scopes.
+ * The remaining blockers are Moovo's service receiver and versioned logistics
+ * API (#27/#28). Its current logistics routes authenticate a user and require
+ * the sender to be that user; this migration does not invent a booking API.
  *
  * ## Registering a transport is what makes Moovo booking AVAILABLE
  *
@@ -44,16 +28,8 @@
 
 import type { MoovoTransport } from './transport-contract.js';
 
-/**
- * The issues that owe a working Moovo transport, in the order they unblock.
- *
- * Carried as a VALUE and rendered into every refusal, so an operator trace
- * reads "the SDK cannot mint an audience-bound token yet" rather than
- * "logistics failed" — #48's `deferred: #NN` device, which #126 already applied
- * to the logistics port and this extends to the reason it is unregistered.
- */
+/** Remaining product API dependencies; shared Oxy transport is already available. */
 export const MOOVO_TRANSPORT_BLOCKERS: readonly string[] = [
-  'OxyHQ/oxy#878 (audience-aware service client in @oxy.so/core)',
   'OxyHQ/Moovo#27 (accept Oxy Application principals on Moovo service routes)',
   'OxyHQ/Moovo#28 (versioned Moovo logistics service API)',
 ];

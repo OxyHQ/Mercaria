@@ -87,8 +87,7 @@ beforeAll(async () => {
   // which would make the raw-body assertion vacuous while still looking like a
   // wiring bug.
   process.env.PEABLE_BASE_URL = 'https://api.peable.invalid';
-  process.env.OXY_APPLICATION_KEY = 'oxy_dk_not_a_real_key';
-  process.env.OXY_APPLICATION_SECRET = 'oxy_secret_not_a_real_key';
+  process.env.AWS_CONTAINER_CREDENTIALS_RELATIVE_URI = '/v2/credentials/webhook-fixture';
   process.env.PEABLE_WEBHOOK_SECRET = SECRET;
   process.env.PEABLE_WEBHOOK_SECRET_PREVIOUS = SECRET_PREVIOUS;
 

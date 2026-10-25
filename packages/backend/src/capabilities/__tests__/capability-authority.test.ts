@@ -3,10 +3,10 @@ import type { CapabilityTicketClaims } from '@oxy.so/contracts';
 import { issueCapabilityTicket } from '@oxy.so/core/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ requiredOxyServiceToken: vi.fn() }));
+const mocks = vi.hoisted(() => ({ serviceRequest: vi.fn() }));
 
 vi.mock('../oxy-service-client.js', () => ({
-  requiredOxyServiceToken: mocks.requiredOxyServiceToken,
+  requiredOxyServiceClient: () => ({ serviceRequest: mocks.serviceRequest }),
 }));
 
 import {
@@ -66,8 +66,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(NOW);
   vi.unstubAllGlobals();
-  mocks.requiredOxyServiceToken.mockReset();
-  mocks.requiredOxyServiceToken.mockResolvedValue('service-token');
+  mocks.serviceRequest.mockReset();
   resetMercariaCapabilityAuthorityForTests();
 });
 
@@ -121,46 +120,33 @@ describe('Mercaria capability authority client', () => {
       exp: Math.floor(NOW.getTime() / 1_000) + 60,
       jti: 'ticket-1',
     } as CapabilityTicketClaims;
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          active: true,
-          decision: { allowed: true, reason: 'authorized' },
-          claims: localClaims,
-        }),
-        { status: 200 },
-      ),
-    );
-    vi.stubGlobal('fetch', fetchMock);
+    mocks.serviceRequest.mockResolvedValue({
+      active: true,
+      decision: { allowed: true, reason: 'authorized' },
+      claims: localClaims,
+    });
 
     await expect(introspectMercariaCapabilityTicket('signed-ticket', localClaims)).resolves.toBe(
       true,
     );
-    const [, request] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(request.headers).toEqual({
-      authorization: 'Bearer service-token',
-      'content-type': 'application/json',
-    });
-    expect(JSON.parse(request.body as string)).toEqual({ ticket: 'signed-ticket' });
-
-    fetchMock.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          active: true,
-          decision: { allowed: true, reason: 'authorized' },
-          claims: { ...localClaims, tool: 'readBuyerOrder' },
-        }),
-        { status: 200 },
-      ),
+    expect(mocks.serviceRequest).toHaveBeenCalledWith(
+      'POST',
+      '/capabilities/tickets/introspect',
+      { ticket: 'signed-ticket' },
+      { timeout: 10_000, cache: false },
     );
+    mocks.serviceRequest.mockResolvedValueOnce({
+      active: true,
+      decision: { allowed: true, reason: 'authorized' },
+      claims: { ...localClaims, tool: 'readBuyerOrder' },
+    });
     await expect(introspectMercariaCapabilityTicket('signed-ticket', localClaims)).resolves.toBe(
       false,
     );
   });
 
   it('sends only the hashed idempotency key to Oxy audit persistence', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }));
-    vi.stubGlobal('fetch', fetchMock);
+    mocks.serviceRequest.mockResolvedValue({});
 
     await auditMercariaCapabilityTicket({
       ticket: 'signed-ticket',
@@ -169,8 +155,7 @@ describe('Mercaria capability authority client', () => {
       idempotencyKeyHash: 'a'.repeat(64),
     });
 
-    const [, request] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(JSON.parse(request.body as string)).toEqual({
+    expect(mocks.serviceRequest.mock.calls[0]?.[2]).toEqual({
       ticket: 'signed-ticket',
       result: { status: 'succeeded' },
       rollback: { supported: false, attempted: false },

@@ -24,6 +24,7 @@
  */
 
 import type { Request, RequestHandler, Response } from 'express';
+import { MERCARIA_SERVICE_AUDIENCE } from '../config/oxy-identity.js';
 import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
 import { RedisStore } from 'rate-limit-redis';
 import { createOxyRateLimit, type OxyRateLimitOptions } from '@oxy.so/core/server';
@@ -258,6 +259,7 @@ export function makeRateLimiter(
   // with the same message `rateLimitedBody` states.
   return createOxyRateLimit(oxyClient, {
     ...options,
+    auth: { ...options.auth, expectedAudience: MERCARIA_SERVICE_AUDIENCE },
     message: RATE_LIMITED_MESSAGE,
     ...(store ? { store } : {}),
   });

@@ -15,15 +15,10 @@
  *
  * ## What this client deliberately does NOT do
  *
- * **It does not mint, cache or refresh a token.** #156 item 3 asks that tokens
- * be cached "through the shared SDK by credential, audience and scope", and the
- * SDK cannot express an audience: `getServiceToken()` POSTs `{apiKey,
- * apiSecret}` and every token it returns carries the hardcoded `oxy-api`. A
- * token cache written here would be exactly the "custom token cache" acceptance
- * 4 forbids, built to work around an SDK gap that `OxyHQ/oxy#878` is open to
- * close. So `retry_after_refresh` is CLASSIFIED and reported and acted on by
- * nothing in this file — the refresh belongs to the SDK client that will sit
- * inside the transport, one refresh then one retry, per #156 error policy 3.
+ * Token minting, audience binding and renewal belong to the shared
+ * OxyServer.createServiceClient used by the future logistics transport.
+ * `retry_after_refresh` remains a classified outcome; the transport owns
+ * safe retry behavior when Moovo's versioned logistics API is available.
  *
  * **It does not retry a write whose outcome is unknown.** That is
  * `moovoRetryDisposition`'s job and this file's most important line: ambiguity
