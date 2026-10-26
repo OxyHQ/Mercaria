@@ -26,7 +26,7 @@
     "@mercaria/shared-types": "workspace:*",
     "@mercaria/ui": "workspace:*",
     "@oxy.so/app-preset": "3.3.0",
-    "@oxy.so/bloom": "15.0.0",
+    "@oxy.so/bloom": "15.10.1",
     "@oxy.so/core": "7.3.0",
     "@oxy.so/expo-splash": "^1.1.0",
     "@oxy.so/services": "13.0.0",
