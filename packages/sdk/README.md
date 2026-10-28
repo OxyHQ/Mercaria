@@ -615,4 +615,13 @@ this reference and does not cancel an existing courier booking.
 
 ### Display a catalog price
 
-Use `formatMoney(product.price, locale)` from `@mercaria.co/sdk`. It is the same formatter Mercaria uses: amounts stay in their catalog currency, FAIR uses its eight-decimal minor-unit scale, and the returned display string includes bidirectional isolation. Do not infer precision with `Intl` currency mode: FAIR is not an ISO currency code.
+Use `formatMoney(product.price, locale)` from `@mercaria.co/sdk/money` (also exported from the root). It is the same formatter Mercaria uses: amounts stay in their catalog currency, FAIR uses its eight-decimal minor-unit scale, and the returned display string includes bidirectional isolation. Do not infer precision with `Intl` currency mode: FAIR is not an ISO currency code.
+
+### Lightweight portable references
+
+Persisted identities and list keys can import `productRef`, `collectionRef`,
+`parseMercariaRef` and `formatMercariaRef` from `@mercaria.co/sdk/refs`. This entry
+ships the canonical reference rules without the response validators or HTTP
+client, so rendering a feed does not eagerly download Zod. The root exports
+remain available and have identical behavior. References still contain identity
+only; hydrate current price and availability through the client when needed.

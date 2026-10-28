@@ -77,6 +77,14 @@ const EXPECTED_FILES = [
   'package/dist/index.d.cts',
   'package/dist/index.d.ts',
   'package/dist/index.js',
+  'package/dist/money.cjs',
+  'package/dist/money.d.cts',
+  'package/dist/money.d.ts',
+  'package/dist/money.js',
+  'package/dist/refs.cjs',
+  'package/dist/refs.d.cts',
+  'package/dist/refs.d.ts',
+  'package/dist/refs.js',
   'package/dist/server.cjs',
   'package/dist/server.d.cts',
   'package/dist/server.d.ts',
@@ -150,6 +158,14 @@ async function main() {
       'index.cjs',
       'index.d.ts',
       'index.d.cts',
+      'money.js',
+      'money.cjs',
+      'money.d.ts',
+      'money.d.cts',
+      'refs.js',
+      'refs.cjs',
+      'refs.d.ts',
+      'refs.d.cts',
       'server.js',
       'server.cjs',
       'server.d.ts',
@@ -302,6 +318,39 @@ async function main() {
       pass(`${target} bundle builds from dist/index.js with no Node built-ins`);
     }
 
+    await writeFile(
+      join(consumer, 'refs-entry.js'),
+      `
+      import { parseMercariaRef, formatMercariaRef, productRef } from '@mercaria.co/sdk/refs';
+      import { formatMoney } from '@mercaria.co/sdk/money';
+      export const price = formatMoney({ amount: 14800000000, currency: 'FAIR' }, 'en');
+      export const ref = formatMercariaRef(productRef('id:with spaces'));
+      export const parsed = parseMercariaRef({ kind: 'collection', id: 'collection-1' });
+    `,
+    );
+    for (const [target, options] of Object.entries(bundles)) {
+      const result = await esbuild.build({
+        entryPoints: [join(consumer, 'refs-entry.js')],
+        absWorkingDir: consumer,
+        bundle: true,
+        write: false,
+        metafile: true,
+        format: 'esm',
+        logLevel: 'silent',
+        ...options,
+      });
+      const inputs = Object.keys(result.metafile.inputs);
+      if (inputs.some((input) => input.includes('/zod/') || input.endsWith('/dist/index.js')))
+        fail(`${target} portable refs pulled in schemas or the full SDK: ${inputs.join(', ')}`);
+      if (!inputs.some((input) => input.endsWith('@mercaria.co/sdk/dist/refs.js')))
+        fail(`${target} portable refs did not resolve their published entry`);
+      if (!inputs.some((input) => input.endsWith('@mercaria.co/sdk/dist/money.js')))
+        fail(`${target} money did not resolve its published entry`);
+      if (result.outputFiles[0].contents.length > 16000)
+        fail(`${target} portable refs exceeded the 16KB unminified ceiling`);
+      pass(`${target} portable refs and money build without Zod or the full client`);
+    }
+
     // ── 6. Declarations in a Node and a browser nodenext consumer ─────────────
     await writeFile(join(consumer, 'types-esm.mts'), CONSUMER_TYPES);
     await writeFile(join(consumer, 'types-cjs.cts'), CONSUMER_TYPES);
@@ -412,6 +461,9 @@ async function exercise(sdk) {
 
 const CONSUMER_ESM = `${SHARED_PROGRAM}
 import * as esm from '@mercaria.co/sdk';
+import { formatMoney as lightweightMoney } from '@mercaria.co/sdk/money';
+for (const currency of ['FAIR', 'USD', 'JPY'])
+  check(lightweightMoney({ amount: 14800000000, currency }, 'ar') === esm.formatMoney({ amount: 14800000000, currency }, 'ar'), 'ESM money subpath matches canonical formatter');
 import { mercariaForOxyService } from '@mercaria.co/sdk/server';
 import { createRequire } from 'node:module';
 const cjs = createRequire(import.meta.url)('@mercaria.co/sdk');
@@ -436,6 +488,8 @@ check(!(fromCjs instanceof esm.MercariaNotFoundError), 'but not of an unrelated 
 
 const CONSUMER_CJS = `${SHARED_PROGRAM}
 const sdk = require('@mercaria.co/sdk');
+const lightweightMoney = require('@mercaria.co/sdk/money').formatMoney;
+check(lightweightMoney({ amount: 100000000, currency: 'FAIR' }, 'en') === sdk.formatMoney({ amount: 100000000, currency: 'FAIR' }, 'en'), 'CJS money subpath matches canonical formatter');
 exercise(sdk).catch((error) => { console.error(error); process.exit(1); });
 `;
 
@@ -445,6 +499,14 @@ export const url = createMercariaClient().links.product(productRef('p'));
 `;
 
 const CONSUMER_TYPES = `
+import { formatMoney as lightweightFormatMoney, type Money as LightweightMoney } from '@mercaria.co/sdk/money';
+const lightweightPrice: LightweightMoney = { amount: 100, currency: 'USD' };
+const formattedPrice: string = lightweightFormatMoney(lightweightPrice, 'en');
+void formattedPrice;
+import { productRef as lightweightProductRef } from '@mercaria.co/sdk/refs';
+const lightweightRef: import('@mercaria.co/sdk').MercariaProductRef = lightweightProductRef('product-1');
+void lightweightRef;
+
 import { mercariaForOxyService } from '@mercaria.co/sdk/server';
 const workload = mercariaForOxyService({ createServiceClient: () => ({ fetch, dispose() {} }) });
 workload.products.get('p');

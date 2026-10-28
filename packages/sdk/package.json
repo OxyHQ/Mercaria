@@ -1,6 +1,6 @@
 {
   "name": "@mercaria.co/sdk",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "description": "The canonical, headless TypeScript client for Mercaria's public commerce API \u2014 product, store and collection reads, portable references, typed errors and canonical links for Node, Bun, browsers and React Native.",
   "license": "Apache-2.0",
   "author": "The Oxy Collective, Inc.",
@@ -55,6 +55,42 @@
       "require": {
         "types": "./dist/server.d.cts",
         "default": "./dist/server.cjs"
+      }
+    },
+    "./refs": {
+      "react-native": {
+        "types": "./dist/refs.d.ts",
+        "default": "./dist/refs.js"
+      },
+      "import": {
+        "types": "./dist/refs.d.ts",
+        "default": "./dist/refs.js"
+      },
+      "require": {
+        "types": "./dist/refs.d.cts",
+        "default": "./dist/refs.cjs"
+      },
+      "default": {
+        "types": "./dist/refs.d.ts",
+        "default": "./dist/refs.js"
+      }
+    },
+    "./money": {
+      "react-native": {
+        "types": "./dist/money.d.ts",
+        "default": "./dist/money.js"
+      },
+      "import": {
+        "types": "./dist/money.d.ts",
+        "default": "./dist/money.js"
+      },
+      "require": {
+        "types": "./dist/money.d.cts",
+        "default": "./dist/money.cjs"
+      },
+      "default": {
+        "types": "./dist/money.d.ts",
+        "default": "./dist/money.js"
       }
     }
   },

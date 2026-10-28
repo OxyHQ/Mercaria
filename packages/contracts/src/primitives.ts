@@ -7,12 +7,13 @@
  */
 
 import { z } from 'zod';
+import { MERCARIA_ID_PATTERN } from './ref-core';
 import { ALL_CURRENCY_CODES, type CurrencyCode } from '@mercaria/shared-types';
 
 /** An opaque id: a string with at least one non-space character. Never parsed. */
 export const MercariaIdSchema = z
   .string()
-  .regex(/\S/, 'must contain a non-space character')
+  .regex(MERCARIA_ID_PATTERN, 'must contain a non-space character')
   .describe('An opaque id. Never parse it.');
 
 /**
