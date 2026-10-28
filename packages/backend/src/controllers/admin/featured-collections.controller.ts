@@ -12,7 +12,7 @@ export async function getFeaturedCollections(req: Request, res: Response) {
       collectionIds: (await featuredCollections(req.store.id, false)).map((row) => row.id),
     });
   } catch (error) {
-    respondWithError(res, error, 'Unable to update featured collections');
+    respondWithError(res, error, 'Unable to load featured collections');
   }
 }
 export async function setFeaturedCollections(req: Request, res: Response) {

@@ -106,6 +106,17 @@ describe('seller featured collection selection', () => {
     );
     expect(await featuredCollections(store.id, false)).toEqual([]);
   });
+  it('store deletion cascades its selection without affecting another store', async () => {
+    const { store, a } = await fixture();
+    const other = await fixture();
+    await replaceFeaturedCollections(store.id, store.oxyAccountId, [a.id]);
+    await replaceFeaturedCollections(other.store.id, other.store.oxyAccountId, [other.a.id]);
+    await getDb().delete(stores).where(eq(stores.id, store.id));
+    expect(await featuredCollections(store.id, false)).toEqual([]);
+    expect((await featuredCollections(other.store.id, false)).map((row) => row.id)).toEqual([
+      other.a.id,
+    ]);
+  });
   it('concurrent replacements leave one complete ordered selection', async () => {
     const { store, a, b } = await fixture();
     await Promise.all([
