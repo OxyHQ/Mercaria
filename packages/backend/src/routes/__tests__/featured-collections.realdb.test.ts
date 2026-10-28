@@ -1,12 +1,11 @@
+import { deleteTestStores } from '../../db/__tests__/store-teardown.js';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import express from 'express';
 import type { Server } from 'node:http';
-import { eq } from 'drizzle-orm';
 import { uuidv7 } from '@oxy.so/db';
 import { connectPostgres, closePostgres, getDb } from '../../db/postgres.js';
 import { insertStore } from '../../db/stores/storeRepository.js';
 import { insertCollection } from '../../db/merchandising/collectionRepository.js';
-import { stores } from '../../db/schema/stores.js';
 import { resetStoreAccessCacheForTests } from '../../services/store-access.service.js';
 import { loadStore } from '../../middleware/store-authz.js';
 import collectionRoutes from '../admin/collections.js';
@@ -75,7 +74,7 @@ beforeEach(() => {
 });
 afterAll(async () => {
   if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
-  await getDb().delete(stores).where(eq(stores.id, storeId));
+  await deleteTestStores(getDb(), [storeId]);
   await closePostgres();
 });
 const path = () => `/admin/stores/${storeId}/collections/featured`;

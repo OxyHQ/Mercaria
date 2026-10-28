@@ -64,6 +64,7 @@ export const EXPECTED_OPERATIONS = [
   ['get', '/stores/{id}', 'getStore'],
   ['get', '/stores/{id}/products', 'listStoreProducts'],
   ['get', '/stores/{id}/collections', 'listStoreCollections'],
+  ['get', '/stores/{id}/featured-collections', 'listStoreFeaturedCollections'],
   ['get', '/stores/{id}/locations', 'listStoreLocations'],
   ['get', '/collections/{id}', 'getCollection'],
   ['get', '/collections/{id}/products', 'listCollectionProducts'],

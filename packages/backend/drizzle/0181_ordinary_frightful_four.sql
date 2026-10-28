@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 ALTER TABLE "collections" ADD CONSTRAINT "collections_id_store_id_key" UNIQUE("id","store_id");
 --> statement-breakpoint
 CREATE TABLE "store_featured_collections" (

@@ -1,3 +1,4 @@
+import { deleteTestStores } from './store-teardown.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { uuidv7 } from '@oxy.so/db';
@@ -37,7 +38,7 @@ async function fixture() {
 }
 beforeAll(connectPostgres);
 afterAll(async () => {
-  for (const id of created) await getDb().delete(stores).where(eq(stores.id, id));
+  for (const id of created) await deleteTestStores(getDb(), [id]);
   await closePostgres();
 });
 
@@ -111,7 +112,7 @@ describe('seller featured collection selection', () => {
     const other = await fixture();
     await replaceFeaturedCollections(store.id, store.oxyAccountId, [a.id]);
     await replaceFeaturedCollections(other.store.id, other.store.oxyAccountId, [other.a.id]);
-    await getDb().delete(stores).where(eq(stores.id, store.id));
+    await deleteTestStores(getDb(), [store.id]);
     expect(await featuredCollections(store.id, false)).toEqual([]);
     expect((await featuredCollections(other.store.id, false)).map((row) => row.id)).toEqual([
       other.a.id,

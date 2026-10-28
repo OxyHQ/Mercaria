@@ -55,6 +55,7 @@ it and can only rise.
 
 | Module | Schema file | Repositories | Tables |
 |---|---|---|---|
+| Seller merchandising | `db/schema/merchandising.ts` | `db/merchandising/featuredCollectionRepository.ts` | `store_featured_collections` |
 | Organization migration evidence | `db/schema/organizations.ts` | — (migration-only immutable evidence) | `organization_identity_archives` |
 | Taxonomy | `db/schema/taxonomy.ts` | `db/taxonomy/taxonomyRepository.ts` | `category_aliases`, `category_redirects`, `category_external_mappings` — plus `categories` itself, which lives in `db/schema/catalog.ts:128` and was widened in place (D2) |
 | Classification | `db/schema/taxonomyClassification.ts` | `db/taxonomy/classificationRepository.ts` | `listing_secondary_categories`, `canonical_product_secondary_categories` — the JUSTIFIED secondary filings (#367 W1). There is deliberately no primary table: the primary category IS `listings.category_id` / `canonical_products.category_id`, so "exactly one" is held by a scalar column rather than by a partial unique on an `is_primary` flag |
