@@ -392,6 +392,7 @@ const product = {
 const respond = (status, body) => async () => ({ status, headers: { get: () => null }, text: async () => JSON.stringify(body) });
 function check(condition, message) { if (!condition) { throw new Error('smoke assertion failed: ' + message); } }
 async function exercise(sdk) {
+  check(sdk.formatMoney({ amount: 14800000000, currency: 'FAIR' }, 'en') === '\u2068⊜148.00\u2069', 'canonical FAIR formatting is exported in the installed package');
   const client = sdk.createMercariaClient({ fetch: respond(200, product) });
   const parsed = await client.products.get(sdk.productRef('prod 1'));
   check(parsed.availability === 'sold' && parsed.condition.group === 'refurbished', 'product parsed');

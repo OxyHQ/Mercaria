@@ -1,13 +1,18 @@
-## 0.7.0
-
-- Add `@mercaria.co/sdk/server` public-read workload factory, using the shared Oxy transport and explicit disposal. External credentials and public payloads remain unchanged. Deploy the compatible receiver before caller cutover.
-
 # Changelog
+
+## 0.7.2
+
+- Export the canonical locale-aware `formatMoney` formatter for catalog cards, including FAIR precision, JPY and bidi isolation. Mercaria UI and SDK use the same implementation.
 
 ## 0.7.1
 
 Require Zod 4.6.7 or newer in major 4, including the oversized-array validation
 fix (GHSA-mrhx-c7xc-m3w5). The public SDK and workload factory APIs are unchanged.
+
+## 0.7.0
+
+- Add `@mercaria.co/sdk/server` public-read workload factory, using the shared Oxy transport and explicit disposal. External credentials and public payloads remain unchanged. Deploy the compatible receiver before caller cutover.
+
 
 ## 0.6.0
 
