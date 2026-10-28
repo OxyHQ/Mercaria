@@ -385,7 +385,8 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // Direct feed uploads add the session status and failure vocabularies, the
     // validation job status, and move `FeedRefusalReason` into shared-types: four
     // type aliases and no property: +4 types. Measured by the real guard.
-    'walked 139 contract module(s), 2387 exported type(s), 7974 property signature(s)',
+    // Pure money-format and bidi modules add no contract types or properties.
+    'walked 141 contract module(s), 2387 exported type(s), 7974 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });
