@@ -33,6 +33,7 @@ export const MERCARIA_PUBLIC_CURSOR_KINDS = [
   'products',
   'store-products',
   'store-collections',
+  'store-featured-collections',
   'collection-products',
   'locations',
   'store-locations',

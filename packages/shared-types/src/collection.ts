@@ -182,3 +182,11 @@ export const COLLECTION_FORBIDDEN_PRODUCT_WRITES: readonly CollectionForbiddenPr
   'product_type',
   'brand',
 ];
+
+/** Maximum seller-selected collection shelves on one storefront. */
+export const MAX_FEATURED_COLLECTIONS = 6;
+
+/** The store's ordered merchandising selection; product membership stays in collections. */
+export interface FeaturedCollectionSelection {
+  collectionIds: string[];
+}

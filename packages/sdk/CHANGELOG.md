@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0
+
+- Add `stores.featuredCollections` for explicitly seller-selected, published manual collection shelves in seller order. Product membership, availability and paginated ordering remain owned by the existing collections API. No selection affects marketplace or social ranking.
+
 ## 0.7.3
 
 - Add `@mercaria.co/sdk/money` for canonical price formatting without response validators; lazy catalog cards no longer make bundlers share Zod with other deferred validators.

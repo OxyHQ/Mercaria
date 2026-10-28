@@ -18,6 +18,7 @@ import { toast } from '@oxy.so/bloom/toast';
 import { Screen, ScreenLoading, ScreenMessage } from '@/components/shell/Screen';
 import { RequireStore } from '@/components/shell/RequireStore';
 import { useCollections, useCreateCollection } from '@/lib/hooks/use-collections';
+import { FeaturedCollectionsEditor } from '@/components/collections/FeaturedCollectionsEditor';
 import { RemoveCollectionButton } from '@/components/collections/RemoveCollectionButton';
 import { canRetainDetailData } from '@/lib/detail-query-state';
 import { useActiveStoreContext } from '@/lib/hooks/use-stores';
@@ -85,6 +86,7 @@ function CollectionsBody({ storeId }: { storeId: string }) {
           </Button>
         </View>
       ) : null}
+      {canWrite && data ? <FeaturedCollectionsEditor storeId={storeId} collections={data} /> : null}
       {isPending ? (
         <ScreenLoading />
       ) : !data && isError ? null : (data?.length ?? 0) === 0 ? (

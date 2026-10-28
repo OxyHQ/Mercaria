@@ -591,6 +591,16 @@
         "lte": "Menor ou igual a"
       },
       "categoryIdentifier": "Identificador de categoria"
+    },
+    "featured": {
+      "title": "Coleções em destaque",
+      "help": "Escolha até %{count} coleções manuais publicadas e organize a ordem de exibição.",
+      "empty": "Nenhuma coleção em destaque.",
+      "unavailable": "Coleção indisponível",
+      "hidden": "Esta coleção não é exibida aos compradores no momento.",
+      "add": "Adicionar uma coleção manual publicada",
+      "failed": "Não foi possível salvar as coleções em destaque. Suas alterações foram preservadas.",
+      "saved": "Coleções em destaque salvas."
     }
   },
   "common": {

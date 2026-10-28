@@ -3336,6 +3336,129 @@
         }
       }
     },
+    "/stores/{id}/featured-collections": {
+      "get": {
+        "operationId": "listStoreFeaturedCollections",
+        "tags": [
+          "stores"
+        ],
+        "summary": "List seller-selected collection shelves",
+        "description": "Published manual collections explicitly selected by the store, in seller order. Products retain their collection ordering and pagination.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The entity id. A malformed id answers 404, not 400.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size, 1–50. Default 20.",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{1,3}$"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "The previous page’s `nextCursor`, verbatim, with the same filters.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List seller-selected collection shelves",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaCollectionPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request`: Malformed: a wrong type, a missing field, an unknown or repeated parameter, or a cursor from another list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found`: The entity never existed, or the id is malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`gone`: The entity existed and is no longer publicly available. Says nothing about why.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed`: Well-formed, but a value is refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited`: Rate limit hit. `details.retryAfterSeconds` and `Retry-After` say when to retry.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the caller may retry.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error`: Unexpected server defect.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/stores/{id}/locations": {
       "get": {
         "operationId": "listStoreLocations",

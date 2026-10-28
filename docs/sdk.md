@@ -196,3 +196,26 @@ use the caller's live Oxy bearer and explicit idempotency keys. Iterate accepted
 reservations with `materials.iterateReservations({ accountId, status: 'accepted' })`
 to discover pending pickups. Store only their opaque IDs in another product.
 See [materials.md](materials.md) for contracts, roles, privacy and retry semantics.
+
+
+### Seller-selected storefront shelves (SDK 0.8.0)
+
+`client.stores.featuredCollections(storeRef, { cursor, limit })` returns the
+canonical collection page, in the store's explicitly saved order. A store may
+select up to six of its published manual collections. Empty means the seller
+has made no current selection; consumers must not substitute an algorithmic list
+and label it featured. Unpublished, deleted or no-longer-manual selections are
+omitted; suspended/closed stores retain the normal typed availability errors.
+
+Render each collection as its own shelf, loading its products through
+`client.collections.products(ref, { cursor, limit })`. This preserves the
+collection's existing ordering and live product visibility. Do not flatten all
+collections or load every product eagerly. This merchandising selection has no
+paid placement, marketplace search or social ranking effect.
+
+The existing seller dashboard collection editor owns product membership. Its
+store selection uses `GET/PUT /admin/stores/:storeId/collections/featured`, with
+`{ collectionIds: string[] }`, current `collections:write` permission for writes,
+and atomic replacement. The SQL relation enforces same-store collection ownership,
+unique positions and the six-shelf limit. A store ownership change between
+authorization and replacement is refused, rather than transferring old authority.

@@ -78,6 +78,7 @@ holds the pre-existing catalogue and commerce tables the epic attaches to and do
 flowchart LR
     subgraph epic["#367 catalog modules"]
         direction TB
+        M_Seller_merchandising["Seller merchandising"]
         M_Organization_migration_evidence["Organization migration evidence"]
         M_Taxonomy["Taxonomy"]
         M_Classification["Classification"]
@@ -146,6 +147,7 @@ flowchart LR
     M_External_mappings --> M_Product_types
     M_Digital_licences_and_buyer_rights --> M_Digital_deliverables
     M_Digital_retail_procurement_and_fulfilment --> M_Digital_retail_supply
+    M_Seller_merchandising --> X_collections
     M_Organization_migration_evidence --> X_organizations
     M_Organization_migration_evidence --> X_source_records
     M_Taxonomy --> X_catalog_sources
@@ -228,7 +230,7 @@ Measured, not asserted. Every edge below is a `.insert(…)`, `.update(…)` or 
 the table's drizzle symbol, or a raw-SQL write naming it, found in a non-test module under
 `packages/backend/src`. The node on the left is the **directory** the writing module sits in.
 
-**28 modules**, **23 writing directories**,
+**29 modules**, **24 writing directories**,
 **5 tables written from more than one directory** and
 **5 written by no application code at all**. The exceptions are drawn by name,
 because they are the whole reason to look at this graph: `catalog-table-ownership.md` opens with
@@ -249,6 +251,7 @@ flowchart LR
     W_db_digitalRetail["db/digitalRetail"]
     W_db_discovery["db/discovery"]
     W_db_feedImport["db/feedImport"]
+    W_db_merchandising["db/merchandising"]
     W_db_navigation["db/navigation"]
     W_db_oxyFiles["db/oxyFiles"]
     W_db_productTypes["db/productTypes"]
@@ -260,6 +263,7 @@ flowchart LR
     W_services_curation["services/curation"]
     W_services_materials["services/materials"]
     W_services_supervised_shopping["services/supervised-shopping"]
+    M_Seller_merchandising(["Seller merchandising"])
     M_Organization_migration_evidence(["Organization migration evidence"])
     M_Taxonomy(["Taxonomy"])
     M_Classification(["Classification"])
@@ -305,6 +309,7 @@ flowchart LR
     W_db_digitalRetail -->|"4"| M_Digital_retail_supply
     W_db_discovery -->|"2"| M_Discovery
     W_db_feedImport -->|"2"| M_Feed_uploads_and_validations___63_
+    W_db_merchandising -->|"1"| M_Seller_merchandising
     W_db_navigation -->|"5"| M_Navigation
     W_db_oxyFiles -->|"1"| M_Authoring
     W_db_oxyFiles -->|"6"| M_Oxy_file_usage__Oxy_ADR_0043_
@@ -384,9 +389,24 @@ HTTP-reachability half, which no source scan can answer.
 
 ## 3. Cardinality, by module
 
-All 104 tables created by a migration at or after `0088`
+All 105 tables created by a migration at or after `0088`
 appear below exactly once, each under the module that owns it. Every relationship is a foreign
 key drizzle will emit; the label is the child columns and the `ON DELETE` action.
+
+### Seller merchandising
+
+```mermaid
+erDiagram
+    store_featured_collections {
+    }
+    collections ||--o| store_featured_collections : "collection_id + store_id · cascade"
+```
+
+Also names, from outside the epic: `collections`.
+
+| Table | Created by | Written by |
+|---|---|---|
+| `store_featured_collections` | `0181` | `db/merchandising` (delete/insert) |
 
 ### Organization migration evidence
 
@@ -1218,18 +1238,18 @@ moved. Every one of these is re-derived on each run and floored by the gate.
 
 | Fact | Value |
 |---|---|
-| Tables in the population | 104 |
-| Modules they are grouped into | 28 |
-| Foreign keys out of an epic table | 197 |
+| Tables in the population | 105 |
+| Modules they are grouped into | 29 |
+| Foreign keys out of an epic table | 198 |
 | Foreign keys into one, from outside the epic | 2 |
 | Pre-existing tables the epic attaches to | 27 |
-| Relationships the schema proves are 1:1 | 6 |
+| Relationships the schema proves are 1:1 | 7 |
 | Relationships whose parent is optional (nullable FK) | 85 |
-| Directories that write an epic table | 23 |
+| Directories that write an epic table | 24 |
 | Tables written from more than one directory | 5 |
 | Tables no application code writes | 5 |
 
-`ON DELETE` across those 197 foreign keys: **52** `cascade`, **2** `no action`, **140** `restrict`, **3** `set null`.
+`ON DELETE` across those 198 foreign keys: **53** `cascade`, **2** `no action`, **140** `restrict`, **3** `set null`.
 
 ### The relationships the schema proves are 1:1
 
@@ -1237,5 +1257,6 @@ moved. Every one of these is re-derived on each run and floored by the gate.
 - `supplier_agreements` → `digital_supply_terms` on `agreement_id`, because a unique constraint covers those columns.
 - `product_variants` → `native_variant_signatures` on `variant_id`, because a unique constraint covers those columns.
 - `organizations` → `organization_identity_archives` on `organization_id`, because a unique constraint covers those columns.
+- `collections` → `store_featured_collections` on `collection_id + store_id`, because a unique constraint covers those columns.
 - `order_items` → `supervised_purchase_lines` on `order_item_id`, because a unique constraint covers those columns.
 - `payments` → `supervised_purchase_operations` on `payment_id`, because a unique constraint covers those columns.
