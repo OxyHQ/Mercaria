@@ -192,6 +192,11 @@ export interface MercariaStoresApi {
     store: MercariaStoreRef | string,
     options?: MercariaPageOptions,
   ): Promise<MercariaPage<MercariaCollection>>;
+  /** Seller-selected, published manual collection shelves in seller order. */
+  featuredCollections(
+    store: MercariaStoreRef | string,
+    options?: MercariaPageOptions,
+  ): Promise<MercariaPage<MercariaCollection>>;
   /**
    * One page of a store's public locations (shop fronts). Read each one's
    * place facts — name, address, hours, photos — from GoWay with its
@@ -578,6 +583,18 @@ export function createMercariaClient(options: MercariaClientOptions = {}): Merca
       request(
         config,
         `/stores/${idOf(store, 'store')}/collections`,
+        checkedQuery(MercariaPageQuerySchema, pageQuery(callOptions)),
+        MercariaCollectionPageSchema,
+        callOptions.signal,
+      ),
+
+    featuredCollections: async (
+      store: MercariaStoreRef | string,
+      callOptions: MercariaPageOptions = {},
+    ) =>
+      request(
+        config,
+        `/stores/${idOf(store, 'store')}/featured-collections`,
         checkedQuery(MercariaPageQuerySchema, pageQuery(callOptions)),
         MercariaCollectionPageSchema,
         callOptions.signal,

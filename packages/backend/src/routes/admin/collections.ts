@@ -1,3 +1,9 @@
+import { z } from 'zod';
+import { MAX_FEATURED_COLLECTIONS } from '@mercaria/shared-types';
+import {
+  getFeaturedCollections,
+  setFeaturedCollections,
+} from '../../controllers/admin/featured-collections.controller.js';
 import { Router } from 'express';
 import { validateBody, validateId } from '../../middleware/validate.js';
 import { requireStorePermission } from '../../middleware/store-authz.js';
@@ -32,6 +38,15 @@ router.post(
   requireStorePermission('collections:write'),
   validateBody(createCollectionSchema),
   createStoreCollection,
+);
+router.get('/featured', requireStorePermission('products:read'), getFeaturedCollections);
+router.put(
+  '/featured',
+  requireStorePermission('collections:write'),
+  validateBody(
+    z.object({ collectionIds: z.array(z.string().min(1)).max(MAX_FEATURED_COLLECTIONS) }).strict(),
+  ),
+  setFeaturedCollections,
 );
 router.get('/:id', requireStorePermission('products:read'), validateId('id'), getStoreCollection);
 router.patch(

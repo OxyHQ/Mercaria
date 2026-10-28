@@ -7333,3 +7333,18 @@ cancellation is known (or whose PSP attempt never started). Late approval
 attachment and cancellation serialize on the same operation row, so no event
 can be lost between them. These tables retain financial authorization evidence;
 all foreign Oxy identifiers are registered in the external-key ledger.
+
+
+### Seller-selected collection shelves (Mention #951)
+
+`store_featured_collections` is an ordered selection, not another catalogue or
+another product-membership table. Its composite foreign key to
+`collections(id, store_id)` prevents cross-store selection even in raw SQL;
+collection deletion cascades the selection. Unique `(store_id, position)` plus
+positions 0..5 bounds each store to six shelves. No default selection is created.
+A store-row lock serializes complete replacements; collection row locks validate
+current manual/public eligibility before the replacement commits. Public reads
+re-evaluate that eligibility, while admin reads preserve withdrawn selections so
+the seller can remove them. Existing collection product ordering and visibility
+remain canonical. Migration 0181 places the referenced unique constraint before
+the generated foreign key, so a clean migration applies in dependency order.

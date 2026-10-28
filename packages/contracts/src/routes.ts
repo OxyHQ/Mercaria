@@ -456,6 +456,20 @@ export const MERCARIA_PUBLIC_ROUTES = [
     errors: ['validation_failed', ...ENTITY_ERRORS],
   },
   {
+    operationId: 'listStoreFeaturedCollections',
+    method: 'get',
+    path: '/stores/{id}/featured-collections',
+    tag: 'stores',
+    summary: 'List seller-selected collection shelves',
+    description:
+      'Published manual collections explicitly selected by the store, in seller order. Products retain their collection ordering and pagination.',
+    params: MercariaIdParamsSchema,
+    query: MercariaPageQuerySchema,
+    response: 'MercariaCollectionPage',
+    cursorKind: 'store-featured-collections',
+    errors: ['validation_failed', ...ENTITY_ERRORS],
+  },
+  {
     operationId: 'listStoreLocations',
     method: 'get',
     path: '/stores/{id}/locations',

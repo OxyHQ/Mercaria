@@ -29,6 +29,7 @@ import type {
   DiscountScope,
   DiscountValueType,
 } from '@mercaria/shared-types';
+import { MAX_FEATURED_COLLECTIONS } from '@mercaria/shared-types';
 import { asEnumValues, checkOneOf } from './columns';
 import { listings } from './catalog';
 import { stores } from './stores';
@@ -132,6 +133,7 @@ export const collections = pgTable(
   (t) => [
     checkOneOf('collections_type_check', t.type, COLLECTION_TYPES),
     checkOneOf('collections_sort_order_check', t.sortOrder, COLLECTION_SORT_ORDERS),
+    unique('collections_id_store_id_key').on(t.id, t.storeId),
     uniqueIndex('collections_store_id_handle_key').on(t.storeId, t.handle),
     index('collections_store_id_is_published_idx').on(t.storeId, t.isPublished),
   ],
@@ -375,5 +377,27 @@ export const discountCodes = pgTable(
     check('discount_codes_usage_count_check', sql`${t.usageCount} >= 0`),
     uniqueIndex('discount_codes_store_id_code_key').on(t.storeId, t.code),
     index('discount_codes_discount_id_idx').on(t.discountId),
+  ],
+);
+
+/** Seller-selected shelves. Product membership/order stays in the collection. */
+export const storeFeaturedCollections = pgTable(
+  'store_featured_collections',
+  {
+    storeId: text().notNull(),
+    collectionId: text().notNull(),
+    position: integer().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.storeId, t.collectionId] }),
+    foreignKey({
+      columns: [t.collectionId, t.storeId],
+      foreignColumns: [collections.id, collections.storeId],
+    }).onDelete('cascade'),
+    unique('store_featured_collections_position_key').on(t.storeId, t.position),
+    check(
+      'store_featured_collections_position_check',
+      sql`${t.position} >= 0 AND ${t.position} < ${sql.raw(String(MAX_FEATURED_COLLECTIONS))}`,
+    ),
   ],
 );

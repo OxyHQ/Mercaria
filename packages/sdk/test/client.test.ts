@@ -31,7 +31,11 @@ describe('request URLs', () => {
       if (url.includes('/collections/col_1/products') || url.includes('/stores/store_1/products')) {
         return ok(pageWire([]));
       }
-      if (url.includes('/stores/store_1/collections') || url.includes('/locations')) {
+      if (
+        url.includes('/stores/store_1/collections') ||
+        url.includes('/stores/store_1/featured-collections') ||
+        url.includes('/locations')
+      ) {
         return url.includes('/locations/loc_1') && !url.includes('/products')
           ? ok(locationWire())
           : ok(pageWire([]));
@@ -48,6 +52,7 @@ describe('request URLs', () => {
     await client.stores.lookup({ handle: 'night-city-games' });
     await client.stores.products('store_1');
     await client.stores.collections('store_1');
+    await client.stores.featuredCollections('store_1');
     await client.collections.get('col_1');
     await client.collections.products('col_1');
     await client.stores.locations('store_1');
@@ -62,6 +67,7 @@ describe('request URLs', () => {
       `${API}/stores/lookup?handle=night-city-games`,
       `${API}/stores/store_1/products`,
       `${API}/stores/store_1/collections`,
+      `${API}/stores/store_1/featured-collections`,
       `${API}/collections/col_1`,
       `${API}/collections/col_1/products`,
       `${API}/stores/store_1/locations`,

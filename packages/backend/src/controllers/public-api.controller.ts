@@ -64,6 +64,7 @@ import {
   listPublicLocationProducts,
   listPublicLocations,
   listPublicStoreCollections,
+  listPublicStoreFeaturedCollections,
   listPublicStoreLocations,
   listPublicStoreProducts,
   lookupPublicStore,
@@ -171,6 +172,8 @@ export const publicApiHandlers: PublicHandlers = {
   getStore: ({ params }) => getPublicStore(params.id),
   listStoreProducts: ({ params, query }) =>
     listPublicStoreProducts(params.id, productListParams(query)),
+  listStoreFeaturedCollections: ({ params, query }) =>
+    listPublicStoreFeaturedCollections(params.id, pageParams(query)),
   listStoreCollections: ({ params, query }) =>
     listPublicStoreCollections(params.id, pageParams(query)),
   listStoreLocations: ({ params, query }) => listPublicStoreLocations(params.id, pageParams(query)),
