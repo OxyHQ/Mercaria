@@ -155,4 +155,4 @@ export type {
 } from './materials';
 
 /** The same headless formatter used by Mercaria’s own product surfaces. */
-export { formatMoney } from './money';
+export { formatMoney } from '@mercaria/shared-types';
