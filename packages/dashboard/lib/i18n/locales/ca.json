@@ -591,6 +591,16 @@
         "lte": "Més petit o igual que"
       },
       "categoryIdentifier": "Identificador de categoria"
+    },
+    "featured": {
+      "title": "Col·leccions destacades",
+      "help": "Tria fins a %{count} col·leccions manuals publicades i ordena com es mostren.",
+      "empty": "No hi ha col·leccions destacades.",
+      "unavailable": "Col·lecció no disponible",
+      "hidden": "Aquesta col·lecció no es mostra actualment als compradors.",
+      "add": "Afegeix una col·lecció manual publicada",
+      "failed": "No s’han pogut desar les col·leccions destacades. Els canvis es conserven.",
+      "saved": "Col·leccions destacades desades."
     }
   },
   "common": {

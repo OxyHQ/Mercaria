@@ -591,6 +591,16 @@
         "lte": "Inférieur ou égal à"
       },
       "categoryIdentifier": "Identifiant de catégorie"
+    },
+    "featured": {
+      "title": "Collections mises en avant",
+      "help": "Choisissez jusqu’à %{count} collections manuelles publiées et organisez leur ordre d’affichage.",
+      "empty": "Aucune collection mise en avant.",
+      "unavailable": "Collection indisponible",
+      "hidden": "Cette collection n’est actuellement pas visible par les acheteurs.",
+      "add": "Ajouter une collection manuelle publiée",
+      "failed": "Impossible d’enregistrer les collections mises en avant. Vos modifications sont conservées.",
+      "saved": "Collections mises en avant enregistrées."
     }
   },
   "common": {

@@ -580,6 +580,16 @@
         "lte": "Kleiner oder gleich"
       },
       "categoryIdentifier": "Kategoriekennung"
+    },
+    "featured": {
+      "title": "Hervorgehobene Kollektionen",
+      "help": "Wähle bis zu %{count} veröffentlichte manuelle Kollektionen und ordne ihre Anzeige.",
+      "empty": "Keine hervorgehobenen Kollektionen.",
+      "unavailable": "Kollektion nicht verfügbar",
+      "hidden": "Diese Kollektion wird Käufern derzeit nicht angezeigt.",
+      "add": "Veröffentlichte manuelle Kollektion hinzufügen",
+      "failed": "Die hervorgehobenen Kollektionen konnten nicht gespeichert werden. Deine Änderungen bleiben erhalten.",
+      "saved": "Hervorgehobene Kollektionen gespeichert."
     }
   },
   "common": {

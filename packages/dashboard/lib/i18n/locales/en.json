@@ -580,6 +580,16 @@
         "lte": "Less than or equal to"
       },
       "categoryIdentifier": "Category identifier"
+    },
+    "featured": {
+      "title": "Featured collections",
+      "help": "Choose up to %{count} published manual collections and arrange their display order.",
+      "empty": "No featured collections.",
+      "unavailable": "Unavailable collection",
+      "hidden": "This collection is not currently shown to shoppers.",
+      "add": "Add a published manual collection",
+      "failed": "Could not save featured collections. Your changes are preserved.",
+      "saved": "Featured collections saved."
     }
   },
   "common": {

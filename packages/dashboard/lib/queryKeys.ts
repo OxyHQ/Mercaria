@@ -59,6 +59,7 @@ export const queryKeys = {
     topProducts: (storeId: string) => ['stores', storeId, 'reports', 'top-products'] as const,
   },
   collections: {
+    featured: (storeId: string) => ['stores', storeId, 'featured-collections'] as const,
     list: (storeId: string) => ['stores', storeId, 'collections'] as const,
     detail: (storeId: string, id: string) => ['stores', storeId, 'collections', id] as const,
   },

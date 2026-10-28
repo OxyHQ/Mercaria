@@ -1,12 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type {
   Collection,
+  FeaturedCollectionSelection,
   CreateCollectionInput,
   UpdateCollectionInput,
   SetCollectionProductsInput,
 } from '@mercaria/shared-types';
 import {
   fetchCollections,
+  fetchFeaturedCollections,
+  setFeaturedCollections,
   fetchCollection,
   createCollection,
   updateCollection,
@@ -35,6 +38,7 @@ export function useCollection(storeId: string, id: string) {
 
 function invalidate(queryClient: ReturnType<typeof useQueryClient>, storeId: string) {
   queryClient.invalidateQueries({ queryKey: queryKeys.collections.list(storeId) });
+  queryClient.invalidateQueries({ queryKey: queryKeys.collections.featured(storeId) });
 }
 
 /** Publish the server DTO before refetch; older reads cannot undo this save. */
@@ -103,6 +107,26 @@ export function useSetCollectionProducts(storeId: string, id: string) {
     onSuccess: async (collection) => {
       await publishCollection(queryClient, storeId, collection);
       queryClient.invalidateQueries({ queryKey: ['stores', storeId, 'products'] });
+    },
+  });
+}
+
+export function useFeaturedCollections(storeId: string) {
+  return useQuery({
+    queryKey: queryKeys.collections.featured(storeId),
+    queryFn: () => fetchFeaturedCollections(storeId),
+    enabled: Boolean(storeId),
+  });
+}
+
+export function useSetFeaturedCollections(storeId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: FeaturedCollectionSelection) => setFeaturedCollections(storeId, input),
+    onSuccess: async (selection) => {
+      const key = queryKeys.collections.featured(storeId);
+      await queryClient.cancelQueries({ queryKey: key, exact: true });
+      queryClient.setQueryData(key, selection);
     },
   });
 }
