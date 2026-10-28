@@ -150,7 +150,6 @@ describe('search cursors', () => {
   });
 });
 
-
 describe('cursor precision ordering', () => {
   it('pages tied micro-unit scores in the same order as the first page', () => {
     const rows = [

@@ -431,7 +431,6 @@ describe('a wall gets the same answer through the barrel as it does directly', (
   });
 });
 
-
 describe('workspace package re-exports', () => {
   it('follows SDK money formatting to its canonical shared source owner', () => {
     expect(resolveBarrelSymbol('@mercaria.co/sdk', 'formatMoney')).toBe(
