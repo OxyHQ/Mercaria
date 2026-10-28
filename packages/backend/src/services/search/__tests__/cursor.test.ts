@@ -149,3 +149,26 @@ describe('search cursors', () => {
     expect(isAfterSearchCursor(raw, decoded)).toBe(false);
   });
 });
+
+
+describe('cursor precision ordering', () => {
+  it('pages tied micro-unit scores in the same order as the first page', () => {
+    const rows = [
+      { score: 0.50000011, kind: 'product' as const, id: 'a' },
+      { score: 0.50000012, kind: 'product' as const, id: 'b' },
+      { score: 0.50000013, kind: 'brand' as const, id: 'c' },
+    ].sort(compareSearchPositions);
+    const seen: string[] = [];
+    let remaining = rows;
+    while (remaining.length > 0) {
+      const row = remaining[0];
+      seen.push(row.id);
+      const cursor = decodeSearchCursor(encodeSearchCursor('fixture', row, seen.length), 'fixture');
+      if (!cursor) throw new Error('Expected a valid cursor');
+      remaining = rows.filter((candidate) => isAfterSearchCursor(candidate, cursor));
+      if (seen.length > rows.length) throw new Error('Cursor repeated a row');
+    }
+    expect(seen).toEqual(rows.map((row) => row.id));
+    expect(seen).toEqual(['a', 'b', 'c']);
+  });
+});
