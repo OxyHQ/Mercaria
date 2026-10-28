@@ -40,8 +40,8 @@ every closed value set) · `contracts` (the `/public/v1` zod source; regen
 - **`@mercaria/ui` is NOT built to dist.** Apps consume it through Metro
   `watchFolders`, the `@mercaria/ui/theme/tailwind.preset` preset and a
   `tsconfig.paths` alias. Do NOT add a build step, and never keep a local copy of
-  anything it owns (`formatMoney`, `PriceDisplay`, `FxContext`, every marketplace
-  primitive).
+  anything it owns (`PriceDisplay`, `FxContext`, every marketplace
+  primitive). `formatMoney` is shared headless code, re-exported by both UI and SDK.
 - **CI typechecks all three Expo apps.** A build is not a substitute: Babel
   strips types, so `expo export` bundles code `tsc` rejects.
 - **`typedRoutes` is armed** (`generate-router-types.mjs` in each app's `typecheck`;

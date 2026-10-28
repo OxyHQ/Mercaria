@@ -430,3 +430,14 @@ describe('a wall gets the same answer through the barrel as it does directly', (
     expect(reachesPackageModule(packageForm, /shared-types\/src\/referral/)).toBe(true);
   });
 });
+
+describe('workspace package re-exports', () => {
+  it('follows SDK money formatting to its canonical shared source owner', () => {
+    expect(resolveBarrelSymbol('@mercaria.co/sdk', 'formatMoney')).toBe(
+      resolveBarrelSymbol('@mercaria/shared-types', 'formatMoney'),
+    );
+    expect(resolveBarrelSymbol('@mercaria.co/sdk', 'formatMoney')).toBe(
+      'packages/shared-types/src/money-format.ts',
+    );
+  });
+});

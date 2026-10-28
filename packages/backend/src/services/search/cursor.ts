@@ -201,7 +201,9 @@ export function compareSearchPositions(
   left: SearchCursorPosition,
   right: SearchCursorPosition,
 ): number {
-  if (left.score !== right.score) return right.score - left.score;
+  const leftScore = Math.round(left.score * SCORE_SCALE);
+  const rightScore = Math.round(right.score * SCORE_SCALE);
+  if (leftScore !== rightScore) return rightScore - leftScore;
   const leftKind = SEARCH_RESULT_KINDS.indexOf(left.kind);
   const rightKind = SEARCH_RESULT_KINDS.indexOf(right.kind);
   if (leftKind !== rightKind) return leftKind - rightKind;
@@ -220,10 +222,5 @@ export function isAfterSearchCursor(
   position: SearchCursorPosition,
   cursor: SearchCursorPosition,
 ): boolean {
-  const rounded = {
-    score: Math.round(position.score * SCORE_SCALE) / SCORE_SCALE,
-    kind: position.kind,
-    id: position.id,
-  };
-  return compareSearchPositions(rounded, cursor) > 0;
+  return compareSearchPositions(position, cursor) > 0;
 }

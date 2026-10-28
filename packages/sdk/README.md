@@ -612,3 +612,7 @@ attaches only the opaque Moovo reference after Moovo verifies the reservation.
 Use Moovo's SDK to propose, quote, authorize and book transport directly as the
 user, and to read its current status. Cancelling a Mercaria reservation preserves
 this reference and does not cancel an existing courier booking.
+
+### Display a catalog price
+
+Use `formatMoney(product.price, locale)` from `@mercaria.co/sdk`. It is the same formatter Mercaria uses: amounts stay in their catalog currency, FAIR uses its eight-decimal minor-unit scale, and the returned display string includes bidirectional isolation. Do not infer precision with `Intl` currency mode: FAIR is not an ISO currency code.
