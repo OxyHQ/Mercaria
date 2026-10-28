@@ -74,6 +74,24 @@
         "types": "./dist/refs.d.ts",
         "default": "./dist/refs.js"
       }
+    },
+    "./money": {
+      "react-native": {
+        "types": "./dist/money.d.ts",
+        "default": "./dist/money.js"
+      },
+      "import": {
+        "types": "./dist/money.d.ts",
+        "default": "./dist/money.js"
+      },
+      "require": {
+        "types": "./dist/money.d.cts",
+        "default": "./dist/money.cjs"
+      },
+      "default": {
+        "types": "./dist/money.d.ts",
+        "default": "./dist/money.js"
+      }
     }
   },
   "files": [

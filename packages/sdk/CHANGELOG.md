@@ -2,6 +2,8 @@
 
 ## 0.7.3
 
+- Add `@mercaria.co/sdk/money` for canonical price formatting without response validators; lazy catalog cards no longer make bundlers share Zod with other deferred validators.
+
 - Add `@mercaria.co/sdk/refs` for portable reference helpers without loading Zod or the HTTP client. Schemas and helpers share the same canonical fields and ID rules; existing root exports remain compatible.
 
 ## 0.7.2

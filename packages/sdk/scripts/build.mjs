@@ -97,7 +97,7 @@ const shared = {
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
 
-for (const name of ['index', 'server', 'refs']) {
+for (const name of ['index', 'server', 'refs', 'money']) {
   const currentEntry = join(root, 'src', `${name}.ts`);
   await esbuild.build({
     ...shared,
@@ -161,4 +161,4 @@ function dropOrphanedDocblocks(code) {
   return result;
 }
 
-console.log('built index, server and refs entries (ESM, CJS and declarations)');
+console.log('built index, server, refs and money entries (ESM, CJS and declarations)');

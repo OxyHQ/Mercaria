@@ -615,7 +615,7 @@ this reference and does not cancel an existing courier booking.
 
 ### Display a catalog price
 
-Use `formatMoney(product.price, locale)` from `@mercaria.co/sdk`. It is the same formatter Mercaria uses: amounts stay in their catalog currency, FAIR uses its eight-decimal minor-unit scale, and the returned display string includes bidirectional isolation. Do not infer precision with `Intl` currency mode: FAIR is not an ISO currency code.
+Use `formatMoney(product.price, locale)` from `@mercaria.co/sdk/money` (also exported from the root). It is the same formatter Mercaria uses: amounts stay in their catalog currency, FAIR uses its eight-decimal minor-unit scale, and the returned display string includes bidirectional isolation. Do not infer precision with `Intl` currency mode: FAIR is not an ISO currency code.
 
 ### Lightweight portable references
 
