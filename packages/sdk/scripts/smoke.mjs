@@ -77,6 +77,10 @@ const EXPECTED_FILES = [
   'package/dist/index.d.cts',
   'package/dist/index.d.ts',
   'package/dist/index.js',
+  'package/dist/refs.cjs',
+  'package/dist/refs.d.cts',
+  'package/dist/refs.d.ts',
+  'package/dist/refs.js',
   'package/dist/server.cjs',
   'package/dist/server.d.cts',
   'package/dist/server.d.ts',
@@ -150,6 +154,10 @@ async function main() {
       'index.cjs',
       'index.d.ts',
       'index.d.cts',
+      'refs.js',
+      'refs.cjs',
+      'refs.d.ts',
+      'refs.d.cts',
       'server.js',
       'server.cjs',
       'server.d.ts',
@@ -302,6 +310,35 @@ async function main() {
       pass(`${target} bundle builds from dist/index.js with no Node built-ins`);
     }
 
+    await writeFile(
+      join(consumer, 'refs-entry.js'),
+      `
+      import { parseMercariaRef, formatMercariaRef, productRef } from '@mercaria.co/sdk/refs';
+      export const ref = formatMercariaRef(productRef('id:with spaces'));
+      export const parsed = parseMercariaRef({ kind: 'collection', id: 'collection-1' });
+    `,
+    );
+    for (const [target, options] of Object.entries(bundles)) {
+      const result = await esbuild.build({
+        entryPoints: [join(consumer, 'refs-entry.js')],
+        absWorkingDir: consumer,
+        bundle: true,
+        write: false,
+        metafile: true,
+        format: 'esm',
+        logLevel: 'silent',
+        ...options,
+      });
+      const inputs = Object.keys(result.metafile.inputs);
+      if (inputs.some((input) => input.includes('/zod/') || input.endsWith('/dist/index.js')))
+        fail(`${target} portable refs pulled in schemas or the full SDK: ${inputs.join(', ')}`);
+      if (!inputs.some((input) => input.endsWith('@mercaria.co/sdk/dist/refs.js')))
+        fail(`${target} portable refs did not resolve their published entry`);
+      if (result.outputFiles[0].contents.length > 16000)
+        fail(`${target} portable refs exceeded the 16KB unminified ceiling`);
+      pass(`${target} portable refs build without Zod or the full client`);
+    }
+
     // ── 6. Declarations in a Node and a browser nodenext consumer ─────────────
     await writeFile(join(consumer, 'types-esm.mts'), CONSUMER_TYPES);
     await writeFile(join(consumer, 'types-cjs.cts'), CONSUMER_TYPES);
@@ -445,6 +482,10 @@ export const url = createMercariaClient().links.product(productRef('p'));
 `;
 
 const CONSUMER_TYPES = `
+import { productRef as lightweightProductRef } from '@mercaria.co/sdk/refs';
+const lightweightRef: import('@mercaria.co/sdk').MercariaProductRef = lightweightProductRef('product-1');
+void lightweightRef;
+
 import { mercariaForOxyService } from '@mercaria.co/sdk/server';
 const workload = mercariaForOxyService({ createServiceClient: () => ({ fetch, dispose() {} }) });
 workload.products.get('p');

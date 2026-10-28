@@ -14,7 +14,8 @@
  * re-declares a type: an SDK that kept its own copy would be the second source
  * of truth issue #1017 exists to prevent.
  *
- * This is the only module in `src/` that imports a private package.
+ * The lightweight refs entry separately imports the pure canonical ref-core
+ * subpath; it deliberately does not load these response schemas.
  */
 
 export {

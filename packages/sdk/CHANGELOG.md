@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.3
+
+- Add `@mercaria.co/sdk/refs` for portable reference helpers without loading Zod or the HTTP client. Schemas and helpers share the same canonical fields and ID rules; existing root exports remain compatible.
+
 ## 0.7.2
 
 - Export the canonical locale-aware `formatMoney` formatter for catalog cards, including FAIR precision, JPY and bidi isolation. Mercaria UI and SDK use the same implementation.

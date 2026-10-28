@@ -63,6 +63,7 @@ const contractIsSideEffectFree = {
       const fromContract =
         args.path === '@mercaria/shared-types' ||
         args.path === '@mercaria/contracts' ||
+        args.path.startsWith('@mercaria/contracts/') ||
         args.importer.includes('/shared-types/') ||
         args.importer.includes('/contracts/');
       if (!fromContract) return undefined;
@@ -96,7 +97,7 @@ const shared = {
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
 
-for (const name of ['index', 'server']) {
+for (const name of ['index', 'server', 'refs']) {
   const currentEntry = join(root, 'src', `${name}.ts`);
   await esbuild.build({
     ...shared,
@@ -160,4 +161,4 @@ function dropOrphanedDocblocks(code) {
   return result;
 }
 
-console.log('built index and server entries (ESM, CJS and declarations)');
+console.log('built index, server and refs entries (ESM, CJS and declarations)');

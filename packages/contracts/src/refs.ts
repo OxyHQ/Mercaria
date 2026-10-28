@@ -22,19 +22,18 @@
 import { z } from 'zod';
 import { MercariaIdSchema } from './primitives';
 
-/** The entity kinds a portable reference can name. */
-export const MERCARIA_REF_KINDS = [
-  'product',
-  'variant',
-  'store',
-  'collection',
-  'location',
-  'catalog_product',
-] as const;
-export type MercariaRefKind = (typeof MERCARIA_REF_KINDS)[number];
+import { MERCARIA_REF_ID_FIELDS, type MercariaRefKind } from './ref-core';
+export { MERCARIA_REF_KINDS, type MercariaRefKind } from './ref-core';
+
+function referenceSchema<K extends MercariaRefKind>(kind: K) {
+  const fields = Object.fromEntries(
+    MERCARIA_REF_ID_FIELDS[kind].map((field) => [field, MercariaIdSchema]),
+  ) as Record<(typeof MERCARIA_REF_ID_FIELDS)[K][number], typeof MercariaIdSchema>;
+  return z.object({ kind: z.literal(kind), ...fields });
+}
 
 /** A sellable product, by its globally unique id. */
-const productRef = z.object({ kind: z.literal('product'), id: MercariaIdSchema });
+const productRef = referenceSchema('product');
 export const MercariaProductRefSchema = productRef.readonly();
 export type MercariaProductRef = z.infer<typeof MercariaProductRefSchema>;
 
@@ -43,21 +42,17 @@ export type MercariaProductRef = z.infer<typeof MercariaProductRefSchema>;
  * variant id because a variant is resolved THROUGH its product — there is no
  * public read of a lone variant.
  */
-const variantRef = z.object({
-  kind: z.literal('variant'),
-  productId: MercariaIdSchema,
-  variantId: MercariaIdSchema,
-});
+const variantRef = referenceSchema('variant');
 export const MercariaVariantRefSchema = variantRef.readonly();
 export type MercariaVariantRef = z.infer<typeof MercariaVariantRefSchema>;
 
 /** A store, by id — never by handle, which the merchant can change. */
-const storeRef = z.object({ kind: z.literal('store'), id: MercariaIdSchema });
+const storeRef = referenceSchema('store');
 export const MercariaStoreRefSchema = storeRef.readonly();
 export type MercariaStoreRef = z.infer<typeof MercariaStoreRefSchema>;
 
 /** A store's curated collection, by its globally unique id. */
-const collectionRef = z.object({ kind: z.literal('collection'), id: MercariaIdSchema });
+const collectionRef = referenceSchema('collection');
 export const MercariaCollectionRefSchema = collectionRef.readonly();
 export type MercariaCollectionRef = z.infer<typeof MercariaCollectionRefSchema>;
 
@@ -66,7 +61,7 @@ export type MercariaCollectionRef = z.infer<typeof MercariaCollectionRefSchema>;
  * id. Where it IS belongs to the GoWay place it trades from, which the location
  * names; the ref names the Mercaria location and nothing about the building.
  */
-const locationRef = z.object({ kind: z.literal('location'), id: MercariaIdSchema });
+const locationRef = referenceSchema('location');
 export const MercariaLocationRefSchema = locationRef.readonly();
 export type MercariaLocationRef = z.infer<typeof MercariaLocationRefSchema>;
 
@@ -75,7 +70,7 @@ export type MercariaLocationRef = z.infer<typeof MercariaLocationRefSchema>;
  * under (ADR 0002) — by id. Never by slug: a merge or a rename changes it,
  * while a merged product's id keeps resolving to the product it merged into.
  */
-const catalogProductRef = z.object({ kind: z.literal('catalog_product'), id: MercariaIdSchema });
+const catalogProductRef = referenceSchema('catalog_product');
 export const MercariaCatalogProductRefSchema = catalogProductRef.readonly();
 export type MercariaCatalogProductRef = z.infer<typeof MercariaCatalogProductRefSchema>;
 

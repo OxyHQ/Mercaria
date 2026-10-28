@@ -383,7 +383,7 @@
     },
     "packages/sdk": {
       "name": "@mercaria.co/sdk",
-      "version": "0.7.2",
+      "version": "0.7.3",
       "dependencies": {
         "zod": "^4.6.7",
       },

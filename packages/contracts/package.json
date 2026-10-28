@@ -11,6 +11,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./ref-core": {
+      "types": "./dist/ref-core.d.ts",
+      "default": "./dist/ref-core.js"
     }
   },
   "scripts": {
