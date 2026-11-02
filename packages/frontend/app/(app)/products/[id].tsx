@@ -1112,6 +1112,7 @@ export default function ProductScreen() {
 
   return (
     <Screen
+      scroll="content"
       documentScroll
       contentClearance={0}
       style={{ backgroundColor: 'transparent' }}
