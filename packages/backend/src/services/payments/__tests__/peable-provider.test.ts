@@ -364,7 +364,7 @@ vi.mock('../../../capabilities/oxy-service-client.js', async () => {
     workloadServiceToken: async (audience: string) => {
       expect(audience).toBe('oxy-service:6a2f851751b784a86fd0e958');
       const cache = Reflect.get(oxy, 'serviceTokens') as Map<string, { token: string }>;
-      const key = JSON.stringify([audience, 'workload-identity:2', null]);
+      const key = JSON.stringify([audience, 'workload-identity', null]);
       if (identityToken === null || !cache.has(key)) {
         mintCount += 1;
         identityToken = fixtureServiceToken(mintCount);
