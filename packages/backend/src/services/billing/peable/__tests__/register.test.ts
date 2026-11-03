@@ -86,7 +86,7 @@ function configureAcceptedCohort(): void {
   seam.account.mockResolvedValue({ id: acceptedCohort.platformAccountId });
   seam.merchant.mockResolvedValue({
     id: acceptedCohort.merchantId,
-    oxyAppId: acceptedCohort.applicationId,
+    oxy_app_id: acceptedCohort.applicationId,
     environment: acceptedCohort.environment,
   });
 }
@@ -99,7 +99,7 @@ beforeEach(() => {
   seam.account.mockReset().mockResolvedValue({ id: 'acct_fixture' });
   seam.merchant
     .mockReset()
-    .mockResolvedValue({ id: 'merchant', oxyAppId: 'app', environment: 'development' });
+    .mockResolvedValue({ id: 'merchant', oxy_app_id: 'app', environment: 'development' });
   seam.constructed.mockClear();
   seam.registered.mockClear();
 });
@@ -164,12 +164,12 @@ describe('billing cohort registration', () => {
       else
         seam.merchant.mockResolvedValue({
           id: acceptedCohort.merchantId,
-          oxyAppId: acceptedCohort.applicationId,
+          oxy_app_id: acceptedCohort.applicationId,
           environment: acceptedCohort.environment,
           ...(field === 'merchantId'
             ? { id: 'foreign' }
             : field === 'applicationId'
-              ? { oxyAppId: 'foreign' }
+              ? { oxy_app_id: 'foreign' }
               : { environment: 'development' }),
         });
       await expect(registerMerchantBillingProvider()).rejects.toThrow(
@@ -204,7 +204,7 @@ describe('billing cohort registration', () => {
       if (mismatch === 'namespace')
         seam.merchant.mockResolvedValue({
           id: 'other',
-          oxyAppId: 'app',
+          oxy_app_id: 'app',
           environment: 'development',
         });
       await expect(registerMerchantBillingProvider()).rejects.toThrow();

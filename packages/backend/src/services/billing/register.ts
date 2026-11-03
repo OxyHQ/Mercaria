@@ -44,7 +44,7 @@ export async function registerMerchantBillingProvider(): Promise<void> {
   const merchant = await client.merchants.retrieve();
   if (
     merchant.id !== cohort.merchantId ||
-    merchant.oxyAppId !== cohort.applicationId ||
+    merchant.oxy_app_id !== cohort.applicationId ||
     merchant.environment !== cohort.environment
   ) {
     throw new Error('Merchant billing credential resolves to a different namespace.');

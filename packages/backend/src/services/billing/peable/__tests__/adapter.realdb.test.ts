@@ -164,11 +164,21 @@ beforeAll(async () => {
     if (path === '/v1/merchants/me')
       return reply({
         id: behavior === 'foreign-merchant' ? 'foreign' : 'merchant-fixture',
-        oxyAppId: 'app-fixture',
+        oxy_app_id: 'app-fixture',
         environment: 'development',
       });
     if (behavior === 'result-expired')
-      return reply({ error: { type: 'invalid_request_error', message: 'result_expired' } }, 409);
+      return reply(
+        {
+          error: {
+            type: 'invalid_request_error',
+            code: 'result_expired',
+            message: 'The result of this operation has expired.',
+            request_id: 'req_fixture',
+          },
+        },
+        409,
+      );
     if (behavior === 'unavailable')
       return reply(
         { error: { type: 'api_error', message: 'DO_NOT_LOG https://private.invalid/token' } },
@@ -179,7 +189,11 @@ beforeAll(async () => {
       if (path.endsWith('/cancel_at_period_end')) {
         if (!key) return reply({}, 400);
         if (!receipts.has(key)) {
-          snapshot = { ...snapshot, cancelAtPeriodEnd: true, cancelAt: snapshot.currentPeriodEnd };
+          snapshot = {
+            ...snapshot,
+            cancel_at_period_end: true,
+            cancel_at: snapshot.current_period_end,
+          };
           receipts.set(key, { ...snapshot });
           effects++;
         }
@@ -192,24 +206,24 @@ beforeAll(async () => {
       }
       if (behavior === 'read-unavailable')
         return reply({ error: { type: 'api_error', message: 'synthetic unavailable' } }, 503);
-      if (behavior === 'wrong-store') value.storeId = otherStoreId;
-      if (behavior === 'wrong-plan') value.planId = 'foreign';
+      if (behavior === 'wrong-store') value.store_id = otherStoreId;
+      if (behavior === 'wrong-plan') value.plan_id = 'foreign';
       if (behavior === 'wrong-mode') value.livemode = true;
       return reply(value);
     }
-    if (path === '/v1/billing/customers') return reply({ providerCustomerId: customer });
+    if (path === '/v1/billing/customers') return reply({ provider_customer_id: customer });
     if (path === '/v1/billing/checkout_sessions' || path === '/v1/billing/portal_sessions') {
       if (!key)
         return reply({ error: { type: 'invalid_request_error', message: 'missing key' } }, 400);
       const receipt = receipts.get(key) ?? {
         url: 'https://checkout.stripe.com/fixture',
-        expiresAt: new Date(Date.now() + (behavior === 'expired' ? -1000 : 60_000)).toISOString(),
+        expires_at: Math.floor((Date.now() + (behavior === 'expired' ? -1000 : 60_000)) / 1000),
       };
       if (!receipts.has(key)) {
         receipts.set(key, receipt);
         effects++;
       }
-      if (path.includes('checkout') && (body.storeId !== storeId || body.planId !== planId))
+      if (path.includes('checkout') && (body.store_id !== storeId || body.plan_id !== planId))
         return reply({}, 400);
       if (behavior === 'lost') {
         behavior = 'normal';
@@ -248,22 +262,20 @@ beforeEach(() => {
   calls.length = 0;
   readStripe.mockClear();
   snapshot = {
-    providerSubscriptionId: sub,
-    providerCustomerId: customer,
-    providerPriceId: price,
-    storeId,
-    planId,
+    provider_subscription_id: sub,
+    provider_customer_id: customer,
+    provider_price_id: price,
+    store_id: storeId,
+    plan_id: planId,
     livemode: false,
     status: 'active',
     interval: 'month',
-    cancelAtPeriodEnd: false,
-    currentPeriodStart: '2020-01-01T00:00:00.000Z',
-    currentPeriodEnd: new Date(
-      Date.parse('2020-01-01T00:00:00.000Z') + 31 * 86400000,
-    ).toISOString(),
-    trialEndsAt: null,
-    cancelAt: null,
-    cancelledAt: null,
+    cancel_at_period_end: false,
+    current_period_start: Date.parse('2020-01-01T00:00:00.000Z') / 1000,
+    current_period_end: (Date.parse('2020-01-01T00:00:00.000Z') + 31 * 86400000) / 1000,
+    trial_ends_at: null,
+    cancel_at: null,
+    cancelled_at: null,
   };
   legacy = {
     id: 'stripe',
@@ -323,7 +335,7 @@ describe('Peable cohort adoption / actual SDK HTTP and SQL', () => {
       status: 'active',
       interval: 'monthly',
     });
-    expect(result.currentPeriodEnd).toEqual(new Date(snapshot.currentPeriodEnd));
+    expect(result.currentPeriodEnd).toEqual(new Date(snapshot.current_period_end * 1000));
     expect(readStripe).toHaveBeenCalledWith(sub);
     expect((await provider.cancelAtPeriodEnd(sub, `cancel-${nonce}`)).status).toBe('cancelled');
     expect(legacy.cancelAtPeriodEnd).not.toHaveBeenCalled();
@@ -525,7 +537,7 @@ describe('cancellation receipt versus current projection', () => {
       retryable: true,
     });
     // A later verified reconciliation sees the cancellation reverted at the provider.
-    snapshot = { ...snapshot, cancelAtPeriodEnd: false, cancelAt: null };
+    snapshot = { ...snapshot, cancel_at_period_end: false, cancel_at: null };
     await applyProviderSubscriptionState({
       snapshot: await provider.retrieveSubscription(sub),
       note: 'fixture later reconciliation',
@@ -555,7 +567,7 @@ describe('cancellation receipt versus current projection', () => {
     await expect(scheduleMerchantSubscriptionCancellation(input)).rejects.toMatchObject({
       retryable: true,
     });
-    snapshot = { ...snapshot, cancelAtPeriodEnd: false, cancelAt: null };
+    snapshot = { ...snapshot, cancel_at_period_end: false, cancel_at: null };
     await applyProviderSubscriptionState({
       snapshot: await provider.retrieveSubscription(sub),
       note: 'fixture later reconciliation',

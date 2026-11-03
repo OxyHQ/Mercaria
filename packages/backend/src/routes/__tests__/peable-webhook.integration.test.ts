@@ -137,40 +137,47 @@ function listen(app: express.Express): Promise<string> {
 /** A syntactically complete gateway event body. */
 function eventBody(overrides: { id?: string; type?: string; intentId?: string }): string {
   const type = overrides.type ?? 'payment_intent.settled';
-  const created = new Date().toISOString();
+  const created = Math.floor(Date.now() / 1000);
   const paymentIntentId = overrides.intentId ?? 'pi_peable_test_1';
   const object =
     type === 'connected_account.updated'
       ? {
           id: 'ca_peable_fixture',
           object: 'connected_account',
-          externalRef: 'store_fixture',
+          external_ref: 'store_fixture',
+          rails: ['card'],
+          faircoin: null,
           country: 'ES',
-          defaultCurrency: 'EUR',
+          default_currency: 'EUR',
           payable: false,
-          payoutsEnabled: false,
-          chargesEnabled: false,
-          transfersCapability: 'pending',
-          cardPaymentsCapability: null,
-          requirements: { currentlyDue: 1, eventuallyDue: 1, pastDue: 0, pendingVerification: 0 },
-          disabledReasonCodes: [],
-          lastSyncedAt: null,
-          createdAt: created,
-          updatedAt: created,
+          payouts_enabled: false,
+          charges_enabled: false,
+          transfers_capability: 'pending',
+          card_payments_capability: null,
+          requirements: {
+            currently_due: 1,
+            eventually_due: 1,
+            past_due: 0,
+            pending_verification: 0,
+          },
+          disabled_reason_codes: [],
+          last_synced_at: null,
+          created,
+          updated_at: created,
         }
       : type === 'payment_intent.disputed' || type === 'payment_intent.dispute_closed'
         ? {
             id: 'dp_peable_fixture',
             object: 'dispute',
-            paymentIntentId,
+            payment_intent_id: paymentIntentId,
             amount: '1000',
             currency: 'EUR',
             status: type === 'payment_intent.disputed' ? 'needs_response' : 'won',
             reason: null,
-            evidenceDueAt: null,
-            evidenceSubmittedAt: null,
-            createdAt: created,
-            updatedAt: created,
+            evidence_due_at: null,
+            evidence_submitted_at: null,
+            created,
+            updated_at: created,
           }
         : {
             id: paymentIntentId,
@@ -181,14 +188,14 @@ function eventBody(overrides: { id?: string; type?: string; intentId?: string })
             rail: 'card',
             network: null,
             address: null,
-            merchantId: 'merch_fixture',
+            merchant_id: 'merch_fixture',
             txid: null,
             confirmations: 0,
-            clientSecret: 'synthetic-client-secret',
+            client_secret: 'synthetic-client-secret',
             metadata: {},
-            expiresAt: created,
-            createdAt: created,
-            updatedAt: created,
+            expires_at: created,
+            created,
+            updated_at: created,
           };
   return JSON.stringify({
     id: overrides.id ?? 'evt_peable_1',

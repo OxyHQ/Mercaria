@@ -273,8 +273,8 @@ export class PeablePaymentProvider
     const refund = await this.call('refund', () =>
       this.client.refunds.create(
         {
-          paymentIntentId: request.providerObjectId,
-          externalRef: request.refundId,
+          payment_intent_id: request.providerObjectId,
+          external_ref: request.refundId,
           amount: toGatewayAmount(request.amount, 'refund'),
         },
         { idempotencyKey: request.idempotencyKey },
@@ -286,7 +286,7 @@ export class PeablePaymentProvider
       // The PAYMENT's status after this refund, which the gateway returns on the
       // refund itself. Re-reading the intent for it would be a second round
       // trip whose answer can have moved on by the time it arrives.
-      status: toPaymentStatus(refund.paymentStatus, 'getStatus'),
+      status: toPaymentStatus(refund.payment_status, 'getStatus'),
       // The REFUND's own lifecycle, which is a different question. A gateway
       // status this adapter does not recognise becomes `pending` rather than
       // `succeeded`: reporting money returned that has not moved is the
@@ -297,7 +297,7 @@ export class PeablePaymentProvider
           : refund.status === 'failed'
             ? 'failed'
             : 'pending',
-      ...(refund.failureCode === null ? {} : { failureCode: refund.failureCode }),
+      ...(refund.failure_code === null ? {} : { failureCode: refund.failure_code }),
     };
   }
 
@@ -340,9 +340,9 @@ export class PeablePaymentProvider
     const transfer = await this.call('transfer', () =>
       this.client.transfers.create(
         {
-          paymentIntentId: request.sourcePaymentObjectId,
-          connectedAccountId: request.destinationAccountId,
-          externalRef: request.orderId,
+          payment_intent_id: request.sourcePaymentObjectId,
+          connected_account_id: request.destinationAccountId,
+          external_ref: request.orderId,
           amount: toGatewayAmount(request.amount, 'transfer'),
         },
         { idempotencyKey: request.idempotencyKey },
@@ -364,12 +364,12 @@ export class PeablePaymentProvider
     // deciding whether a transfer is fully reversed must not have to add up
     // legs it may not all have seen, and reporting this one would make a second
     // partial reversal look like the first.
-    const total = Number(transfer.amountReversed);
+    const total = Number(transfer.amount_reversed);
     if (!Number.isSafeInteger(total) || total < 0) {
       throw new PaymentProviderError({
         provider: 'peable',
         stage: 'transfer',
-        message: `the gateway reported an unusable reversed total '${transfer.amountReversed}'`,
+        message: `the gateway reported an unusable reversed total '${transfer.amount_reversed}'`,
         retryable: false,
       });
     }
