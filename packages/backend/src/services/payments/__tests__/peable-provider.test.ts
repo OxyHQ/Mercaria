@@ -180,8 +180,8 @@ async function fakeGateway(request: FakeRequest): Promise<unknown> {
   }
 
   if (request.method === 'POST' && request.path === '/v1/refunds') {
-    const ref = String(body.externalRef);
-    const intent = intents.get(String(body.paymentIntentId));
+    const ref = String(body.external_ref);
+    const intent = intents.get(String(body.payment_intent_id));
     if (!intent) {
       throw new PaymentProviderError({
         provider: 'peable',
@@ -207,8 +207,8 @@ async function fakeGateway(request: FakeRequest): Promise<unknown> {
       return {
         id: existing.id,
         status: 'succeeded',
-        paymentStatus: intent.status,
-        failureCode: null,
+        payment_status: intent.status,
+        failure_code: null,
       };
     }
     const amount = Number(body.amount);
@@ -226,17 +226,17 @@ async function fakeGateway(request: FakeRequest): Promise<unknown> {
     intent.status =
       intent.refundedMinor >= Number(intent.amount) ? 'refunded' : 'partially_refunded';
     refundsByRef.set(ref, { id, amount: String(amount), intentId: intent.id });
-    return { id, status: 'succeeded', paymentStatus: intent.status, failureCode: null };
+    return { id, status: 'succeeded', payment_status: intent.status, failure_code: null };
   }
 
   if (request.method === 'POST' && request.path === '/v1/transfers') {
-    const ref = String(body.externalRef);
+    const ref = String(body.external_ref);
     const existing = transfersByRef.get(ref);
-    if (existing) return { id: existing.id, status: 'paid', amountReversed: '0' };
+    if (existing) return { id: existing.id, status: 'paid', amount_reversed: '0' };
     nextId += 1;
     const id = `tr_fake_${String(nextId)}`;
-    transfersByRef.set(ref, { id, intentId: String(body.paymentIntentId), reversedMinor: 0 });
-    return { id, status: 'paid', amountReversed: '0' };
+    transfersByRef.set(ref, { id, intentId: String(body.payment_intent_id), reversedMinor: 0 });
+    return { id, status: 'paid', amount_reversed: '0' };
   }
 
   const reversalMatch = /^\/v1\/transfers\/([^/]+)\/reversals$/.exec(request.path);
@@ -256,7 +256,7 @@ async function fakeGateway(request: FakeRequest): Promise<unknown> {
       id: entry.id,
       status: 'partially_reversed',
       // CUMULATIVE, which is what the adapter must report back.
-      amountReversed: String(entry.reversedMinor),
+      amount_reversed: String(entry.reversedMinor),
     };
   }
 
@@ -329,7 +329,7 @@ const gateway = createServer(async (req, res) => {
         JSON.stringify({
           ...result,
           status: refundLifecycle,
-          failureCode: refundLifecycle === 'failed' ? 'fixture_decline' : null,
+          failure_code: refundLifecycle === 'failed' ? 'fixture_decline' : null,
         }),
       );
       return;
@@ -448,7 +448,7 @@ runPaymentProviderContract({
       id: `evt_contract_${providerObjectId}_${String(nextId)}`,
       object: 'event',
       type: status === 'succeeded' ? 'payment_intent.settled' : 'payment_intent.confirming',
-      created: new Date().toISOString(),
+      created: Math.floor(Date.now() / 1000),
       data: { object: { id: providerObjectId } },
     });
     const timestamp = Math.floor(Date.now() / 1000);
@@ -577,8 +577,8 @@ describe('PeablePaymentProvider settlement', () => {
     // starts reporting the leg it just sent.
     expect(second.totalReversedMinor).toBe(5_000);
     expect(wire.slice(-2).map((row) => ({ key: row.idempotencyKey, body: row.body }))).toEqual([
-      { key: 'trr:order-rev:3000', body: { amount: '3000' } },
-      { key: 'trr:order-rev:2000', body: { amount: '2000' } },
+      { key: 'trr:order-rev:3000', body: { amount: '3000', external_ref: 'trr:order-rev:3000' } },
+      { key: 'trr:order-rev:2000', body: { amount: '2000', external_ref: 'trr:order-rev:2000' } },
     ]);
   });
 
@@ -636,9 +636,9 @@ describe('PeablePaymentProvider settlement', () => {
       stage: 'transfer',
       idempotencyKey: 'tr:order-naming',
       body: {
-        paymentIntentId: sourceId,
-        connectedAccountId: 'ca_seller_naming',
-        externalRef: 'order-naming',
+        payment_intent_id: sourceId,
+        connected_account_id: 'ca_seller_naming',
+        external_ref: 'order-naming',
         amount: '2500',
       },
     });
@@ -776,7 +776,7 @@ describe('published SDK HTTP parity', () => {
     });
   });
   test.each(['pending', 'failed'] as const)(
-    'keeps refund%s distinct from payment lifecycle, with externalRef and key',
+    'keeps refund%s distinct from payment lifecycle, with external_ref and key',
     async (state) => {
       const provider = new PeablePaymentProvider();
       const created = await provider.createPayment(request);
@@ -802,8 +802,8 @@ describe('published SDK HTTP parity', () => {
         stage: 'refund',
         idempotencyKey: 're:refund-http',
         body: {
-          paymentIntentId: created.providerObjectId,
-          externalRef: 'refund-http',
+          payment_intent_id: created.providerObjectId,
+          external_ref: 'refund-http',
           amount: '200',
         },
       });

@@ -21,14 +21,21 @@ import { mapStripeSubscriptionStatus } from '../stripe/stripe-billing.js';
 const id = z.string().min(1).max(200);
 import { billingCohortSchema, type BillingCohort } from '../cohort-config.js';
 export { billingCohortSchema, type BillingCohort } from '../cohort-config.js';
-const timestamp = z.string().datetime({ offset: true });
+/** Peable instants are integer Unix seconds (ADR 0014); Mercaria's domain holds `Date`s. */
+const timestamp = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
+const fromUnixSeconds = (seconds: number) => new Date(seconds * 1000);
 const subscriptionSchema = z
   .object({
-    providerSubscriptionId: z.string().regex(/^sub_[A-Za-z0-9]+$/),
-    providerCustomerId: z.string().regex(/^cus_[A-Za-z0-9]+$/),
-    providerPriceId: z.string().regex(/^price_[A-Za-z0-9]+$/),
-    storeId: id,
-    planId: id,
+    provider_subscription_id: z.string().regex(/^sub_[A-Za-z0-9]+$/),
+    latest_invoice_id: z
+      .string()
+      .regex(/^in_[A-Za-z0-9]+$/)
+      .nullable()
+      .optional(),
+    provider_customer_id: z.string().regex(/^cus_[A-Za-z0-9]+$/),
+    provider_price_id: z.string().regex(/^price_[A-Za-z0-9]+$/),
+    store_id: id,
+    plan_id: id,
     livemode: z.boolean(),
     status: z.enum([
       'incomplete',
@@ -41,22 +48,24 @@ const subscriptionSchema = z
       'paused',
     ]),
     interval: z.enum(['month', 'year']),
-    cancelAtPeriodEnd: z.boolean(),
-    currentPeriodStart: timestamp,
-    currentPeriodEnd: timestamp,
-    trialEndsAt: timestamp.nullable(),
-    cancelAt: timestamp.nullable(),
-    cancelledAt: timestamp.nullable(),
+    cancel_at_period_end: z.boolean(),
+    current_period_start: timestamp,
+    current_period_end: timestamp,
+    trial_ends_at: timestamp.nullable(),
+    cancel_at: timestamp.nullable(),
+    cancelled_at: timestamp.nullable(),
   })
   .strict()
-  .refine((v) => Date.parse(v.currentPeriodEnd) > Date.parse(v.currentPeriodStart));
+  .refine((v) => v.current_period_end > v.current_period_start);
 const hostedSchema = z
   .object({
     url: z
       .string()
       .url()
       .refine((v) => new URL(v).protocol === 'https:'),
-    expiresAt: timestamp,
+    expires_at: timestamp,
+    // A billing checkout session also names its `cs_…`; a portal session does not.
+    id: z.string().min(1).optional(),
   })
   .strict();
 
@@ -112,18 +121,15 @@ export class CohortBillingProvider implements BillingProvider {
       const merchant = await this.client.merchants.retrieve();
       if (
         merchant.id !== this.cohort.merchantId ||
-        merchant.oxyAppId !== this.cohort.applicationId ||
+        merchant.oxy_app_id !== this.cohort.applicationId ||
         merchant.environment !== this.cohort.environment
       )
         refused(stage);
       return await action();
     } catch (error) {
       if (error instanceof BillingProviderError) throw error;
-      if (
-        error instanceof PeableError &&
-        error.code === 'invalid_request_error' &&
-        error.message === 'result_expired'
-      ) {
+      // The gateway's machine reason is `error.code` (ADR 0014); never parse `message`.
+      if (error instanceof PeableError && error.code === 'result_expired') {
         throw new BillingProviderError({
           provider: 'stripe',
           stage,
@@ -134,9 +140,7 @@ export class CohortBillingProvider implements BillingProvider {
       }
       const retryable =
         error instanceof PeableError &&
-        (error.type === 'api_error' ||
-          error.statusCode === 429 ||
-          (error.code === 'invalid_request_error' && error.message === 'in_progress'));
+        (error.type === 'api_error' || error.statusCode === 429 || error.code === 'in_progress');
       // Never propagate an upstream message/cause: hosted URLs and secrets must not enter route logs.
       throw new BillingProviderError({
         provider: 'stripe',
@@ -182,8 +186,9 @@ export class CohortBillingProvider implements BillingProvider {
   }
   private hosted(value: unknown) {
     const result = hostedSchema.parse(value);
-    if (Date.parse(result.expiresAt) <= Date.now()) refused('createCheckoutSession');
-    return { url: result.url, expiresAt: new Date(result.expiresAt) };
+    const expiresAt = fromUnixSeconds(result.expires_at);
+    if (expiresAt.getTime() <= Date.now()) refused('createCheckoutSession');
+    return { url: result.url, expiresAt };
   }
   private async snapshot(
     value: unknown,
@@ -193,52 +198,53 @@ export class CohortBillingProvider implements BillingProvider {
   ): Promise<BillingSubscriptionSnapshot> {
     const s = subscriptionSchema.parse(value);
     if (
-      s.providerSubscriptionId !== ref ||
-      s.storeId !== storeId ||
+      s.provider_subscription_id !== ref ||
+      s.store_id !== storeId ||
       s.livemode !== this.livemode ||
       !this.stores.has(storeId)
     )
       refused(stage);
-    if ((await this.customerStore(s.providerCustomerId, stage)) !== storeId) refused(stage);
+    if ((await this.customerStore(s.provider_customer_id, stage)) !== storeId) refused(stage);
     const price = await findMerchantPlanPriceByProviderId(getDb(), {
       provider: 'stripe',
       livemode: this.livemode,
-      providerPriceId: s.providerPriceId,
+      providerPriceId: s.provider_price_id,
     });
     if (
       !price ||
-      price.planId !== s.planId ||
+      price.planId !== s.plan_id ||
       price.interval !== (s.interval === 'year' ? 'annual' : 'monthly')
     )
       refused(stage);
     return {
-      providerSubscriptionId: s.providerSubscriptionId,
-      providerCustomerId: s.providerCustomerId,
-      providerPriceId: s.providerPriceId,
+      providerSubscriptionId: s.provider_subscription_id,
+      providerCustomerId: s.provider_customer_id,
+      providerPriceId: s.provider_price_id,
       livemode: s.livemode,
-      status: mapStripeSubscriptionStatus(s.status, s.cancelAtPeriodEnd),
+      status: mapStripeSubscriptionStatus(s.status, s.cancel_at_period_end),
       interval: s.interval === 'year' ? 'annual' : 'monthly',
-      currentPeriodStart: new Date(s.currentPeriodStart),
-      currentPeriodEnd: new Date(s.currentPeriodEnd),
-      ...(s.trialEndsAt ? { trialEndsAt: new Date(s.trialEndsAt) } : {}),
-      ...(s.cancelAt ? { cancelAt: new Date(s.cancelAt) } : {}),
-      ...(s.cancelledAt ? { cancelledAt: new Date(s.cancelledAt) } : {}),
+      currentPeriodStart: fromUnixSeconds(s.current_period_start),
+      currentPeriodEnd: fromUnixSeconds(s.current_period_end),
+      ...(s.trial_ends_at !== null ? { trialEndsAt: fromUnixSeconds(s.trial_ends_at) } : {}),
+      ...(s.cancel_at !== null ? { cancelAt: fromUnixSeconds(s.cancel_at) } : {}),
+      ...(s.cancelled_at !== null ? { cancelledAt: fromUnixSeconds(s.cancelled_at) } : {}),
     };
   }
   async ensureCustomer(input: Parameters<BillingProvider['ensureCustomer']>[0]) {
     if (!this.stores.has(input.storeId)) return this.legacy.ensureCustomer(input);
     const key = requireKey(input.idempotencyKey, 'ensureCustomer');
-    return this.call('ensureCustomer', async () =>
-      z
-        .object({ providerCustomerId: z.string().regex(/^cus_[A-Za-z0-9]+$/) })
+    return this.call('ensureCustomer', async () => {
+      const customer = z
+        .object({ provider_customer_id: z.string().regex(/^cus_[A-Za-z0-9]+$/) })
         .strict()
         .parse(
           await this.client.billing.ensureCustomer(
-            { storeId: input.storeId, storeName: input.storeName },
+            { store_id: input.storeId, store_name: input.storeName },
             { idempotencyKey: key },
           ),
-        ),
-    );
+        );
+      return { providerCustomerId: customer.provider_customer_id };
+    });
   }
   async createCheckoutSession(input: Parameters<BillingProvider['createCheckoutSession']>[0]) {
     if (!this.stores.has(input.storeId)) return this.legacy.createCheckoutSession(input);
@@ -258,12 +264,12 @@ export class CohortBillingProvider implements BillingProvider {
       this.hosted(
         await this.client.billing.createCheckoutSession(
           {
-            storeId: input.storeId,
-            planId: input.planId,
-            providerCustomerId: input.providerCustomerId,
-            providerPriceId: input.providerPriceId,
-            trialDays: input.trialDays,
-            returnUrl: input.returnUrl,
+            store_id: input.storeId,
+            plan_id: input.planId,
+            provider_customer_id: input.providerCustomerId,
+            provider_price_id: input.providerPriceId,
+            trial_days: input.trialDays,
+            return_url: input.returnUrl,
           },
           { idempotencyKey: key },
         ),
@@ -277,7 +283,7 @@ export class CohortBillingProvider implements BillingProvider {
     return this.call('createPortalSession', async () =>
       this.hosted(
         await this.client.billing.createPortalSession(
-          { providerCustomerId: input.providerCustomerId, returnUrl: input.returnUrl },
+          { provider_customer_id: input.providerCustomerId, return_url: input.returnUrl },
           { idempotencyKey: key },
         ),
       ),
