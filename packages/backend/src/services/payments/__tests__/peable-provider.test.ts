@@ -577,8 +577,8 @@ describe('PeablePaymentProvider settlement', () => {
     // starts reporting the leg it just sent.
     expect(second.totalReversedMinor).toBe(5_000);
     expect(wire.slice(-2).map((row) => ({ key: row.idempotencyKey, body: row.body }))).toEqual([
-      { key: 'trr:order-rev:3000', body: { amount: '3000' } },
-      { key: 'trr:order-rev:2000', body: { amount: '2000' } },
+      { key: 'trr:order-rev:3000', body: { amount: '3000', external_ref: 'trr:order-rev:3000' } },
+      { key: 'trr:order-rev:2000', body: { amount: '2000', external_ref: 'trr:order-rev:2000' } },
     ]);
   });
 

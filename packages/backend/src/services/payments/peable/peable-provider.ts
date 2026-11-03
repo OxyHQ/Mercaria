@@ -355,7 +355,14 @@ export class PeablePaymentProvider
     const transfer = await this.call('transfer', () =>
       this.client.transfers.reverse(
         request.transferObjectId,
-        { amount: toGatewayAmount(request.amount, 'transfer') },
+        {
+          amount: toGatewayAmount(request.amount, 'transfer'),
+          // The reversal's DURABLE identity. The caller's key is already one per
+          // recovery (`trr:<refund>:<order>`, `trr:dispute:<dispute>:<order>`,
+          // ADR 0001 D11), so it names this reversal at the gateway beyond the
+          // 24-hour `Idempotency-Key` window — an amount is not an identity.
+          external_ref: request.idempotencyKey,
+        },
         { idempotencyKey: request.idempotencyKey },
       ),
     );
