@@ -47,6 +47,7 @@ const EXCLUDED: Readonly<Record<string, readonly string[]>> = {
   // imports go missing; there is no module-registry reset at all.
   'module mocking (vi.hoisted / importOriginal / vi.mocked / vi.resetModules)': [
     'src/__tests__/ecosystemActivity.test.ts',
+    'src/__tests__/socket-cors.test.ts',
     'src/capabilities/__tests__/capability-authority.test.ts',
     'src/capabilities/__tests__/mercaria-domain-authority.test.ts',
     'src/capabilities/__tests__/mercaria-handlers.test.ts',
@@ -55,6 +56,7 @@ const EXCLUDED: Readonly<Record<string, readonly string[]>> = {
     'src/connectors/woocommerce/__tests__/woocommerce-contract.test.ts',
     'src/controllers/__tests__/referral-program-operator-list.test.ts',
     'src/lib/__tests__/redis-db-index.test.ts',
+    'src/middleware/__tests__/operator-authz.test.ts',
     'src/routes/__tests__/billing-cohort-stripe.integration.test.ts',
     'src/routes/__tests__/capabilities.test.ts',
     'src/routes/__tests__/catalog-attribute-display-units.test.ts',
@@ -90,6 +92,7 @@ const EXCLUDED: Readonly<Record<string, readonly string[]>> = {
     'src/services/__tests__/connector-webhook.test.ts',
     'src/services/__tests__/moderation-enforcement-guards.test.ts',
     'src/services/__tests__/order.service.test.ts',
+    'src/services/__tests__/oxy-user.service.test.ts',
     'src/services/__tests__/product-type-publication.test.ts',
     'src/services/__tests__/product-type-value-policy.test.ts',
     'src/services/__tests__/report-intake.service.test.ts',
@@ -98,10 +101,13 @@ const EXCLUDED: Readonly<Record<string, readonly string[]>> = {
     'src/services/billing/peable/__tests__/register.test.ts',
     'src/services/billing/stripe/__tests__/cohort-reader.test.ts',
     'src/services/catalog-authoring/__tests__/draft-upgrade.test.ts',
+    'src/services/catalog-media/__tests__/application-media-backfill.test.ts',
     'src/services/catalog-media/__tests__/oxy-files.test.ts',
     'src/services/catalog-media/__tests__/verify.test.ts',
+    'src/services/digital/provenance/__tests__/appeal.test.ts',
     'src/services/goway/__tests__/places.test.ts',
     'src/services/ingestion/adapters/__tests__/product-feed-contract.test.ts',
+    'src/services/moderation/subjects/__tests__/listing-subject.test.ts',
     'src/services/payments/__tests__/checkout-rail.test.ts',
     'src/services/payments/__tests__/native-rail.test.ts',
     'src/services/payments/__tests__/peable-provider.test.ts',
@@ -110,6 +116,7 @@ const EXCLUDED: Readonly<Record<string, readonly string[]>> = {
     'src/services/referrals/__tests__/redirect-destination.test.ts',
     'src/services/referrals/__tests__/referral-state.test.ts',
     'src/services/reviews/__tests__/review-media.service.test.ts',
+    'src/services/sellers/__tests__/viewer-oxy-client.test.ts',
   ],
   // `vi.stubGlobal`, `vi.stubEnv`, `vi.unstubAllGlobals`, `vi.unstubAllEnvs`.
   'global and environment stubs (vi.stubGlobal / vi.stubEnv)': [
