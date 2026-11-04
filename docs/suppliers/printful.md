@@ -340,8 +340,8 @@ own message never lands in a column** — only the closed code it maps to.
 
 - 24/7 support advertised ([pricing](https://www.printful.com/pricing)); the
   escalation PATH is ❔ **requires account/contract**.
-- Mercaria's side: the payment/procurement operators in
-  `PROCUREMENT_OPERATOR_OXY_USER_IDS`, contact **oxy@oxy.so**. Treasury
+- Mercaria's side: the procurement operators (holders of
+  `procurement.operate`), contact **oxy@oxy.so**. Treasury
   approvals follow ADR 0004 D6.5 dual control.
 
 ## 19. Known limitations and launch kill switches

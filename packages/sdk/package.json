@@ -1,7 +1,7 @@
 {
   "name": "@mercaria.co/sdk",
-  "version": "0.2.0",
-  "description": "The canonical, headless TypeScript client for Mercaria's public commerce API — product, store and collection reads, portable references, typed errors and canonical links for Node, Bun, browsers and React Native.",
+  "version": "0.8.0",
+  "description": "The canonical, headless TypeScript client for Mercaria's public commerce API \u2014 product, store and collection reads, portable references, typed errors and canonical links for Node, Bun, browsers and React Native.",
   "license": "Apache-2.0",
   "author": "The Oxy Collective, Inc.",
   "homepage": "https://github.com/OxyHQ/Mercaria/tree/main/packages/sdk#readme",
@@ -46,7 +46,53 @@
         "default": "./dist/index.js"
       }
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./server": {
+      "import": {
+        "types": "./dist/server.d.ts",
+        "default": "./dist/server.js"
+      },
+      "require": {
+        "types": "./dist/server.d.cts",
+        "default": "./dist/server.cjs"
+      }
+    },
+    "./refs": {
+      "react-native": {
+        "types": "./dist/refs.d.ts",
+        "default": "./dist/refs.js"
+      },
+      "import": {
+        "types": "./dist/refs.d.ts",
+        "default": "./dist/refs.js"
+      },
+      "require": {
+        "types": "./dist/refs.d.cts",
+        "default": "./dist/refs.cjs"
+      },
+      "default": {
+        "types": "./dist/refs.d.ts",
+        "default": "./dist/refs.js"
+      }
+    },
+    "./money": {
+      "react-native": {
+        "types": "./dist/money.d.ts",
+        "default": "./dist/money.js"
+      },
+      "import": {
+        "types": "./dist/money.d.ts",
+        "default": "./dist/money.js"
+      },
+      "require": {
+        "types": "./dist/money.d.cts",
+        "default": "./dist/money.cjs"
+      },
+      "default": {
+        "types": "./dist/money.d.ts",
+        "default": "./dist/money.js"
+      }
+    }
   },
   "files": [
     "dist",
@@ -62,7 +108,7 @@
     "access": "public"
   },
   "dependencies": {
-    "zod": "^4.5.4"
+    "zod": "^4.6.7"
   },
   "scripts": {
     "build": "node scripts/build.mjs",
@@ -71,7 +117,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run",
     "smoke": "node scripts/smoke.mjs",
-    "prepublishOnly": "bun run typecheck && bun run test && bun run build && bun run smoke"
+    "prepublishOnly": "bun run typecheck && bun run test && bun run build",
+    "release:pack": "node scripts/smoke.mjs --out"
   },
   "devDependencies": {
     "@mercaria/contracts": "workspace:*",

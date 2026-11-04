@@ -82,6 +82,7 @@ const mintDownloadGrant = vi.fn();
 const redeemDownloadGrant = vi.fn();
 const resolveDigitalLines = vi.fn();
 const describeAssetObject = vi.fn();
+const adoptAssetObject = vi.fn();
 const resolveAuthorizedUrl = vi.fn();
 const dbSelect = vi.fn();
 const logged = vi.fn();
@@ -107,10 +108,6 @@ vi.mock('../../db/stores/storeRepository.js', () => ({
   findStorePermissionOverride: (...args: unknown[]) => findStorePermissionOverride(...args),
 }));
 /** Oxy's answer to "what is the caller's role in the store's owning account?". */
-vi.mock('../../services/oxy-account-graph.js', () => ({
-  readCallerAccountRole: (...args: unknown[]) => readCallerAccountRole(...args),
-  listCallerAccountRoles: vi.fn(),
-}));
 vi.mock('../../db/digital/assetRepository.js', () => ({
   findDigitalAsset: (...a: unknown[]) => findDigitalAsset(...a),
   findAssetVersion: (...a: unknown[]) => findAssetVersion(...a),
@@ -162,6 +159,7 @@ vi.mock('../../services/checkout/digital-lines.js', () => ({
 vi.mock('../../services/digital/storage.js', () => ({
   assetStorage: {
     describeAssetObject: (...a: unknown[]) => describeAssetObject(...a),
+    adoptAssetObject: (...a: unknown[]) => adoptAssetObject(...a),
     resolveAuthorizedUrl: (...a: unknown[]) => resolveAuthorizedUrl(...a),
     putAssetObject: vi.fn(),
     deleteAssetObject: vi.fn(),
@@ -169,14 +167,26 @@ vi.mock('../../services/digital/storage.js', () => ({
   isDigitalStorageError: (error: unknown) =>
     typeof error === 'object' && error !== null && 'reason' in (error as object),
 }));
-vi.mock('../../middleware/auth.js', () => ({
-  authenticateToken: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
-    req.userId = (req.headers['x-test-user'] as string) ?? OWNER_USER;
-    req.accessToken = 'test-bearer';
-    next();
-  },
-  oxyClient: {},
-}));
+vi.mock('../../middleware/auth.js', async () => {
+  const { fakeAccountAccess } = await import('../../__tests__/oxy-account-access-fake.js');
+  const accountAccess = fakeAccountAccess(
+    (...args: unknown[]) => readCallerAccountRole(...args),
+    () => new Map(),
+  );
+  return {
+    authenticateToken: (
+      req: express.Request,
+      _res: express.Response,
+      next: express.NextFunction,
+    ) => {
+      req.userId = (req.headers['x-test-user'] as string) ?? OWNER_USER;
+      req.accessToken = 'test-bearer';
+      req.sessionId = 'test-session';
+      next();
+    },
+    oxyClient: { ...accountAccess },
+  };
+});
 /**
  * Stands in for `resolveCommerceActor`, whose own resolution (Oxy precedence, the
  * guest transports, the CSRF gate) has three suites of its own. What is under
@@ -194,7 +204,7 @@ vi.mock('../../middleware/commerce-actor.js', () => ({
       kind === 'oxy'
         ? { kind: 'oxy', oxyUserId: OWNER_USER }
         : kind === 'guest'
-          ? { kind: 'guest', guestSessionId: 'guest-session-1', transport: 'header' }
+          ? { kind: 'guest', guestSessionId: 'guest-session-1' }
           : { kind: 'anonymous' };
     next();
   },
@@ -483,7 +493,7 @@ describe('registering a file takes the three facts from the asset service', () =
   const filePath = `/digital/stores/${STORE_ID}/assets/${ASSET_ID}/versions/${VERSION_ID}/files`;
 
   it('writes the MEASURED size, media type and digest — and ignores a body that lies', async () => {
-    describeAssetObject.mockResolvedValue({
+    adoptAssetObject.mockResolvedValue({
       storageKey: STORAGE_KEY,
       byteSize: 4_096,
       mediaType: 'model/stl',
@@ -513,8 +523,32 @@ describe('registering a file takes the three facts from the asset service', () =
     );
   });
 
+  it('registers the APPLICATION-owned private file adopted from the upload, never the upload', async () => {
+    const measured = {
+      storageKey: 'app-owned-copy',
+      byteSize: 4_096,
+      mediaType: 'model/stl',
+      contentHash: DIGEST,
+    };
+    insertAssetFile.mockResolvedValue({ id: FILE_ID });
+    // Oxy ADR 0043 stage 4b: the adopted file shares the measured bytes under a
+    // new key, whatever the type — a mesh included.
+    adoptAssetObject.mockResolvedValueOnce(measured);
+    expect((await post(uploadsOn, filePath, body)).status).toBe(201);
+    expect(adoptAssetObject).toHaveBeenCalledWith(STORAGE_KEY);
+    expect(insertAssetFile).toHaveBeenLastCalledWith(
+      expect.objectContaining({ storageKey: 'app-owned-copy', contentHash: DIGEST }),
+    );
+    // There is no fallback to the creator's own upload: an adoption that fails
+    // registers nothing.
+    insertAssetFile.mockClear();
+    adoptAssetObject.mockRejectedValueOnce({ reason: 'unresolved' });
+    expect((await post(uploadsOn, filePath, body)).status).toBe(502);
+    expect(insertAssetFile).not.toHaveBeenCalled();
+  });
+
   it('never answers with the storage key', async () => {
-    describeAssetObject.mockResolvedValue({
+    adoptAssetObject.mockResolvedValue({
       storageKey: STORAGE_KEY,
       byteSize: 4_096,
       mediaType: 'model/stl',
@@ -532,14 +566,14 @@ describe('registering a file takes the three facts from the asset service', () =
   });
 
   it('refuses a file the asset service does not hold, with the same answer as a bad id', async () => {
-    describeAssetObject.mockResolvedValue(null);
+    adoptAssetObject.mockResolvedValue(null);
     const { status } = await post(uploadsOn, filePath, body);
     expect(status).toBe(404);
     expect(insertAssetFile).not.toHaveBeenCalled();
   });
 
   it('answers 503 when the deployment cannot ASK, and never believes the client', async () => {
-    describeAssetObject.mockRejectedValue({ reason: 'unconfigured' });
+    adoptAssetObject.mockRejectedValue({ reason: 'unconfigured' });
     const { status } = await post(uploadsOn, filePath, body);
     expect(status).toBe(503);
     expect(insertAssetFile).not.toHaveBeenCalled();
@@ -552,7 +586,7 @@ describe('registering a file takes the three facts from the asset service', () =
     findAssetVersion.mockResolvedValue({ id: VERSION_ID, assetId: ASSET_ID, state: 'published' });
     const { status } = await post(uploadsOn, filePath, body);
     expect(status).toBe(409);
-    expect(describeAssetObject).not.toHaveBeenCalled();
+    expect(adoptAssetObject).not.toHaveBeenCalled();
   });
 
   it('refuses a format outside the registry', async () => {

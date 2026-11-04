@@ -499,6 +499,10 @@ export const merchantAcquisitionCandidates = pgTable(
     index('merchant_acquisition_candidates_assignee_idx')
       .on(t.assignedToOxyUserId, t.nextActionDueAt)
       .where(sql`${t.assignedToOxyUserId} is not null`),
+    // `merchant_demand_snapshots` is swept (`db/expiryTargets.ts`); each deleted row checks this foreign key.
+    index('merchant_acquisition_candidates_snapshot_id_idx')
+      .on(t.snapshotId)
+      .where(sql`${t.snapshotId} is not null`),
   ],
 );
 

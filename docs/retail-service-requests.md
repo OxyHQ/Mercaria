@@ -371,8 +371,8 @@ representing. Two are worth naming:
   one indexed statement.
 
 **A safety escalation does not raise a #121 suppression.** Deciding a product
-must come off sale is a compliance power on a different allow-list
-(`RETAIL_OPERATOR_OXY_USER_IDS`) with four eyes behind it, and a warranty
+must come off sale is a compliance power on a different operator key
+(`retail.operate`) with four eyes behind it, and a warranty
 operator reaching it from here would be that power granted sideways. The
 escalation is the SIGNAL; `/internal/retail-eligibility/*` is where somebody acts
 on it.
@@ -463,12 +463,12 @@ is a second brand in `services/retail-service-requests/authorization.ts` rather
 than a `permission?: never` member on #110's table — a table whose column is
 meaningless for half its rows is a table whose next reader gets it wrong.
 
-### No seventh allow-list
+### No new operator key
 
-| Surface | List | Why that one |
+| Surface | Key | Why that one |
 |---|---|---|
-| `/internal/payments/retail-service-requests/*` | `PAYMENT_OPERATOR_OXY_USER_IDS` | deciding a remedy moves Mercaria's own money, which is what that list already gates |
-| `/internal/procurement/retail-service/*` | `PROCUREMENT_OPERATOR_OXY_USER_IDS` | it is the only surface that discloses a wholesale figure or an RMA reference, and that list exists for "reading what Mercaria pays its suppliers" |
+| `/internal/payments/retail-service-requests/*` | `payments.operate` | deciding a remedy moves Mercaria's own money, which is what that key already gates |
+| `/internal/procurement/retail-service/*` | `procurement.operate` | it is the only surface that discloses a wholesale figure or an RMA reference, and that key exists for "reading what Mercaria pays its suppliers" |
 
 Splitting them is what makes #127's *"side by side without conflating them"* a
 property of the ROUTERS rather than of a projection somebody has to remember to
@@ -572,11 +572,10 @@ escalation as two rows rather than as an absence.
 
 ## Production-readiness checklist
 
-- [ ] `PAYMENT_OPERATOR_OXY_USER_IDS` populated — without it the customer-side
-      operator surface is not mounted (404), which means nobody can decide a
-      remedy.
-- [ ] `PROCUREMENT_OPERATOR_OXY_USER_IDS` populated — same, for the supplier
-      half.
+- [ ] `payments.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`) — without it the
+      customer-side operator surface answers 404, which means nobody can decide
+      a remedy.
+- [ ] `procurement.operate` seeded and held — same, for the supplier half.
 - [ ] A transport registered for `guest_portal_messages` (#108's seam). **Until
       then no buyer is told anything.** The requests themselves work.
 - [ ] The category-exception join (see §"Category exceptions") — until

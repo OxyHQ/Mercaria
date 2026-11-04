@@ -367,8 +367,6 @@ export const CHANNEL_LIMITATION_CODES = [
   'resync_counts_unchanged_as_updated',
   /** The channel produces external offers only; they cannot enter a cart. */
   'external_offers_only',
-  /** An uploaded feed lives on one task's disk and can be reported `missing`. */
-  'upload_not_durable',
   /** The channel type exists in the vocabulary and has no implementation. */
   'not_implemented',
 ] as const;

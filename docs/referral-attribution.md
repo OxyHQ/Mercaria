@@ -49,7 +49,7 @@ exactly two pieces:
 
 1. `REFERRAL_REDIRECT_BASE_URL`, which must be a member of
    `lib/allowed-origins.ts` — the ONE origin authority this backend keeps,
-   shared with CORS and the guest CSRF gate. A deployment-local second list is
+   shared with CORS and the temporary referral migration gate. A deployment-local second list is
    the shape an open redirect takes.
 2. A **relative path** built by `services/referrals/destinations.ts` (#142) from
    a closed four-member template and an opaque id matched against
@@ -72,7 +72,7 @@ protocol-relative URL, and then compares the result's origin back anyway.
 | Header | Value | Why |
 |---|---|---|
 | status | `302` | A `301`/`308` is permanently cacheable. A browser that stopped asking would keep following a **revoked** link, stop spending the click ceiling, and make the operator lever inert. |
-| `Cache-Control` | `no-store, no-cache, must-revalidate, private` | No intermediary holds the `Set-Cookie` this response may carry, and every click reaches the row that decides. |
+| `Cache-Control` | `no-store, no-cache, must-revalidate, private` | No intermediary holds the signed referral carrier in this response, and every click reaches the row that decides. |
 | `Referrer-Policy` | `no-referrer` | The destination page never learns the token from a `Referer` header. |
 
 ### Redirect loops
@@ -173,17 +173,14 @@ A short-lived, purpose-specific credential that **authorizes nothing**.
   published, and neither names a partner, a program or a person.
 - **The window anchor is inside the signature.** `clickedAt` is stamped once, at
   the redirect, and travels signed — so presenting the carrier again does not
-  move it, and neither does re-issuing the cookie. #143 web rule 7 ("do not
+  move it, and neither does persisting or migrating the carrier. #143 web rule 7 ("do not
   extend the window forever through every page view") is arithmetic on a value
   the client cannot edit.
-- **Carriage in kind** (ADR 0003 D9's shape): web gets
-  `__Host-mercaria_referral` (HttpOnly, Secure, SameSite=Lax, Path=/, no
-  Domain); dev gets `mercaria_referral_dev` **without** Secure under a different
-  name, logged once — an explicit downgrade, never a silent one. Native gets
-  `X-Mercaria-Referral-State` with `X-Mercaria-Referral-Transport: header`.
-- `SameSite=Lax` rather than `Strict`, because the carrier is SET on a top-level
-  navigation arriving from a partner's own site — exactly the cross-site case
-  `Strict` drops.
+- **Explicit carriage**: redirects put the original signed state in
+  `#mercaria-referral=...`; the web entry consumes and removes that fragment
+  before routing. Normal bind/state requests use `X-Mercaria-Referral-State`.
+  No normal route reads or issues a cookie. The finite legacy exchange is
+  documented in the cutover section below.
 - **Capped at 90 days** whatever a program asks for.
 
 A precision note worth keeping: `clickedAt` is stored in epoch **seconds**, so a
@@ -259,10 +256,10 @@ reason.
 
 ## The operator surface
 
-`/internal/referrals/*` on a **SEVENTH** allow-list,
-`REFERRAL_OPERATOR_OXY_USER_IDS`. Empty = not mounted (404, never 401).
+`/internal/referrals/*` on a **SEVENTH** operator key, `referrals.operate` (an
+Oxy application role). Anyone without it gets 404, never 401.
 
-A separate list because the POWER is separate: pausing a program's attribution
+A separate key because the POWER is separate: pausing a program's attribution
 stops partners **earning**, and the trace says which partner was credited for
 which subject. An operator vetted to repair a payment, trace a cart merge or
 read discovery metrics has been vetted for neither. #147's dashboards and #148's
@@ -280,6 +277,35 @@ Mounted while both levers are down and while `REFERRALS_ENABLED` is off — the
 evidence has to be readable during the incident that turned the surface off.
 
 ---
+
+## The storefront client (`lib/hooks/use-referral-binding.ts`)
+
+The server cannot bind an anonymous click by itself, so the CLIENT is half of
+attribution — without it every signed-out click redirects fine and pays nobody,
+with every gate green.
+
+- **Bind.** Mounted once in `AuthSetup`, beside the cart merge. On web it reads
+  `GET /referrals/state` once; while that says `pending` it calls
+  `POST /referrals/bind` once per subject that appears — signing in, or the cart
+  coming back non-empty, which is the client-visible sign the first cart write
+  created a guest session. `pending` keeps the
+  carrier for the next subject; anything else means it was redeemed or dropped.
+  Native holds no carrier (no universal links, below), so this is web only.
+- **Disclosure.** `components/referrals/ReferralDisclosureNotice.tsx`, at the top
+  of the storefront while a carrier is held and after a bind that says one is
+  owed, with the program's `publicTermsSummary` verbatim once bound. It says
+  someone may be rewarded and the price does not change (ADR 0005 I2), and never
+  who.
+- **Typed codes.** Settings → Referrals takes a code as the `in_app` moment.
+  Checkout stays referral-free (`commercial-presentation-isolation.test.ts`).
+- **Links.** Shared as `mercaria.co/r/<token>`; the storefront worker redirects
+  them to this route (docs/referral-dashboards.md says why never a proxy).
+- **Merchant binding.** The storefront claim flow posts
+  `POST /referrals/merchant-binding` right after a claim opens, fire and forget,
+  so a carried click binds to the claimed merchant (`docs/merchant-claims.md`
+  §"The storefront client").
+- **Consent.** Never declared: with no consent framework the honest declaration
+  is none, recorded as `unknown`.
 
 ## Consent
 
@@ -353,8 +379,6 @@ boolean — tripped the request-derived-destination detector. The pattern gained
   for how it ENDS: #85 supplied the capability, and the change that supplied it
   (#324) is the change that added `{state: 'activated'}`.
 - **A consent framework** (web rule 5), as above.
-- **Client surfaces.** No storefront or dashboard screen consumes
-  `/referrals/*` yet; that is #147's work, and every endpoint it needs exists.
 - **A merge does not rehome a standing attribution.** #142's
   `recordSubjectMerge` is explicit that "history keeps its references; reads and
   NEW attributions resolve through the redirect", and its own realdb file pins
@@ -378,7 +402,6 @@ REFERRALS_ENABLED=false            # gates the MOUNT of /r and /referrals, never
 REFERRAL_LINK_TOKEN_SECRET=        # #142's public link token
 REFERRAL_STATE_SECRET=             # #143's carrier — a SECOND key, required together
 REFERRAL_REDIRECT_BASE_URL=https://mercaria.co   # must be in lib/allowed-origins.ts
-REFERRAL_OPERATOR_OXY_USER_IDS=    # the SEVENTH list; empty = /internal/referrals unmounted
 ```
 
 `REFERRALS_ENABLED=true` requires **both** secrets — the `CROWDSOURCE_ENABLED`
@@ -394,9 +417,25 @@ nobody.
 - [ ] `REFERRAL_STATE_SECRET` provisioned (SSM `/oxy/mercaria/*`), distinct from
       `REFERRAL_LINK_TOKEN_SECRET`.
 - [ ] `REFERRAL_REDIRECT_BASE_URL` set and present in `PRODUCTION_ORIGINS`.
-- [ ] `REFERRAL_OPERATOR_OXY_USER_IDS` populated — until it is, nobody can pause
-      a program or trace an attribution.
+- [ ] `referrals.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`) — until it is, nobody can
+      pause a program or trace an attribution.
 - [ ] `ANALYTICS_INTERNAL_TRAFFIC_TOKEN` set, or staff traffic classifies
       `organic` and enters attribution.
 - [ ] The privacy review ADR 0005 A1–A5 owes, recorded, before
       `REFERRALS_ENABLED=true` in production.
+
+## Cookie-free carrier transport (2026-10-25 amendment)
+
+The public redirect keeps its closed first-party destination templates and adds
+only `#mercaria-referral=<signed mrf_ carrier>`. The storefront consumes and removes
+that fragment before routing or analytics, stores the original signed evidence
+and presents `X-Mercaria-Referral-State`. This carrier grants no identity or
+resource access. Its original signed click time and expiry never move.
+
+There is no normal cookie issuance or cookie-based bind. An exact-Origin,
+marker-protected exchange can copy an older signed cookie unchanged; acknowledgement
+expires it only after durable storage and only when the same carrier is still
+present. It admits clicks no later than `2026-10-25T15:00:46Z` and closes 90 days
+after that fixed cutoff. Invalid state or absent keys do not mint replacements;
+this route does not enable disabled referral features. See the
+[cutover review](reviews/2026-10-25-cookie-free-commerce.md).

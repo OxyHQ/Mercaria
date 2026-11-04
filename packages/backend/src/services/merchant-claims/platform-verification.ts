@@ -102,7 +102,7 @@ export async function resolveClaimantConnection(params: {
   }
 
   const store = await findStoreById(connection.storeId);
-  const access = store ? await resolveStoreAccess(params.claimant, store) : null;
+  const access = store ? await resolveStoreAccess(params.claimant, store, { fresh: true }) : null;
   if (!store || !access) {
     // Deliberately the same answer as "no such connection": telling a stranger
     // that an id exists but belongs to a store they cannot manage is the

@@ -32,7 +32,7 @@ import { localizedText } from './localized-text-schemas.js';
  *
  * Both go through {@link localizedText} (#367 line 187). This route is reached
  * by ownership alone — `authenticateToken` plus `loadOwnedListing`, no store
- * permission and no operator list — so it is the widest-reachable localization
+ * permission and no operator key — so it is the widest-reachable localization
  * write in the repository and it had no text control at all.
  *
  * `title` is declared PLAIN, so markup AND a line break are refused: a title

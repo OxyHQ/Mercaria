@@ -28,7 +28,7 @@
 import type { Request, Response } from 'express';
 import { ErrorCodes, sendError, sendSuccess } from '../utils/api-response.js';
 import { log } from '../lib/logger.js';
-import { catalogOperatorId } from '../middleware/catalog-operator-authz.js';
+import { operatorId } from '../middleware/operator-authz.js';
 import {
   readLocalizationAlerts,
   readLocalizationCompleteness,
@@ -51,7 +51,7 @@ export async function localizationCompletenessHandler(req: Request, res: Respons
     sendSuccess(res, await readLocalizationCompleteness(scope));
   } catch (error: unknown) {
     log.general.error(
-      { err: error, actor: catalogOperatorId(req) },
+      { err: error, actor: operatorId(req) },
       '[CatalogLocalization] completeness report failed',
     );
     sendError(res, ErrorCodes.INTERNAL_ERROR, 'Could not read localization completeness', 500);
@@ -70,7 +70,7 @@ export async function localizationAlertsHandler(req: Request, res: Response): Pr
     sendSuccess(res, await readLocalizationAlerts());
   } catch (error: unknown) {
     log.general.error(
-      { err: error, actor: catalogOperatorId(req) },
+      { err: error, actor: operatorId(req) },
       '[CatalogLocalization] alert evaluation failed',
     );
     sendError(res, ErrorCodes.INTERNAL_ERROR, 'Could not evaluate localization alerts', 500);
@@ -118,7 +118,7 @@ export async function localizationReviewHandler(req: Request, res: Response): Pr
     sendSuccess(res, comparison);
   } catch (error: unknown) {
     log.general.error(
-      { err: error, actor: catalogOperatorId(req) },
+      { err: error, actor: operatorId(req) },
       '[CatalogLocalization] review read failed',
     );
     sendError(res, ErrorCodes.INTERNAL_ERROR, 'Could not read localization review', 500);

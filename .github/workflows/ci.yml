@@ -141,6 +141,12 @@ jobs:
       - name: Verify Oxy ecosystem dependencies
         run: bun run doctor:oxy
 
+      # Translation keys follow ADR 0055: nested identifier segments under a
+      # namespace, and no key in a translation that English lacks (a plural
+      # category the locale selects is allowed).
+      - name: Translation key convention
+        run: bun run i18n:check
+
       - name: Verify production deployment gate fixtures
         run: |
           bash -n \
@@ -148,9 +154,12 @@ jobs:
             .github/scripts/smoke-mcp.sh \
             .github/scripts/test-smoke-mcp.sh \
             .github/scripts/wait-for-ecs-deployment.sh \
-            .github/scripts/test-wait-for-ecs-deployment.sh
+            .github/scripts/test-wait-for-ecs-deployment.sh \
+            .github/scripts/run-ecs-task.sh \
+            .github/scripts/test-run-ecs-task.sh
           bash .github/scripts/test-smoke-mcp.sh
           bash .github/scripts/test-wait-for-ecs-deployment.sh
+          bash .github/scripts/test-run-ecs-task.sh
           bash -n .github/scripts/ci-scope.sh .github/scripts/test-ci-scope.sh
           bash .github/scripts/test-ci-scope.sh
 
@@ -198,9 +207,10 @@ jobs:
         run: bun run validate:lint-coverage
 
       # Every realdb file that creates its OWN throwaway database migrates it
-      # with the real migrator, which applies the whole chain in ONE transaction
-      # and holds every object lock until commit. Those migrations contend for
-      # ONE shared lock table, so the suite has a resource bound and it is a
+      # with the real migrator. Since @oxy.so/db 1.2.0 that commits EACH
+      # migration in its own transaction, so a database holds one migration's
+      # locks at a time rather than the whole chain's until a single commit.
+      # Those migrations still contend for ONE shared lock table, so the suite has a resource bound and it is a
       # COUNT of files nobody was counting: the compose file justified its
       # ceiling on "five private-database files" long after there were eleven
       # (#849). Past the bound the failure is `out of shared memory` landing
@@ -434,6 +444,12 @@ jobs:
       - name: Test App
         run: bun run --filter @mercaria/frontend test
 
+      - name: Install Chromium for commerce boundary tests
+        run: bun x playwright install --with-deps chromium
+
+      - name: Test commerce credential storage in Chromium
+        run: bun run --filter @mercaria/frontend test:commerce-browser
+
       - name: Typecheck POS
         run: bun run --filter @mercaria/pos typecheck
 
@@ -550,6 +566,19 @@ jobs:
         env:
           TEST_DATABASE_URL: postgres://mercaria:mercaria@127.0.0.1:5432/mercaria_ci
         run: bun run --filter @mercaria/backend test
+
+      - name: Test real commerce CORS and legacy referral retirement in Chromium
+        env:
+          TEST_DATABASE_URL: postgres://mercaria:mercaria@127.0.0.1:5432/mercaria_ci
+        run: bun run test:commerce-backend-browser
+
+      - name: Upload commerce browser evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: commerce-browser-evidence
+          path: test-results/commerce-backend/
+          if-no-files-found: ignore
 
       # Production runs the API on Bun (root Dockerfile), so the unit suite also
       # runs under Bun's runtime and test runner, not only under vitest on Node.

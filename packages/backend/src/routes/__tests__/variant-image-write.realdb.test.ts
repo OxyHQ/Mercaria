@@ -62,25 +62,41 @@ vi.mock('@oxy.so/core/server', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@oxy.so/core/server')>()),
   getRequiredOxyUserId: () => SELLER,
 }));
-vi.mock('../../middleware/auth.js', () => ({
-  // `loadStore` reads `req.userId` and the bearer to resolve the caller's role,
-  // so a pass-through that only calls `next()` would 401 the store half in a
-  // file whose point is that the store half works.
-  authenticateToken: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
-    req.userId = SELLER;
-    req.accessToken = 'test-bearer';
-    next();
-  },
-  oxyClient: {
-    // URL-valued presentation fields use this resolver. Gallery fileId fields
-    // must remain raw IDs, even though this mock produces a different URL.
-    assets: { publicUrl: (fileId: string) => `https://media.test.invalid/${fileId}` },
-  },
-  optionalAuth: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
-    req.userId = SELLER;
-    next();
-  },
-}));
+vi.mock('../../middleware/auth.js', async () => {
+  const { fakeAccountAccess } = await import('../../__tests__/oxy-account-access-fake.js');
+  const accountAccess = fakeAccountAccess(
+    async (_bearer: string, accountId: string) => (accountId === SELLER_ORG ? 'admin' : null),
+    async () => new Map([[SELLER_ORG, 'admin']]),
+  );
+  return {
+    // `loadStore` reads `req.userId` and the bearer to resolve the caller's role,
+    // so a pass-through that only calls `next()` would 401 the store half in a
+    // file whose point is that the store half works.
+    authenticateToken: (
+      req: express.Request,
+      _res: express.Response,
+      next: express.NextFunction,
+    ) => {
+      req.userId = SELLER;
+      req.accessToken = 'test-bearer';
+      req.sessionId = 'test-session';
+      next();
+    },
+    oxyClient: {
+      ...accountAccess,
+      // No Oxy directory in this file: every profile lookup answers "not found".
+      users: { lookupMany: async (ids: string[]) => ({ found: [], missing: ids, failed: [] }) },
+      middleware: { auth: () => (_req: unknown, res: express.Response) => res.sendStatus(401) },
+      // URL-valued presentation fields use this resolver. Gallery fileId fields
+      // must remain raw IDs, even though this mock produces a different URL.
+      assets: { publicUrl: (fileId: string) => `https://media.test.invalid/${fileId}` },
+    },
+    optionalAuth: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
+      req.userId = SELLER;
+      next();
+    },
+  };
+});
 /**
  * Oxy's account graph: SELLER is an `admin` of the organization that owns
  * `storeId`, and holds no role on any other account.
@@ -90,11 +106,6 @@ vi.mock('../../middleware/auth.js', () => ({
  * ever re-gated on `store:manage` — which is the exact mistake #855 rejected,
  * and an `owner` could not notice it.
  */
-vi.mock('../../services/oxy-account-graph.js', () => ({
-  readCallerAccountRole: async (_bearer: string, accountId: string) =>
-    accountId === SELLER_ORG ? 'admin' : null,
-  listCallerAccountRoles: async () => new Map([[SELLER_ORG, 'admin']]),
-}));
 vi.mock('../../lib/rate-limit.js', () => ({
   makeRateLimiter:
     () => (_req: express.Request, _res: express.Response, next: express.NextFunction) => {

@@ -40,8 +40,8 @@ every closed value set) · `contracts` (the `/public/v1` zod source; regen
 - **`@mercaria/ui` is NOT built to dist.** Apps consume it through Metro
   `watchFolders`, the `@mercaria/ui/theme/tailwind.preset` preset and a
   `tsconfig.paths` alias. Do NOT add a build step, and never keep a local copy of
-  anything it owns (`formatMoney`, `PriceDisplay`, `FxContext`, every marketplace
-  primitive).
+  anything it owns (`PriceDisplay`, `FxContext`, every marketplace
+  primitive). `formatMoney` is shared headless code, re-exported by both UI and SDK.
 - **CI typechecks all three Expo apps.** A build is not a substitute: Babel
   strips types, so `expo export` bundles code `tsc` rejects.
 - **`typedRoutes` is armed** (`generate-router-types.mjs` in each app's `typecheck`;
@@ -78,8 +78,8 @@ every closed value set) · `contracts` (the `/public/v1` zod source; regen
 
 ## PostgreSQL
 
-`DATABASE_URL` is **required to boot**. PostgreSQL is the ONLY store: there is
-no second store, no `src/models/` and no rollback target.
+`DATABASE_URL` is **required to boot**. PostgreSQL is the ONLY store: no
+`src/models/`, no rollback target.
 
 - **`bun run db:generate` writes migrations; `src/db/migrate.ts` is the ONLY
   thing that applies them** — never `drizzle-kit migrate`. Every generated `.sql`
@@ -103,32 +103,31 @@ no second store, no `src/models/` and no rollback target.
 
 ## Auth and the identity surfaces
 
-- **There is no Mercaria service principal.** `middleware/auth.ts` is three exports
-  composed from `@oxy.so/core/server`. An Oxy-to-Oxy caller mounts
-  `oxyClient.serviceAuth(...)` on the route that needs it; there is deliberately no
-  pre-exported unmounted service-auth middleware. **Never build a second verifier.**
-  A provider webhook is a different principal and verifies its own signature.
-- **Every `/internal/*` surface is gated by an Oxy-user-id allow-list, and empty
-  means NOT MOUNTED (404, never 401).** A new surface joins the list whose power it
-  already shares (`docs/house-invariants.md`).
+- **One `OxyServer` (`oxyClient`); a person's calls use `oxyClient.withUser`.** No
+  local service principal or verifier: Oxy's shared middleware with the canonical audience; public reads use the optional receiver
+  (`docs/first-party-authority.md`), never a synthetic user. Provider webhooks
+  verify their own signatures; never add unmounted auth primitives.
+- **Every `/internal/*` desk is an Oxy app role** (`middleware/operator-authz.ts`)
+  held by `oxy` org owners/admins via oxy's registry (oxy ADR 0056): always mounted,
+  404 to non-holders, no env id lists or grants. A new surface joins the key whose
+  power it shares (`docs/house-invariants.md`).
 - **A store is owned by an Oxy account; Oxy decides who gets in** (ADR 0012). No
-  member list: access is the caller's Oxy role (THEIR bearer, fail closed; a
-  delegated session is its operator) via `STORE_ROLE_PERMISSIONS` ± overrides.
+  member list: `oxyClient.accountAccessFor` (THEIR session, fail closed, fresh on
+  writes) → `STORE_ROLE_PERMISSIONS` ± overrides.
   `admin` lacks only `store:manage`, which gates payment, fee and identity routes.
-- **Buyer, seller and `oxy_user_id` ids are a foreign SERVICE's keys** (Oxy
-  owns identity) and carry no foreign key.
+- **Buyer, seller and `oxy_user_id` ids are Oxy's keys** and carry no foreign key.
 - **CORS:** `packages/backend/src/lib/allowed-origins.ts` is the ONE origin authority
-  (CORS and the guest CSRF gate) and must carry `mercaria.co`, `dashboard.mercaria.co`
+  (CORS and the bounded referral-cookie migration gate) and must carry `mercaria.co`, `dashboard.mercaria.co`
   and `pos.mercaria.co`. The central Oxy API's `allowedOrigins.ts` must carry
   `https://mercaria.co` and `/^https:\/\/[a-z0-9-]+\.mercaria\.co$/`, or
   `auth/refresh-all` fails with CORS from every Mercaria app.
 
 ## Things that break silently if you change them
 
-- **Five routers must stay mounted BEFORE `express.json()`** — the webhook mounts
-  plus the feed-import upload route, which buffers its own body. Enumerated in
-  `docs/house-invariants.md` and asserted against the real middleware chain PER
-  MOUNT; a sixth mount brings a sixth test file.
+- **Six webhook routers stay mounted BEFORE `express.json()`**
+  (`docs/house-invariants.md`), asserted PER MOUNT on the real chain.
+- **No request body carries a feed** (the proxy refuses >100 MB): parts go to
+  storage presigned; validation is a polled 202 job (`docs/feed-importer.md`).
 - **Three moderation ESCAPES are closed in pre-existing commerce code**, invisible
   from `services/moderation/`: `catalog-write.service.updateListing` refuses to set
   `restricted` or to leave it; `archiveListing` refuses a restricted listing at all
@@ -165,9 +164,9 @@ no second store, no `src/models/` and no rollback target.
 - **Shipping UI is HIDDEN and Moovo owns logistics entirely** — do NOT build
   shipping zones or rates, and the Moovo port is registered on no deployment.
   Pickup/collection is a different thing and IS built (`docs/pickup.md`).
-- **Place facts are GoWay's** (ADR 0013): store only `go_way_place_id`, read
-  via `services/goway/` (sole SDK importer); a location is found only while
-  its place names it back as its business.
+- **Place facts are GoWay's** (ADR 0013, `go_way_place_id` only, via
+  `services/goway/`; a location shows only while its place names it back);
+  **stores are crawled by Clarity** (ADR 0017, `services/clarity/`).
 - **ONE locale registry, `@mercaria/ui/src/i18n/`**; module-scope data holds KEYS,
   never sentences. App copy is per app; **`@mercaria/ui`'s own copy is in ITS
   bundles**, merged under the reserved `ui` namespace for the locales that app SHIPS
@@ -178,12 +177,12 @@ no second store, no `src/models/` and no rollback target.
   (`ms-`, `start-`, `rounded-s-`…), gated by `validate:rtl-classes`; a physical
   `ml-2` half-mirrors a screen yet builds green. Direction follows the SHIPPED
   BUNDLES, not the tag (#434). `border-s-*`/`text-start` do NOT survive
-  react-native-css/RN 0.85 and stay physical (`validate-rtl-upstream-premises`
+  react-native-css/RN 0.88 and stay physical (`validate-rtl-upstream-premises`
   re-measures both). A Bloom `Dialog` side-sheet takes the LOGICAL
   `placement="start"|"end"`, never `left`/`right`; its `inset` keys stay
   physical. Arabic is NOT fully supported — #429 item 2.
-- **The root API Dockerfile pins `node-gyp`**: `ws` has no musl-arm64 prebuild
-  and `bunx node-gyp@latest` flakes on ARM. Keep it.
+- **The root API Dockerfile pins `node-gyp`** (`ws` has no musl-arm64 prebuild;
+  `@latest` flakes on ARM).
 - **`ci.yml`'s `Lint & Test` stays on x86** though `deploy-aws.yml` builds ARM:
   ARM runners have no service containers; `postgis/postgis` is amd64-only.
 - **Web apps deploy to Cloudflare Workers, NOT Pages**, via **`bunx wrangler`,

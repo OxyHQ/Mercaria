@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import type { Address, CreateAddressInput, UpdateAddressInput } from '@mercaria/shared-types';
 import { fetchAddresses, createAddress, updateAddress, deleteAddress } from '../api/addresses';
 import { queryKeys } from './query-keys';

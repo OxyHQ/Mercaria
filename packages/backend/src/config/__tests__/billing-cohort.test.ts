@@ -18,10 +18,10 @@ async function read(actions: boolean, extra: Record<string, string> = {}) {
     STRIPE_SECRET_KEY: 'sk_test_fixture',
     STRIPE_WEBHOOK_SECRET: 'whsec_fixture',
     MERCHANT_BILLING_PEABLE_COHORT: JSON.stringify(cohort),
-    // Mercaria's Oxy identity off ECS; no task role to attest here.
-    OXY_APPLICATION_KEY: 'fixture-public',
-    OXY_APPLICATION_SECRET: 'fixture-secret',
-    AWS_CONTAINER_CREDENTIALS_RELATIVE_URI: '',
+    // Workload metadata availability; these config tests do not mint a token.
+    OXY_APPLICATION_KEY: '',
+    OXY_APPLICATION_SECRET: '',
+    AWS_CONTAINER_CREDENTIALS_RELATIVE_URI: '/v2/credentials/fixture',
     AWS_CONTAINER_CREDENTIALS_FULL_URI: '',
     MERCHANT_BILLING_ENABLED: String(actions),
     ...extra,
@@ -38,17 +38,12 @@ it('enables the existing action flag through only the explicit billing cohort', 
 it('keeps new actions off independently of durable cohort maintenance', async () => {
   expect((await read(false)).merchantBilling.enabled).toBe(false);
 });
-// Half a key pair is no identity at all.
-for (const name of [
-  'OXY_APPLICATION_KEY',
-  'OXY_APPLICATION_SECRET',
-  'STRIPE_WEBHOOK_SECRET',
-  'MERCHANT_BILLING_PEABLE_COHORT',
-])
+// Billing configuration is checked here; workload credentials resolve when the request is sent.
+for (const name of ['STRIPE_WEBHOOK_SECRET', 'MERCHANT_BILLING_PEABLE_COHORT'])
   it(`fails closed without ${name}`, async () => {
     expect((await read(true, { [name]: '' })).merchantBilling.enabled).toBe(false);
   });
-it('accepts the ECS task role as the Oxy identity, with no key pair at all', async () => {
+it('allows workload-configured billing without a customer key pair', async () => {
   const config = await read(true, {
     OXY_APPLICATION_KEY: '',
     OXY_APPLICATION_SECRET: '',
@@ -58,9 +53,15 @@ it('accepts the ECS task role as the Oxy identity, with no key pair at all', asy
   expect(config.payments.peable).not.toHaveProperty('publicKey');
   expect(config.payments.peable).not.toHaveProperty('secret');
 });
-it('fails closed with neither a key pair nor a task role', async () => {
-  const config = await read(true, { OXY_APPLICATION_KEY: '', OXY_APPLICATION_SECRET: '' });
-  expect(config.merchantBilling.enabled).toBe(false);
+it('does not infer workload readiness or configure customer keys from local environment flags', async () => {
+  const config = await read(true, {
+    AWS_CONTAINER_CREDENTIALS_RELATIVE_URI: '',
+    OXY_APPLICATION_KEY: 'external-key',
+    OXY_APPLICATION_SECRET: 'external-secret',
+  });
+  expect(config.merchantBilling.enabled).toBe(true);
+  expect(config.payments.peable).not.toHaveProperty('publicKey');
+  expect(config.payments.peable).not.toHaveProperty('secret');
 });
 it('rejects a key for the other mode without enabling actions', async () => {
   expect((await read(true, { STRIPE_SECRET_KEY: 'sk_live_fixture' })).merchantBilling.enabled).toBe(

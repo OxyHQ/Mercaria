@@ -2,15 +2,14 @@
  * `/internal/procurement/*` — the supplier-order operations surface (#124
  * observability and operations).
  *
- * The `/internal/supplier-preflight` shape, on the SAME sixth allow-list
- * (`PROCUREMENT_OPERATOR_OXY_USER_IDS`) and deliberately not a seventh: reading
+ * The `/internal/supplier-preflight` shape, on the SAME sixth key
+ * (`procurement.operate`) and deliberately not a new one: reading
  * what Mercaria pays a supplier and acting on a supplier order are one power,
- * and splitting them would create a list to keep in sync with no distinction to
+ * and splitting them would create a key to grant in step with no distinction to
  * justify it.
  *
- * Mount gated on the allow-list being non-empty (404 on a deployment with no
- * operators, never a 401 that would advertise the surface); the gate repeated
- * in middleware because mount and gate live in different files.
+ * Mounted on every deployment; anyone without the key is answered 404, never a
+ * 401 that would advertise the surface.
  *
  * The surface does not depend on any supplier being live: the evidence has to
  * be readable during the incident that killed one — the `/internal/backfill`
@@ -19,7 +18,7 @@
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireProcurementOperator } from '../middleware/procurement-operator-authz.js';
+import { requireProcurementOperator } from '../middleware/operator-authz.js';
 import { validateBody } from '../middleware/validate.js';
 import { procurementExceptionResolutionSchema } from '../middleware/procurement-schemas.js';
 import {
@@ -42,9 +41,8 @@ import {
 
 const router = Router();
 
-// Authentication FIRST, then the allow-list — the gate reads the verified
-// caller, and an allow-list consulted before authentication would compare
-// against whatever a client claimed.
+// Authentication FIRST, then the operator gate — it asks Oxy about the verified
+// caller's own session, which only `authenticateToken` establishes.
 router.use(authenticateToken);
 router.use(requireProcurementOperator);
 
@@ -74,10 +72,10 @@ router.post(
  * #127's SUPPLIER half, on this router and not on the payment one.
  *
  * These are the only routes in the retail service domain that disclose a
- * wholesale figure or a supplier RMA reference, and this list already exists for
+ * wholesale figure or a supplier RMA reference, and this key already exists for
  * exactly that power — "reading what Mercaria PAYS its suppliers". The CUSTOMER
- * half lives on `/internal/payments/retail-service-requests/*` behind the
- * payment-operator list, so #127's *"side by side without conflating them"* is a
+ * half lives on `/internal/payments/retail-service-requests/*` behind
+ * `payments.operate`, so #127's *"side by side without conflating them"* is a
  * property of which router serves which projection.
  *
  * Every write drives an existing idempotent path: the RMA request converges on

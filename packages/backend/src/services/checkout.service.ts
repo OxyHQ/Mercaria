@@ -49,6 +49,13 @@
  * row and keeps its existing per-order transactions untouched.
  */
 
+import {
+  recoverSupervisedCheckout,
+  shoppingSelectionFingerprint,
+  type SupervisedPurchaseContext,
+} from './supervised-shopping/purchase.service.js';
+import { assertReviewedShoppingCart } from './supervised-shopping/catalog.service.js';
+
 import type {
   AddressSnapshot,
   CheckoutInput,
@@ -329,6 +336,7 @@ async function summarizePriorGroup(
   owner: CartOwner,
   checkoutGroupId: string,
   rail: CheckoutRail,
+  supervisedPurchase?: SupervisedPurchaseContext,
 ): Promise<CheckoutResult> {
   const prior = await findOrdersByCheckoutGroup(checkoutGroupId, checkoutGroupOwner(owner));
   const payment = await openGatedCheckoutPayment({
@@ -337,6 +345,7 @@ async function summarizePriorGroup(
     rail,
     checkoutGroupId,
     orders: prior,
+    supervisedPurchase,
   });
   return {
     checkoutGroupId,
@@ -369,6 +378,7 @@ async function openGatedCheckoutPayment(input: {
   rail: CheckoutRail;
   checkoutGroupId: string;
   orders: readonly OrderRecord[];
+  supervisedPurchase?: SupervisedPurchaseContext;
 }): Promise<CheckoutPaymentHandoff | undefined> {
   assertGuestP2PPaymentAllowed({ actor: input.actor, orders: input.orders });
   return openCheckoutPayment({
@@ -376,6 +386,7 @@ async function openGatedCheckoutPayment(input: {
     checkoutGroupId: input.checkoutGroupId,
     ...(input.owner.kind === 'oxy_user' ? { buyerOxyUserId: input.owner.oxyUserId } : {}),
     orders: input.orders,
+    supervisedPurchase: input.supervisedPurchase,
   });
 }
 
@@ -808,6 +819,7 @@ export async function checkout(
   input: CheckoutInput,
   idempotencyKey?: string,
   requestedCurrency?: CurrencyCode,
+  supervisedPurchase?: SupervisedPurchaseContext,
 ): Promise<CheckoutResult> {
   // 0. Which rail funds this checkout — refused here, before anything else
   // happens, when the buyer named one this deployment cannot serve. It is a
@@ -827,6 +839,21 @@ export async function checkout(
   const owner = cartOwnerForActor(actor);
   if (!owner) {
     throw conflict('Sign in to place this order.');
+  }
+
+  if (supervisedPurchase) {
+    if (
+      !idempotencyKey ||
+      owner.kind !== 'oxy_user' ||
+      owner.oxyUserId !== supervisedPurchase.buyerOxyUserId ||
+      rail !== 'card'
+    ) {
+      throw conflict(
+        'Supervised shopping requires the buyer’s own card checkout and a stable request key.',
+      );
+    }
+    const priorGroup = await recoverSupervisedCheckout(supervisedPurchase, idempotencyKey);
+    if (priorGroup) return summarizePriorGroup(actor, owner, priorGroup, rail, supervisedPurchase);
   }
 
   // 1. Redis idempotency fast-path (best-effort; never breaks checkout).
@@ -851,7 +878,7 @@ export async function checkout(
         if (stored && stored !== IDEMPOTENCY_PENDING) {
           const prior = await findOrdersByCheckoutGroup(stored, checkoutGroupOwner(owner));
           if (prior.length > 0) {
-            return await summarizePriorGroup(actor, owner, stored, rail);
+            return await summarizePriorGroup(actor, owner, stored, rail, supervisedPurchase);
           }
         } else if (stored === IDEMPOTENCY_PENDING) {
           throw conflict('Checkout already in progress');
@@ -889,10 +916,29 @@ export async function checkout(
   // `STRIPE_PRESENTMENT_CURRENCIES`) and every figure is still computed by the
   // pricing engine from native catalogue prices at server-held rates — and it
   // rides the same carriage `/cart` gave it in #104.
+  if (supervisedPurchase) {
+    if (
+      owner.kind !== 'oxy_user' ||
+      owner.oxyUserId !== supervisedPurchase.buyerOxyUserId ||
+      rail !== 'card'
+    ) {
+      throw conflict('Supervised shopping requires the buyer’s own card checkout.');
+    }
+    await assertReviewedShoppingCart(
+      supervisedPurchase.buyerOxyUserId,
+      supervisedPurchase.accessToken,
+    );
+  }
   const cart = await getCart({
     owner,
     ...(requestedCurrency !== undefined ? { requestedCurrency } : {}),
   });
+  if (
+    supervisedPurchase &&
+    shoppingSelectionFingerprint(cart.items) !== supervisedPurchase.selectionFingerprint
+  ) {
+    throw conflict('The basket changed while preparing this purchase.');
+  }
   if (cart.items.length === 0) {
     throw conflict('Cart is empty');
   }
@@ -1703,11 +1749,15 @@ export async function checkout(
     // transaction boundary, not a second checkout (ADR 0003 I9).
     // A transaction is taken for a GUEST checkout (its contact row), for a
     // RETAIL one (its procurement intents) and for a COLLECTION (its pickup
-    // snapshot). All three are the same reason wearing three names: a row the
+    // snapshot), and for a supervised group whose exact complete basket is approved.
+    // These share the same reason: a row the
     // orders reference, or that references them, which has no valid existence
     // without them.
     created =
-      actor.kind === 'guest' || (retailPlan && retailPlan.lines.length > 0) || pickup !== undefined
+      actor.kind === 'guest' ||
+      supervisedPurchase !== undefined ||
+      (retailPlan && retailPlan.lines.length > 0) ||
+      pickup !== undefined
         ? await getDb().transaction(async (tx) => placeOrders(tx))
         : await placeOrders(null);
   } catch (err) {
@@ -1736,7 +1786,13 @@ export async function checkout(
             { ownerKind: owner.kind, idempotencyKey },
             'Concurrent/replayed checkout detected; converging on prior order group',
           );
-          const converged = await summarizePriorGroup(actor, owner, prior.checkoutGroupId, rail);
+          const converged = await summarizePriorGroup(
+            actor,
+            owner,
+            prior.checkoutGroupId,
+            rail,
+            supervisedPurchase,
+          );
           if (converged.orders.length > 0) {
             return converged;
           }
@@ -1798,6 +1854,7 @@ export async function checkout(
       rail,
       checkoutGroupId,
       orders: created,
+      supervisedPurchase,
     });
   } catch (err) {
     log.general.error(

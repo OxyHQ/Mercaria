@@ -6,7 +6,7 @@ import type {
   WatchlistItemSplitResolution,
   WatchlistSnapshot,
 } from '@mercaria/shared-types';
-import { useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import {
   addWatchlistItem,
   createWatchlist,

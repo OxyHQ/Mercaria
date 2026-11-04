@@ -11,7 +11,7 @@
  * be checked against one, because a store's permission set says nothing about a
  * merchant somebody claimed.
  *
- * ## The gate is #83's verdict and it is NOT a fifth allow-list
+ * ## The gate is #83's verdict and it is NOT an operator key
  *
  * `merchants.claim_state = 'verified'` plus `claimed_by_oxy_user_id`, checked in
  * the service. An unclaimed merchant, a pending claim, a revoked one and a

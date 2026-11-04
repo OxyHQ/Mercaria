@@ -6,7 +6,7 @@
  *
  * `supplier-order-isolation.test.ts` scans this DIRECTORY and fails the build
  * if anything in it imports a repository, a service, the database or the
- * config's operator lists. So the write boundary holds for adapters nobody has
+ * config. So the write boundary holds for adapters nobody has
  * written yet (#125's), and this one is subject to exactly the constraints a
  * real provider integration is — which is what makes it a useful rehearsal
  * rather than a mock that proves the mock works.

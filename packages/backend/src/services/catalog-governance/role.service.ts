@@ -2,20 +2,22 @@
  * Role-based permissions for view, propose, review, translate and publish
  * (#367 Workstream 12).
  *
- * ## This is not a seventh allow-list, and it structurally cannot become one
+ * ## This is not a second operator key, and it structurally cannot become one
  *
- * `CATALOG_OPERATOR_OXY_USER_IDS` decides who reaches this surface at all.
- * `requireCatalogOperator` answers 404 to an account absent from it, before any
- * row here is read — so nothing in this table can ADMIT anybody. A grant can
- * only ever narrow what somebody the deployment already trusts may do.
+ * `catalog.operate` — an application role decided in Oxy (held by organization
+ * role, oxy ADR 0056), never by Mercaria —
+ * decides who reaches this surface at all. `requireCatalogOperator` answers 404
+ * to anyone who does not hold it, before any row here is read — so nothing in
+ * this table can ADMIT anybody. A grant can only ever narrow what a
+ * `catalog.operate` holder may do.
  * `grant_operator_membership` is named in
  * `CATALOG_GOVERNANCE_FORBIDDEN_CAPABILITIES` for the reader who wonders
  * whether that stays true, and `catalog-governance-isolation.test.ts` fails the
- * build if this domain learns to write `config.catalog.graphOperatorOxyUserIds`.
+ * build if this domain learns to decide operator access itself.
  *
  * ## An empty grant table means role separation has not been adopted
  *
- * Every allow-listed operator then holds every role — today's behaviour, which
+ * Every `catalog.operate` holder then holds every role — today's behaviour, which
  * is what a rollout mechanism has to default to. The moment ANY live grant
  * exists the deployment has adopted role separation and grants are
  * authoritative.
@@ -61,7 +63,7 @@ export type RoleResolution =
   | { readonly mode: 'granted'; readonly roles: readonly CatalogGovernanceRole[] };
 
 /**
- * Resolve the roles an allow-listed operator holds.
+ * Resolve the roles a `catalog.operate` holder has here.
  *
  * The caller has already passed `requireCatalogOperator`, so this answers "what
  * may you do" and never "may you be here".

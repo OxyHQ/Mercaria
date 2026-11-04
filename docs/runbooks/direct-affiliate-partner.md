@@ -23,9 +23,12 @@ OFFER_MATERIALIZATION_ENABLED=true
 OFFER_REFRESH_ENABLED=true
 OFFER_EXPIRY_SWEEP_ENABLED=true
 OUTBOUND_REDIRECT_ENABLED=true
-CATALOG_OPERATOR_OXY_USER_IDS=<oxy user id>
-PAYMENT_OPERATOR_OXY_USER_IDS=<oxy user id>
 ```
+
+The operator steps below need `catalog.operate` and `payments.operate`. Both
+are held by the owners and admins of the `oxy` organization (declared in oxy's
+first-party registry, oxy ADR 0056); if you are not one, ask an owner to give
+you that role — there is no per-person grant.
 
 Secret, in BOTH halves — the workflow's `APP_SECRETS` allow-list and the task
 definition's `secrets[]`, in that order, or it never reaches SSM:
@@ -41,7 +44,7 @@ withdrawn offer stays on sale forever, which is the one failure a shopper sees.
 ## 2. Create the feed configuration, and with it the source
 
 `POST /internal/feed-imports/platform` — the operator surface, on
-`CATALOG_OPERATOR_OXY_USER_IDS`:
+`catalog.operate`:
 
 ```json
 {
@@ -135,7 +138,7 @@ are never divided: a network report is revisable for weeks while a click is not.
 list and "this shop sold nothing" are the same value.
 
 What closes it: `POST /internal/affiliate/reports/direct` on the
-payment-operator allow-list, opening a run for the window the operator states
+`payments.operate` key, opening a run for the window the operator states
 and driving the same `applyReportedTransaction` the Awin poll drives. See
 `services/outbound/reconciliation/direct.ts`.
 

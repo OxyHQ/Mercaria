@@ -152,6 +152,10 @@ vi.mock('../../db/payments/providerAccountRepository.js', () => ({
 // no such mock: with the rail off the gate returns before `getDb()`, which is
 // the property it exists to pin.
 vi.mock('../../db/postgres.js', () => ({ getDb: () => ({}) }));
+// An ordinary checkout has no supervised purchase operation to guard.
+vi.mock('../supervised-shopping/purchase.service.js', () => ({
+  permitSupervisedPayment: async () => true,
+}));
 
 // The payment domain's one read of `guest_checkouts` (#107, ADR 0006 G7): the
 // metadata's `guestCheckoutId` comes from the GROUP rather than from a

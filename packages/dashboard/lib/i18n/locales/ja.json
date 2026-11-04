@@ -580,6 +580,16 @@
         "lte": "以下"
       },
       "categoryIdentifier": "カテゴリー識別子"
+    },
+    "featured": {
+      "title": "おすすめコレクション",
+      "help": "公開済みの手動コレクションを最大%{count}件選び、表示順を設定してください。",
+      "empty": "おすすめコレクションはありません。",
+      "unavailable": "利用できないコレクション",
+      "hidden": "このコレクションは現在購入者に表示されていません。",
+      "add": "公開済みの手動コレクションを追加",
+      "failed": "おすすめコレクションを保存できませんでした。変更内容は保持されています。",
+      "saved": "おすすめコレクションを保存しました。"
     }
   },
   "common": {
@@ -1703,18 +1713,39 @@
         "displayNameLabel": "組織名",
         "done": "ストアは組織の所有になりました",
         "failed": "ストアを変換できませんでした",
-        "inviteLabel": "ユーザー名またはメール",
-        "invitePlaceholder": "ユーザー名 または email@example.com",
+        "inviteLabel": "メールアドレス",
+        "invitePlaceholder": "email@example.com",
         "inviteesTitle": "招待する人",
         "nameRequired": "組織名とユーザー名を入力してください",
         "open": "組織に変換",
-        "someInvitesFailed": "ストアは移動しましたが、次の招待に失敗しました: %{names}",
+        "someInvitesFailed": "ストアは移動しましたが、次の招待を送信できませんでした: %{names}",
         "submit": "組織を作成してストアを移動",
         "title": "組織に変換する",
         "usernameLabel": "組織のユーザー名",
         "warning": "これまでこのストアを操作できた人で、組織に含まれない人はアクセスできなくなります。"
       },
       "documentTitle": "メンバー | Wholesale by Mercaria",
+      "invitations": {
+        "body": "メールで送られた招待を承諾して初めて、組織に参加します。",
+        "dialogTitle": "メンバーを招待",
+        "emailLabel": "メールアドレス",
+        "empty": "保留中の招待はありません",
+        "expired": "期限切れ",
+        "invalidEmail": "有効なメールアドレスを入力してください",
+        "invite": "招待",
+        "loadFailed": "招待を読み込めませんでした",
+        "pending": "保留中",
+        "resend": "再送信",
+        "resendFailed": "招待を再送信できませんでした",
+        "resent": "招待を再送信しました",
+        "revoke": "取り消す",
+        "revokeFailed": "招待を取り消せませんでした",
+        "revoked": "招待を取り消しました",
+        "send": "招待を送信",
+        "sendFailed": "招待を送信できませんでした",
+        "sent": "%{email} に招待を送信しました",
+        "title": "保留中の招待"
+      },
       "loadFailed": "このストアのメンバーを読み込めませんでした",
       "noAccess": "アクセス権なし",
       "organizationBody": "このストアで操作できる人は、Oxy の組織メンバーによって決まります。Mercaria は各ロールの権限に対する例外だけを保存します。",
@@ -2034,5 +2065,23 @@
   "brand": {
     "name": "Wholesale",
     "byline": "by Mercaria"
+  },
+  "catalogSafety": {
+    "title": "商品コンテンツの確認",
+    "intro": "運営担当者が元の文章全体を確認し、画像のない商品表示を許可します。",
+    "accessDenied": "運営権限が必要です",
+    "accessBody": "このエリアは権限のあるカタログ確認担当者のみ利用できます。",
+    "unavailable": "この商品は確認できません",
+    "empty": "確認する商品はありません",
+    "next": "次の商品",
+    "select": "確認する商品を選択",
+    "limitBody": "この商品は確認上限を超えているため、見守り付きショッピングでは利用できません。",
+    "allowed": "現在の文章は承認済みです",
+    "pending": "現在の文章は未承認です",
+    "textOnly": "表示されるのはタイトル、バリエーション、選択肢、価格のみです。写真、説明、レビューは含まれません。",
+    "saveError": "確認を保存できませんでした。商品を再読み込みして最新の内容を確認してください。",
+    "saved": "確認を保存しました",
+    "allow": "確認済みの文章を許可",
+    "withhold": "表示しない"
   }
 }

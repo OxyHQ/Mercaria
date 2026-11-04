@@ -88,6 +88,10 @@ const GOWAY_PLACE =
   'A GoWay place id. GoWay owns place identity and every place fact over HTTP (ADR 0013); ' +
   'Mercaria stores only the opaque reference.';
 
+/** An Oxy purchase approval id, issued and owned by Oxy's safety service. */
+const OXY_PURCHASE_APPROVAL =
+  'An Oxy purchase approval id, issued by the canonical safety service over HTTP.';
+
 /** An Oxy media file id, resolved through the SDK's canonical media chokepoint. */
 const OXY_FILE = 'An Oxy media file id. Oxy owns the file; Mercaria stores only the id.';
 
@@ -256,6 +260,7 @@ export const MERCARIA_ROW_ID_REASONS: readonly string[] = [
 export const FOREIGN_KEY_SPACE_ID_REASONS: readonly string[] = [
   OXY_ACCOUNT,
   OXY_FILE,
+  OXY_PURCHASE_APPROVAL,
   GOWAY_PLACE,
   EXTERNAL_PLATFORM,
   PROVIDER_OBJECT,
@@ -275,8 +280,20 @@ export const FOREIGN_KEY_SPACE_ID_REASONS: readonly string[] = [
  * #367 added one there and it took a reviewer, not a gate, to notice.
  */
 export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: string }[] = [
+  { column: 'catalog_safety_reviews.reviewer_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'supervised_checkout_requests.buyer_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'supervised_purchase_lines.merchant_account_id', reason: OXY_ACCOUNT },
+  { column: 'supervised_purchase_operations.approval_id', reason: OXY_PURCHASE_APPROVAL },
   // ── Oxy account ids ───────────────────────────────────────────────────────
   { column: 'abuse_reports.reporter_oxy_user_id', reason: OXY_ACCOUNT },
+  // Donated materials: owners, requesters and acting accounts are people or
+  // organizations; current membership is read from Oxy on every action.
+  { column: 'material_offers.owner_account_id', reason: OXY_ACCOUNT },
+  { column: 'material_offers.created_by_account_id', reason: OXY_ACCOUNT },
+  { column: 'material_reservations.requester_account_id', reason: OXY_ACCOUNT },
+  { column: 'material_reservations.created_by_account_id', reason: OXY_ACCOUNT },
+  { column: 'material_reservation_events.acting_account_id', reason: OXY_ACCOUNT },
+  { column: 'material_reservation_events.actor_account_id', reason: OXY_ACCOUNT },
   // #66's three operator stamps. Oxy ids like every other row in this block,
   // and two of them sit on APPEND-ONLY tables whose whole purpose is to answer
   // "who decided this" — an actor column that could be erased with the account
@@ -1497,6 +1514,21 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'feed_configuration_versions.created_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'feed_configuration_versions.activated_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'feed_uploads.uploaded_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'feed_upload_sessions.opened_by_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'feed_upload_sessions.oxy_upload_id',
+    reason:
+      'An Oxy Files large-upload session id (Oxy ADR 0043 stage 4b). Oxy owns the session and ' +
+      'aborts it on its own clock; Mercaria stores only the id it drives the upload with.',
+  },
+  {
+    column: 'feed_upload_sessions.oxy_file_id',
+    reason:
+      OXY_FILE +
+      ' The answer storage gave a session BEFORE Mercaria accepted the bytes; the holding row is ' +
+      'the `feed_uploads` row it completes into.',
+  },
+  { column: 'feed_validation_jobs.requested_by_oxy_user_id', reason: OXY_ACCOUNT },
   {
     column: 'feed_import_reports.requested_by_oxy_user_id',
     reason:
@@ -1550,6 +1582,13 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'second source of truth the whole design exists to avoid. The Mercaria half of the pairing ' +
       'is `moovo_source_reference`, which is GENERATED from this row and is what an inbound Moovo ' +
       'event resolves against.',
+  },
+  {
+    column: 'material_reservations.moovo_transport_id',
+    reason:
+      "MOOVO's own id for a donation's transport, in another Oxy service's key space. Moovo " +
+      'owns the transport, its quote and its payer authorization; Mercaria keeps only this ' +
+      'reference and reads the transport through the Moovo SDK.',
   },
   // ── The ranking policy register (#74) ─────────────────────────────────────
   // The whole of what this table holds about a person: who drafted a policy
@@ -2288,5 +2327,42 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       '`digital_fulfilment_incidents` points back with a real `restrict` ' +
       'reference, so the pair is constrained exactly once and in the direction ' +
       'where the evidence is the parent.',
+  },
+  // ── Oxy Files usage registration (Oxy ADR 0043) ──────────────────────────
+  //
+  // Every `entity_id` here is POLYMORPHIC by `entity_type` — a listing, a
+  // store, a canonical image, a review… (`file-reference-registry.ts` says
+  // which per type) — and the rows must OUTLIVE their subject: an outbox row
+  // whose entity was deleted is exactly the removal it exists to send, the
+  // ledger row is what that removal withdraws, and the event audit records
+  // what a takedown removed from a row that may be gone.
+  {
+    column: 'oxy_file_reference_outboxes.entity_id',
+    reason:
+      'Polymorphic by entity_type (the attribute_reindex_requests.entity_id shape), and a ' +
+      'JOB: it must survive its entity being deleted, because that deletion is the ' +
+      'reference removal the job exists to send to Oxy.',
+  },
+  {
+    column: 'oxy_file_references.entity_id',
+    reason:
+      'Polymorphic by entity_type. The record of what Oxy acknowledged, which must outlive ' +
+      'the holding row: it is how the outbox knows what to withdraw once the row is gone.',
+  },
+  { column: 'oxy_file_references.file_id', reason: OXY_FILE },
+  {
+    column: 'oxy_file_events.event_id',
+    reason:
+      "Oxy's own event id, the dedupe key of a delivery — a foreign key space, and " +
+      'deliberately never this table’s primary key.',
+  },
+  { column: 'oxy_file_events.file_id', reason: OXY_FILE },
+  { column: 'oxy_application_files.file_id', reason: OXY_FILE },
+  {
+    column: 'oxy_file_event_actions.entity_id',
+    reason:
+      AUDIT_CORRELATION +
+      ' Polymorphic by entity_type; it names the row a takedown changed, which may since ' +
+      'have been deleted.',
   },
 ];

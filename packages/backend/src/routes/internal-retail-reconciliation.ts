@@ -2,23 +2,22 @@
  * `/internal/retail-reconciliation/*` — the zero-profit cost reconciliation
  * operator surface (#128 "Operator surface").
  *
- * ## On the SIXTH allow-list, and deliberately not the fifth
+ * ## On the SIXTH key, and deliberately not the fifth
  *
- * `PROCUREMENT_OPERATOR_OXY_USER_IDS`, the list #122, #124 and #125 use. This
+ * `procurement.operate`, the key #122, #124 and #125 use. This
  * surface shows the supplier invoice by component, the final supplier item cost
  * and every supplier credit — Mercaria's wholesale cost base, which is the exact
- * power `procurement-operator-authz.ts` says that list exists for and which no
- * other list holds.
+ * power `middleware/operator-authz.ts` says that key exists for and which no
+ * other key grants.
  *
- * `RETAIL_OPERATOR_OXY_USER_IDS` (the fifth) is the COMPLIANCE list: recalls,
+ * `retail.operate` (the fifth) is the COMPLIANCE key: recalls,
  * eligibility policy versions, document verification. Mounting a wholesale-cost
- * read on it would widen what a compliance reviewer can see, and its own
- * docblock is explicit that "a compliance reviewer vetted to verify a
- * product-safety certificate is not thereby vetted to see Mercaria's cost base".
+ * read on it would widen what a compliance reviewer can see, and a compliance
+ * reviewer vetted to verify a product-safety certificate is not thereby vetted
+ * to see Mercaria's cost base.
  *
- * Mount gated on the allow-list being non-empty (404 on a deployment with no
- * operators, never a 401 that would advertise the surface); the gate repeated in
- * middleware because the mount and the gate live in different files.
+ * Mounted on every deployment; anyone without the key is answered 404, never a
+ * 401 that would advertise the surface.
  *
  * ## READ, plus a CLOSED set of three writes
  *
@@ -33,7 +32,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireProcurementOperator } from '../middleware/procurement-operator-authz.js';
+import { requireProcurementOperator } from '../middleware/operator-authz.js';
 import { validateBody, validateId } from '../middleware/validate.js';
 import {
   listOpenAdjustmentsHandler,
@@ -47,9 +46,8 @@ import {
 
 const router = Router();
 
-// Authentication FIRST, then the allow-list — the gate reads the verified
-// caller, and an allow-list consulted before authentication would compare
-// against whatever a client claimed.
+// Authentication FIRST, then the operator gate — it asks Oxy about the verified
+// caller's own session, which only `authenticateToken` establishes.
 router.use(authenticateToken);
 router.use(requireProcurementOperator);
 

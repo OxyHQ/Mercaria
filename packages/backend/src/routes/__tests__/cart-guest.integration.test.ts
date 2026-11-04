@@ -35,7 +35,6 @@ import { eq, inArray } from 'drizzle-orm';
 
 const ALLOWED_ORIGIN = 'https://mercaria.co';
 const FOREIGN_ORIGIN = 'https://evil.example';
-const DEV_COOKIE = 'mercaria_guest_dev';
 const TOKEN_HEADER = 'x-mercaria-guest-token';
 const TRANSPORT_HEADER = 'x-mercaria-guest-transport';
 
@@ -124,19 +123,12 @@ afterAll(async () => {
 });
 
 /** The `Set-Cookie` for the guest cookie, or undefined. */
-function guestSetCookie(res: Response): string | undefined {
-  return res.headers.getSetCookie().find((cookie) => cookie.startsWith(`${DEV_COOKIE}=`));
-}
-
-/** The bare `name=value` pair out of a `Set-Cookie` line, for replay. */
-function cookiePair(setCookie: string): string {
-  const [pair] = setCookie.split(';');
-  return pair;
+function issuedGuestToken(res: Response): string | undefined {
+  return res.headers.get(TOKEN_HEADER) ?? undefined;
 }
 
 /** Track the session behind a cookie so `afterEach` can clean it up. */
-async function trackSessionByCookie(setCookie: string): Promise<void> {
-  const token = cookiePair(setCookie).split('=')[1];
+async function trackSessionByToken(token: string): Promise<void> {
   const { hashGuestToken } = await import('../../services/guest-session.service.js');
   const [row] = await db
     .select({ id: schema.guestSessions.id })
@@ -159,7 +151,7 @@ async function trackSessionByCookie(setCookie: string): Promise<void> {
  * minted for this request", with no cross-file surface at all.
  */
 function expectNoCredentialIssued(res: Response): void {
-  expect(guestSetCookie(res)).toBeUndefined();
+  expect(issuedGuestToken(res)).toBeUndefined();
   expect(res.headers.get(TOKEN_HEADER)).toBeNull();
 }
 
@@ -189,17 +181,20 @@ describe('a signed-out buyer can hold a cart (acceptance 1)', () => {
   it('mints a session on the first ADD, and the cart survives the next request', async () => {
     const added = await fetch(`${baseUrl}/cart/items`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', origin: ALLOWED_ORIGIN },
+      headers: {
+        'content-type': 'application/json',
+        origin: ALLOWED_ORIGIN,
+        [TRANSPORT_HEADER]: 'header',
+      },
       body: JSON.stringify({ listingId, variantId, quantity: 2 }),
     });
     expect(added.status).toBe(201);
 
-    const setCookie = guestSetCookie(added);
-    expect(setCookie).toBeDefined();
-    if (!setCookie) return;
-    await trackSessionByCookie(setCookie);
-    expect(setCookie).toContain('HttpOnly');
-    expect(setCookie).toContain('SameSite=Lax');
+    const token = issuedGuestToken(added);
+    expect(token).toBeDefined();
+    if (!token) return;
+    await trackSessionByToken(token);
+    expect(added.headers.getSetCookie()).toEqual([]);
 
     const addedBody = (await added.json()) as CartBody;
     expect(addedBody.data.items).toHaveLength(1);
@@ -210,7 +205,7 @@ describe('a signed-out buyer can hold a cart (acceptance 1)', () => {
     // …and it is still there on the next request, which is what "survives a
     // refresh" means on the wire.
     const reread = await fetch(`${baseUrl}/cart`, {
-      headers: { origin: ALLOWED_ORIGIN, cookie: cookiePair(setCookie) },
+      headers: { origin: ALLOWED_ORIGIN, [TOKEN_HEADER]: token },
     });
     const rereadBody = (await reread.json()) as CartBody;
     expect(rereadBody.data.items).toHaveLength(1);
@@ -239,7 +234,7 @@ describe('a signed-out buyer can hold a cart (acceptance 1)', () => {
     if (row) sessionIdsBefore.add(row.id);
 
     // Header transport sets NO cookie — the two carriages never mix (D9).
-    expect(guestSetCookie(added)).toBeUndefined();
+    expect(added.headers.getSetCookie()).toEqual([]);
     expect(JSON.stringify(await added.json())).not.toContain('mgs_');
 
     const reread = await fetch(`${baseUrl}/cart`, { headers: { [TOKEN_HEADER]: token } });
@@ -247,54 +242,60 @@ describe('a signed-out buyer can hold a cart (acceptance 1)', () => {
   });
 });
 
-describe('the D10 CSRF gate covers guest cart writes', () => {
-  it('refuses a cookie-authenticated write with a foreign Origin AND one with none', async () => {
+describe('legacy clients cannot orphan or replace a cart', () => {
+  it('refuses cookie-only reads and writes, retaining the header owner and cart contents', async () => {
     const added = await fetch(`${baseUrl}/cart/items`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', origin: ALLOWED_ORIGIN },
+      headers: { 'content-type': 'application/json', [TRANSPORT_HEADER]: 'header' },
       body: JSON.stringify({ listingId, variantId, quantity: 1 }),
     });
-    const setCookie = guestSetCookie(added);
-    expect(setCookie).toBeDefined();
-    if (!setCookie) return;
-    await trackSessionByCookie(setCookie);
-    const cookie = cookiePair(setCookie);
-
-    // In the REAL chain a foreign Origin dies at the CORS layer (whose
-    // error-throwing callback lands in the 500 handler) before the CSRF gate
-    // can see it — both read the SAME allowlist, which is D10's whole point.
-    // The gate's own foreign-origin 403 is pinned in the middleware unit tests;
-    // what matters at the wire is that the write is REFUSED.
-    const foreign = await fetch(`${baseUrl}/cart/items`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', origin: FOREIGN_ORIGIN, cookie },
-      body: JSON.stringify({ listingId, variantId, quantity: 5 }),
-    });
-    expect(foreign.ok).toBe(false);
-
-    // No Origin and no Referer passes CORS (curl-shaped) — THIS is the case
-    // only the CSRF gate can catch, and it must answer 403.
-    const originless = await fetch(`${baseUrl}/cart/items`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', cookie },
-      body: JSON.stringify({ listingId, variantId, quantity: 5 }),
-    });
-    expect(originless.status).toBe(403);
-
-    // The cart is untouched by BOTH refusals — they happened before the write.
-    const reread = await fetch(`${baseUrl}/cart`, { headers: { origin: ALLOWED_ORIGIN, cookie } });
-    expect(((await reread.json()) as CartBody).data.items[0].quantity).toBe(1);
+    const token = added.headers.get(TOKEN_HEADER) ?? '';
+    await trackSessionByToken(token);
+    const initial = (await added.json()) as CartBody;
+    for (const method of ['GET', 'POST']) {
+      const old = await fetch(`${baseUrl}${method === 'GET' ? '/cart' : '/cart/items'}`, {
+        method,
+        headers: { 'content-type': 'application/json', cookie: `mercaria_guest_dev=${token}` },
+        ...(method === 'POST'
+          ? { body: JSON.stringify({ listingId, variantId, quantity: 5 }) }
+          : {}),
+      });
+      expect(old.status).toBe(426);
+      expectNoCredentialIssued(old);
+    }
+    const current = await fetch(`${baseUrl}/cart`, { headers: { [TOKEN_HEADER]: token } });
+    const body = (await current.json()) as CartBody;
+    expect(body.data.id).toBe(initial.data.id);
+    expect(body.data.items[0].quantity).toBe(1);
+    const persisted = await db
+      .select()
+      .from(schema.carts)
+      .where(eq(schema.carts.id, initial.data.id));
+    expect(persisted).toHaveLength(1);
+    expect(persisted[0].guestSessionId).not.toBeNull();
   });
 
-  it('refuses the ISSUING write too when it carries no Origin — no cross-site minting', async () => {
+  it('refuses an undeclared issuing write before a new credential or cart exists', async () => {
     const refused = await fetch(`${baseUrl}/cart/items`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ listingId, variantId, quantity: 1 }),
     });
-    expect(refused.status).toBe(403);
-    // The write that SETS a cookie is as CSRF-relevant as one authenticated by
-    // it, so no session may be minted for it either.
+    expect(refused.status).toBe(426);
+    expectNoCredentialIssued(refused);
+  });
+
+  it('a foreign browser Origin cannot write with a known header credential', async () => {
+    const refused = await fetch(`${baseUrl}/cart/items`, {
+      method: 'POST',
+      headers: {
+        origin: FOREIGN_ORIGIN,
+        'content-type': 'application/json',
+        [TRANSPORT_HEADER]: 'header',
+      },
+      body: JSON.stringify({ listingId, variantId, quantity: 1 }),
+    });
+    expect(refused.ok).toBe(false);
     expectNoCredentialIssued(refused);
   });
 });
@@ -303,23 +304,30 @@ describe('mutation idempotency is explicit (route requirement 9)', () => {
   it('PATCH sets an ABSOLUTE quantity and converges on repetition; POST increments', async () => {
     const added = await fetch(`${baseUrl}/cart/items`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', origin: ALLOWED_ORIGIN },
+      headers: {
+        'content-type': 'application/json',
+        origin: ALLOWED_ORIGIN,
+        [TRANSPORT_HEADER]: 'header',
+      },
       body: JSON.stringify({ listingId, variantId, quantity: 1 }),
     });
-    const setCookie = guestSetCookie(added);
-    expect(setCookie).toBeDefined();
-    if (!setCookie) return;
-    await trackSessionByCookie(setCookie);
-    const cookie = cookiePair(setCookie);
+    const token = issuedGuestToken(added);
+    expect(token).toBeDefined();
+    if (!token) return;
+    await trackSessionByToken(token);
 
     // POST increments — the one non-idempotent mutation, stated as such.
     await fetch(`${baseUrl}/cart/items`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', origin: ALLOWED_ORIGIN, cookie },
+      headers: {
+        'content-type': 'application/json',
+        origin: ALLOWED_ORIGIN,
+        [TOKEN_HEADER]: token,
+      },
       body: JSON.stringify({ listingId, variantId, quantity: 1 }),
     });
     const afterTwoPosts = await fetch(`${baseUrl}/cart`, {
-      headers: { origin: ALLOWED_ORIGIN, cookie },
+      headers: { origin: ALLOWED_ORIGIN, [TOKEN_HEADER]: token },
     });
     expect(((await afterTwoPosts.json()) as CartBody).data.items[0].quantity).toBe(2);
 
@@ -328,7 +336,11 @@ describe('mutation idempotency is explicit (route requirement 9)', () => {
     for (const attempt of [1, 2]) {
       const patched = await fetch(`${baseUrl}/cart/items/${variantId}`, {
         method: 'PATCH',
-        headers: { 'content-type': 'application/json', origin: ALLOWED_ORIGIN, cookie },
+        headers: {
+          'content-type': 'application/json',
+          origin: ALLOWED_ORIGIN,
+          [TOKEN_HEADER]: token,
+        },
         body: JSON.stringify({ quantity: 5 }),
       });
       expect(patched.status, `PATCH attempt ${String(attempt)}`).toBe(200);
@@ -340,7 +352,7 @@ describe('mutation idempotency is explicit (route requirement 9)', () => {
     for (const attempt of [1, 2]) {
       const deleted = await fetch(`${baseUrl}/cart/items/${variantId}`, {
         method: 'DELETE',
-        headers: { origin: ALLOWED_ORIGIN, cookie },
+        headers: { origin: ALLOWED_ORIGIN, [TOKEN_HEADER]: token },
       });
       expect(deleted.status, `DELETE attempt ${String(attempt)}`).toBe(200);
       expect(((await deleted.json()) as CartBody).data.items).toEqual([]);
@@ -365,13 +377,17 @@ describe('presentment currency and DTO hygiene', () => {
   it("honours a guest's requested display currency, and never leaks an owner id", async () => {
     const added = await fetch(`${baseUrl}/cart/items?currency=EUR`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', origin: ALLOWED_ORIGIN },
+      headers: {
+        'content-type': 'application/json',
+        origin: ALLOWED_ORIGIN,
+        [TRANSPORT_HEADER]: 'header',
+      },
       body: JSON.stringify({ listingId, variantId, quantity: 1 }),
     });
-    const setCookie = guestSetCookie(added);
-    expect(setCookie).toBeDefined();
-    if (!setCookie) return;
-    await trackSessionByCookie(setCookie);
+    const token = issuedGuestToken(added);
+    expect(token).toBeDefined();
+    if (!token) return;
+    await trackSessionByToken(token);
 
     const body = (await added.json()) as CartBody;
     // A guest has no preferences row to store one in (ADR 0003 D8), so the
@@ -400,23 +416,27 @@ describe('the merge endpoint refuses a caller who is not signed in', () => {
   it('answers 401 for a guest actor, and never merges into nothing', async () => {
     const added = await fetch(`${baseUrl}/cart/items`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', origin: ALLOWED_ORIGIN },
+      headers: {
+        'content-type': 'application/json',
+        origin: ALLOWED_ORIGIN,
+        [TRANSPORT_HEADER]: 'header',
+      },
       body: JSON.stringify({ listingId, variantId, quantity: 1 }),
     });
-    const setCookie = guestSetCookie(added);
-    expect(setCookie).toBeDefined();
-    if (!setCookie) return;
-    await trackSessionByCookie(setCookie);
+    const token = issuedGuestToken(added);
+    expect(token).toBeDefined();
+    if (!token) return;
+    await trackSessionByToken(token);
 
     const merged = await fetch(`${baseUrl}/cart/merge`, {
       method: 'POST',
-      headers: { origin: ALLOWED_ORIGIN, cookie: cookiePair(setCookie) },
+      headers: { origin: ALLOWED_ORIGIN, [TOKEN_HEADER]: token },
     });
     expect(merged.status).toBe(401);
 
     // The guest's cart is untouched by the refusal.
     const reread = await fetch(`${baseUrl}/cart`, {
-      headers: { origin: ALLOWED_ORIGIN, cookie: cookiePair(setCookie) },
+      headers: { origin: ALLOWED_ORIGIN, [TOKEN_HEADER]: token },
     });
     expect(((await reread.json()) as CartBody).data.items).toHaveLength(1);
   });

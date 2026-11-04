@@ -1,5 +1,4 @@
-import { isOxyFileId } from '@mercaria/shared-types';
-import { oxyServiceClient } from '../../capabilities/oxy-service-client.js';
+import { uploadOxyFile } from './oxy-files.js';
 
 import { matchesProductImage, matchesProductVideo } from './policy.js';
 export { PRODUCT_IMAGE_MAX_BYTES, PRODUCT_IMAGE_MIMES, matchesProductImage } from './policy.js';
@@ -25,33 +24,20 @@ export async function uploadStoreProductMedia(
     !(kind === 'image' ? matchesProductImage(bytes, mime) : matchesProductVideo(bytes, mime))
   )
     throw new Error('Invalid product media');
-  const client = oxyServiceClient();
-  if (!client) throw new Error('Product media upload is unavailable');
-  const response = await fetch(`${client.baseURL.replace(/\/+$/, '')}/assets/service/user-media`, {
-    method: 'POST',
-    redirect: 'error',
-    signal: AbortSignal.timeout(25_000),
-    headers: {
-      Authorization: `Bearer ${await client.serviceToken()}`,
-      'Content-Type': mime,
-      'Content-Length': String(bytes.length),
-      'x-owner-user-id': ownerAccountId,
-      'x-original-name': `product-${kind}`,
-      Accept: 'application/json',
-    },
-    body: new Uint8Array(bytes),
-  });
-  if (!response.ok) {
-    await response.body?.cancel();
+  let file: Awaited<ReturnType<typeof uploadOxyFile>>;
+  try {
+    file = await uploadOxyFile(
+      { kind: 'account', oxyUserId: ownerAccountId },
+      bytes,
+      mime,
+      `product-${kind}`,
+    );
+  } catch {
     throw new Error('Product media upload failed');
   }
-  const payload = (await response.json()) as {
-    data?: { file?: { id?: unknown; visibility?: unknown; mime?: unknown; size?: unknown } };
-  };
-  const file = payload.data?.file;
-  if (!isOxyFileId(file?.id) || file.visibility !== 'public')
+  if (file.visibility !== 'public')
     throw new Error('Product media upload did not return a public file');
   if (kind === 'video' && (file.mime !== mime || file.size !== bytes.length))
     throw new Error('Product video metadata did not match the uploaded bytes');
-  return { fileId: file.id, kind };
+  return { fileId: file.fileId, kind };
 }

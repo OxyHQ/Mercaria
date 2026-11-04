@@ -294,9 +294,9 @@ export function authorizeBuyerRequest(input: {
  *
  * A separate vocabulary from the buyer's, because the two are decided by
  * different gates: a buyer's action is decided HERE against a credential, and a
- * decider's is decided by `requireStorePermission` or the operator allow-list on
- * the router before the request ever reaches a service. One table would suggest
- * one gate.
+ * decider's is decided by `requireStorePermission` or the operator key on the
+ * router before the request ever reaches a service. One table would suggest one
+ * gate.
  */
 export const BUYER_REQUEST_DECISIONS = {
   'cancellation:decide': { permission: 'orders:fulfill' },

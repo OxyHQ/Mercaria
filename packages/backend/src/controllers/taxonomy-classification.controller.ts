@@ -33,7 +33,7 @@ import {
   recordSecondaryClassification,
   withdrawSecondaryClassification,
 } from '../services/taxonomy/classification.service.js';
-import { catalogOperatorId } from '../middleware/catalog-operator-authz.js';
+import { operatorId } from '../middleware/operator-authz.js';
 import { validationError } from '../lib/errors/error-codes.js';
 import { respondWithError } from '../lib/errors/error-codes.js';
 import { sendSuccess } from '../utils/api-response.js';
@@ -96,7 +96,7 @@ export async function createSecondaryClassificationHandler(
       reason: body.reason as SecondaryClassificationReason,
       justification: body.justification,
       ...(body.schemeRef === undefined ? {} : { schemeRef: body.schemeRef }),
-      justifiedBy: catalogOperatorId(req),
+      justifiedBy: operatorId(req),
     });
 
     sendSuccess(res, created, 201);

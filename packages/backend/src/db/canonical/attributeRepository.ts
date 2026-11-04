@@ -401,6 +401,80 @@ export async function insertCanonicalMedia(
   return rows[0];
 }
 
+/**
+ * Attach a source's medium, converging on the row that already carries the SAME
+ * SOURCE URL before falling back to `(entity, image_ref)`.
+ *
+ * `image_ref` is `coalesce(file_id, source_url)`, so once a source was imported
+ * its row's identity is the FILE, and a later observation of the same source
+ * whose import produced a different file (a different owner, re-encoded bytes)
+ * missed the unique and wrote a second row for one image — every re-observation
+ * a new duplicate. A source's identity is its URL: when a row for this entity
+ * already names `sourceUrl`, this writes no new row. It fills that row's missing
+ * file id (a legacy source-hosted row) unless another row of the entity already
+ * holds that file, which would be the same image twice.
+ *
+ * The caller's transaction serializes concurrent observations of one product on
+ * the product row (`updateProductRow` runs before the media), so the read-then-
+ * insert here is not a race between two observations of the same product.
+ */
+export async function attachCanonicalMediaBySource(
+  db: DatabaseOrTransaction,
+  input: InsertCanonicalImageInput & { kind: 'image' | 'video' },
+): Promise<CanonicalImageRow | undefined> {
+  if (input.sourceUrl !== undefined) {
+    const owner =
+      input.grain.kind === 'product'
+        ? eq(canonicalImages.productId, input.grain.id)
+        : eq(canonicalImages.variantId, input.grain.id);
+    const [existing] = await db
+      .select({ id: canonicalImages.id, fileId: canonicalImages.fileId })
+      .from(canonicalImages)
+      .where(and(owner, eq(canonicalImages.sourceUrl, input.sourceUrl)))
+      .orderBy(asc(canonicalImages.createdAt), asc(canonicalImages.id))
+      .limit(1);
+    if (existing) {
+      if (existing.fileId === null && input.fileId !== undefined) {
+        const grainColumn = input.grain.kind === 'product' ? 'product_id' : 'variant_id';
+        await db
+          .update(canonicalImages)
+          .set({ fileId: input.fileId })
+          .where(
+            and(
+              eq(canonicalImages.id, existing.id),
+              isNull(canonicalImages.fileId),
+              sql`not exists (
+                select 1 from canonical_images other
+                where other.${sql.raw(grainColumn)} = ${input.grain.id}
+                  and other.image_ref = ${input.fileId}
+              )`,
+            ),
+          );
+      }
+      return undefined;
+    }
+  }
+  return insertCanonicalMedia(db, input);
+}
+
+/** Every product-grain row of a product that has an imported file, by source URL. */
+export async function findCanonicalProductMediaFileIdsBySource(
+  db: DatabaseOrTransaction,
+  productId: string,
+): Promise<Map<string, string>> {
+  const rows = await db
+    .select({ sourceUrl: canonicalImages.sourceUrl, fileId: canonicalImages.fileId })
+    .from(canonicalImages)
+    .where(eq(canonicalImages.productId, productId))
+    .orderBy(asc(canonicalImages.createdAt), asc(canonicalImages.id));
+  const bySource = new Map<string, string>();
+  for (const row of rows) {
+    if (row.sourceUrl !== null && row.fileId !== null && !bySource.has(row.sourceUrl))
+      bySource.set(row.sourceUrl, row.fileId);
+  }
+  return bySource;
+}
+
 export async function listCanonicalImages(
   db: DatabaseOrTransaction,
   grain: Extract<AnnotationGrain, { kind: 'product' | 'variant' }>,
@@ -448,6 +522,60 @@ export async function attachImportedCanonicalImage(
         eq(canonicalImages.id, imageId),
         eq(canonicalImages.sourceUrl, sourceUrl),
         isNull(canonicalImages.fileId),
+      ),
+    )
+    .returning({ id: canonicalImages.id });
+  return rows.length === 1;
+}
+
+/**
+ * Suppress every active canonical image showing `fileId` — Oxy blocked or
+ * deleted it (ADR 0043 D9/D10). The row is provenance (which source showed
+ * what), so it stays; `suppressed` is the status every read already hides, and
+ * the file id stays too, since a row holding only its source URL would be
+ * re-imported by the next backfill. Returns the rows changed.
+ */
+export async function suppressCanonicalImagesByFile(
+  db: DatabaseOrTransaction,
+  fileId: string,
+): Promise<string[]> {
+  const rows = await db
+    .update(canonicalImages)
+    .set({ status: 'suppressed' })
+    .where(and(eq(canonicalImages.fileId, fileId), eq(canonicalImages.status, 'active')))
+    .returning({ id: canonicalImages.id });
+  return rows.map((row) => row.id);
+}
+
+/**
+ * Point a canonical image at `fileId` — the application-owned copy of what it
+ * shows — only while it still holds `previousFileId`, and never when another
+ * row of the same product or variant already holds `fileId` (the same image
+ * twice, which `canonical_images_*_ref_key` would refuse anyway).
+ */
+export async function replaceCanonicalImageFile(
+  db: DatabaseOrTransaction,
+  imageId: string,
+  previousFileId: string | null,
+  fileId: string,
+): Promise<boolean> {
+  if (!isOxyFileId(fileId)) throw new Error('Expected an Oxy file ID.');
+  const rows = await db
+    .update(canonicalImages)
+    .set({ fileId })
+    .where(
+      and(
+        eq(canonicalImages.id, imageId),
+        previousFileId === null
+          ? isNull(canonicalImages.fileId)
+          : eq(canonicalImages.fileId, previousFileId),
+        sql`not exists (
+          select 1 from canonical_images other
+          join canonical_images self on self.id = ${imageId}
+          where other.id <> self.id
+            and other.image_ref = ${fileId}
+            and (other.product_id = self.product_id or other.variant_id = self.variant_id)
+        )`,
       ),
     )
     .returning({ id: canonicalImages.id });
@@ -556,4 +684,86 @@ export async function findFieldProvenance(
     .where(and(owner, eq(canonicalFieldProvenance.field, field)))
     .limit(1);
   return rows[0];
+}
+
+/**
+ * One keyset page of canonical images that DUPLICATE another row of the same
+ * product or variant by source URL — the rows the pre-ADR-0041 identity bug
+ * wrote (`image_ref = coalesce(file_id, source_url)` let a re-import that
+ * returned a different file in as a second row). Grouped per (grain, entity,
+ * source URL), ordered by the survivor's id; every row id of the group is
+ * returned, survivor first: active before suppressed, a held file before none,
+ * then the oldest.
+ */
+export async function findDuplicateCanonicalImageGroups(
+  db: DatabaseOrTransaction,
+  options: { after?: string; limit: number },
+): Promise<{ survivorId: string; sourceUrl: string; rowIds: string[] }[]> {
+  const rows = await db.execute<{ survivor_id: string; source_url: string; row_ids: string[] }>(sql`
+    with ranked as (
+      select id, source_url,
+             coalesce('p:' || product_id, 'v:' || variant_id) as entity,
+             row_number() over (
+               partition by coalesce('p:' || product_id, 'v:' || variant_id), source_url
+               order by (status = 'active') desc, (file_id is not null) desc, created_at, id
+             ) as rank
+        from canonical_images
+       where source_url is not null
+    ),
+    groups as (
+      select entity, source_url,
+             array_agg(id order by rank) as row_ids,
+             (array_agg(id order by rank))[1] as survivor_id
+        from ranked
+       group by entity, source_url
+      having count(*) > 1
+    )
+    select survivor_id, source_url, row_ids
+      from groups
+     ${options.after === undefined ? sql`` : sql`where survivor_id > ${options.after}`}
+     order by survivor_id
+     limit ${options.limit}`);
+  return rows.map((row) => ({
+    survivorId: String(row.survivor_id),
+    sourceUrl: String(row.source_url),
+    rowIds: [...row.row_ids].map(String),
+  }));
+}
+
+/**
+ * Collapse one duplicate group onto its survivor: the survivor takes a
+ * missing alt text from a duplicate, and the duplicates are deleted — only
+ * while every row still exists with the same source URL, so a concurrent edit
+ * leaves the group for a retry. Nothing references a `canonical_images` row by
+ * id (a merge repoints rows; it does not point at them), and the deletions fire
+ * the reference trigger, so Oxy hears that the duplicates' files lost a use.
+ */
+export async function collapseCanonicalImageDuplicates(
+  db: DatabaseOrTransaction,
+  group: { survivorId: string; sourceUrl: string; rowIds: readonly string[] },
+): Promise<'applied' | 'changed'> {
+  const duplicates = group.rowIds.filter((id) => id !== group.survivorId);
+  return db.transaction(async (tx) => {
+    const current = await tx
+      .select({ id: canonicalImages.id, alt: canonicalImages.alt })
+      .from(canonicalImages)
+      .where(
+        and(
+          inArray(canonicalImages.id, [...group.rowIds]),
+          eq(canonicalImages.sourceUrl, group.sourceUrl),
+        ),
+      )
+      .for('update');
+    if (current.length !== group.rowIds.length) return 'changed';
+    const survivor = current.find((row) => row.id === group.survivorId);
+    const alt = current.find((row) => row.id !== group.survivorId && row.alt !== null)?.alt;
+    if (survivor && survivor.alt === null && alt) {
+      await tx
+        .update(canonicalImages)
+        .set(assertLocalizedRow('canonical_images', { alt }))
+        .where(eq(canonicalImages.id, group.survivorId));
+    }
+    await tx.delete(canonicalImages).where(inArray(canonicalImages.id, duplicates));
+    return 'applied';
+  });
 }

@@ -20,6 +20,7 @@ export const queryKeys = {
    */
   oxyAccount: (accountId: string) => ['oxy-account', accountId] as const,
   oxyAccountMembers: (accountId: string) => ['oxy-account', accountId, 'members'] as const,
+  oxyAccountInvitations: (accountId: string) => ['oxy-account', accountId, 'invitations'] as const,
   products: {
     write: (storeId: string, productId: string) =>
       ['stores', storeId, 'products', productId, 'write'] as const,
@@ -58,6 +59,7 @@ export const queryKeys = {
     topProducts: (storeId: string) => ['stores', storeId, 'reports', 'top-products'] as const,
   },
   collections: {
+    featured: (storeId: string) => ['stores', storeId, 'featured-collections'] as const,
     list: (storeId: string) => ['stores', storeId, 'collections'] as const,
     detail: (storeId: string, id: string) => ['stores', storeId, 'collections', id] as const,
   },

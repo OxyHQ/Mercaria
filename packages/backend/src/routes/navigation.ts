@@ -13,8 +13,8 @@
  * ## ONE route, and no write route may be added
  *
  * The operator surface that authors these trees is `/internal/navigation`
- * (`routes/internal-navigation.ts`), on the `CATALOG_OPERATOR_OXY_USER_IDS`
- * allow-list and mounted while this router's rollout lever is OFF — the evidence
+ * (`routes/internal-navigation.ts`), on the `catalog.operate`
+ * key and mounted while this router's rollout lever is OFF — the evidence
  * has to be readable during the incident that turned the public surface off.
  * Two routers rather than one because they are gated by different things for
  * different reasons.

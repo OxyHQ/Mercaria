@@ -4,20 +4,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OxyApiError } from '@oxy.so/core';
 import { REVIEW_IMAGE_MAX_BYTES, REVIEW_VIDEO_MAX_BYTES } from '@mercaria/shared-types';
 
-const { get, link, setAccessToken, clients } = vi.hoisted(() => ({
+const { get, link, withUser } = vi.hoisted(() => ({
   get: vi.fn(),
   link: vi.fn(),
-  setAccessToken: vi.fn(),
-  clients: vi.fn(),
+  withUser: vi.fn(),
 }));
-vi.mock('@oxy.so/core', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@oxy.so/core')>()),
-  OxyServices: class {
-    assets = { get, link };
-    session = { setAccessToken };
-    constructor(options: unknown) {
-      clients(options);
-    }
+// The one `oxyClient`'s user client: every read is made AS the author.
+vi.mock('../../../middleware/auth.js', () => ({
+  oxyClient: {
+    withUser: async (bearer: string, fn: (user: unknown) => Promise<unknown>) => {
+      withUser(bearer);
+      return fn({ assets: { get, link } });
+    },
   },
 }));
 import { prepareReviewMedia } from '../review-media.service.js';
@@ -26,6 +24,7 @@ const author = {
   accountId: 'review-author',
   actorAccountId: 'review-author',
   delegated: false,
+  sessionId: 'test-session',
   accessToken: 'test-only-bearer',
 };
 const metadata = (id: string, overrides: Record<string, unknown> = {}) => ({
@@ -50,26 +49,20 @@ beforeEach(() => {
 describe('review attachment ownership and persistence', () => {
   it('makes no Oxy requests for text-only reviews', async () => {
     expect(await prepareReviewMedia(author, 'native_transaction')).toEqual([]);
-    expect(clients).not.toHaveBeenCalled();
+    expect(withUser).not.toHaveBeenCalled();
   });
 
-  it('uses the author bearer and metadata kind, preserves order and links without a visibility override', async () => {
+  it('uses the author bearer and metadata kind, preserves order, and makes no link from the session', async () => {
     get.mockImplementation(async (id) => metadata(id, id === 'clip' ? { mime: 'video/mp4' } : {}));
     expect(await prepareReviewMedia(author, 'product', ['photo', 'clip'])).toEqual([
       { fileId: 'photo', kind: 'image' },
       { fileId: 'clip', kind: 'video' },
     ]);
-    expect(clients).toHaveBeenCalledTimes(1);
-    expect(setAccessToken).toHaveBeenCalledExactlyOnceWith(author.accessToken);
-    expect(link.mock.calls).toEqual(
-      ['photo', 'clip'].map((id) => [
-        id,
-        { app: 'mercaria', entityType: 'review_media', entityId: id },
-      ]),
-    );
-    expect(Math.max(...get.mock.invocationCallOrder)).toBeLessThan(
-      link.mock.invocationCallOrder[0],
-    );
+    expect(withUser).toHaveBeenCalledExactlyOnceWith(author.accessToken);
+    // The use is registered by the reference outbox after the review commits
+    // (`review_media` rows, Oxy ADR 0043 D4) with Mercaria's service token —
+    // never from the author's session, and never before the write.
+    expect(link).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -126,11 +119,4 @@ describe('review attachment ownership and persistence', () => {
       expect(link).not.toHaveBeenCalled();
     },
   );
-
-  it('reports a failed durable link instead of returning a partially prepared selection', async () => {
-    link.mockRejectedValue(new Error('upstream unavailable'));
-    await expect(prepareReviewMedia(author, 'product', ['photo'])).rejects.toMatchObject({
-      httpStatus: 503,
-    });
-  });
 });

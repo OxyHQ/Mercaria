@@ -28,6 +28,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { parse } from 'yaml';
 import { MIGRATION_RUNS, POST_PHASE_GREP_PATTERN } from '@oxy.so/db/migrate';
@@ -42,7 +43,10 @@ interface WorkflowFile {
   };
   jobs: Record<
     string,
-    { steps: { name?: string; if?: string; run?: string; env?: Record<string, string> }[] }
+    {
+      env?: Record<string, string>;
+      steps: { name?: string; if?: string; run?: string; env?: Record<string, string> }[];
+    }
   >;
 }
 
@@ -102,12 +106,36 @@ describe('the deploy workflow and the migrator agree', () => {
     expect(register?.run).toContain('.name != "PEABLE_APP_SECRET"');
     expect(register?.run).not.toContain('/PEABLE_APP_PUBLIC_KEY');
     expect(register?.run).not.toContain('/PEABLE_APP_SECRET');
-    expect(register?.run).toContain('{name: "OXY_API_URL", value: $oxy_api_url}');
-    // No GoWay client means no location can be published (ADR 0013).
-    expect(register?.run).toContain('{name: "GOWAY_API_URL", value: $goway_api_url}');
-    expect(register?.env?.GOWAY_API_URL).toBe(
-      "${{ vars.GOWAY_API_URL || 'https://api.goway.to' }}",
-    );
+    // Every non-secret production value is the job's ONE reviewed list, set
+    // replace-or-add on the revision (oxy-infra ignores task_definition changes,
+    // so a release is the only path a value has to the task).
+    expect(register?.run).toContain('--argjson pinned_env "$PINNED_ENV"');
+    expect(register?.run).toContain('<<<"$RELEASE_ENVIRONMENT"');
+    expect(register?.run).toContain('$pinned_names | index($n) | not');
+    expect(register?.run).toContain('+ $pinned_env');
+    // The retired media bucket (never written; oxy-infra deleted it) leaves the
+    // running revision on the next release instead of being carried forward.
+    expect(register?.run).toContain('.name != "AWS_S3_BUCKET"');
+    // Operators are Oxy application roles held by organization role (oxy ADR
+    // 0056); no revision names an operator list, so the release filters none.
+    expect(register?.run).not.toContain('_OPERATOR_OXY_USER_IDS');
+    expect(register?.env?.GOWAY_API_URL).toBeUndefined();
+    expect(JSON.parse(jobs.deploy.env?.RELEASE_ENVIRONMENT ?? '{}')).toEqual({
+      OXY_API_URL: 'https://api.oxy.so',
+      // No GoWay client means no location can be published (ADR 0013).
+      GOWAY_API_URL: "${{ vars.GOWAY_API_URL || 'https://api.goway.to' }}",
+      // Oxy ADR 0043 levers. Reconciliation runs for real (its dry-run counts
+      // were read in production); the events mount stays off (absent) until
+      // the webhook is registered and its secret set (docs/catalog-media.md).
+      OXY_FILE_REFERENCES_ENABLED: 'true',
+      OXY_FILE_RECONCILIATION_ENABLED: 'true',
+      OXY_FILE_RECONCILIATION_DRY_RUN: 'false',
+      CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED: 'true',
+      // The drain's throughput: one batch import per poll stays inside Oxy's
+      // per-application request budget (docs/catalog-media.md).
+      CANONICAL_SOURCE_MEDIA_BATCH_SIZE: '30',
+      CANONICAL_SOURCE_MEDIA_MAX_IN_FLIGHT: '60',
+    });
     expect(rollout?.run).toContain('--task-definition');
     expect(catalog?.run).toContain(
       '["bun","packages/backend/dist/register-capability-catalog.js"]',
@@ -116,6 +144,82 @@ describe('the deploy workflow and the migrator agree', () => {
     expect(ecsTaskScript).toContain('--task-definition "$TASK_DEFINITION"');
     expect(ecsTaskScript).toContain('EXIT_CODE');
   });
+
+  it.each(['mercaria', 'marketplace'])(
+    'renders a historical %s task without the retired shared secret while retaining provider bindings',
+    (formerProduct) => {
+      const steps = (parse(workflow) as WorkflowFile).jobs.deploy.steps;
+      const register = steps.find((step) =>
+        step.name?.startsWith('Resolve the ECS one-shot shape'),
+      );
+      // Execute the production jq filter, not a second implementation of it.
+      const filter = register?.run?.match(
+        /'(\{family,[\s\S]*?)'\s*\\\s*\n\s*<<<"\$DEFINITION"/,
+      )?.[1];
+      if (!filter) throw new Error('The deployment jq renderer was not found');
+      // Historical task data stays outside runtime source; the retirement census
+      // deliberately rejects the old secret name anywhere under backend/src.
+      const retired: { name: string; reference: string; syntheticPlaintext: string } = JSON.parse(
+        readFileSync(
+          join(REPO_ROOT, '.github/scripts/fixtures/retired-service-secret.json'),
+          'utf8',
+        ),
+      );
+      const retainedSecrets = [
+        { name: 'DATABASE_URL', valueFrom: '/oxy/mercaria/DATABASE_URL' },
+        { name: 'STRIPE_SECRET_KEY', valueFrom: '/oxy/mercaria/STRIPE_SECRET_KEY' },
+        { name: 'CONNECTOR_ENCRYPTION_KEY', valueFrom: '/oxy/mercaria/CONNECTOR_ENCRYPTION_KEY' },
+      ];
+      const render = (definition: unknown) =>
+        JSON.parse(
+          execFileSync(
+            'jq',
+            [
+              '--arg',
+              'name',
+              'mercaria',
+              '--arg',
+              'image',
+              'reviewed-image',
+              '--argjson',
+              'pinned_env',
+              '[{"name":"OXY_API_URL","value":"https://api.oxy.so"}]',
+              filter,
+            ],
+            { input: JSON.stringify(definition), encoding: 'utf8' },
+          ),
+        );
+      const actual = render({
+        family: 'oxy-mercaria',
+        taskRoleArn: 'arn:aws:iam::237343248947:role/oxy-mercaria-task',
+        containerDefinitions: [
+          {
+            name: 'mercaria',
+            image: 'previous-image',
+            environment: [
+              { name: retired.name, value: retired.syntheticPlaintext },
+              { name: 'INTEGRATIONS_URL', value: 'https://connector.example' },
+            ],
+            secrets: [
+              ...retainedSecrets,
+              {
+                name: retired.name,
+                valueFrom: retired.reference.replace('/mercaria/', `/${formerProduct}/`),
+              },
+            ],
+          },
+        ],
+      });
+      expect(actual.containerDefinitions[0].secrets).toEqual(retainedSecrets);
+      expect(actual.containerDefinitions[0].environment).toEqual([
+        { name: 'INTEGRATIONS_URL', value: 'https://connector.example' },
+        { name: 'OXY_API_URL', value: 'https://api.oxy.so' },
+      ]);
+      expect(actual.containerDefinitions[0].image).toBe('reviewed-image');
+      expect(actual.taskRoleArn).toBe('arn:aws:iam::237343248947:role/oxy-mercaria-task');
+      expect(render(actual)).toEqual(actual);
+    },
+  );
 
   it('verifies the exact ECS candidate before destructive migrations or catalog publication', () => {
     const steps = (parse(workflow) as WorkflowFile).jobs.deploy.steps;

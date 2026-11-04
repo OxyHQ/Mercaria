@@ -743,6 +743,8 @@
       "a11yLabel": "Estat del comerciant: %{status}",
       "claim": "Reclama aquest comerciant",
       "claimHint": "Demostra que operes aquest comerciant per gestionar-ne la pàgina",
+      "contest": "Impugna aquesta reclamació",
+      "contestHint": "Avisa Mercaria que l'operador verificat d'aquest comerciant no és correcte",
       "label": {
         "unclaimed": "Sense reclamar",
         "claimInProgress": "Reclamació en curs",
@@ -797,6 +799,117 @@
         "staleSources": "Mercaria no ha rebut prou recentment dades de les fonts d'aquest comerciant per mostrar preus actuals.",
         "filteredOut": "Cap producte coincideix amb aquests filtres."
       }
+    }
+  },
+  "merchantClaim": {
+    "title": "Reclama %{merchant}",
+    "intro": "Demostra que operes aquest comerciant per gestionar com apareix a Mercaria. Una reclamació no crea cap botiga a Mercaria ni et converteix en venedor oficial de cap marca.",
+    "signInPrompt": "Inicia la sessió amb el teu compte d'Oxy per reclamar aquest comerciant.",
+    "signIn": "Inicia la sessió",
+    "loadFailed": "No s'han pogut carregar les teves reclamacions.",
+    "noMethods": "Ara mateix no es pot reclamar des d’aquí.",
+    "start": "Continua",
+    "starting": "S’està iniciant…",
+    "close": "Tanca",
+    "copy": "Copia %{label}",
+    "copied": "Copiat",
+    "copyFailed": "No s'ha pogut copiar. Selecciona el text i copia'l tu.",
+    "method": {
+      "title": "Com ho vols demostrar?",
+      "checkedAutomatically": "Es comprova automàticament.",
+      "reviewedByPerson": "Ho revisa una persona.",
+      "dnsTxt": {
+        "label": "Registre DNS",
+        "description": "Afegeix un registre TXT al DNS del teu domini."
+      },
+      "wellKnownFile": {
+        "label": "Fitxer al teu lloc web",
+        "description": "Puja un petit fitxer de text al teu lloc web."
+      },
+      "metaTag": {
+        "label": "Etiqueta a la pàgina d'inici",
+        "description": "Afegeix una metaetiqueta a la pàgina d'inici del teu lloc web."
+      },
+      "businessDocument": {
+        "label": "Documents de l'empresa",
+        "description": "Comparteix enllaços a documents que mostrin que dirigeixes aquest negoci."
+      }
+    },
+    "domain": {
+      "label": "Domini del teu lloc web",
+      "help": "El domini des del qual ven aquest comerciant. La teva prova només cobreix aquest domini.",
+      "placeholder": "example.com"
+    },
+    "previous": {
+      "rejected": "La teva última reclamació d'aquest comerciant no s'ha aprovat.",
+      "reason": "Nota de la persona revisora: %{reason}",
+      "expired": "La teva última reclamació d'aquest comerciant ha caducat abans de demostrar-se. Pots tornar a començar.",
+      "revoked": "S'ha retirat la teva verificació d'aquest comerciant. Pots obrir una nova reclamació."
+    },
+    "errors": {
+      "tooMany": "Massa intents recents. Torna-ho a provar més tard.",
+      "notFoundYet": "Encara no hem trobat el valor de verificació. Els canvis al DNS i al lloc web poden trigar a aparèixer, així que torna-ho a provar d'aquí a una estona.",
+      "codeUnusable": "Aquest codi ja no es pot fer servir. Obtén un codi nou i publica aquest.",
+      "cannotOpen": "Ara mateix no pots obrir una reclamació d'aquest comerciant.",
+      "cannotContest": "Ara mateix no es pot impugnar aquesta reclamació.",
+      "invalid": "Revisa el que has introduït i torna-ho a provar.",
+      "generic": "Alguna cosa ha fallat. Torna-ho a provar."
+    },
+    "challenge": {
+      "draftIntro": "La teva reclamació de %{domain} ja està a punt. Obtén un codi de verificació per continuar.",
+      "lost": "Els codis de verificació només es mostren una vegada. Obtén un codi nou per continuar; substitueix l'anterior.",
+      "getCode": "Obtén el codi de verificació",
+      "gettingCode": "S’està obtenint el codi…",
+      "verify": "Comprova-ho ara",
+      "verifying": "S’està comprovant…",
+      "newCode": "Obtén un codi nou",
+      "expires": "Aquest codi és vàlid fins al %{time}.",
+      "dnsTxt": {
+        "step": "Afegeix aquest registre TXT al DNS de %{domain}:",
+        "nameLabel": "Nom",
+        "valueLabel": "Valor",
+        "note": "Els canvis de DNS poden trigar uns minuts, de vegades hores, a aparèixer."
+      },
+      "wellKnownFile": {
+        "step": "Publica en aquesta adreça un fitxer que contingui exactament aquest text:",
+        "urlLabel": "Adreça",
+        "contentsLabel": "Contingut del fitxer"
+      },
+      "metaTag": {
+        "step": "Afegeix aquesta etiqueta dins del <head> de %{url}:",
+        "tagLabel": "Etiqueta"
+      }
+    },
+    "status": {
+      "verified": {
+        "title": "Ets l'operador verificat",
+        "body": "La teva reclamació de %{merchant} està verificada."
+      },
+      "reviewPending": {
+        "title": "S'està revisant la teva reclamació",
+        "body": "Una persona està revisant la teva reclamació. Torna aquí per veure la decisió."
+      },
+      "disputed": {
+        "title": "La teva reclamació està en disputa",
+        "body": "Un altre compte ja té una reclamació verificada d'aquest comerciant. Una persona revisarà totes dues i decidirà."
+      }
+    },
+    "evidence": {
+      "intro": "Afegeix un enllaç a documents que mostrin que dirigeixes aquest negoci, com ara un registre mercantil o un document fiscal, i una nota per a la persona revisora. Només ella els veurà.",
+      "urlLabel": "Enllaç al document",
+      "urlPlaceholder": "https://",
+      "noteLabel": "Nota per a la persona revisora",
+      "submit": "Envia a revisió",
+      "submitting": "S’està enviant…"
+    },
+    "contest": {
+      "title": "Impugna la reclamació de %{merchant}",
+      "intro": "Aquest comerciant ja té un operador verificat. Si no és correcte, explica'ns per què. Una persona revisa cada impugnació, i a l'operador actual se li comunica que s'ha impugnat, mai qui ho ha fet.",
+      "reasonLabel": "Per què no és correcta la reclamació actual?",
+      "reasonHelp": "Com a mínim 20 caràcters.",
+      "urlLabel": "Enllaç de suport (opcional)",
+      "submit": "Envia la impugnació",
+      "submitting": "S’està enviant…"
     }
   },
   "families": {
@@ -1398,6 +1511,21 @@
       "createFailed": "No s'ha pogut crear l'enllaç. Torna-ho a provar.",
       "empty": "Crea un enllaç per compartir Mercaria. Els referits que porti se t’atribueixen.",
       "notPartner": "El teu enllaç apareixerà aquí quan estiguis inscrit en un programa."
+    },
+    "code": {
+      "title": "Codi de referit",
+      "description": "T'han donat un codi? Escriu-lo aquí.",
+      "label": "Codi de referit",
+      "placeholder": "Codi",
+      "apply": "Aplica",
+      "applied": "Codi aplicat",
+      "invalid": "Aquest codi no es pot fer servir.",
+      "failed": "No s'ha pogut aplicar el codi. Torna-ho a provar."
+    },
+    "disclosure": {
+      "title": "Has arribat per un enllaç de referit",
+      "body": "Qui el va compartir pot rebre una recompensa de Mercaria si compres. No canvia el preu que pagues.",
+      "dismiss": "D'acord"
     }
   },
   "brand": {
@@ -1693,19 +1821,6 @@
       "notForSale": "No està a la venda"
     }
   },
-  "thread": {
-    "title": "Assistent de compres",
-    "thinking": "Cercant idees…",
-    "stop": "Atura",
-    "unavailable": "L’assistent de compres encara no està disponible. Pots continuar cercant al catàleg.",
-    "signIn": "Inicia sessió per conversar",
-    "retry": "Torna-ho a provar",
-    "viewResults": "Mostra els resultats de cerca",
-    "newConversation": "Conversa nova",
-    "previewAction": "Provar amb dades de mostra",
-    "previewLabel": "Vista prèvia · Respostes de mostra, sense IA connectada",
-    "previewReply": "Aquests són exemples del catàleg local per provar el disseny de la conversa. Obre un producte per veure’n els detalls o envia un altre missatge."
-  },
   "profile": {
     "title": "Perfil",
     "subtitle": "Els teus preferits, comandes i compte, en un sol lloc."
@@ -1723,5 +1838,149 @@
     "quoteComfort": "Comoditat, personalitat i els petits detalls que fan teva una peça.",
     "quoteTexture": "Una textura que t’encanta pot canviar tot un conjunt.",
     "quoteEveryday": "Tingues a mà les coses que fas servir més sovint."
+  },
+  "materials": {
+    "heading": "Donated materials",
+    "intro": "Offer and request materials as a person or organization. The items are free. Arrange personal pickup after the donor accepts.",
+    "switchAccount": "Change account",
+    "signIn": "Sign in",
+    "actingAs": "Acting as %{account}",
+    "offers": "Available materials",
+    "reservations": "My requests and reservations",
+    "refresh": "Refresh",
+    "empty": "No materials are available yet.",
+    "emptyReservations": "You have no requests or reservations.",
+    "more": "Load more",
+    "offer": "Offer materials",
+    "title": "Material name",
+    "description": "Description",
+    "area": "Approximate public area",
+    "quantity": "Quantity",
+    "unit": "Unit (pieces, boxes…)",
+    "pickup": "Personal pickup instructions",
+    "pickupPrivacy": "Keep the public area approximate. Pickup details are shared only with accepted recipients. No payment for the materials is required.",
+    "publish": "Publish free offer",
+    "counts": "%{available} %{unit} available · %{committed} committed · %{received} received",
+    "close": "Close offer to new requests",
+    "request": "Request materials",
+    "requestSent": "Request sent. The donor must accept before units are reserved.",
+    "reservation": "Material reservation",
+    "reservationQuantity": "%{quantity} %{unit}",
+    "requester": "Recipient account: %{account}",
+    "donor": "Donor account: %{account}",
+    "accept": "Accept and reserve",
+    "confirm": "I have received these materials",
+    "cancel": "Cancel request or reservation",
+    "requested": "Awaiting donor acceptance",
+    "accepted": "Reserved — awaiting pickup",
+    "cancelled": "Cancelled",
+    "delivered": "Receipt confirmed",
+    "conflict": "This action no longer matches the available quantity or reservation state. Refresh to see the current details.",
+    "forbidden": "This account is not authorized for this action.",
+    "error": "Could not complete the request. Check your connection and retry; the same request will not be duplicated."
+  },
+  "transport": {
+    "heading": "Transport with Moovo",
+    "pickupAlways": "Personal pickup is always available. Donated materials remain free.",
+    "pickup": "Pickup",
+    "dropoff": "Delivery",
+    "line1": "Street address",
+    "city": "City",
+    "postalCode": "Postal code",
+    "country": "Country (two-letter code)",
+    "contactName": "Contact name",
+    "contactPhone": "Contact phone",
+    "pickupPlace": "Adreça de recollida",
+    "dropoffPlace": "Adreça de lliurament",
+    "placeSearch": "Cerca el carrer, el número i la ciutat",
+    "notes": "Instructions",
+    "weight": "Total weight (kg)",
+    "pieces": "Number of packages",
+    "small": "Small",
+    "medium": "Medium",
+    "large": "Large",
+    "payer": "Who pays for transport?",
+    "donor": "Donor",
+    "recipient": "Recipient",
+    "sponsor": "Sponsoring organization",
+    "organization": "Oxy organization account ID",
+    "selectedPayer": "Transport payer: %{account}",
+    "payerMustConfirm": "Choosing a payer does not authorize payment. That account must review the route and price and confirm. Organization owners and admins can authorize.",
+    "getQuote": "Get a transport quote",
+    "request": "Request transport",
+    "keepPickup": "Keep personal pickup",
+    "missingFacts": "Complete the actual pickup and delivery addresses, coordinates, contacts and package details. Collection instructions are suggestions to review, not a structured address.",
+    "unavailable": "Moovo is unavailable or this account cannot access the request. Refresh to read current information.",
+    "unknown": "The result could not be confirmed. Refresh this request before trying again; an existing booking will not be repeated.",
+    "attach": "Save transport reference",
+    "newRequest": "Start a new transport request",
+    "route": "From %{pickup} to %{dropoff}",
+    "price": "Transport: %{price}. Quote expires %{expiry}.",
+    "pendingPayment": "Transport payment is pending. Payment collection is not available here; this action does not mark transport paid. The donation itself costs nothing.",
+    "cancellationWarning": "Cancelling a donation does not cancel its transport. Manage a requested or uncertain delivery separately in Moovo.",
+    "confirmPayer": "I am acting for %{account} and agree to this route and transport price",
+    "unconfirm": "Remove my confirmation",
+    "authorize": "Authorize this transport price",
+    "book": "Request the authorized transport",
+    "participantBooks": "Authorization saved. A donation participant can now request the transport before the quote expires.",
+    "shareApproval": "Share with the selected payer for approval",
+    "retryQuote": "Retry or renew quote",
+    "cancelProposal": "Cancel transport proposal; keep personal pickup",
+    "openMoovo": "Open delivery in Moovo",
+    "forbidden": "Your current account cannot authorize this payer. Switch to the selected payer account; organizations require owner or admin access.",
+    "signIn": "Sign in with the selected payer account to review this transport.",
+    "status": {
+      "quoting": "Preparing a quote. You can retry after a short wait.",
+      "quoted": "Waiting for the selected payer to authorize.",
+      "authorized": "Price authorized. Transport has not been requested yet.",
+      "booking": "Requesting transport. Refresh to check the result.",
+      "booking_unknown": "Transport result is uncertain. Do not create another request; check this operation in Moovo.",
+      "booked": "Transport requested.",
+      "cancelled": "Transport proposal cancelled."
+    },
+    "retryBooking": "Recover existing transport request",
+    "jobStatus": {
+      "requested": "Transport requested",
+      "offered": "Finding a courier",
+      "accepted": "Courier assigned",
+      "picked_up": "Materials picked up",
+      "in_transit": "In transit",
+      "delivered": "Delivered",
+      "cancelled": "Transport cancelled"
+    }
+  },
+  "supervisedShopping": {
+    "title": "Compres amb supervisió",
+    "intro": "Explora articles revisats. El tutor aprova la compra exacta abans del pagament.",
+    "unavailable": "Compres no disponibles",
+    "unavailableBody": "Pot haver canviat el teu accés o algun article. Torna-ho a provar per veure els detalls actuals.",
+    "empty": "Encara no hi ha articles revisats",
+    "emptyBody": "Els articles apareixen després de la revisió de la plataforma. Torna més tard.",
+    "add": "Afegir",
+    "remove": "Eliminar",
+    "itemUnavailable": "Article no disponible",
+    "reviewPurchase": "Revisar compra",
+    "changeError": "No s’ha pogut actualitzar la cistella. Revisa els articles i torna-ho a provar.",
+    "approvalIntro": "Introdueix l’adreça de lliurament. El tutor veurà la compra completa abans d’aprovar el pagament.",
+    "prepareError": "No s’ha pogut preparar la compra. Reintenta-ho per recuperar la mateixa compra.",
+    "requestApproval": "Sol·licitar aprovació del tutor",
+    "pending": "Esperant l’aprovació del tutor",
+    "approved": "Aprovada per al pagament",
+    "paid": "Pagament confirmat",
+    "closed": "Aquesta aprovació està tancada",
+    "shipping": "Enviament",
+    "tax": "Impostos",
+    "discount": "Descompte",
+    "rounding": "Arrodoniment de divisa",
+    "total": "Total",
+    "viewApproval": "Veure aprovació a Oxy",
+    "continuePayment": "Continuar al pagament",
+    "paymentError": "El pagament no s’ha confirmat. Reintenta el mateix pagament o actualitza’n l’estat.",
+    "pendingBody": "El tutor pot revisar els articles i el total exactes a Oxy. El pagament estarà disponible quan ho aprovi.",
+    "refresh": "Actualitzar estat",
+    "account": "Supervisió i compte"
+  },
+  "alia": {
+    "viewResults": "Mostra els resultats de cerca"
   }
 }

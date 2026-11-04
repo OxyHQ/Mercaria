@@ -80,17 +80,9 @@ describe('the declared open-data sources', () => {
       );
       expect(rights.mayLinkOut || !rights.mayAppendAffiliateParams, name).toBe(true);
       expect(rights.maySeedCatalog ? rights.mayStore : true, name).toBe(true);
-      const extraction =
-        findOpenDataProvider(
-          DECLARED_OPEN_DATA_SOURCES.find((s) => s.name === name)?.provider ?? '',
-        )?.extraction === true;
-      // An extraction provider runs only under a robots-respecting policy with
-      // a budget and an agent; nothing else extracts at all.
-      expect(rights.extractionMode, name).toBe(extraction ? 'robots_respecting' : 'disallowed');
-      if (extraction) {
-        expect(rights.extractionMaxRequestsPerDay, name).toBeGreaterThan(0);
-        expect(rights.extractionUserAgent, name).toMatch(/^Mercaria\//u);
-      }
+      // Mercaria fetches no site itself: a store is crawled by Clarity, and
+      // every declared source reads an API, a dump or Clarity's documents.
+      expect(rights.extractionMode, name).toBe('disallowed');
       expect(rights.attributionRequired, name).toBe(true);
       expect(rights.termsVersion, name).toBe(
         findOpenDataProvider(

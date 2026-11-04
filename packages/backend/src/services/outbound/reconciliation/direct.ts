@@ -28,7 +28,7 @@
  * shop is not an API: its statement arrives as a document on whatever cadence
  * the contract says. So the thing that would close this is not a credential —
  * it is an OPERATOR INGESTION surface, `POST /internal/affiliate/reports/direct`
- * on the payment-operator allow-list, which opens a report run for the window
+ * on `payments.operate`, which opens a report run for the window
  * the operator states and drives the SAME apply path
  * (`applyReportedTransaction`) the Awin poll drives.
  *

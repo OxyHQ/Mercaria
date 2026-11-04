@@ -41,7 +41,6 @@ import { parseHighValueHoldThresholds } from '../services/payments/high-value-ho
 import { join } from 'node:path';
 import { log } from '../lib/logger.js';
 import { parseBillingCohort } from '../services/billing/cohort-config.js';
-import { oxyServiceClient } from '../capabilities/oxy-service-client.js';
 import { sealKeyReferenceResolves } from '../services/digital-retail/secrets.js';
 
 /**
@@ -94,19 +93,6 @@ function boolEnv(name: string, fallback: boolean): boolean {
     return fallback;
   }
   return ['1', 'true', 'yes', 'on'].includes(raw.trim().toLowerCase());
-}
-
-/**
- * Read `MOOVO_ENVIRONMENT`, refusing anything not in the closed set.
- *
- * Returns `null` for unset and for unrecognised alike; the caller that cares
- * (`assertMoovoClientConfigured`) re-reads the raw variable to say which. There
- * is deliberately no fallback member — see the field's own docblock.
- */
-function readMoovoEnvironment(): MoovoEnvironment | null {
-  const raw = strEnv('MOOVO_ENVIRONMENT', '');
-  const match = MOOVO_ENVIRONMENTS.find((environment) => environment === raw.toLowerCase());
-  return match ?? null;
 }
 
 const MINUTE_MS = 60_000;
@@ -444,18 +430,16 @@ function resolveMercariaRetailEnabled(): boolean {
   if (!boolEnv('MERCARIA_RETAIL_ENABLED', false)) return false;
 
   const hasPreflight = resolveSupplierPreflightEnabled();
-  const hasRetailOperators = resolveRetailOperatorIds().length > 0;
   // #126: a retail order's role snapshot names the selling entity, is written
   // in the buyer's own transaction, and its CHECK refuses an empty name or a
   // country that is not two upper-case letters. Demanding both here turns that
   // into a boot-time message instead of a failed checkout for the first buyer.
   const hasSeller =
     retailSellerLegalEntityName() !== '' && /^[A-Z]{2}$/.test(retailSellerLegalEntityCountry());
-  if (hasPreflight && hasRetailOperators && hasSeller) return true;
+  if (hasPreflight && hasSeller) return true;
 
   const missing = [
     hasPreflight ? undefined : 'SUPPLIER_PREFLIGHT_ENABLED',
-    hasRetailOperators ? undefined : 'RETAIL_OPERATOR_OXY_USER_IDS',
     hasSeller ? undefined : 'MERCARIA_RETAIL_SELLER_LEGAL_ENTITY/MERCARIA_RETAIL_SELLER_COUNTRY',
   ].filter((name): name is string => name !== undefined);
   log.general.error(
@@ -475,9 +459,9 @@ function resolveBillingCohortConfigured(): boolean {
   return (
     /^sk_(?:live|test)_[A-Za-z0-9]+$/.test(key) &&
     key.startsWith('sk_live_') === cohort.livemode &&
-    strEnv('STRIPE_WEBHOOK_SECRET', '') !== '' &&
-    // Peable is reached as Mercaria's own Oxy identity, never a key pair of its own.
-    oxyServiceClient() !== null
+    // Peable is reached as Mercaria's own Oxy workload identity, never a key
+    // pair of its own, so there is no credential of its own to require here.
+    strEnv('STRIPE_WEBHOOK_SECRET', '') !== ''
   );
 }
 
@@ -508,7 +492,7 @@ function resolveMerchantBillingEnabled(): boolean {
 
   log.general.error(
     {
-      missing: ['STRIPE_ENABLED or a complete MERCHANT_BILLING_PEABLE_COHORT and an Oxy identity'],
+      missing: ['STRIPE_ENABLED or a complete MERCHANT_BILLING_PEABLE_COHORT'],
     },
     '[MerchantBilling] MERCHANT_BILLING_ENABLED is set but no billing rail is configured; ' +
       'staying OFF. Entitlements, existing subscriptions and provider events are unaffected — ' +
@@ -520,16 +504,12 @@ function resolveMerchantBillingEnabled(): boolean {
 function resolveCrowdSourceEnabled(): boolean {
   if (!boolEnv('CROWDSOURCE_ENABLED', false)) return false;
 
-  const hasServiceKey = (process.env.CROWDSOURCE_SERVICE_KEY?.trim() ?? '') !== '';
-  const hasWebhookSecret = (process.env.CROWDSOURCE_WEBHOOK_SECRET?.trim() ?? '') !== '';
-  if (hasServiceKey && hasWebhookSecret) return true;
+  // CrowdSource is reached as Mercaria's own Oxy workload identity, which the
+  // process always has; the webhook secret is the only half that can be absent.
+  if ((process.env.CROWDSOURCE_WEBHOOK_SECRET?.trim() ?? '') !== '') return true;
 
-  const missing = [
-    hasServiceKey ? undefined : 'CROWDSOURCE_SERVICE_KEY',
-    hasWebhookSecret ? undefined : 'CROWDSOURCE_WEBHOOK_SECRET',
-  ].filter((name): name is string => name !== undefined);
   log.general.error(
-    { missing },
+    { missing: ['CROWDSOURCE_WEBHOOK_SECRET'] },
     '[CrowdSource] CROWDSOURCE_ENABLED is set but the integration is incomplete; ' +
       'staying OFF. Reports are still stored and will deliver once configured.',
   );
@@ -602,27 +582,6 @@ function resolveReferralsEnabled(): boolean {
 }
 
 /**
- * `REFERRAL_OPERATOR_OXY_USER_IDS` → the referral operator allow-list (#143
- * link rule 8, privacy rule 4).
- *
- * A SEVENTH list, for a power none of the six holds: pausing a partner's
- * ability to earn, and reading the attribution trace behind one. The payments
- * list is about a store's money, the guest list about a buyer's support
- * question, the analytics list about measurement — and an operator vetted for
- * any of those has not thereby been vetted to switch off somebody's income.
- *
- * Empty means `/internal/referrals` is not mounted at all — 404, never a 401
- * that would advertise it. #147's dashboards and #148's fraud surface inherit
- * THIS list rather than adding an eighth.
- */
-function resolveReferralOperatorIds(): readonly string[] {
-  return strEnv('REFERRAL_OPERATOR_OXY_USER_IDS', '')
-    .split(',')
-    .map((id) => id.trim())
-    .filter((id) => id !== '');
-}
-
-/**
  * Whether the Stripe rail is switched on.
  *
  * The `resolveCrowdSourceEnabled` rule, applied to a rail where the consequence
@@ -651,22 +610,16 @@ function resolveReferralOperatorIds(): readonly string[] {
  * a rail that can create a payment and cannot verify its settlement takes money
  * and leaves every order unpaid.
  *
- * There is no Peable credential: the SDK is handed Mercaria's own Oxy identity
- * (the task role on ECS, oxy ADR 0026; a full `OXY_APPLICATION_*` pair off it),
- * and the gateway resolves the merchant from that token's application. Without
- * an identity the rail could not authenticate a single call, so it is required.
+ * There is no Peable credential: the SDK is handed Mercaria's own Oxy client,
+ * authenticated as its workload (the task role on ECS, oxy ADR 0026), and the
+ * gateway resolves the merchant from that token's application.
  */
 function resolvePeableEnabled(): boolean {
   if (!boolEnv('PEABLE_ENABLED', false)) return false;
 
-  const missing: string[] = (['PEABLE_BASE_URL', 'PEABLE_WEBHOOK_SECRET'] as const).filter(
+  const missing = (['PEABLE_BASE_URL', 'PEABLE_WEBHOOK_SECRET'] as const).filter(
     (name) => (process.env[name]?.trim() ?? '') === '',
   );
-  if (oxyServiceClient() === null) {
-    missing.push(
-      'an Oxy identity (ECS task role, or OXY_APPLICATION_KEY + OXY_APPLICATION_SECRET)',
-    );
-  }
   if (missing.length === 0) return true;
 
   log.general.error(
@@ -851,79 +804,6 @@ function blockedListEnv(name: string, casing: 'upper' | 'lower'): readonly strin
 }
 
 /**
- * Split `PAYMENT_OPERATOR_OXY_USER_IDS` into the allow-list that IS the operator
- * surface's authorization (#50).
- *
- * ## An allow-list, and why Mercaria must not invent a role for this
- *
- * Mercaria has exactly one authorization vocabulary — store permissions — and it
- * is scoped to a STORE by construction (`requireStorePermission` reads
- * `req.storeAccess`). The operator surface is the opposite scope: it reads
- * across every store and every P2P seller, and issue #50 is explicit that seller
- * operators must not reach it. There is no store permission that could express
- * "may see all stores' money" without becoming a permission a store owner could
- * grant themselves.
- *
- * Inventing a platform-wide role here would mean inventing a platform-wide role
- * STORE, its grant surface, its audit and its recovery path — a second identity
- * system beside Oxy's, in the one repository that must not have one. So the
- * allow-list is deliberately the crudest thing that is correct: a list of Oxy
- * user ids in configuration, changed by whoever can deploy, with no in-app way
- * to grant it.
- *
- * **This is interim.** When Oxy grows a platform-level operator role, this
- * function and `requirePaymentOperator` are the two places that change, and the
- * variable goes away — it is a stand-in for a claim on a credential, not a
- * design Mercaria intends to keep.
- *
- * ## Empty means the surface does not exist
- *
- * Not "nobody may use it" — the routes are not mounted at all, and every path
- * under `/internal/payments` answers 404. That follows `STRIPE_ENABLED`'s rule
- * rather than the outbox's: there is nothing to park here, and a 401 would tell
- * an unauthenticated caller that an operator surface exists on this deployment.
- */
-function resolvePaymentOperatorIds(): readonly string[] {
-  return strEnv('PAYMENT_OPERATOR_OXY_USER_IDS', '')
-    .split(',')
-    .map((id) => id.trim())
-    .filter((id) => id !== '');
-}
-
-/**
- * `CATALOG_OPERATOR_OXY_USER_IDS` → the canonical-graph operator allow-list
- * (ADR 0002 D17/D24). The same interim-allow-list reasoning as
- * `resolvePaymentOperatorIds` above, deliberately a SEPARATE variable: who may
- * link merchants to stores and who may repair payments are different powers,
- * and one list for both would grant whichever one the operator was not vetted
- * for. Empty means the `/internal/commerce-graph` surface is not mounted.
- */
-function resolveCatalogOperatorIds(): readonly string[] {
-  return strEnv('CATALOG_OPERATOR_OXY_USER_IDS', '')
-    .split(',')
-    .map((id) => id.trim())
-    .filter((id) => id !== '');
-}
-
-/**
- * `GUEST_OPERATOR_OXY_USER_IDS` → the guest-commerce diagnostic allow-list
- * (#104 idempotency requirement 8).
- *
- * A THIRD list, for the third reason the two above are separate from each
- * other: reading who merged which cart is a different power from repairing
- * payments and from rewiring the catalogue, and one list for all three would
- * grant whichever an operator was not vetted for. Empty means the
- * `/internal/guest-commerce` surface is not mounted at all — 404, never a 401
- * that would advertise it.
- */
-function resolveGuestOperatorIds(): readonly string[] {
-  return strEnv('GUEST_OPERATOR_OXY_USER_IDS', '')
-    .split(',')
-    .map((id) => id.trim())
-    .filter((id) => id !== '');
-}
-
-/**
  * `CHECKOUT_DESTINATION_COUNTRIES` → the markets this deployment delivers to
  * (#105 eligibility rule 1).
  *
@@ -1098,28 +978,6 @@ function resolveCatalogRolloutCohorts(): readonly string[] {
 }
 
 /**
- * `ANALYTICS_OPERATOR_OXY_USER_IDS` → the discovery-analytics allow-list (#77
- * dashboards).
- *
- * A FOURTH list, for the fourth instance of the reason the other three are
- * separate: reading what everybody searched for, tracing a funnel and reading a
- * pseudonym epoch is a different power from repairing payments, from rewiring
- * the catalogue and from inspecting a cart merge. One list for all four would
- * grant whichever an operator was not vetted for — and this one is arguably the
- * most sensitive of the four in aggregate, because it is the only surface that
- * can answer "what are people looking for" across the whole marketplace.
- *
- * Empty means `/internal/analytics` is not mounted at all: 404, never a 401
- * that would tell an unauthenticated caller the surface exists.
- */
-function resolveAnalyticsOperatorIds(): readonly string[] {
-  return strEnv('ANALYTICS_OPERATOR_OXY_USER_IDS', '')
-    .split(',')
-    .map((id) => id.trim())
-    .filter((id) => id !== '');
-}
-
-/**
  * `MERCHANT_DEMAND_DEFAULT_WINDOW_DAYS` → one of the closed window set.
  *
  * A value the tuple does not name falls back to 30 rather than being honoured:
@@ -1145,55 +1003,6 @@ function resolveMerchantDemandMarkets(): readonly string[] {
     .split(',')
     .map((market) => market.trim().toUpperCase())
     .filter((market) => /^[A-Z]{2}$/.test(market));
-}
-
-/**
- * `RETAIL_OPERATOR_OXY_USER_IDS` → the retail-eligibility allow-list (#121).
- *
- * A FIFTH list, for the fifth instance of the reason the other four are
- * separate: approving a resale authorization, verifying a product-safety
- * certificate and — above all — LIFTING A RECALL is a compliance power, not a
- * payments one, not a catalogue-curation one, not a cart-diagnostic one and not
- * an analytics one. Granting it to whoever may repair payments would grant the
- * power they were not vetted for, which is the argument
- * `resolveCatalogOperatorIds` already makes against sharing with payments.
- *
- * Empty means `/internal/retail-eligibility` is not mounted at all: 404, never
- * a 401 that would tell an unauthenticated caller the surface exists. That is a
- * working configuration and it means nobody can record a policy version, verify
- * a document or raise a recall — so it must be populated before
- * `mercaria_retail` carries a live order.
- */
-function resolveRetailOperatorIds(): readonly string[] {
-  return strEnv('RETAIL_OPERATOR_OXY_USER_IDS', '')
-    .split(',')
-    .map((id) => id.trim())
-    .filter((id) => id !== '');
-}
-
-/**
- * `PROCUREMENT_OPERATOR_OXY_USER_IDS` → the supplier-preflight allow-list
- * (#122 operations 4–5).
- *
- * A SIXTH list, and the reason is the same one that made the other five
- * separate, applied to a power none of them holds: this surface reads what
- * Mercaria PAYS its suppliers — wholesale unit costs, supplier fees, quoted
- * shipping — and it flips the supplier and market kill switches. A compliance
- * reviewer vetted to verify a product-safety certificate is not thereby vetted
- * to see Mercaria's cost base, and a payments operator vetted to replay a
- * charge is not thereby vetted to turn a market back on.
- *
- * Empty means `/internal/supplier-preflight` is not mounted at all: 404, never
- * a 401 that would tell an unauthenticated caller the surface exists. That is a
- * working configuration and it means nobody can publish a sourcing policy
- * version, read a quote trace or stop a failing supplier — so it must be
- * populated before `mercaria_retail` carries a live order.
- */
-function resolveProcurementOperatorIds(): readonly string[] {
-  return strEnv('PROCUREMENT_OPERATOR_OXY_USER_IDS', '')
-    .split(',')
-    .map((id) => id.trim())
-    .filter((id) => id !== '');
 }
 
 /**
@@ -1263,17 +1072,6 @@ export interface WebConfig {
 export interface CrowdSourceConfig {
   /** Whether the outbox dispatcher delivers. Never gates the durable record. */
   readonly enabled: boolean;
-  /**
-   * `applicationId:credentialId:secret` — ONE opaque value, parsed by the SDK.
-   *
-   * There is deliberately no `CROWDSOURCE_APP_ID` here or anywhere else, and
-   * adding one would be a security regression rather than a convenience.
-   * `applicationId` is read OFF this credential; a separate variable holding it
-   * could only ever disagree with the credential, and any surface able to carry
-   * an `applicationId` independently is the cross-tenant IDOR the tenancy model
-   * exists to prevent.
-   */
-  readonly serviceKey: string;
   /** Optional override; the SDK defaults to the one deployment. */
   readonly baseUrl?: string;
   readonly outboxBatchSize: number;
@@ -1622,22 +1420,6 @@ export interface PaymentsConfig {
   readonly peable: PeableConfig;
   /** Reconciliation and the operator surface (#50). */
   readonly reconciliation: ReconciliationConfig;
-  /**
-   * The Oxy accounts that may reach `/internal/payments/*` — see
-   * `resolvePaymentOperatorIds`. An empty list means the surface is not mounted.
-   */
-  readonly operatorOxyUserIds: readonly string[];
-  /**
-   * Whether the operator surface exists on this deployment.
-   *
-   * DERIVED from the allow-list rather than configured beside it, for the reason
-   * `stripe.livemode` is derived from the key prefix: a separate flag could only
-   * ever disagree with the list, and the disagreement that matters is
-   * `enabled: true` with nobody on it — an operator surface reachable by no one,
-   * which reads as a permission bug for as long as it takes someone to find the
-   * empty variable.
-   */
-  readonly operatorSurfaceEnabled: boolean;
 }
 
 /**
@@ -1705,17 +1487,6 @@ export interface GuestConfig {
    * forget.
    */
   readonly inlineDestinationEnabled: boolean;
-  /**
-   * `GUEST_OPERATOR_OXY_USER_IDS` — who may read the guest-commerce
-   * diagnostic. See `resolveGuestOperatorIds`.
-   */
-  readonly operatorOxyUserIds: readonly string[];
-  /**
-   * Whether `/internal/guest-commerce` exists on this deployment. DERIVED from
-   * the allow-list for the reason `payments.operatorSurfaceEnabled` is: a
-   * separate flag could only ever disagree with the list.
-   */
-  readonly operatorSurfaceEnabled: boolean;
   /**
    * `GUEST_PII_ENCRYPTION_KEY` — AES-256-GCM key for the guest checkout
    * contact snapshot (D12). Required for `enabled`; CONSUMED by #105–#107,
@@ -2124,13 +1895,14 @@ export interface GuestCheckoutRolloutConfig {
  * ## Half-configured is OFF, and the two demands are not decoration
  *
  * `MERCARIA_RETAIL_ENABLED=true` requires supplier preflight to be enabled and
- * an eligibility operator list to exist — the `CROWDSOURCE_ENABLED` validation
+ * the selling entity to be named — the `CROWDSOURCE_ENABLED` validation
  * pattern. Without preflight every retail line refuses at checkout anyway
  * (#122's quote answers `unknown` with the loop off), so enabling retail
  * without it produces a catalogue of items nobody can buy and no message saying
- * why. Without `RETAIL_OPERATOR_OXY_USER_IDS` nobody can publish an eligibility
- * policy version, so `getRetailEligibility` answers `unknown`/`policy_missing`
- * for every line — the same outcome, from the other end.
+ * why. The eligibility desk itself is always mounted; until somebody holding
+ * `retail.operate` publishes a policy version, `getRetailEligibility` answers
+ * `unknown`/`policy_missing` for every line — the same outcome, from the other
+ * end, and visible on that desk.
  *
  * ## `blockedSuppliers` / `blockedMarkets` are #123's own incident levers
  *
@@ -2178,21 +1950,6 @@ export interface CatalogConfig {
   readonly maxVariantsPerProduct: number;
   /** Maximum number of gallery images a single listing may have. */
   readonly maxImagesPerListing: number;
-  /**
-   * The Oxy accounts that may reach `/internal/commerce-graph/*` — the
-   * canonical-graph operator surface (#54's linkage endpoints today; #59's
-   * merge tooling reads the SAME list when it lands). ADR 0002 D17/D24 name
-   * the variable (`CATALOG_OPERATOR_OXY_USER_IDS`) and bind it to the payments
-   * precedent: an interim allow-list, not a role — see
-   * `resolveCatalogOperatorIds`.
-   */
-  readonly graphOperatorOxyUserIds: readonly string[];
-  /**
-   * DERIVED from the allow-list, exactly as `payments.operatorSurfaceEnabled`
-   * is and for the same reason: a separate flag could only ever disagree with
-   * the list. Empty list = the surface is not mounted at all (404, never 401).
-   */
-  readonly graphOperatorSurfaceEnabled: boolean;
   /**
    * Whether a high-impact canonical-graph act needs a SECOND operator's approval
    * — `CATALOG_FOUR_EYES_REQUIRED`, defaulting ON.
@@ -2446,6 +2203,12 @@ export interface CatalogIngestionConfig {
   readonly pollIntervalMs: number;
   /** How long a source or run lease lasts. Long enough for one page. */
   readonly leaseMs: number;
+  /**
+   * How long one tick keeps driving its claimed runs, page after page, before
+   * yielding the unfinished ones back to the queue. Under the poll interval, so
+   * the next tick starts on time; every claimed run gets at least one page.
+   */
+  readonly tickBudgetMs: number;
   /** The ceiling on the exponential backoff between failed refreshes. */
   readonly maxBackoffMs: number;
   /** How many unseen objects one closing run may retire. */
@@ -2855,8 +2618,7 @@ export interface CanonicalRolloutConfig {
    * 8 is INHERITED, not chosen: `STRIPE_EVENT_MAX_ATTEMPTS`,
    * `GUEST_PORTAL_MESSAGE_MAX_ATTEMPTS`, `GUEST_CLAIM_JOB_MAX_ATTEMPTS`,
    * `PRICE_ALERT_NOTIFICATION_MAX_ATTEMPTS` and both `SHOPPING_AGENT_*` all say
-   * 8. The outliers have reasons that do not transfer — `MOOVO_MAX_ATTEMPTS` is
-   * an in-request HTTP retry rather than a durable job, and
+   * 8. The outlier has a reason that does not transfer —
    * `MERCHANT_CLAIM_MAX_ATTEMPTS_PER_CHALLENGE` is an abuse limit.
    *
    * It is also independently right for THIS system, which is what makes it
@@ -3055,10 +2817,6 @@ export interface ReferralsConfig {
    * open redirect.
    */
   readonly redirectBaseUrl: string;
-  /** `REFERRAL_OPERATOR_OXY_USER_IDS` — the SEVENTH allow-list. */
-  readonly operatorOxyUserIds: readonly string[];
-  /** Derived: empty list means `/internal/referrals` is not mounted at all. */
-  readonly operatorSurfaceEnabled: boolean;
 
   /**
    * `REFERRAL_PARTNER_ENROLLMENT_ENABLED` (#146 increment 2) — the MOUNT of the
@@ -3144,17 +2902,6 @@ export interface AnalyticsConfig {
    */
   readonly collectionMode: AnalyticsCollectionMode;
   /**
-   * The Oxy accounts that may reach `/internal/analytics/*`. A FOURTH
-   * allow-list beside payments, catalog and guest — see
-   * `resolveAnalyticsOperatorIds`.
-   */
-  readonly operatorOxyUserIds: readonly string[];
-  /**
-   * DERIVED from the allow-list, exactly as the other three are: a separate
-   * flag could only ever disagree with the list. Empty = not mounted (404).
-   */
-  readonly operatorSurfaceEnabled: boolean;
-  /**
    * The hard cap on the in-process queue. When it is reached the OLDEST
    * pending events are dropped — bounded memory is the property, and losing
    * telemetry is the price. See `services/analytics/sink.ts`.
@@ -3237,15 +2984,15 @@ export interface CheckoutConfig {
  *
  * TWO levers, and NEITHER gates a durable record. A snapshot is a report
  * somebody may need during the incident that turned the surfaces off, and the
- * operator acquisition surface stays mounted on the analytics allow-list while
+ * operator acquisition surface stays mounted on the `analytics.operate` key while
  * both of these are false — the evidence has to be readable while the merchant
  * surfaces are down, which is the rule every operator surface in this codebase
  * follows.
  *
- * There is no `MERCHANT_DEMAND_OPERATOR_OXY_USER_IDS`. The acquisition pipeline
- * runs on `ANALYTICS_OPERATOR_OXY_USER_IDS` because it is exactly the power that
- * list already grants — reading what demand is doing across the marketplace —
- * and a seventh allow-list would be a second answer to who has it.
+ * There is no `merchant_demand.operate` key. The acquisition pipeline runs on
+ * `analytics.operate` because it is exactly the power that key already grants —
+ * reading what demand is doing across the marketplace — and another key would be
+ * a second answer to who has it.
  */
 export interface MerchantDemandConfig {
   /**
@@ -3308,17 +3055,6 @@ export interface RetailReconciliationConfig {
 /** The retail eligibility gate's configuration (#121). */
 export interface RetailEligibilityConfig {
   /**
-   * The Oxy accounts that may reach `/internal/retail-eligibility/*`. A FIFTH
-   * allow-list beside payments, catalog, guest and analytics — see
-   * `resolveRetailOperatorIds`.
-   */
-  readonly operatorOxyUserIds: readonly string[];
-  /**
-   * DERIVED from the allow-list, exactly as the other four are: a separate flag
-   * could only ever disagree with the list. Empty = not mounted (404).
-   */
-  readonly operatorSurfaceEnabled: boolean;
-  /**
    * How far ahead the expiring-evidence dashboard looks (#121 operations 1).
    * A window, not a threshold: documents that have ALREADY expired are always
    * included, because a board that hides them looks clean while the catalogue
@@ -3360,13 +3096,6 @@ export interface SupplierPreflightConfig {
   readonly fakeAdapterEnabled: boolean;
   /** HMAC key for the request digest. 64 hex characters; validated on first use. */
   readonly fingerprintKey: string;
-  /**
-   * The Oxy accounts that may reach `/internal/supplier-preflight/*`. A SIXTH
-   * allow-list — see `resolveProcurementOperatorIds`.
-   */
-  readonly operatorOxyUserIds: readonly string[];
-  /** DERIVED from the allow-list. Empty = not mounted (404). */
-  readonly operatorSurfaceEnabled: boolean;
 }
 
 /**
@@ -3508,7 +3237,10 @@ export interface FeedImportConfig {
   readonly enabled: boolean;
   /** AES-256-GCM key for a feed's stored credential. 64 hex chars; validated on first use. */
   readonly authEncryptionKey: string;
-  /** Where a fetched feed and an upload are staged on the task's own disk. */
+  /**
+   * Where a run's JSONL STAGE is written on the task's own disk. An uploaded feed
+   * is never here: it is a private Oxy file the client sent straight to storage.
+   */
   readonly stagingDir: string;
   /** Hard cap on bytes read from a source, BEFORE decompression. */
   readonly maxDownloadBytes: number;
@@ -3613,68 +3345,6 @@ export interface PrintfulConfig {
   readonly enabled: boolean;
   /** The API root. A code default; overridable only to point a rehearsal elsewhere. */
   readonly baseUrl: string;
-}
-
-/** The environments a Moovo deployment can be addressed in. A closed set. */
-export const MOOVO_ENVIRONMENTS = ['development', 'staging', 'production'] as const;
-export type MoovoEnvironment = (typeof MOOVO_ENVIRONMENTS)[number];
-
-/**
- * Mercaria's Moovo service client (#156).
- *
- * **There is deliberately NO client id or client secret variable, and adding
- * one today would be a security regression rather than progress.** #156 item 5
- * asks that they come from the deployment secret manager, and they will — but
- * `@oxy.so/core` cannot yet mint a token bound to another application's
- * audience (`OxyHQ/oxy#878`, open): `getServiceToken()` POSTs `{apiKey,
- * apiSecret}` and every token it returns carries the hardcoded `oxy-api`
- * audience. A credential configured now could therefore only be used to send a
- * WRONG-AUDIENCE token to Moovo, which is the confused-deputy shape audience
- * binding exists to prevent. The variables arrive with the transport that can
- * use them correctly.
- *
- * `resourceApplicationId` is NOT that credential — it names the Moovo Oxy
- * Application a token must be minted FOR, and it is the value the whole
- * integration is audience-bound to. It is required whenever the client is
- * enabled precisely so that "which Moovo are we talking to" can never be
- * implicit.
- */
-export interface MoovoConfig {
-  /**
-   * `MOOVO_ENABLED` — may the Moovo logistics client be registered at all.
-   *
-   * It gates a REGISTRATION and never a durable record: nothing in the
-   * retail-fulfilment domain is stored, withheld or erased on account of it.
-   * With it on and no transport registered the client is still not installed,
-   * because a registered port makes `chooseFulfilmentMode` choose Mode A —
-   * see `services/moovo/transport.ts`.
-   */
-  readonly enabled: boolean;
-  /** `MOOVO_BASE_URL` — the Moovo API root. HTTPS, and validated at registration. */
-  readonly baseUrl: string;
-  /** `MOOVO_RESOURCE_APPLICATION_ID` — the Moovo Oxy Application a token is bound to. */
-  readonly resourceApplicationId: string;
-  /**
-   * `MOOVO_ENVIRONMENT` — which Moovo deployment.
-   *
-   * `null` when unset OR unrecognised, and the two are told apart at
-   * registration rather than here: reading a typo as a default is how a
-   * production deployment quietly addresses a rehearsal, and THROWING at module
-   * load would take the whole API down over a variable that matters only when
-   * `enabled` is true. So the value fails closed and the refusal is raised by
-   * `assertMoovoClientConfigured`, where it can name what was wrong.
-   */
-  readonly environment: MoovoEnvironment | null;
-  /** `MOOVO_SCOPES` — the grants requested, comma-separated. Empty means none were declared. */
-  readonly scopes: readonly string[];
-  /** `MOOVO_TIMEOUT_MS` — the bound on ONE attempt. */
-  readonly timeoutMs: number;
-  /** `MOOVO_MAX_ATTEMPTS` — attempts for a retryable failure, INCLUDING the first. */
-  readonly maxAttempts: number;
-  /** `MOOVO_RETRY_BASE_DELAY_MS` — the first backoff step; later steps double with equal jitter. */
-  readonly retryBaseDelayMs: number;
-  /** `MOOVO_RETRY_MAX_DELAY_MS` — ceiling on any single wait, including a published `Retry-After`. */
-  readonly retryMaxDelayMs: number;
 }
 
 /**
@@ -3818,6 +3488,86 @@ export interface PickupConfig {
 }
 
 /**
+ * Oxy Files usage registration (Oxy ADR 0043) — three independent levers.
+ *
+ * Each gates a LOOP or a MOUNT, never a durable record: the triggers of
+ * migration `0172` enqueue every change to a file-holding row whatever these
+ * say, so turning the outbox on drains what accumulated while it was off.
+ */
+export interface OxyFilesConfig {
+  /**
+   * `OXY_FILE_REFERENCES_ENABLED` — drain `oxy_file_reference_outboxes` into
+   * Oxy's `file_references`. Default OFF: it needs Oxy's stage-1 references
+   * routes and the `files:references:write` scope granted to Mercaria.
+   */
+  readonly referencesEnabled: boolean;
+  /** `OXY_FILE_REFERENCE_POLL_INTERVAL_MS` — one drain per interval. Default 5000. */
+  readonly referencePollIntervalMs: number;
+  /** `OXY_FILE_REFERENCE_BATCH_SIZE` — entities claimed per drain. Default 50. */
+  readonly referenceBatchSize: number;
+  /** `OXY_FILE_REFERENCE_MAX_ATTEMPTS` — after this many failures a job is `dead_letter`. Default 12. */
+  readonly referenceMaxAttempts: number;
+  /**
+   * `OXY_FILE_RECONCILIATION_ENABLED` — run the nightly per-entity-type
+   * reconciliation (ADR 0043 D6). Default OFF.
+   */
+  readonly reconciliationEnabled: boolean;
+  /**
+   * `OXY_FILE_RECONCILIATION_DRY_RUN` — commit every reconciliation as a dry
+   * run: Oxy reports what it WOULD add and remove and changes nothing. Default
+   * ON, so the first run of each entity type is read before it acts — the way
+   * existing data enters the model is exactly the run whose numbers somebody
+   * should look at first.
+   */
+  readonly reconciliationDryRun: boolean;
+  /** `OXY_FILE_RECONCILIATION_INTERVAL_HOURS` — between two runs of one entity type. Default 24. */
+  readonly reconciliationIntervalHours: number;
+  /** `OXY_FILE_RECONCILIATION_POLL_INTERVAL_MS` — how often a task looks for a due run. Default 60000. */
+  readonly reconciliationPollIntervalMs: number;
+  /**
+   * `OXY_FILE_EVENTS_ENABLED` — mount `POST /webhooks/oxy-files`. Default OFF
+   * (404). With it on and no secret, the route answers Oxy's endpoint challenge
+   * (which is how the endpoint is registered — Oxy shows the secret only after
+   * the challenge) and refuses every event with 503, which Oxy retries.
+   */
+  readonly eventsEnabled: boolean;
+  /** `OXY_FILE_EVENTS_SECRET` — the signing secret Oxy showed when the endpoint was verified. */
+  readonly eventsSecret: string;
+  /**
+   * `CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED` — drain `canonical_source_media_imports`:
+   * copy an attached observation's `payload.media` into application-owned
+   * canonical images. Default OFF; the source-link trigger queues regardless.
+   */
+  readonly sourceMediaImportEnabled: boolean;
+  /** `CANONICAL_SOURCE_MEDIA_POLL_INTERVAL_MS` — one drain per interval per task. Default 10000. */
+  readonly sourceMediaPollIntervalMs: number;
+  /** `CANONICAL_SOURCE_MEDIA_BATCH_SIZE` — jobs claimed per drain per task. Default 5. */
+  readonly sourceMediaBatchSize: number;
+  /** `CANONICAL_SOURCE_MEDIA_MAX_IN_FLIGHT` — jobs held at once across ALL tasks. Default 10. */
+  readonly sourceMediaMaxInFlight: number;
+  /** `CANONICAL_SOURCE_MEDIA_MAX_PER_RECORD` — images imported from one observation. Default 6. */
+  readonly sourceMediaMaxPerRecord: number;
+  /**
+   * `CANONICAL_SOURCE_MEDIA_MAX_PER_PRODUCT` — a product that already SHOWS this
+   * many images imports nothing more, however many offers it gains. Default 10.
+   */
+  readonly sourceMediaMaxPerProduct: number;
+  /** `CANONICAL_SOURCE_MEDIA_MAX_ATTEMPTS` — failures before `dead_letter`. Default 8. */
+  readonly sourceMediaMaxAttempts: number;
+  /**
+   * `CANONICAL_SOURCE_MEDIA_MAX_IMPORT_CALLS_PER_MINUTE` — Oxy import REQUESTS
+   * one TASK starts in any minute. Oxy charges its budget per request (30 a
+   * minute for the application, across EVERY Mercaria process), and a drain asks
+   * for all its jobs' sources in batch requests of up to 50: at the defaults (5
+   * jobs × 6 images every 10 s) that is one request per drain, 6 a minute, for
+   * up to 180 images. The cap of 10 bounds a faster poll or a bigger batch while
+   * two tasks still leave 10 a minute to operators, backfills and creators.
+   * Past it a job is deferred, never failed. Default 10.
+   */
+  readonly sourceMediaMaxImportCallsPerMinute: number;
+}
+
+/**
  * GoWay, where every location's place facts live (ADR 0013).
  *
  * Mercaria reads places PUBLICLY — no service credential, the same reads a
@@ -3941,7 +3691,6 @@ export interface AppConfig {
   readonly openData: OpenDataConfig;
   readonly affiliateOutbound: AffiliateOutboundConfig;
   readonly printful: PrintfulConfig;
-  readonly moovo: MoovoConfig;
   readonly merchantClaims: MerchantClaimsConfig;
   readonly feed: FeedConfig;
   readonly discovery: DiscoveryConfig;
@@ -3968,6 +3717,7 @@ export interface AppConfig {
   readonly connectors: ConnectorsConfig;
   readonly pickup: PickupConfig;
   readonly goway: GoWayConfig;
+  readonly oxyFiles: OxyFilesConfig;
   readonly catalogAuthoring: CatalogAuthoringConfig;
   readonly catalogProposals: CatalogProposalsConfig;
   readonly digital: DigitalCommerceConfig;
@@ -4198,8 +3948,6 @@ export const config: AppConfig = Object.freeze({
     videoWritesEnabled: boolEnv('CATALOG_VIDEO_WRITES_ENABLED', false),
     maxVariantsPerProduct: intEnv('MAX_VARIANTS_PER_PRODUCT', 100),
     maxImagesPerListing: intEnv('MAX_IMAGES_PER_LISTING', 12),
-    graphOperatorOxyUserIds: Object.freeze(resolveCatalogOperatorIds()),
-    graphOperatorSurfaceEnabled: resolveCatalogOperatorIds().length > 0,
     fourEyesRequired: boolEnv('CATALOG_FOUR_EYES_REQUIRED', true),
     curationJobsEnabled: boolEnv('CURATION_JOBS_ENABLED', true),
     curationBatchSize: intEnv('CURATION_JOB_BATCH_SIZE', 5),
@@ -4253,6 +4001,7 @@ export const config: AppConfig = Object.freeze({
     batchSize: intEnv('CATALOG_INGESTION_BATCH_SIZE', 5),
     pollIntervalMs: intEnv('CATALOG_INGESTION_POLL_INTERVAL_MS', 30_000),
     leaseMs: intEnv('CATALOG_INGESTION_LEASE_MS', 120_000),
+    tickBudgetMs: intEnv('CATALOG_INGESTION_TICK_BUDGET_MS', 25_000),
     maxBackoffMs: intEnv('CATALOG_INGESTION_MAX_BACKOFF_MS', 6 * 60 * 60 * 1_000),
     retirementBatchSize: intEnv('CATALOG_INGESTION_RETIREMENT_BATCH_SIZE', 500),
     anomalyPriceFactor: intEnv('CATALOG_INGESTION_ANOMALY_PRICE_FACTOR', 20),
@@ -4439,30 +4188,6 @@ export const config: AppConfig = Object.freeze({
     enabled: boolEnv('PRINTFUL_ENABLED', false),
     baseUrl: strEnv('PRINTFUL_BASE_URL', PRINTFUL_BASE_URL),
   }),
-  moovo: Object.freeze({
-    enabled: boolEnv('MOOVO_ENABLED', false),
-    // No default host. A default would make "which Moovo" implicit, and the one
-    // value it could sensibly default to is production's.
-    baseUrl: strEnv('MOOVO_BASE_URL', ''),
-    resourceApplicationId: strEnv('MOOVO_RESOURCE_APPLICATION_ID', ''),
-    // Unrecognised values are NOT coerced to a default here — `readMoovoEnvironment`
-    // refuses them, because silently reading a typo as `development` would point
-    // a production deployment at a rehearsal (the #65 `EBAY_ENVIRONMENT` rule,
-    // with the safe direction pointing the other way: there, anything
-    // unrecognised falls back to `sandbox`; here there is no safe fallback,
-    // since either mistake sends real parcels to the wrong system).
-    environment: readMoovoEnvironment(),
-    scopes: Object.freeze(
-      strEnv('MOOVO_SCOPES', '')
-        .split(',')
-        .map((scope) => scope.trim())
-        .filter((scope) => scope !== ''),
-    ),
-    timeoutMs: intEnv('MOOVO_TIMEOUT_MS', 10_000),
-    maxAttempts: intEnv('MOOVO_MAX_ATTEMPTS', 3),
-    retryBaseDelayMs: intEnv('MOOVO_RETRY_BASE_DELAY_MS', 250),
-    retryMaxDelayMs: intEnv('MOOVO_RETRY_MAX_DELAY_MS', 5_000),
-  }),
   matching: Object.freeze({
     pipelineEnabled: boolEnv('MATCH_PIPELINE_ENABLED', true),
     queueBatchSize: intEnv('MATCH_QUEUE_BATCH_SIZE', 25),
@@ -4557,7 +4282,6 @@ export const config: AppConfig = Object.freeze({
   }),
   crowdSource: Object.freeze({
     enabled: resolveCrowdSourceEnabled(),
-    serviceKey: strEnv('CROWDSOURCE_SERVICE_KEY', ''),
     ...(process.env.CROWDSOURCE_BASE_URL?.trim()
       ? { baseUrl: process.env.CROWDSOURCE_BASE_URL.trim() }
       : {}),
@@ -4662,16 +4386,12 @@ export const config: AppConfig = Object.freeze({
       openPaymentMinAgeMs: intEnv('PAYMENT_RECONCILIATION_OPEN_PAYMENT_MIN_AGE_MS', 10 * MINUTE_MS),
       lookbackMs: intEnv('PAYMENT_RECONCILIATION_LOOKBACK_MS', 7 * 24 * 60 * MINUTE_MS),
     }),
-    operatorOxyUserIds: Object.freeze(resolvePaymentOperatorIds()),
-    operatorSurfaceEnabled: resolvePaymentOperatorIds().length > 0,
   }),
   guest: Object.freeze({
     enabled: resolveGuestCommerceEnabled(),
     issuanceEnabled: boolEnv('GUEST_SESSION_ISSUANCE_ENABLED', true),
     cartEnabled: boolEnv('GUEST_CART_ENABLED', true),
     inlineDestinationEnabled: boolEnv('GUEST_INLINE_DESTINATION_ENABLED', true),
-    operatorOxyUserIds: Object.freeze(resolveGuestOperatorIds()),
-    operatorSurfaceEnabled: resolveGuestOperatorIds().length > 0,
     piiEncryptionKey: strEnv('GUEST_PII_ENCRYPTION_KEY', ''),
     emailHashKey: strEnv('GUEST_EMAIL_HASH_KEY', ''),
     sessionIdleDays: intEnv('GUEST_SESSION_IDLE_DAYS', 30),
@@ -4743,8 +4463,6 @@ export const config: AppConfig = Object.freeze({
     // `ALLOWED_ORIGINS` for CORS, and a redirect target is a stronger claim
     // than a readable response.
     redirectBaseUrl: strEnv('REFERRAL_REDIRECT_BASE_URL', 'https://mercaria.co'),
-    operatorOxyUserIds: Object.freeze(resolveReferralOperatorIds()),
-    operatorSurfaceEnabled: resolveReferralOperatorIds().length > 0,
     // #146 increment 2 — see the ReferralsConfig docblock for why this defaults
     // TRUE where #145's three loop levers default FALSE.
     partnerEnrollmentEnabled: boolEnv('REFERRAL_PARTNER_ENROLLMENT_ENABLED', true),
@@ -4809,8 +4527,6 @@ export const config: AppConfig = Object.freeze({
   analytics: Object.freeze({
     enabled: resolveAnalyticsEnabled(),
     collectionMode: resolveAnalyticsCollectionMode(),
-    operatorOxyUserIds: Object.freeze(resolveAnalyticsOperatorIds()),
-    operatorSurfaceEnabled: resolveAnalyticsOperatorIds().length > 0,
     queueMaxEvents: intEnv('ANALYTICS_QUEUE_MAX_EVENTS', 10_000),
     flushIntervalMs: intEnv('ANALYTICS_FLUSH_INTERVAL_MS', 2_000),
     flushBatchSize: intEnv('ANALYTICS_FLUSH_BATCH_SIZE', 500),
@@ -4829,8 +4545,6 @@ export const config: AppConfig = Object.freeze({
     maxProductRows: intEnv('MERCHANT_DEMAND_MAX_PRODUCT_ROWS', 200),
   }),
   retailEligibility: Object.freeze({
-    operatorOxyUserIds: Object.freeze(resolveRetailOperatorIds()),
-    operatorSurfaceEnabled: resolveRetailOperatorIds().length > 0,
     expiryHorizonDays: intEnv('RETAIL_EVIDENCE_EXPIRY_HORIZON_DAYS', 30),
   }),
   supplierPreflight: Object.freeze({
@@ -4840,8 +4554,6 @@ export const config: AppConfig = Object.freeze({
     maxReleaseAttempts: intEnv('SUPPLIER_PREFLIGHT_MAX_RELEASE_ATTEMPTS', 5),
     fakeAdapterEnabled: process.env.NODE_ENV !== 'production',
     fingerprintKey: strEnv('SUPPLIER_PREFLIGHT_FINGERPRINT_KEY', ''),
-    operatorOxyUserIds: Object.freeze(resolveProcurementOperatorIds()),
-    operatorSurfaceEnabled: resolveProcurementOperatorIds().length > 0,
   }),
   procurement: Object.freeze({
     outboxBatchSize: intEnv('PROCUREMENT_OUTBOX_BATCH_SIZE', 25),
@@ -4915,6 +4627,29 @@ export const config: AppConfig = Object.freeze({
     timeoutMs: intEnv('GOWAY_TIMEOUT_MS', 2_500),
     placeCacheTtlSeconds: resolvePlaceCacheTtlSeconds(),
     placeStaleTtlSeconds: intEnv('GOWAY_PLACE_STALE_TTL_SECONDS', 24 * 60 * 60),
+  }),
+  oxyFiles: Object.freeze({
+    referencesEnabled: boolEnv('OXY_FILE_REFERENCES_ENABLED', false),
+    referencePollIntervalMs: intEnv('OXY_FILE_REFERENCE_POLL_INTERVAL_MS', 5_000),
+    referenceBatchSize: intEnv('OXY_FILE_REFERENCE_BATCH_SIZE', 50),
+    referenceMaxAttempts: intEnv('OXY_FILE_REFERENCE_MAX_ATTEMPTS', 12),
+    reconciliationEnabled: boolEnv('OXY_FILE_RECONCILIATION_ENABLED', false),
+    reconciliationDryRun: boolEnv('OXY_FILE_RECONCILIATION_DRY_RUN', true),
+    reconciliationIntervalHours: intEnv('OXY_FILE_RECONCILIATION_INTERVAL_HOURS', 24),
+    reconciliationPollIntervalMs: intEnv('OXY_FILE_RECONCILIATION_POLL_INTERVAL_MS', MINUTE_MS),
+    eventsEnabled: boolEnv('OXY_FILE_EVENTS_ENABLED', false),
+    eventsSecret: strEnv('OXY_FILE_EVENTS_SECRET', ''),
+    sourceMediaImportEnabled: boolEnv('CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED', false),
+    sourceMediaPollIntervalMs: intEnv('CANONICAL_SOURCE_MEDIA_POLL_INTERVAL_MS', 10_000),
+    sourceMediaBatchSize: intEnv('CANONICAL_SOURCE_MEDIA_BATCH_SIZE', 5),
+    sourceMediaMaxInFlight: intEnv('CANONICAL_SOURCE_MEDIA_MAX_IN_FLIGHT', 10),
+    sourceMediaMaxPerRecord: intEnv('CANONICAL_SOURCE_MEDIA_MAX_PER_RECORD', 6),
+    sourceMediaMaxPerProduct: intEnv('CANONICAL_SOURCE_MEDIA_MAX_PER_PRODUCT', 10),
+    sourceMediaMaxAttempts: intEnv('CANONICAL_SOURCE_MEDIA_MAX_ATTEMPTS', 8),
+    sourceMediaMaxImportCallsPerMinute: intEnv(
+      'CANONICAL_SOURCE_MEDIA_MAX_IMPORT_CALLS_PER_MINUTE',
+      10,
+    ),
   }),
   catalogAuthoring: Object.freeze({
     enabled: boolEnv('CATALOG_AUTHORING_ENABLED', false),

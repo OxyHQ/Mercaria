@@ -3,14 +3,13 @@
  * put into `/analytics/events` (#77 acceptance 3).
  *
  * The `internal-canonical-catalog.test.ts` shape, applied to the FOURTH
- * operator allow-list, with the same four properties:
+ * operator key, `analytics.operate`, with the same three properties:
  *
- *  - an allow-listed Oxy operator gets past the gate;
- *  - an authenticated Oxy user who is NOT allow-listed gets 403, not a read;
- *  - a deployment with an EMPTY allow-list has no such surface at all — 404,
- *    from the MOUNT, because a 401 would advertise that the surface exists;
- *  - the PAYMENTS allow-list does not open it: separate powers, and the
- *    cross-list case is the one a refactor toward "one operator list" would
+ *  - a holder of `analytics.operate` gets past the gate;
+ *  - an authenticated Oxy user holding no key gets 404, not a read — a 401 or
+ *    403 would advertise that the surface exists;
+ *  - holding `payments.operate` does not open it: separate powers, and the
+ *    cross-desk case is the one a refactor toward "one operator key" would
  *    silently break.
  *
  * Plus the two this issue adds, both about the INGEST endpoint:
@@ -20,9 +19,6 @@
  *    payment, a session issuance, a cart merge or a completed claim;
  *  - it answers 202 rather than 201, because the events were accepted into a
  *    bounded queue that may drop them.
- *
- * Two real apps against two frozen configs, because the empty-list case is a
- * property of the MOUNT, not of any handler.
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
@@ -36,24 +32,40 @@ const ORDINARY_USER = 'oxy-user-merchant-1';
 
 /** Whichever caller the current request is acting as. */
 let currentUser = ANALYTICS_OPERATOR;
+const GRANTS: Readonly<Record<string, readonly string[]>> = {
+  [ANALYTICS_OPERATOR]: ['analytics.operate'],
+  [PAYMENTS_OPERATOR]: ['payments.operate'],
+};
 
 vi.mock('@oxy.so/core/server', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@oxy.so/core/server')>()),
   getRequiredOxyUserId: () => currentUser,
 }));
-vi.mock('../../middleware/auth.js', () => ({
-  authenticateToken: (
-    _req: express.Request,
-    _res: express.Response,
-    next: express.NextFunction,
-  ) => {
-    next();
-  },
-  oxyClient: {},
-  optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
-    next();
-  },
-}));
+vi.mock('../../middleware/auth.js', async () => {
+  const { fakeAppPermissions } = await import('../../__tests__/oxy-app-permissions-fake.js');
+  const fake = fakeAppPermissions(
+    () => GRANTS[currentUser] ?? [],
+    () => currentUser,
+  );
+  return {
+    authenticateToken: (
+      _req: express.Request,
+      _res: express.Response,
+      next: express.NextFunction,
+    ) => {
+      next();
+    },
+    oxyClient: {
+      middleware: {
+        requireAppPermission: fake.requireAppPermission,
+        auth: () => (_req: unknown, res: express.Response) => res.sendStatus(401),
+      },
+    },
+    optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
+      next();
+    },
+  };
+});
 vi.mock('../../lib/rate-limit.js', () => ({
   makeRateLimiter:
     () => (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
@@ -82,66 +94,43 @@ vi.mock('../../db/postgres.js', () => ({
   closePostgres: () => Promise.resolve(),
 }));
 
-let enabledServer: Server;
-let disabledServer: Server;
-let enabledUrl: string;
-let disabledUrl: string;
+let server: Server;
+let url: string;
 
 async function listen(app: express.Express): Promise<{ server: Server; url: string }> {
-  const server = await new Promise<Server>((resolve) => {
-    const started = app.listen(0, () => {
-      resolve(started);
+  const started = await new Promise<Server>((resolve) => {
+    const listening = app.listen(0, () => {
+      resolve(listening);
     });
   });
-  const { port } = server.address() as AddressInfo;
-  return { server, url: `http://127.0.0.1:${String(port)}` };
+  const { port } = started.address() as AddressInfo;
+  return { server: started, url: `http://127.0.0.1:${String(port)}` };
 }
 
-/**
- * Build a real app against a FROZEN config for one allow-list state.
- * `config/index.ts` reads process.env once at module load; `vi.resetModules()`
- * gives each app its own frozen view.
- */
-async function buildApp(analyticsOperatorIds: string): Promise<express.Express> {
-  vi.resetModules();
-  process.env.ANALYTICS_OPERATOR_OXY_USER_IDS = analyticsOperatorIds;
-  process.env.PAYMENT_OPERATOR_OXY_USER_IDS = PAYMENTS_OPERATOR;
-  // Collection ON for the ingest cases; the enabled/disabled distinction under
-  // test here is the OPERATOR list, not the collection flag.
+beforeAll(async () => {
+  // Collection ON for the ingest cases.
   process.env.ANALYTICS_COLLECTION_MODE = 'full';
   process.env.ANALYTICS_ENABLED = 'true';
   process.env.STRIPE_ENABLED = 'false';
   const { createApp } = await import('../../app.js');
-  return createApp();
-}
-
-beforeAll(async () => {
-  ({ server: enabledServer, url: enabledUrl } = await listen(await buildApp(ANALYTICS_OPERATOR)));
-  ({ server: disabledServer, url: disabledUrl } = await listen(await buildApp('')));
+  ({ server, url } = await listen(createApp()));
 }, 60_000);
 
 afterAll(async () => {
-  delete process.env.ANALYTICS_OPERATOR_OXY_USER_IDS;
-  delete process.env.PAYMENT_OPERATOR_OXY_USER_IDS;
   delete process.env.ANALYTICS_COLLECTION_MODE;
   delete process.env.ANALYTICS_ENABLED;
-  await Promise.all(
-    [enabledServer, disabledServer].map(
-      (server) =>
-        new Promise<void>((resolve, reject) => {
-          server.close((err) => {
-            if (err) reject(err);
-            else resolve();
-          });
-        }),
-    ),
-  );
+  await new Promise<void>((resolve, reject) => {
+    server.close((err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
 });
 
 describe('the /internal/analytics operator gate', () => {
-  it('lets an allow-listed operator read the metric catalogue', async () => {
+  it('lets a holder of analytics.operate read the metric catalogue', async () => {
     currentUser = ANALYTICS_OPERATOR;
-    const response = await fetch(`${enabledUrl}/internal/analytics/metrics`);
+    const response = await fetch(`${url}/internal/analytics/metrics`);
     expect(response.status).toBe(200);
     const body = (await response.json()) as {
       data: { metrics: { key: string; denominator: string }[] };
@@ -154,32 +143,24 @@ describe('the /internal/analytics operator gate', () => {
     }
   });
 
-  it('refuses an authenticated user who is not on the list', async () => {
+  it('hides the surface from an authenticated user holding no key', async () => {
     currentUser = ORDINARY_USER;
-    const response = await fetch(`${enabledUrl}/internal/analytics/metrics`);
-    expect(response.status).toBe(403);
+    const response = await fetch(`${url}/internal/analytics/metrics`);
+    expect(response.status).toBe(404);
   });
 
-  it('refuses the PAYMENTS operator — separate lists, separate powers', async () => {
+  it('refuses a holder of payments.operate — separate keys, separate powers', async () => {
     // The cross-list case a refactor toward "one operator list" would silently
     // break, and the reason this domain has a fourth list at all.
     currentUser = PAYMENTS_OPERATOR;
-    const response = await fetch(`${enabledUrl}/internal/analytics/metrics`);
-    expect(response.status).toBe(403);
-  });
-
-  it('does not MOUNT the surface at all on an empty allow-list', async () => {
-    // 404, never 401: a 401 would tell an unauthenticated caller that an
-    // operator surface exists on this deployment.
-    currentUser = ANALYTICS_OPERATOR;
-    const response = await fetch(`${disabledUrl}/internal/analytics/metrics`);
+    const response = await fetch(`${url}/internal/analytics/metrics`);
     expect(response.status).toBe(404);
   });
 
   it('refuses a metric key no definition explains', async () => {
     currentUser = ANALYTICS_OPERATOR;
     const response = await fetch(
-      `${enabledUrl}/internal/analytics/metrics/invented_metric?from=2026-01-01&to=2026-01-02`,
+      `${url}/internal/analytics/metrics/invented_metric?from=2026-01-01&to=2026-01-02`,
     );
     // A dashboard must not be able to render a number nothing explains, and the
     // read is refused before the database is touched — which the mocked `getDb`
@@ -189,16 +170,16 @@ describe('the /internal/analytics operator gate', () => {
 
   it('refuses a trace with no handle', async () => {
     currentUser = ANALYTICS_OPERATOR;
-    const response = await fetch(`${enabledUrl}/internal/analytics/trace`);
+    const response = await fetch(`${url}/internal/analytics/trace`);
     expect(response.status).toBe(400);
   });
 
   it('refuses an experiment whose treatment kind is outside the vocabulary', async () => {
     // Experimentation rules 3, 5 and 9 at the request boundary. Run as the
-    // ALLOW-LISTED operator, so a 400 can only be the validation — a 403 would
-    // prove nothing.
+    // key HOLDER, so a 400 can only be the validation — a 404 would prove
+    // nothing.
     currentUser = ANALYTICS_OPERATOR;
-    const response = await fetch(`${enabledUrl}/internal/analytics/experiments`, {
+    const response = await fetch(`${url}/internal/analytics/experiments`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -220,7 +201,7 @@ describe('the /internal/analytics operator gate', () => {
 
   it('refuses an experiment with no guardrail', async () => {
     currentUser = ANALYTICS_OPERATOR;
-    const response = await fetch(`${enabledUrl}/internal/analytics/experiments`, {
+    const response = await fetch(`${url}/internal/analytics/experiments`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -244,7 +225,7 @@ describe('the /analytics client ingest endpoint', () => {
     // 202, never 201: the events were accepted into a bounded queue that may
     // drop them, and telling a client they were stored would be the
     // overstatement `POST /reports` refuses one domain over.
-    const response = await fetch(`${enabledUrl}/analytics/events`, {
+    const response = await fetch(`${url}/analytics/events`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -259,7 +240,7 @@ describe('the /analytics client ingest endpoint', () => {
   it('REJECTS every event type a server owns — acceptance 3', async () => {
     // The whole of "native paid orders and network-reported affiliate
     // conversions cannot be forged by client analytics", at the boundary.
-    const response = await fetch(`${enabledUrl}/analytics/events`, {
+    const response = await fetch(`${url}/analytics/events`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -281,7 +262,7 @@ describe('the /analytics client ingest endpoint', () => {
   });
 
   it('accepts the good entries in a mixed batch', async () => {
-    const response = await fetch(`${enabledUrl}/analytics/events`, {
+    const response = await fetch(`${url}/analytics/events`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -297,7 +278,7 @@ describe('the /analytics client ingest endpoint', () => {
   });
 
   it('refuses an over-large batch', async () => {
-    const response = await fetch(`${enabledUrl}/analytics/events`, {
+    const response = await fetch(`${url}/analytics/events`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -307,11 +288,12 @@ describe('the /analytics client ingest endpoint', () => {
     expect(response.status).toBe(400);
   });
 
-  it('is mounted even on a deployment with no operators', async () => {
-    // The ingest endpoint is NOT gated on the operator list — collecting and
+  it('accepts events from a caller holding no operator key', async () => {
+    // The ingest endpoint is NOT gated on the operator key — collecting and
     // reading are different powers, and a storefront must not stop working
-    // because nobody was allow-listed to read a dashboard.
-    const response = await fetch(`${disabledUrl}/analytics/events`, {
+    // because the caller cannot read a dashboard.
+    currentUser = ORDINARY_USER;
+    const response = await fetch(`${url}/analytics/events`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ events: [{ eventType: 'product_page_view' }] }),

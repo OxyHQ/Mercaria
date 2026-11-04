@@ -92,7 +92,7 @@ decisions: `db/schema/CONVENTIONS.md` §"Saved shopping agents (#97)".
 - **The operator surface is ONE route and returns only AGGREGATES.** There is
   no trace and none may be added: a saved agent is a person's intent in their
   own words, so "who is watching this product" is unrepresentable rather than
-  refused. It is on the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list and is
+  refused. It is on the SAME `catalog.operate` key and is
   deliberately NOT gated on `SHOPPING_AGENTS_ENABLED` — the queue lag has to be
   readable during the incident that turned the shopper surface off.
 - **Explicit authorization is a COMPARISON, not a checkbox.** The client echoes

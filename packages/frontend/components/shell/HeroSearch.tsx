@@ -1,7 +1,7 @@
 import { STOREFRONT_NAV_FROM } from '@/lib/layout';
 import { CatalogImage, merchantImageSource } from '@mercaria/ui';
 import { useImageResolver } from '@oxy.so/bloom/image-resolver';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { type ComponentRef, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Platform, Pressable, View, useWindowDimensions } from 'react-native';
 import { Image } from '@mercaria/ui';
 import { Link, type Href } from 'expo-router';
@@ -10,7 +10,6 @@ import Animated, {
   useAnimatedReaction,
   useAnimatedStyle,
   useFrameCallback,
-  useReducedMotion,
   useSharedValue,
   withTiming,
   type SharedValue,
@@ -19,6 +18,7 @@ import { PriceDisplay, Text, type ProductSummary } from '@mercaria/ui';
 import type { StoreSummary } from '@mercaria/shared-types';
 import { MercariaWordmark } from '@/components/ui/mercaria-wordmark';
 import { ShoppingComposer } from './ShoppingComposer';
+import { usePrefersReducedMotion } from '@oxy.so/bloom/hooks';
 
 const CYCLE_MS = 7000;
 
@@ -127,9 +127,9 @@ export function HeroSearch({
   const { width: viewport, height: windowHeight } = useWindowDimensions();
   const [width, setWidth] = useState(viewport);
   const [cycle, setCycle] = useState(0);
-  const stage = useRef<View>(null);
-  const search = useRef<View>(null);
-  const reduced = useReducedMotion();
+  const stage = useRef<ComponentRef<typeof View>>(null);
+  const search = useRef<ComponentRef<typeof View>>(null);
+  const reduced = usePrefersReducedMotion();
   const clock = useSharedValue(CYCLE_MS / 2);
   const active = useSharedValue(true);
   const paused = useSharedValue(false);

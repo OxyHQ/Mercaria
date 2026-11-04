@@ -2,11 +2,11 @@
  * The operator side of referral enrollment (#146 increment 2, "Review and
  * approval").
  *
- * On the SAME `REFERRAL_OPERATOR_OXY_USER_IDS` allow-list #143 and #145 use,
+ * On the SAME `referrals.operate` key #143 and #145 use,
  * NOT an eighth. Deciding whether somebody may be a referral partner and
  * approving what they are paid are the same economy, and splitting them would
- * put one half of a partner's fate behind a list the other half's operator is
- * not on — the argument #145 already made when it joined this list.
+ * put one half of a partner's fate behind a key the other half's operator does not
+ * hold — the argument #145 already made when it joined this key.
  *
  * ## What this surface CANNOT be asked
  *

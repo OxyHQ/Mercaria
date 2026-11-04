@@ -152,6 +152,30 @@ connectPostgres()
         .then(({ startPaymentOutboxDispatcher }) => startPaymentOutboxDispatcher())
         .catch((err) => log.general.error({ err }, 'Payment outbox dispatcher import failed'));
 
+      // Register every Oxy file Mercaria uses (Oxy ADR 0043). On EVERY task,
+      // the offer converger's lease shape. The LOOP is gated by
+      // `OXY_FILE_REFERENCES_ENABLED`; the triggers of migration 0172 queue
+      // every change to a file-holding row whatever it says, so switching it on
+      // drains the backlog. The nightly reconciliation is the safety net and
+      // how existing data first enters the model, under its own lever.
+      import('./services/catalog-media/file-reference-outbox.js')
+        .then(({ startFileReferenceDispatcher }) => startFileReferenceDispatcher())
+        .catch((err) => log.general.error({ err }, 'Oxy file reference dispatcher import failed'));
+      // Copy attached observations' imagery into the canonical catalogue as
+      // application-owned files, bounded by its own caps (Oxy ADR 0043). Gated
+      // by `CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED`; the source-link trigger of
+      // migration 0173 queues whatever it says.
+      import('./services/catalog-media/source-media-import.js')
+        .then(({ startCanonicalSourceMediaImports }) => startCanonicalSourceMediaImports())
+        .catch((err) =>
+          log.general.error({ err }, 'Canonical source media import failed to start'),
+        );
+      import('./services/catalog-media/file-reference-reconciliation.js')
+        .then(({ startFileReferenceReconciliation }) => startFileReferenceReconciliation())
+        .catch((err) =>
+          log.general.error({ err }, 'Oxy file reference reconciliation import failed'),
+        );
+
       // Converge native offers (#57). The third dispatcher, on the same lease
       // shape as the two above and gated the same way — a catalogue write keeps
       // enqueuing while `OFFER_MATERIALIZATION_ENABLED` is off, so switching it
@@ -192,6 +216,13 @@ connectPostgres()
       import('./services/curation/curation-dispatcher.js')
         .then(({ startCurationDispatcher }) => startCurationDispatcher())
         .catch((err) => log.general.error({ err }, 'Curation dispatcher import failed'));
+      // Run whole-feed validations (#63) in the background: a validation reads
+      // and stages the whole feed, which outlives any request. On EVERY task,
+      // same lease shape, renewed while a job runs. No switch — a validation is
+      // a read that writes a report, and the request that queues one answers 202.
+      import('./services/feed-import/validation-dispatcher.js')
+        .then(({ startFeedValidationDispatcher }) => startFeedValidationDispatcher())
+        .catch((err) => log.general.error({ err }, 'Feed validation dispatcher import failed'));
       // Schedule and page external ingestion runs (#62). On EVERY task, same
       // lease shape, and TWO claims rather than one: a source lease says which
       // task feeds a source, a run lease says which task is driving the current
@@ -500,23 +531,6 @@ connectPostgres()
           log.general.error({ err }, 'Digital supplier adapter registration failed'),
         );
 
-      // Install Mercaria's Moovo logistics client (#156).
-      //
-      // A no-op on every deployment today, and visibly so: `MOOVO_ENABLED`
-      // defaults false, and even switched on the client is NOT registered while
-      // no transport exists — it logs the blockers instead. That is the honest
-      // state rather than a hidden one, because registering a port that refuses
-      // every call would make `chooseFulfilmentMode` select Mode A and strand
-      // paid orders that would otherwise fall back to Mode B.
-      //
-      // A misconfiguration THROWS inside the promise and is logged as an ERROR
-      // rather than taking the process down: the API serves a whole marketplace
-      // and Moovo booking is unreachable in either case, so failing to boot
-      // would convert a wrong variable into an outage of everything else.
-      import('./services/moovo/register.js')
-        .then(({ registerMoovoClient }) => registerMoovoClient())
-        .catch((err: unknown) => log.general.error({ err }, 'Moovo client registration failed'));
-
       // Reconcile retail orders against their supplier and provider evidence,
       // and pay what the equation says is owed back (#128, ADR 0004 D7/D8). On
       // EVERY task, leased on its own `reconciliation_cursors` row.
@@ -688,6 +702,17 @@ connectPostgres()
       // all.
       startExpirySweeper();
 
+      // Minimize guest contact in place on the published retention schedule
+      // (ADR 0003 D11/D15, M8-02) — the one guest retention the sweep above
+      // cannot perform, because the row must survive its contents. On EVERY
+      // task and UNCONDITIONALLY: pages are taken `FOR UPDATE SKIP LOCKED`, and
+      // what decides whether anything is erased is an ACTIVE retention-policy
+      // row, never an environment variable. With no policy published it runs
+      // and erases nothing.
+      import('./services/guest-governance/retention.service.js')
+        .then(({ startGuestRetentionLoop }) => startGuestRetentionLoop())
+        .catch((err: unknown) => log.general.error({ err }, 'Guest retention loop import failed'));
+
       // Discovery analytics (#77). THREE loops, all no-ops when
       // `ANALYTICS_ENABLED` is false — production collection stays off until
       // the privacy and retention review clears (acceptance 8).
@@ -823,6 +848,18 @@ connectPostgres()
           './services/offers/offer-outbox-dispatcher.js'
         );
         stopOfferOutboxDispatcher();
+        const { stopFileReferenceDispatcher } = await import(
+          './services/catalog-media/file-reference-outbox.js'
+        );
+        stopFileReferenceDispatcher();
+        const { stopCanonicalSourceMediaImports } = await import(
+          './services/catalog-media/source-media-import.js'
+        );
+        stopCanonicalSourceMediaImports();
+        const { stopFileReferenceReconciliation } = await import(
+          './services/catalog-media/file-reference-reconciliation.js'
+        );
+        stopFileReferenceReconciliation();
         const { stopMatchQueueDispatcher } = await import(
           './services/matching/match-queue-dispatcher.js'
         );
@@ -844,6 +881,10 @@ connectPostgres()
         const { stopFeedStageSweeper } = await import('./services/feed-import/register.js');
         stopFeedStageSweeper();
         stopExpirySweeper();
+        const { stopGuestRetentionLoop } = await import(
+          './services/guest-governance/retention.service.js'
+        );
+        stopGuestRetentionLoop();
         const { stopDiscoverySweep } = await import('./services/discovery/sweep.js');
         stopDiscoverySweep();
         // Analytics last of the loops, and the sink's stop AWAITS one final

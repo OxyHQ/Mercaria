@@ -66,7 +66,8 @@ import {
 } from '../../db/canonical/productFamilyRepository.js';
 import { findCanonicalVariantById } from '../../db/canonical/canonicalVariantRepository.js';
 import {
-  insertCanonicalMedia,
+  attachCanonicalMediaBySource,
+  findCanonicalProductMediaFileIdsBySource,
   listAttributeValues,
   listCanonicalMedia,
   listFieldProvenance,
@@ -91,11 +92,11 @@ import { normalizeAttributeKey } from './variant-signature.js';
 import { ensureDefaultVariant, listVariantOptions } from './canonical-variant.service.js';
 import { isPubliclyVisibleIdentifier } from './product-identifier.service.js';
 import { resolveIdentifier } from './product-identifier.service.js';
-import { synchronizeAccountMedia } from '../catalog-media/sync.js';
+import { synchronizeApplicationMedia } from '../catalog-media/sync.js';
 import {
   assertDescriptionImagesStored,
   descriptionNeedsMediaImport,
-  synchronizeAccountDescription,
+  synchronizeApplicationDescription,
 } from '../catalog-media/description.js';
 
 /** How many redirect hops resolution tolerates before calling the data corrupt. */
@@ -121,6 +122,14 @@ async function resolveProductRow(
     current = next;
   }
   throw new Error(`Canonical product merge chain exceeds ${MAX_MERGE_HOPS} hops from ${row.id}.`);
+}
+
+/** The live product a row resolves to: a merge tombstone answers with its winner. */
+export function resolveCanonicalProductRow(
+  db: DatabaseOrTransaction,
+  row: CanonicalProductRow,
+): Promise<CanonicalProductRow> {
+  return resolveProductRow(db, row);
 }
 
 export interface CreateCanonicalProductInput {
@@ -443,19 +452,35 @@ export async function applyProductSourceObservation(
         'Canonical image synchronization requires source storage and display rights.',
       );
     }
-    const references = images.map((image) => {
+    // A source this product already imported keeps its file: its identity is the
+    // source URL, not whichever file the last import happened to return. Only
+    // sources the product has never stored go to Oxy.
+    const importedBySource = await findCanonicalProductMediaFileIdsBySource(getDb(), resolved.id);
+    const reused = images.map((image) =>
+      image.fileId === undefined && image.sourceUrl !== undefined
+        ? importedBySource.get(image.sourceUrl)
+        : undefined,
+    );
+    const pending = images.flatMap((image, index) => {
+      if (reused[index] !== undefined) return [];
       const reference = image.fileId ?? image.sourceUrl;
       if (!reference)
         throw validationError('A canonical image needs a fileId or an HTTPS sourceUrl.');
-      return { kind: image.kind, reference };
+      return [{ index, source: { kind: image.kind, reference } }];
     });
-    // No transaction is held across supplier downloads or Oxy uploads. A
-    // refused import cannot partially apply scalar facts or attach source URLs.
-    imageFileIds = (await synchronizeAccountMedia(input.decidedByOxyUserId, references)).map(
-      (media) => media.fileId,
+    // No transaction is held across Oxy imports. A refused import cannot
+    // partially apply scalar facts or attach source URLs. Canonical media is
+    // content no account owns, so it belongs to the Mercaria application (Oxy
+    // ADR 0043) — never to the operator who happened to make the request.
+    const imported = await synchronizeApplicationMedia(pending.map((entry) => entry.source));
+    const importedByIndex = new Map(
+      pending.map((entry, position) => [entry.index, imported[position]?.fileId]),
+    );
+    imageFileIds = images.map(
+      (_, index) => reused[index] ?? (importedByIndex.get(index) as string),
     );
     if (importsDescription && description !== undefined) {
-      description = await synchronizeAccountDescription(input.decidedByOxyUserId, description);
+      description = await synchronizeApplicationDescription(description);
     }
   }
 
@@ -660,7 +685,7 @@ export async function applyProductSourceObservation(
 
     let imagesAdded = 0;
     for (const [index, image] of images.entries()) {
-      const row = await insertCanonicalMedia(tx, {
+      const row = await attachCanonicalMediaBySource(tx, {
         kind: image.kind,
         grain: { kind: 'product', id: product.id },
         sourceRecordId: record.id,

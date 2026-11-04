@@ -738,6 +738,8 @@
       "a11yLabel": "商家状态：%{status}",
       "claim": "认领此商家",
       "claimHint": "证明你运营此商家，即可管理其页面",
+      "contest": "对此认领提出异议",
+      "contestHint": "告诉 Mercaria 此商家的已验证运营方有误",
       "label": {
         "unclaimed": "未认领",
         "claimInProgress": "认领进行中",
@@ -790,6 +792,117 @@
         "staleSources": "Mercaria 最近未从该商家的来源获取到足够新的数据，无法显示当前价格。",
         "filteredOut": "没有商品符合这些筛选条件。"
       }
+    }
+  },
+  "merchantClaim": {
+    "title": "认领 %{merchant}",
+    "intro": "证明你运营此商家，即可管理它在 Mercaria 上的展示方式。认领不会创建 Mercaria 店铺，也不会让你成为任何品牌的官方卖家。",
+    "signInPrompt": "使用你的 Oxy 账号登录后即可认领此商家。",
+    "signIn": "登录",
+    "loadFailed": "无法加载你的认领。",
+    "noMethods": "目前无法在此认领。",
+    "start": "继续",
+    "starting": "正在开始…",
+    "close": "关闭",
+    "copy": "复制%{label}",
+    "copied": "已复制",
+    "copyFailed": "无法复制。请选中文本后手动复制。",
+    "method": {
+      "title": "你想如何证明？",
+      "checkedAutomatically": "自动检查。",
+      "reviewedByPerson": "由人工审核。",
+      "dnsTxt": {
+        "label": "DNS 记录",
+        "description": "在你域名的 DNS 中添加一条 TXT 记录。"
+      },
+      "wellKnownFile": {
+        "label": "网站上的文件",
+        "description": "向你的网站上传一个小文本文件。"
+      },
+      "metaTag": {
+        "label": "首页上的标签",
+        "description": "在你网站的首页添加一个 meta 标签。"
+      },
+      "businessDocument": {
+        "label": "企业文件",
+        "description": "分享能证明你经营此企业的文件链接。"
+      }
+    },
+    "domain": {
+      "label": "你网站的域名",
+      "help": "此商家用于销售的域名。你的证明仅覆盖此域名。",
+      "placeholder": "example.com"
+    },
+    "previous": {
+      "rejected": "你上次对此商家的认领未获批准。",
+      "reason": "审核人备注：%{reason}",
+      "expired": "你上次对此商家的认领在证明完成前已过期。你可以重新开始。",
+      "revoked": "你对此商家的验证已被撤销。你可以发起新的认领。"
+    },
+    "errors": {
+      "tooMany": "近期尝试次数过多。请稍后再试。",
+      "notFoundYet": "尚未找到验证值。DNS 和网站的更改可能需要一段时间才会生效，请稍后再试。",
+      "codeUnusable": "此验证码已无法使用。请获取新验证码并发布新的验证码。",
+      "cannotOpen": "你目前无法认领此商家。",
+      "cannotContest": "目前无法对此认领提出异议。",
+      "invalid": "请检查你输入的内容，然后重试。",
+      "generic": "出了点问题。请重试。"
+    },
+    "challenge": {
+      "draftIntro": "你对 %{domain} 的认领已准备就绪。获取验证码以继续。",
+      "lost": "验证码只显示一次。获取新验证码以继续；新验证码会替换之前的验证码。",
+      "getCode": "获取验证码",
+      "gettingCode": "正在获取验证码…",
+      "verify": "立即检查",
+      "verifying": "正在检查…",
+      "newCode": "获取新验证码",
+      "expires": "此验证码在 %{time} 前有效。",
+      "dnsTxt": {
+        "step": "在 %{domain} 的 DNS 中添加以下 TXT 记录：",
+        "nameLabel": "名称",
+        "valueLabel": "值",
+        "note": "DNS 更改可能需要几分钟，有时需要几小时才会生效。"
+      },
+      "wellKnownFile": {
+        "step": "在以下地址发布一个文件，内容须与以下文本完全一致：",
+        "urlLabel": "地址",
+        "contentsLabel": "文件内容"
+      },
+      "metaTag": {
+        "step": "在 %{url} 的 <head> 中添加以下标签：",
+        "tagLabel": "标签"
+      }
+    },
+    "status": {
+      "verified": {
+        "title": "你是已验证的运营方",
+        "body": "你对 %{merchant} 的认领已验证。"
+      },
+      "reviewPending": {
+        "title": "你的认领正在审核中",
+        "body": "工作人员正在审核你的认领。请回到这里查看结果。"
+      },
+      "disputed": {
+        "title": "你的认领存在争议",
+        "body": "另一个账号已持有此商家的已验证认领。工作人员将审核双方并作出决定。"
+      }
+    },
+    "evidence": {
+      "intro": "添加能证明你经营此企业的文件链接（例如营业执照或税务文件），并给审核人留一条备注。只有审核人能看到这些内容。",
+      "urlLabel": "文件链接",
+      "urlPlaceholder": "https://",
+      "noteLabel": "给审核人的备注",
+      "submit": "提交审核",
+      "submitting": "正在提交…"
+    },
+    "contest": {
+      "title": "对 %{merchant} 的认领提出异议",
+      "intro": "此商家已有已验证的运营方。如果有误，请告诉我们原因。每项异议都由工作人员审核，当前运营方会收到有人提出异议的通知，但不会得知是谁。",
+      "reasonLabel": "为什么当前认领有误？",
+      "reasonHelp": "至少 20 个字符。",
+      "urlLabel": "佐证链接（可选）",
+      "submit": "提交异议",
+      "submitting": "正在提交…"
     }
   },
   "families": {
@@ -1383,6 +1496,21 @@
       "createFailed": "无法创建链接，请重试。",
       "empty": "创建链接来分享 Mercaria。通过它带来的推荐会归属于你。",
       "notPartner": "加入计划后，你的链接会显示在这里。"
+    },
+    "code": {
+      "title": "推荐码",
+      "description": "有人给了你推荐码？在这里输入。",
+      "label": "推荐码",
+      "placeholder": "推荐码",
+      "apply": "应用",
+      "applied": "推荐码已应用",
+      "invalid": "该推荐码无法使用。",
+      "failed": "无法应用推荐码，请重试。"
+    },
+    "disclosure": {
+      "title": "你是通过推荐链接来的",
+      "body": "如果你购买，分享链接的人可能会获得 Mercaria 的奖励。你支付的价格不变。",
+      "dismiss": "知道了"
     }
   },
   "brand": {
@@ -1677,19 +1805,6 @@
       "notForSale": "未在售"
     }
   },
-  "thread": {
-    "title": "购物助手",
-    "thinking": "正在寻找灵感…",
-    "stop": "停止",
-    "unavailable": "购物助手暂不可用。你仍然可以搜索商品目录。",
-    "signIn": "登录后聊天",
-    "retry": "重试",
-    "viewResults": "查看搜索结果",
-    "newConversation": "新对话",
-    "previewAction": "使用示例数据试用",
-    "previewLabel": "预览 · 示例回复，未连接 AI",
-    "previewReply": "这些是本地目录中的示例，用于测试对话布局。打开商品查看详情，或发送另一条消息。"
-  },
   "profile": {
     "title": "个人资料",
     "subtitle": "收藏、订单和账户，尽在一处。"
@@ -1707,5 +1822,149 @@
     "quoteComfort": "舒适、个性，还有让一件单品属于你的小细节。",
     "quoteTexture": "一种钟爱的质感，就能改变整套穿搭的感觉。",
     "quoteEveryday": "把最常用的心爱之物放在触手可及的地方。"
+  },
+  "materials": {
+    "heading": "Donated materials",
+    "intro": "Offer and request materials as a person or organization. The items are free. Arrange personal pickup after the donor accepts.",
+    "switchAccount": "Change account",
+    "signIn": "Sign in",
+    "actingAs": "Acting as %{account}",
+    "offers": "Available materials",
+    "reservations": "My requests and reservations",
+    "refresh": "Refresh",
+    "empty": "No materials are available yet.",
+    "emptyReservations": "You have no requests or reservations.",
+    "more": "Load more",
+    "offer": "Offer materials",
+    "title": "Material name",
+    "description": "Description",
+    "area": "Approximate public area",
+    "quantity": "Quantity",
+    "unit": "Unit (pieces, boxes…)",
+    "pickup": "Personal pickup instructions",
+    "pickupPrivacy": "Keep the public area approximate. Pickup details are shared only with accepted recipients. No payment for the materials is required.",
+    "publish": "Publish free offer",
+    "counts": "%{available} %{unit} available · %{committed} committed · %{received} received",
+    "close": "Close offer to new requests",
+    "request": "Request materials",
+    "requestSent": "Request sent. The donor must accept before units are reserved.",
+    "reservation": "Material reservation",
+    "reservationQuantity": "%{quantity} %{unit}",
+    "requester": "Recipient account: %{account}",
+    "donor": "Donor account: %{account}",
+    "accept": "Accept and reserve",
+    "confirm": "I have received these materials",
+    "cancel": "Cancel request or reservation",
+    "requested": "Awaiting donor acceptance",
+    "accepted": "Reserved — awaiting pickup",
+    "cancelled": "Cancelled",
+    "delivered": "Receipt confirmed",
+    "conflict": "This action no longer matches the available quantity or reservation state. Refresh to see the current details.",
+    "forbidden": "This account is not authorized for this action.",
+    "error": "Could not complete the request. Check your connection and retry; the same request will not be duplicated."
+  },
+  "transport": {
+    "heading": "Transport with Moovo",
+    "pickupAlways": "Personal pickup is always available. Donated materials remain free.",
+    "pickup": "Pickup",
+    "dropoff": "Delivery",
+    "line1": "Street address",
+    "city": "City",
+    "postalCode": "Postal code",
+    "country": "Country (two-letter code)",
+    "contactName": "Contact name",
+    "contactPhone": "Contact phone",
+    "pickupPlace": "取件地址",
+    "dropoffPlace": "送达地址",
+    "placeSearch": "搜索街道、门牌号和城市",
+    "notes": "Instructions",
+    "weight": "Total weight (kg)",
+    "pieces": "Number of packages",
+    "small": "Small",
+    "medium": "Medium",
+    "large": "Large",
+    "payer": "Who pays for transport?",
+    "donor": "Donor",
+    "recipient": "Recipient",
+    "sponsor": "Sponsoring organization",
+    "organization": "Oxy organization account ID",
+    "selectedPayer": "Transport payer: %{account}",
+    "payerMustConfirm": "Choosing a payer does not authorize payment. That account must review the route and price and confirm. Organization owners and admins can authorize.",
+    "getQuote": "Get a transport quote",
+    "request": "Request transport",
+    "keepPickup": "Keep personal pickup",
+    "missingFacts": "Complete the actual pickup and delivery addresses, coordinates, contacts and package details. Collection instructions are suggestions to review, not a structured address.",
+    "unavailable": "Moovo is unavailable or this account cannot access the request. Refresh to read current information.",
+    "unknown": "The result could not be confirmed. Refresh this request before trying again; an existing booking will not be repeated.",
+    "attach": "Save transport reference",
+    "newRequest": "Start a new transport request",
+    "route": "From %{pickup} to %{dropoff}",
+    "price": "Transport: %{price}. Quote expires %{expiry}.",
+    "pendingPayment": "Transport payment is pending. Payment collection is not available here; this action does not mark transport paid. The donation itself costs nothing.",
+    "cancellationWarning": "Cancelling a donation does not cancel its transport. Manage a requested or uncertain delivery separately in Moovo.",
+    "confirmPayer": "I am acting for %{account} and agree to this route and transport price",
+    "unconfirm": "Remove my confirmation",
+    "authorize": "Authorize this transport price",
+    "book": "Request the authorized transport",
+    "participantBooks": "Authorization saved. A donation participant can now request the transport before the quote expires.",
+    "shareApproval": "Share with the selected payer for approval",
+    "retryQuote": "Retry or renew quote",
+    "cancelProposal": "Cancel transport proposal; keep personal pickup",
+    "openMoovo": "Open delivery in Moovo",
+    "forbidden": "Your current account cannot authorize this payer. Switch to the selected payer account; organizations require owner or admin access.",
+    "signIn": "Sign in with the selected payer account to review this transport.",
+    "status": {
+      "quoting": "Preparing a quote. You can retry after a short wait.",
+      "quoted": "Waiting for the selected payer to authorize.",
+      "authorized": "Price authorized. Transport has not been requested yet.",
+      "booking": "Requesting transport. Refresh to check the result.",
+      "booking_unknown": "Transport result is uncertain. Do not create another request; check this operation in Moovo.",
+      "booked": "Transport requested.",
+      "cancelled": "Transport proposal cancelled."
+    },
+    "retryBooking": "Recover existing transport request",
+    "jobStatus": {
+      "requested": "Transport requested",
+      "offered": "Finding a courier",
+      "accepted": "Courier assigned",
+      "picked_up": "Materials picked up",
+      "in_transit": "In transit",
+      "delivered": "Delivered",
+      "cancelled": "Transport cancelled"
+    }
+  },
+  "supervisedShopping": {
+    "title": "受监护购物",
+    "intro": "浏览已审核的商品。付款前，监护人会批准确切的购买内容。",
+    "unavailable": "暂时无法购物",
+    "unavailableBody": "你的访问权限或商品可能已更改。请重试以获取最新详情。",
+    "empty": "暂无已审核商品",
+    "emptyBody": "商品经平台审核后会显示在这里。请稍后再来。",
+    "add": "添加",
+    "remove": "移除",
+    "itemUnavailable": "商品不可用",
+    "reviewPurchase": "核对购买内容",
+    "changeError": "无法更新购物车。请检查商品后重试。",
+    "approvalIntro": "请输入收货地址。监护人将在批准付款前查看完整的购买内容。",
+    "prepareError": "无法准备购买。请重试以恢复同一笔购买。",
+    "requestApproval": "请求监护人批准",
+    "pending": "等待监护人批准",
+    "approved": "已批准付款",
+    "paid": "付款已确认",
+    "closed": "此批准已关闭",
+    "shipping": "运费",
+    "tax": "税费",
+    "discount": "折扣",
+    "rounding": "汇率舍入调整",
+    "total": "总计",
+    "viewApproval": "在Oxy中查看批准",
+    "continuePayment": "继续付款",
+    "paymentError": "付款尚未确认。请重试同一笔付款或刷新状态。",
+    "pendingBody": "监护人可以在Oxy中核对商品和准确总额。批准后才能付款。",
+    "refresh": "刷新状态",
+    "account": "监护与账户"
+  },
+  "alia": {
+    "viewResults": "查看搜索结果"
   }
 }

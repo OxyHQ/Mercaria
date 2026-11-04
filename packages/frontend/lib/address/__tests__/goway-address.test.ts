@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { SearchResult } from '@goway.to/sdk';
-import { hasRequiredPostalFields, postalAddressFromResult } from '../goway-address';
+import {
+  hasRequiredPostalFields,
+  placeOptionFromResult,
+  postalAddressFromResult,
+} from '../goway-address';
 
 const result: SearchResult = {
   id: 'address-result',
@@ -64,5 +68,14 @@ describe('GoWay postal address selection', () => {
       country: 'ES',
     });
     expect(hasRequiredPostalFields(address)).toBe(false);
+  });
+  it('offers a result to the place picker with the coordinate GoWay gave and only its structured postal facts', () => {
+    expect(placeOptionFromResult(result)).toEqual({
+      id: 'address-result',
+      title: 'Museum — not a street address',
+      subtitle: 'Carrer de Mallorca 401, Barcelona',
+      coordinate: { latitude: 41.38, longitude: 2.17 },
+      postal: postalAddressFromResult(result),
+    });
   });
 });

@@ -571,7 +571,7 @@ knowing from here:
   `side-by-side.service.ts` over
   `db/catalogLocalization/completenessRepository.ts`, read through
   `/internal/catalog-localization/*` behind the SAME
-  `CATALOG_OPERATOR_OXY_USER_IDS` allow-list.
+  `catalog.operate` key.
 - **The `(locale, status)` indexes landed with it** (migration `0114`, `pre`) —
   the reader the absence below was waiting for. All four tables carry one.
 - **`localization_coverage_runs` is still absent and the desk did not change
@@ -599,7 +599,7 @@ hold, and a write that exceeds it is REFUSED. The declaration is
 localized text column took its value as `z.string().trim().max(N)` and stored it
 untransformed, including `listing_localizations.title` and `.description`,
 whose route (`PUT /seller/listings/:id/localizations/:locale`) is authenticated
-by listing ownership alone — no store permission, no operator allow-list.
+by listing ownership alone — no store permission, no operator key.
 
 State the base-locale comparison carefully, because the obvious version of it is
 wrong: a listing's own title and description have TWO write paths with two

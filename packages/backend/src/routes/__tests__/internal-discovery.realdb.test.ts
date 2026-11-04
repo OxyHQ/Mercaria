@@ -2,23 +2,19 @@
  * Who may reach `/internal/discovery/*` — the operator trigger for the
  * discovery sweep.
  *
- * `internal-analytics.test.ts`'s three mount/gate properties, applied to a
- * surface that joins that SAME allow-list rather than creating its own:
+ * `internal-analytics.test.ts`'s gate properties, applied to a surface that
+ * joins that SAME `analytics.operate` key rather than creating its own:
  *
- *  - a deployment with an EMPTY allow-list has no such surface at all — 404,
- *    from the MOUNT, never a 401 that would advertise it exists;
- *  - an authenticated Oxy user who is NOT allow-listed gets 403, not a sweep;
- *  - an allow-listed operator gets a sweep run;
- *  - the PAYMENTS allow-list does not open it either — a different power,
+ *  - an authenticated Oxy user holding no key gets 404, not a sweep — never a
+ *    401 or 403 that would advertise the surface exists;
+ *  - a holder of `analytics.operate` gets a sweep run;
+ *  - holding `payments.operate` does not open it either — a different power,
  *    and the case a refactor toward "any operator" would silently break.
  *
  * A REAL database, unlike `internal-analytics.test.ts`: that file stubs
  * `db/postgres.js` because every case it asserts is decided before a query
  * runs, but `runDiscoverySweepOnce` genuinely writes `discovery_signals`, and
- * a stubbed pool would only prove the 200 never reached the handler. The
- * `catalog-rollout.realdb.test.ts` device — two module graphs behind
- * `vi.resetModules()`, one with a connection and one without, because the
- * deployment whose every request 404s at the mount never needs one.
+ * a stubbed pool would only prove the 200 never reached the handler.
  *
  * The identity layer is mocked, `catalog-rollout.realdb.test.ts`'s own
  * device: there is no way to hand this process a real Oxy session token, and
@@ -42,24 +38,40 @@ const ORDINARY_USER = 'oxy-user-discovery-sweep-ordinary';
 
 /** Whichever caller the current request is acting as. */
 let currentUser = ANALYTICS_OPERATOR;
+const GRANTS: Readonly<Record<string, readonly string[]>> = {
+  [ANALYTICS_OPERATOR]: ['analytics.operate'],
+  [PAYMENTS_OPERATOR]: ['payments.operate'],
+};
 
 vi.mock('@oxy.so/core/server', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@oxy.so/core/server')>()),
   getRequiredOxyUserId: () => currentUser,
 }));
-vi.mock('../../middleware/auth.js', () => ({
-  authenticateToken: (
-    _req: express.Request,
-    _res: express.Response,
-    next: express.NextFunction,
-  ) => {
-    next();
-  },
-  oxyClient: {},
-  optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
-    next();
-  },
-}));
+vi.mock('../../middleware/auth.js', async () => {
+  const { fakeAppPermissions } = await import('../../__tests__/oxy-app-permissions-fake.js');
+  const fake = fakeAppPermissions(
+    () => GRANTS[currentUser] ?? [],
+    () => currentUser,
+  );
+  return {
+    authenticateToken: (
+      _req: express.Request,
+      _res: express.Response,
+      next: express.NextFunction,
+    ) => {
+      next();
+    },
+    oxyClient: {
+      middleware: {
+        requireAppPermission: fake.requireAppPermission,
+        auth: () => (_req: unknown, res: express.Response) => res.sendStatus(401),
+      },
+    },
+    optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
+      next();
+    },
+  };
+});
 vi.mock('../../lib/rate-limit.js', () => ({
   makeRateLimiter:
     () => (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
@@ -74,11 +86,11 @@ vi.mock('../../lib/rate-limit.js', () => ({
 interface Deployment {
   readonly url: string;
   readonly server: Server;
-  /** The pool this deployment opened, when it has one — the slot needs a handle. */
-  readonly db: Database | null;
+  /** The pool this deployment opened — the slot needs a handle. */
+  readonly db: Database;
   readonly closeServer: () => Promise<void>;
   /**
-   * Ends this deployment's pool, or does nothing when it never opened one.
+   * Ends this deployment's pool.
    *
    * Separate from `closeServer` because the slot is held on a connection
    * reserved out of THIS pool: the release has to run after the servers stop
@@ -88,7 +100,6 @@ interface Deployment {
 }
 
 let enabled: Deployment;
-let disabled: Deployment;
 let slot: DiscoverySignalsSlot | undefined;
 
 function listen(app: express.Express): Promise<{ server: Server; url: string }> {
@@ -102,18 +113,13 @@ function listen(app: express.Express): Promise<{ server: Server; url: string }> 
   });
 }
 
-/** Build one deployment with its own frozen config and its own module graph. */
-async function build(options: {
-  readonly operators: string;
-  readonly withDatabase: boolean;
-}): Promise<Deployment> {
+/** Build the deployment with its own frozen config and its own module graph. */
+async function build(): Promise<Deployment> {
   vi.resetModules();
-  process.env.ANALYTICS_OPERATOR_OXY_USER_IDS = options.operators;
-  process.env.PAYMENT_OPERATOR_OXY_USER_IDS = PAYMENTS_OPERATOR;
   process.env.STRIPE_ENABLED = 'false';
 
-  const graph = options.withDatabase ? await import('../../db/postgres.js') : null;
-  const db = graph ? await graph.connectPostgres() : null;
+  const graph = await import('../../db/postgres.js');
+  const db = await graph.connectPostgres();
   const { createApp } = await import('../../app.js');
   const { server, url } = await listen(createApp());
 
@@ -122,23 +128,17 @@ async function build(options: {
     server,
     db,
     closeServer: () => new Promise<void>((resolve) => server.close(() => resolve())),
-    closePostgres: async () => {
-      if (graph) await graph.closePostgres();
-    },
+    closePostgres: () => graph.closePostgres(),
   };
 }
 
 beforeAll(async () => {
   // The surface actually writes to Postgres, so this graph keeps its pool.
-  enabled = await build({ operators: ANALYTICS_OPERATOR, withDatabase: true });
-  // Every request here 404s at the mount before any query — no pool needed,
-  // the `catalog-rollout.realdb.test.ts` / `search-rollout.realdb.test.ts`
-  // reasoning for a database this suite shares with every other file.
-  disabled = await build({ operators: '', withDatabase: false });
+  enabled = await build();
   // The sweep this file forces REPLACES the whole `discovery_signals` window,
   // so for as long as it may run one, that table is exclusively ours — see
   // `db/__tests__/discovery-signals-slot.ts` for what collides.
-  if (enabled.db) slot = await acquireDiscoverySignalsSlot(enabled.db);
+  slot = await acquireDiscoverySignalsSlot(enabled.db);
 }, 120_000);
 
 afterAll(async () => {
@@ -148,43 +148,32 @@ afterAll(async () => {
   // the release, the release included, must still reach `closePostgres`.
   // `db/__tests__/slot-teardown-census.test.ts` fails the build otherwise.
   try {
-    delete process.env.ANALYTICS_OPERATOR_OXY_USER_IDS;
-    delete process.env.PAYMENT_OPERATOR_OXY_USER_IDS;
     delete process.env.STRIPE_ENABLED;
-    await Promise.all([enabled, disabled].map((deployment) => deployment.closeServer()));
+    await enabled.closeServer();
     if (slot) await slot.release();
   } finally {
     await enabled.closePostgres();
-    await disabled.closePostgres();
   }
 });
 
 describe('the /internal/discovery operator gate', () => {
-  it('is NOT MOUNTED when the allow-list is empty — 404, never 401', async () => {
-    // A 401 would tell an unauthenticated caller that an operator surface
-    // exists on this deployment; the whole allow-list design turns on this
-    // distinction.
-    currentUser = ANALYTICS_OPERATOR;
-    const response = await fetch(`${disabled.url}/internal/discovery/sweep`, { method: 'POST' });
+  it('hides the surface from an authenticated caller holding no key — 404, never 401', async () => {
+    // A 401 or 403 would tell the caller that an operator surface exists here.
+    currentUser = ORDINARY_USER;
+    const response = await fetch(`${enabled.url}/internal/discovery/sweep`, { method: 'POST' });
     expect(response.status).toBe(404);
   });
 
-  it('refuses an authenticated caller who is not on the list', async () => {
-    currentUser = ORDINARY_USER;
-    const response = await fetch(`${enabled.url}/internal/discovery/sweep`, { method: 'POST' });
-    expect(response.status).toBe(403);
-  });
-
-  it('refuses the PAYMENTS operator — separate lists, separate powers', async () => {
-    // The cross-list case a refactor toward "any operator may sweep" would
-    // silently break: this surface joined the ANALYTICS list specifically,
+  it('refuses a holder of payments.operate — separate keys, separate powers', async () => {
+    // The cross-desk case a refactor toward "any operator may sweep" would
+    // silently break: this surface joined the ANALYTICS key specifically,
     // not an operator role in general.
     currentUser = PAYMENTS_OPERATOR;
     const response = await fetch(`${enabled.url}/internal/discovery/sweep`, { method: 'POST' });
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(404);
   });
 
-  it('runs a sweep for a caller on the list', async () => {
+  it('runs a sweep for a holder of analytics.operate', async () => {
     currentUser = ANALYTICS_OPERATOR;
     const response = await fetch(`${enabled.url}/internal/discovery/sweep`, { method: 'POST' });
     expect(response.status).toBe(200);

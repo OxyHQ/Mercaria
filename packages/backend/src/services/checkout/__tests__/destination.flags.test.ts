@@ -23,7 +23,7 @@ vi.mock('../../../db/buyers/addressRepository.js', () => ({
 }));
 
 const OXY: CommerceActor = { kind: 'oxy', oxyUserId: 'buyer-flag' };
-const GUEST: CommerceActor = { kind: 'guest', guestSessionId: 'gs-flag', transport: 'cookie' };
+const GUEST: CommerceActor = { kind: 'guest', guestSessionId: 'gs-flag', clientClass: 'web' };
 
 const INLINE = {
   recipientName: 'Jane Doe',

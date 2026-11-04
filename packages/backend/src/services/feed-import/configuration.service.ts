@@ -60,7 +60,10 @@ import {
   type FeedConfigurationVersionRow,
   type FeedValueMappingRole,
 } from '../../db/feedImport/feedConfigurationRepository.js';
-import { findFeedImportReport } from '../../db/feedImport/feedImportReportRepository.js';
+import {
+  consumeFeedUpload,
+  findFeedImportReport,
+} from '../../db/feedImport/feedImportReportRepository.js';
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
 import { configureIngestionSource } from '../ingestion/source.service.js';
 import { PRODUCT_FEED_PROVIDER } from '../ingestion/adapters/product-feed.js';
@@ -283,6 +286,23 @@ export async function draftFeedVersion(
   assertValueMappingsAreValid(input.valueMappings ?? []);
 
   return getDb().transaction(async (tx) => {
+    if (input.fetchMode === 'upload' && input.uploadId !== undefined) {
+      // BEFORE the insert, so the row lock is held across it: the expiry sweep
+      // cannot delete the upload between this check and the citation. An upload
+      // of another configuration answers exactly like no upload — an upload id
+      // is a capability over a stored file.
+      const consumed = await consumeFeedUpload(tx, {
+        uploadId: input.uploadId,
+        configurationId: input.configurationId,
+        now: new Date(),
+      });
+      if (consumed === undefined) {
+        throw validationError(
+          'The upload this version names is not an upload of this feed, or is no longer ' +
+            'stored. Upload the file again and cite the new upload.',
+        );
+      }
+    }
     const version = await insertFeedVersion(tx, {
       configurationId: input.configurationId,
       fetchMode: input.fetchMode,

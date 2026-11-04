@@ -55,6 +55,10 @@ function respond(res: Response, result: PeableIngressResult): void {
       // 200 means STORED. Never processed — see `ingress.ts`.
       res.status(200).json({ received: true, duplicate: result.outcome === 'duplicate' });
       return;
+    case 'ignored':
+      // Correctly refused, so acknowledged: the gateway must stop retrying it.
+      res.status(200).json({ received: false, ignored: result.code });
+      return;
     case 'rejected':
       // 400 and nothing persisted. Not 401: the gateway treats any non-2xx as a
       // failed delivery and retries either way, and a 400 reads correctly in its

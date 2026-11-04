@@ -251,11 +251,10 @@ projection's whole job.
 ## The operator surface
 
 `/internal/navigation/*`, seven routes on the SAME
-`CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54/#55/#56/#57/#58/#60/#62/#68/#70/#78
-use — deliberately not an eighth list: deciding what the front page points at is
+`catalog.operate` key #54/#55/#56/#57/#58/#60/#62/#68/#70/#78
+use — deliberately not a new operator key: deciding what the front page points at is
 the same power over the same graph as reshaping the catalogue it points into.
-Registered only when that list is **non-empty**, so an empty list is a 404 and
-never a 401.
+Anyone without the key gets 404, never 401.
 
 ```
 GET    /internal/navigation/preview/:treeId       what publishing would produce, and what it withholds

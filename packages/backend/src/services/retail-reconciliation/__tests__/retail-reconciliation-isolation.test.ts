@@ -546,7 +546,7 @@ describe('the operator surface is a CLOSED set', () => {
   });
 
   /**
-   * The allow-list boundary, as a DETECTOR rather than two bare `toMatch`es.
+   * The operator-key boundary, as a DETECTOR rather than two bare `toMatch`es.
    *
    * `expect(source).toMatch(/requireProcurementOperator/)` passes on a file that
    * merely IMPORTS the symbol and never applies it, which is the one failure
@@ -556,7 +556,7 @@ describe('the operator surface is a CLOSED set', () => {
    * And the negative check is mutation-tested below rather than trusted. A
    * `not.toMatch` is the shape of assertion that goes quiet when the thing it
    * looks for is renamed — it would keep passing against a file that had been
-   * moved onto the compliance list under a new symbol name, reporting a clean
+   * moved onto the compliance key under a new symbol name, reporting a clean
    * boundary because it can no longer see one.
    */
   const appliesProcurementGate = (source: string): boolean =>
@@ -567,21 +567,22 @@ describe('the operator surface is a CLOSED set', () => {
     expect(appliesProcurementGate(code(ROUTE_FILE))).toBe(true);
   });
 
-  it('never reaches the compliance allow-list', () => {
-    // The fifth list is the compliance one (#121: recalls, eligibility policy,
-    // document verification). This surface shows the supplier invoice by
-    // component, and `procurement-operator-authz.ts` states outright that a
+  it('never reaches the compliance key', () => {
+    // The fifth key is the compliance one, `retail.operate` (#121: recalls,
+    // eligibility policy, document verification). This surface shows the
+    // supplier invoice by component, and `middleware/operator-authz.ts` states
+    // outright that holding one desk's key confers none of the others — a
     // compliance reviewer vetted to verify a product-safety certificate is not
     // thereby vetted to see Mercaria's cost base.
     expect(reachesComplianceGate(code(ROUTE_FILE))).toBe(false);
   });
 
-  it('WOULD catch a surface moved onto the compliance list (mutation self-test)', () => {
+  it('WOULD catch a surface moved onto the compliance key (mutation self-test)', () => {
     // Both detectors run against a synthetic route file that genuinely does the
     // wrong thing. Without this, the two assertions above pass just as well
     // against a detector that matches nothing at all.
     const substituted = `
-      import { requireRetailOperator } from '../middleware/retail-operator-authz.js';
+      import { requireRetailOperator } from '../middleware/operator-authz.js';
       router.use(authenticateToken);
       router.use(requireRetailOperator);
     `;
@@ -591,7 +592,7 @@ describe('the operator surface is a CLOSED set', () => {
     // And the other direction: a file that imports the right gate but never
     // applies it is caught too, because an unguarded router still serves.
     const importedButUnused = `
-      import { requireProcurementOperator } from '../middleware/procurement-operator-authz.js';
+      import { requireProcurementOperator } from '../middleware/operator-authz.js';
       router.use(authenticateToken);
     `;
     expect(appliesProcurementGate(importedButUnused)).toBe(false);

@@ -14,6 +14,23 @@ export function resolveMedia(value: string, variant?: string): string | undefine
  * already name Oxy media. Resolve only that SDK-configured public namespace;
  * supplier URLs still require a backend import. Never rewrite order history. */
 export function resolveStoredMediaUrl(value: string | null | undefined): string | undefined {
+  const stored = parseStoredMediaUrl(value);
+  return stored ? resolveMedia(stored.fileId, stored.variant) : undefined;
+}
+
+/**
+ * The Oxy file id a stored URL names — an order snapshot's `image_url`, legacy
+ * category art, an `<img src>` in an imported description — or `undefined` for
+ * anything that is not exactly the SDK-configured public namespace. What the
+ * reference registry uses to say which file such a column USES.
+ */
+export function storedMediaFileId(value: string | null | undefined): string | undefined {
+  return parseStoredMediaUrl(value)?.fileId;
+}
+
+function parseStoredMediaUrl(
+  value: string | null | undefined,
+): { fileId: string; variant: string | undefined } | undefined {
   if (!value) return undefined;
   try {
     const source = new URL(value);
@@ -32,10 +49,9 @@ export function resolveStoredMediaUrl(value: string | null | undefined): string 
       source.searchParams.getAll('variant').length > 1
     )
       return undefined;
-    return resolveMedia(
-      source.pathname.slice(prefix.length),
-      source.searchParams.get('variant') ?? undefined,
-    );
+    const fileId = source.pathname.slice(prefix.length);
+    if (!isOxyFileId(fileId)) return undefined;
+    return { fileId, variant: source.searchParams.get('variant') ?? undefined };
   } catch {
     return undefined;
   }

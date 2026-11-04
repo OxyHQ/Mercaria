@@ -3,10 +3,9 @@
  *
  * The `/internal/payments` and `/internal/commerce-graph` shape, applied to a
  * third power: mounted OUTSIDE `/admin` because no store membership could
- * authorize reading who merged which cart; mount gated on the allow-list being
- * non-empty (404 on a deployment with no operators, never a 401 that would
- * advertise the surface); the gate repeated in middleware because mount and
- * gate live in different files. Full reasoning: `routes/internal-payments.ts`.
+ * authorize reading who merged which cart; gated on `guest.operate` (404 to
+ * anyone without it, never a 401 that would advertise the surface). Full
+ * reasoning: `middleware/operator-authz.ts`.
  *
  * The CART half is READS ONLY and that is the whole of it by design: every
  * repair it could want is already an idempotent path a buyer drives — retrying
@@ -26,7 +25,7 @@
  * `services/guest-portal/operator.service.ts` for why each of those is
  * unrepresentable rather than refused.
  *
- * The portal routes live HERE rather than under a seventh allow-list because
+ * The portal routes live HERE rather than under a new key because
  * they are the same power class as the cart diagnostic: a guest-commerce
  * support question, answered without learning what anyone bought or who they
  * are.
@@ -34,7 +33,7 @@
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireGuestOperator } from '../middleware/guest-operator-authz.js';
+import { requireGuestOperator } from '../middleware/operator-authz.js';
 import {
   guestCommerceConsistencyHandler,
   listCartMergesHandler,
@@ -63,9 +62,8 @@ import internalGuestGovernanceRouter from './internal-guest-governance.js';
 
 const router = Router();
 
-// Authentication FIRST, then the allow-list — the gate reads the verified
-// caller, and an allow-list consulted before authentication would compare
-// against whatever a client claimed.
+// Authentication FIRST, then the operator gate — it asks Oxy about the verified
+// caller's own session, which only `authenticateToken` establishes.
 router.use(authenticateToken);
 router.use(requireGuestOperator);
 
@@ -109,12 +107,12 @@ router.post('/claim-revocations/:revocationId/approve', approveClaimRevocationHa
 router.post('/claim-revocations/:revocationId/withdraw', withdrawClaimRevocationHandler);
 
 /**
- * The buyer-request half (#110), on the SAME allow-list rather than a seventh.
+ * The buyer-request half (#110), on the SAME key rather than a new one.
  *
  * The power is the same one #104 and #108 already grant here — reading what a
  * guest did with their purchase and driving a path they can drive themselves —
- * so a new list would be a second answer to a question `GUEST_OPERATOR_OXY_USER_IDS`
- * already answers. It is deliberately NOT the payment operator list: a support
+ * so a new key would be a second answer to a question `guest.operate`
+ * already answers. It is deliberately NOT `payments.operate`: a support
  * agent tracing a stuck return should not thereby be able to see every store's
  * money.
  *
@@ -128,7 +126,7 @@ router.get('/buyer-requests/orders/:orderId', traceBuyerRequests);
 router.post('/buyer-requests/returns/:requestId/reconcile', reconcileBuyerRequest);
 
 /**
- * The guest-P2P policy half (#112), on the SAME allow-list and READ ONLY.
+ * The guest-P2P policy half (#112), on the SAME key and READ ONLY.
  *
  * Two reads and no third. There is deliberately no "authorize this seller", no
  * "waive this criterion" and no "enable the pilot": approving a bounded scope
@@ -144,7 +142,7 @@ router.get('/p2p/policy', guestP2PPolicyHandler);
 router.get('/p2p/listings/:listingId', traceGuestP2PListingHandler);
 
 /**
- * The GOVERNANCE half (#111), mounted LAST and on the same allow-list.
+ * The GOVERNANCE half (#111), mounted LAST and on the same key.
  *
  * Its own router file rather than more routes here, and the split is not
  * cosmetic: every route above opens from one buyer's checkout group, order or

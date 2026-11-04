@@ -1,8 +1,8 @@
 /**
  * The guest portal's operator handlers (#108 recovery rule 8, ADR 0003 T15).
  *
- * Behind `requireGuestOperator` — the SAME `GUEST_OPERATOR_OXY_USER_IDS`
- * allow-list #104's diagnostic uses, and deliberately not a seventh list.
+ * Behind `requireGuestOperator` — the SAME `guest.operate`
+ * key #104's diagnostic uses, and deliberately not a new key.
  * Reading who could reach which checkout group and re-sending a link to the
  * stored contact is the same power class as reading who merged which cart: a
  * guest-commerce support question, answered without seeing what anyone bought
@@ -93,8 +93,8 @@ export async function resendGuestAccessLinkHandler(req: Request, res: Response):
       now: new Date(),
     });
     if (result.status === 'refused') {
-      // The refusal CODE is returned, because the operator is an identified,
-      // allow-listed person acting on a group they already named — there is no
+      // The refusal CODE is returned, because the operator is an identified
+      // `guest.operate` holder acting on a group they already named — there is no
       // enumeration to protect against here, and "it did not send" without a
       // reason is the answer that generates a second support ticket.
       sendError(res, ErrorCodes.CONFLICT, `Cannot send: ${result.refusal}`, 409);

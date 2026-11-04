@@ -8,11 +8,6 @@
     "icon": "./assets/icon-512.png",
     "scheme": "mercariadashboard",
     "userInterfaceStyle": "automatic",
-    "splash": {
-      "image": "./assets/images/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#040711"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "co.mercaria.dashboard"
@@ -32,13 +27,26 @@
       "favicon": "./assets/icon-192.png"
     },
     "plugins": [
-      "expo-router",
+      [
+        "expo-router",
+        {
+          "asyncRoutes": {
+            "web": false
+          }
+        }
+      ],
       "expo-localization",
       "expo-font",
       "expo-image",
       "expo-secure-store",
       "expo-web-browser",
-      "expo-asset"
+      "expo-asset",
+      [
+        "@oxy.so/app-preset",
+        {
+          "android": { "gifEnabled": false, "webpEnabled": false }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

@@ -1,6 +1,6 @@
 import type React from 'react';
 import { View } from 'react-native';
-import { useOxy, openAccountDialog } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { Text } from '@mercaria/ui';
 import { Button } from '@oxy.so/bloom/button';
 import { Logo } from '@/components/Logo';
@@ -35,6 +35,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 }
 
 function SignInScreen() {
+  const { openAccountDialog } = useOxy();
   const { t } = useTranslation();
   return (
     <View className="flex-1 items-center justify-center bg-background px-6">

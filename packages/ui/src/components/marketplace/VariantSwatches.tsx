@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { Button } from '@oxy.so/bloom/button';
 import { useImageResolver } from '@oxy.so/bloom/image-resolver';
-import { useReducedMotion } from 'react-native-reanimated';
 import { cn } from '../../lib/cn';
 import { useColorScheme } from '../../lib/useColorScheme';
 import { Image } from '../ui/image';
@@ -11,6 +10,7 @@ import { Text } from '../ui/text';
 import { useSharedUiTranslation } from '../../i18n/ui-translation';
 import { SWATCH_SHOW_MORE_A11Y_KEY, SWATCH_SHOW_MORE_KEY } from '../../lib/marketplace-labels';
 import { chooseListingVariant } from '../../lib/listing-variant-selection';
+import { usePrefersReducedMotion } from '@oxy.so/bloom/hooks';
 
 // Shop's option preview reserves four rows, 8px gaps and 90px for the
 // expander. Measure the actual text/artwork on each platform instead of
@@ -66,7 +66,7 @@ export function VariantSwatches({
   const [measuredWidths, setMeasuredWidths] = useState(new Map<string, number>());
   const t = useSharedUiTranslation();
   const { isDarkColorScheme } = useColorScheme();
-  const reducedMotion = useReducedMotion();
+  const reducedMotion = usePrefersReducedMotion();
   const resolveImage = useImageResolver();
 
   // Even an empty pill takes 35px. Probe only enough candidates to exceed

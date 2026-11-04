@@ -18,7 +18,12 @@ import { validateQuery } from '../middleware/validate.js';
 import { priceSignalsQuerySchema } from '../middleware/price-signal-schemas.js';
 import { getPriceSignalsHandler } from '../controllers/price-signals.controller.js';
 
+import { optionalAuth } from '../middleware/auth.js';
+
 const router = Router();
+
+// A presented supervised session cannot bypass policy through an anonymous catalog route.
+router.use(optionalAuth);
 
 router.use(makeRateLimiter('listings'));
 

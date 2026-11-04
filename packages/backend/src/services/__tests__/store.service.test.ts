@@ -55,10 +55,21 @@ vi.mock('../../db/stores/storeRepository.js', () => ({
 vi.mock('../../db/stores/locationRepository.js', () => ({
   insertLocation: vi.fn(),
 }));
-vi.mock('../oxy-account-graph.js', () => ({
-  readCallerAccountRole: (...args: unknown[]) => readCallerAccountRole(...args),
-  listCallerAccountRoles: vi.fn(),
-}));
+vi.mock('../../middleware/auth.js', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../../middleware/auth.js')>();
+  const { overOxyClient } = await import('../../__tests__/over-oxy-client.js');
+  const { fakeAccountAccess } = await import('../../__tests__/oxy-account-access-fake.js');
+  return {
+    ...original,
+    oxyClient: overOxyClient(
+      original.oxyClient,
+      fakeAccountAccess(
+        (...args: unknown[]) => readCallerAccountRole(...args),
+        () => new Map(),
+      ),
+    ),
+  };
+});
 
 import {
   createStoreForCaller,
@@ -68,7 +79,6 @@ import {
   updateStore,
 } from '../store.service.js';
 import { resolveMedia } from '../catalog-media/urls.js';
-import { resetStoreAccessCacheForTests } from '../store-access.service.js';
 import { isMercariaError } from '../../lib/errors/error-codes.js';
 import { ErrorCodes } from '../../utils/api-response.js';
 
@@ -85,6 +95,7 @@ const ALICE_SELF: StoreCaller = {
   accountId: ALICE,
   actorAccountId: ALICE,
   delegated: false,
+  sessionId: 'test-session',
   accessToken: 'bearer-alice',
 };
 
@@ -93,6 +104,7 @@ const ALICE_AS_ORG: StoreCaller = {
   accountId: ORG,
   actorAccountId: ALICE,
   delegated: true,
+  sessionId: 'test-session',
   accessToken: 'bearer-alice-as-org',
 };
 
@@ -102,7 +114,6 @@ function hasCode(code: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  resetStoreAccessCacheForTests();
   insertStore.mockImplementation(async (values: Record<string, unknown>) => ({
     id: STORE_ID,
     ...values,
@@ -148,7 +159,6 @@ describe('createStoreForCaller — which account may be given a store', () => {
       hasCode(ErrorCodes.FORBIDDEN),
     );
     readCallerAccountRole.mockResolvedValue('owner');
-    resetStoreAccessCacheForTests();
     await createStoreForCaller(ALICE_AS_ORG, { name: 'Shop' });
     expect(insertStore.mock.calls[0]?.[0]).toMatchObject({ oxyAccountId: ORG });
   });

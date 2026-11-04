@@ -14,11 +14,14 @@
  * re-declares a type: an SDK that kept its own copy would be the second source
  * of truth issue #1017 exists to prevent.
  *
- * This is the only module in `src/` that imports a private package.
+ * The lightweight refs entry separately imports the pure canonical ref-core
+ * subpath; it deliberately does not load these response schemas.
  */
 
 export {
   MERCARIA_LOCATION_AVAILABILITIES,
+  MERCARIA_OFFER_AVAILABILITIES,
+  MERCARIA_OFFER_KINDS,
   MERCARIA_PRODUCT_AVAILABILITIES,
   MERCARIA_PRODUCT_SORTS,
   MERCARIA_PUBLIC_API_BASE_PATH,
@@ -27,6 +30,10 @@ export {
   MERCARIA_PUBLIC_PAGE_LIMIT_DEFAULT,
   MERCARIA_PUBLIC_PAGE_LIMIT_MAX,
   MERCARIA_REF_KINDS,
+  MercariaCatalogProductRefSchema,
+  MercariaCatalogProductSchema,
+  MercariaCatalogProductSearchQuerySchema,
+  MercariaCatalogProductSummaryPageSchema,
   MercariaCollectionPageSchema,
   MercariaCollectionRefSchema,
   MercariaCollectionSchema,
@@ -52,6 +59,10 @@ export {
 } from '@mercaria/contracts';
 
 export type {
+  MercariaCatalogProduct,
+  MercariaCatalogProductRef,
+  MercariaCatalogProductSummary,
+  MercariaCatalogVariant,
   MercariaCollection,
   MercariaCollectionRef,
   MercariaErrorDetails,
@@ -63,6 +74,13 @@ export type {
   MercariaLocationRef,
   MercariaLocationStore,
   MercariaMoney,
+  MercariaOffer,
+  MercariaOfferAction,
+  MercariaOfferAvailability,
+  MercariaOfferKind,
+  MercariaOfferSeller,
+  MercariaOfferSource,
+  MercariaOfferSummary,
   MercariaPage,
   MercariaProduct,
   MercariaProductAvailability,

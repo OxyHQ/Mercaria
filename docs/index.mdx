@@ -273,7 +273,8 @@ automation and the clean-cut migration policy are documented in
 | [0013](adr/0013-place-facts-live-in-goway.md) | A location's place facts live in GoWay; Mercaria keeps commerce and a `goWayPlaceId`, linked by a verifiable back-reference |
 | [0014](adr/0014-open-reference-data-seeds-the-canonical-catalogue.md) | Open reference data may seed the canonical catalogue, through backfill and a granted `may_seed_catalog` right; amends ADR 0002 D23 phase 1 |
 | [0015](adr/0015-the-comparator-runs-by-default.md) | The comparator runs by default: its levers default ON, sources are declared in code, and a catalogue autopilot converges them and cycles the backfill; amends ADR 0002 D24 |
-| [0016](adr/0016-a-source-may-seed-products-by-its-own-key.md) | A source may seed products by its own product key (`productGroupKey`), anchored by source links; the matcher reuses an ingested object's link; Shopify storefronts are the first extraction provider; amends ADR 0014 D2 |
+| [0016](adr/0016-a-source-may-seed-products-by-its-own-key.md) | A source may seed products by its own product key (`productGroupKey`), anchored by source links; the matcher reuses an ingested object's link; amends ADR 0014 D2 (its D5 superseded by 0017) |
+| [0017](adr/0017-clarity-crawls-mercaria-reads.md) | Clarity crawls the stores (product feeds) and Mercaria reads the documents it keeps with its own mapping, through `@clarity.surf/sdk`; Mercaria fetches no site itself |
 
 ## Platform
 
@@ -304,6 +305,7 @@ automation and the clean-cut migration policy are documented in
 | Area | Doc |
 |---|---|
 | Payments, ledger, Stripe, fees (#88), retail on the card rail (#123), guest checkout (#107) | [payments.md](payments.md) |
+| Supervised shopping, operator review and exact guardian purchase approval | [supervised-shopping.md](supervised-shopping.md) |
 | Referrals: attribution (#143) · earnings (#145) · enrollment (#146) · dashboards (#147) · integrity (#148) · pilots (#149) · rewards | [referral-attribution.md](referral-attribution.md) · [referral-earnings.md](referral-earnings.md) · [referral-enrollment.md](referral-enrollment.md) · [referral-dashboards.md](referral-dashboards.md) · [referral-integrity.md](referral-integrity.md) · [referral-pilots.md](referral-pilots.md) · [referral-rewards.md](referral-rewards.md) |
 | Affiliate outbound redirects and commission (#67) | [affiliate-outbound.md](affiliate-outbound.md) |
 
@@ -378,7 +380,7 @@ automation and the clean-cut migration policy are documented in
 |---|---|
 | Pricing (#120) · eligibility (#121) · preflight (#122) | [retail-pricing.md](retail-pricing.md) · [retail-eligibility.md](retail-eligibility.md) · [supplier-preflight.md](supplier-preflight.md) |
 | Purchase orders (#124) · Printful and the pilot (#125) | [purchase-orders.md](purchase-orders.md) · [retail-pilot.md](retail-pilot.md), [suppliers/printful.md](suppliers/printful.md) |
-| Fulfilment (#126) · reconciliation · service requests · the Moovo client (#156) | [retail-fulfilment.md](retail-fulfilment.md) · [retail-reconciliation.md](retail-reconciliation.md) · [retail-service-requests.md](retail-service-requests.md) · [moovo/service-client.md](moovo/service-client.md) |
+| Fulfilment (#126) · reconciliation · service requests · Moovo logistics (#156) | [retail-fulfilment.md](retail-fulfilment.md) · [retail-reconciliation.md](retail-reconciliation.md) · [retail-service-requests.md](retail-service-requests.md) · [moovo/service-client.md](moovo/service-client.md) |
 
 ## Recorded reviews
 
@@ -388,4 +390,4 @@ automation and the clean-cut migration policy are documented in
 | Guest commerce M8 | [reviews/2026-08-16-guest-commerce-m8-review.md](reviews/2026-08-16-guest-commerce-m8-review.md) |
 | Catalog authoring security (#367, ADR 0007) | [reviews/2026-08-17-catalog-authoring-security-review.md](reviews/2026-08-17-catalog-authoring-security-review.md) |
 
-- [Catalog photos and videos](catalog-media.md) — ordered Oxy galleries, image-only compatibility and staged rollout.
+- [Catalog photos and videos](catalog-media.md) — ordered Oxy galleries, image-only compatibility and staged rollout; who owns each file (store, seller or the Mercaria application), Oxy import by URL, and every file use registered with Oxy (Oxy ADR 0043).

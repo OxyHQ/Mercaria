@@ -1,10 +1,10 @@
 /**
  * `/internal/search/*` — the search domain's operator surface (#70).
  *
- * On the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54/#55/#56/#57/#58/
- * #60/#62/#68 use, and deliberately not a seventh list: reading what a query
+ * On the SAME `catalog.operate` key #54/#55/#56/#57/#58/
+ * #60/#62/#68 use, and deliberately not a new key: reading what a query
  * returns and how a rollout is going is the same power over the same graph as
- * reshaping the catalogue, and a new list would be another thing to keep in
+ * reshaping the catalogue, and a new key would be another thing to keep in
  * step for a separation it does not have.
  *
  * A separate ROUTER from `internal-canonical-catalog.ts`, per ADR 0002 D25(a)'s
@@ -19,7 +19,7 @@
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireCatalogOperator } from '../middleware/catalog-operator-authz.js';
+import { requireCatalogOperator } from '../middleware/operator-authz.js';
 import { validateBody } from '../middleware/validate.js';
 import { searchExplainBodySchema } from '../middleware/search-schemas.js';
 import {
@@ -29,9 +29,8 @@ import {
 
 const router = Router();
 
-// Authentication FIRST, then the allow-list — the gate reads the verified
-// caller, and an allow-list consulted before authentication would compare
-// against whatever a client claimed.
+// Authentication FIRST, then the operator gate — it asks Oxy about the verified
+// caller's own session, which only `authenticateToken` establishes.
 router.use(authenticateToken);
 router.use(requireCatalogOperator);
 

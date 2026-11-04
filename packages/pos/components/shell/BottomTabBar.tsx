@@ -1,17 +1,11 @@
 import { useCallback, useMemo } from 'react';
-import { Platform } from 'react-native';
 import { usePathname, useRouter } from 'expo-router';
-import * as Haptics from 'expo-haptics';
 import { BottomBar, type BottomBarProps } from '@oxy.so/bloom/bottom-bar';
+import { useHaptics } from '@oxy.so/bloom/hooks';
 import { LucideGlyph } from '@mercaria/ui';
 import { useTranslation } from '@/lib/i18n';
 import { useActiveStoreContext } from '@/lib/hooks/use-stores';
 import { NAV_ITEMS, isNavItemActive } from './nav-items';
-
-function triggerHaptic() {
-  if (Platform.OS === 'web') return;
-  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-}
 
 /**
  * The phone navigation: Bloom's `BottomBar` in `AppShell`'s `bottomBar` slot,
@@ -23,6 +17,8 @@ function triggerHaptic() {
 export function BottomTabBar() {
   const { t } = useTranslation();
   const router = useRouter();
+  // Bloom's haptics honour the viewer's preference and the app's override.
+  const haptic = useHaptics();
   const pathname = usePathname();
   const { can } = useActiveStoreContext();
 
@@ -43,12 +39,12 @@ export function BottomTabBar() {
 
   const onValueChange = useCallback(
     (name: string) => {
-      triggerHaptic();
+      haptic();
       // The route is read from the typed table, never from the tab's name.
       const destination = visible.find((item) => item.key === name);
       if (destination) router.push(destination.href);
     },
-    [router, visible],
+    [haptic, router, visible],
   );
 
   return <BottomBar items={items} value={value} onValueChange={onValueChange} />;

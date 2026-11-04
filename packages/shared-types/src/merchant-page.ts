@@ -548,6 +548,7 @@ export interface MerchantCatalogEntry {
   readonly categoryId?: string;
   readonly image?: {
     readonly fileId: string | null;
+    /** Always null: a supplier URL never leaves the backend. Kept for shipped readers. */
     readonly sourceUrl: string | null;
     readonly alt: string | null;
   };

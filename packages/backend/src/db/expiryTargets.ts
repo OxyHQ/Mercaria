@@ -86,7 +86,13 @@ import { merchantDemandSnapshots } from './schema/merchantDemand';
 import { affiliateOutboundClicks } from './schema/affiliateOutbound.js';
 import { catalogSourceRejections } from './schema/ingestion';
 import { syncRunRecordFailures } from './schema/connectors';
-import { feedImportReportEntries, feedImportReports, feedUploads } from './schema/feedImport';
+import {
+  feedImportReportEntries,
+  feedImportReports,
+  feedUploadSessions,
+  feedUploads,
+  feedValidationJobs,
+} from './schema/feedImport';
 import {
   guestAbuseCounters,
   guestAbuseInterventions,
@@ -308,13 +314,29 @@ const SYNC_RUN_RECORD_FAILURE_RETENTION_SECONDS = 30 * 24 * 60 * 60;
 const GUEST_SECURITY_EVIDENCE_RETENTION_SECONDS = 90 * 24 * 60 * 60;
 
 /**
- * A staged upload artefact (#63). Seven days, which is a deliberately SHORT
- * deadline: the bytes live on one ECS task's own disk, so the row outliving the
- * file it names is the normal case rather than the exception, and a
- * three-month-old upload row whose artefact went with the task that received it
- * is a `missing` refusal waiting to confuse somebody.
+ * A feed upload no mapping version cites (#63). Seven days: long enough to draft
+ * a mapping against it, short enough that an abandoned multi-gigabyte file does
+ * not sit in storage. A CITED upload has no deadline at all — drafting the
+ * version consumes it and clears `expires_at` (`feed_uploads_retention_shape_check`),
+ * because an active version re-reads it on every pass. Deleting the row withdraws
+ * its Oxy file reference, and Oxy collects the unreferenced file.
  */
 const FEED_UPLOAD_RETENTION_SECONDS = 7 * 24 * 60 * 60;
+
+/**
+ * A direct feed upload session, seven days after it opened — Oxy's own ceiling
+ * on an upload's lifetime, so no live session is ever swept. Never longer than
+ * the upload it completes into, which is created later and lives at least as
+ * long (the `restrict` key from `feed_upload_id` is never met).
+ */
+const FEED_UPLOAD_SESSION_RETENTION_SECONDS = 7 * 24 * 60 * 60;
+
+/**
+ * A whole-feed validation job, seven days after it was requested. The REPORT it
+ * wrote is the durable fact (90 days, cited by an activation); the job is only
+ * the record that it ran, and it is swept long before the report it points at.
+ */
+const FEED_VALIDATION_JOB_RETENTION_SECONDS = 7 * 24 * 60 * 60;
 
 /**
  * A feed import, validation or preview report (#63), 90 days later.
@@ -625,9 +647,25 @@ export const EXPIRY_TARGETS: readonly ExpirySweepTarget[] = [
     column: feedUploads.expiresAt,
     retentionSeconds: 0,
     reason:
-      'A staged feed upload (#63), seven days after it was received. The bytes it names live ' +
-      "on one task's disk and do not survive a deployment, so a long-lived row here would " +
-      'only ever be a `missing` refusal with a plausible-looking date on it.',
+      'A feed upload no mapping version cites (#63), seven days after it arrived. A cited ' +
+      'upload carries no deadline (NULL, which the sweep never matches): an active version ' +
+      're-reads it on every pass, so it goes with its configuration instead.',
+  },
+  {
+    table: feedUploadSessions,
+    column: feedUploadSessions.expiresAt,
+    retentionSeconds: 0,
+    reason:
+      'A direct feed upload session, seven days after it opened — the longest Oxy keeps an ' +
+      'upload open, so the sweep never removes a session that could still complete.',
+  },
+  {
+    table: feedValidationJobs,
+    column: feedValidationJobs.expiresAt,
+    retentionSeconds: 0,
+    reason:
+      'A whole-feed validation job, seven days after it was requested. The report it wrote is ' +
+      'the fact an activation cites and is kept for 90 days; the job only says that it ran.',
   },
   {
     table: feedImportReports,
@@ -823,6 +861,8 @@ export const RETENTION_SECONDS = {
   guestPortalMessage: GUEST_PORTAL_MESSAGE_RETENTION_SECONDS,
   guestClaimOutbox: GUEST_CLAIM_OUTBOX_RETENTION_SECONDS,
   feedUpload: FEED_UPLOAD_RETENTION_SECONDS,
+  feedUploadSession: FEED_UPLOAD_SESSION_RETENTION_SECONDS,
+  feedValidationJob: FEED_VALIDATION_JOB_RETENTION_SECONDS,
   feedImportReport: FEED_IMPORT_REPORT_RETENTION_SECONDS,
   feedImportReportEntry: FEED_IMPORT_REPORT_ENTRY_RETENTION_SECONDS,
   watchlistSnapshot: WATCHLIST_SNAPSHOT_RETENTION_SECONDS,

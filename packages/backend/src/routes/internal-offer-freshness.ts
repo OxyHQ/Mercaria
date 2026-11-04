@@ -2,12 +2,11 @@
  * `/internal/offer-freshness/*` — the source-aware refresh, expiry and
  * catalogue-health operator surface (#68).
  *
- * The `/internal/ingestion` shape, on the SAME allow-list
- * (`CATALOG_OPERATOR_OXY_USER_IDS`): who may decide what an external source is
+ * The `/internal/ingestion` shape, on the SAME key
+ * (`catalog.operate`): who may decide what an external source is
  * permitted to do and who may decide how long its facts are worth showing are
- * the same power over the same graph. A seventh list beside payments, catalog,
- * guest, analytics, retail and procurement would be a seventh thing to keep in
- * step for no separation it does not already have.
+ * the same power over the same graph. A separate key would be another grant
+ * to keep in step for no separation it does not already have.
  *
  * A SEPARATE router rather than routes added to `internal-ingestion.ts`, per
  * ADR 0002 D25(a)'s file-ownership protocol — the same reason #56, #57, #58,
@@ -22,7 +21,7 @@
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireCatalogOperator } from '../middleware/catalog-operator-authz.js';
+import { requireCatalogOperator } from '../middleware/operator-authz.js';
 import {
   drainOfferFreshnessHandler,
   listFreshnessPoliciesHandler,
@@ -36,9 +35,8 @@ import {
 
 const router = Router();
 
-// Authentication FIRST, then the allow-list — the gate reads the verified
-// caller, and an allow-list consulted before authentication would compare
-// against whatever a client claimed.
+// Authentication FIRST, then the operator gate — it asks Oxy about the verified
+// caller's own session, which only `authenticateToken` establishes.
 router.use(authenticateToken);
 router.use(requireCatalogOperator);
 

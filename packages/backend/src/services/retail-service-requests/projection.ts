@@ -196,7 +196,7 @@ async function projectRetailRefund(
  *
  * This is the only projection that carries a supplier recovery, and it is served
  * exclusively from `/internal/procurement/*` behind
- * `PROCUREMENT_OPERATOR_OXY_USER_IDS` — the sixth allow-list, which exists for
+ * `procurement.operate` — the sixth operator key, which exists for
  * reading what Mercaria pays its suppliers. The payment-operator surface serves
  * the customer half from `projectRetailServiceRequestForCustomer`, so the
  * disclosure boundary is a property of the routers rather than of a filter.

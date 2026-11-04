@@ -39,7 +39,7 @@ import { Button } from '@oxy.so/bloom/button';
 import Head from 'expo-router/head';
 import { View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { track } from '../../../lib/analytics';
 import { SectionHeader, Text } from '@mercaria/ui';
 import { ScreenShell } from '@/components/shell/ScreenShell';
