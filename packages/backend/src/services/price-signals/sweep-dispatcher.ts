@@ -1,12 +1,9 @@
 /**
  * The measurement loop (#82 monitoring 1–3).
  *
- * `PRICE_SIGNALS_ENABLED` gates the LOOP and nothing durable. With it off a
- * policy version is still publishable and activatable, a merchant still reads
- * their own competitiveness, a shopper still sees a badge, and the operator
- * surface still answers — what stops is the background measurement, which is a
- * cost rather than a capability. Turning it on drains whatever runs an operator
- * queued while it was off.
+ * The loop drains the runs an operator queued; it gates nothing durable, and a
+ * policy version, a merchant's own competitiveness and a shopper's badge are
+ * all answerable whatever it is doing.
  *
  * A run is never created by this loop. Runs are queued explicitly from
  * `/internal/price-signals/runs`, because a sweep is a measurement somebody
@@ -36,8 +33,6 @@ export async function runPriceSignalSweepTick(
  * every Oxy singleton follows.
  */
 export function startPriceSignalSweepDispatcher(): void {
-  if (!config.priceSignals.enabled) return;
-
   const leaseOwner = `price-signals-${randomUUID()}`;
   const timer = setInterval(() => {
     void runPriceSignalSweepTick(leaseOwner).catch((err: unknown) => {

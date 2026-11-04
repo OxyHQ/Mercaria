@@ -386,7 +386,10 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // validation job status, and move `FeedRefusalReason` into shared-types: four
     // type aliases and no property: +4 types. Measured by the real guard.
     // Pure money-format and bidi modules add no contract types or properties.
-    'walked 141 contract module(s), 2388 exported type(s), 7975 property signature(s)',
+    // Price alerts are always mounted now, so `ProductSavePriceAlert` lost its
+    // `{ supported: false; reason }` variant: two properties.
+    // 141/2388/7973, read off the guard's own output line.
+    'walked 141 contract module(s), 2388 exported type(s), 7973 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });

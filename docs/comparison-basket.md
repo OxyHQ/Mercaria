@@ -413,11 +413,11 @@ existing levers already gate.
   it off a comparison still answers — every subject reports
   `offer_comparison_withheld` rather than rendering as a product nobody sells,
   and every commerce cell is `unknown` rather than zero.
-- `PRICE_HISTORY_PUBLIC_READS_ENABLED` (#78's own) decides whether price signals
-  enter the grounded input at all.
 
-Both are resolved in the controller and passed IN as booleans, so a service
-reading `config` is never a second place a rollout is decided.
+The offers lever is resolved in the controller and passed IN as a boolean, so a
+service reading `config` is never a second place a rollout is decided. #78's
+price signals enter the grounded input only where a built series backs one, which
+needs a currency `PRICE_HISTORY_SERIES_CURRENCIES` lists.
 
 ## The benchmark
 

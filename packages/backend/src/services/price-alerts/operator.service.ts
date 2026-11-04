@@ -153,12 +153,6 @@ export interface PriceAlertMetrics {
   readonly oldestEvaluationAgeSeconds?: number;
   readonly triggersLast24h: number;
   readonly delivery: Awaited<ReturnType<typeof summarizePriceAlertNotifications>>;
-  /** The three levers, echoed, so a dashboard shows WHY a number is zero. */
-  readonly levers: {
-    readonly enabled: boolean;
-    readonly evaluationEnabled: boolean;
-    readonly notificationsEnabled: boolean;
-  };
 }
 
 export async function readPriceAlertMetrics(now: Date = new Date()): Promise<PriceAlertMetrics> {
@@ -170,11 +164,6 @@ export async function readPriceAlertMetrics(now: Date = new Date()): Promise<Pri
     ...(oldest === undefined ? {} : { oldestEvaluationAgeSeconds: oldest }),
     triggersLast24h: await countPriceAlertTriggersSince(since),
     delivery: await summarizePriceAlertNotifications(),
-    levers: {
-      enabled: config.priceAlerts.enabled,
-      evaluationEnabled: config.priceAlerts.evaluationEnabled,
-      notificationsEnabled: config.priceAlerts.notificationsEnabled,
-    },
   };
 }
 

@@ -29,22 +29,8 @@
  * children first, since the canonical-side foreign keys are RESTRICT.
  */
 
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray, sql } from 'drizzle-orm';
-
-/**
- * `PRODUCT_SAVE_MIGRATION_ENABLED` has to be set BEFORE the module graph loads,
- * because `config` is frozen at import: `runFavoriteMigrationPage` downgrades
- * every request to a dry run without it, which is the correct production
- * default and would make every migration case here assert against a prediction
- * instead of a write.
- *
- * `vi.hoisted` is what runs before the imports below — a plain assignment at the
- * top of the file would not, since ESM hoists every `import` above it.
- */
-vi.hoisted(() => {
-  process.env.PRODUCT_SAVE_MIGRATION_ENABLED = 'true';
-});
 
 import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';

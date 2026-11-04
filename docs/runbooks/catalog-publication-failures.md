@@ -129,8 +129,8 @@ recorded under can no longer be re-derived.
    commonest cause and the one with no metric (seam 2). Reproduce with
    `POST /stores/:storeId/product-drafts/:draftId/validate` on a real draft and
    read the field codes.
-3. **The offer convergence dispatcher is off or behind.**
-   `OFFER_MATERIALIZATION_ENABLED` gates the LOOP; rows keep accumulating. Read
+3. **The offer convergence dispatcher is behind.** It always runs and its rows
+   are durable, so a backlog is lag, not loss. Read
    `GET /internal/offers/convergence` for how much is outstanding.
 4. **The match dispatcher is off or behind.** `MATCH_PIPELINE_ENABLED` gates the
    loop. `unresolved_subject_count` grows and, more usefully,

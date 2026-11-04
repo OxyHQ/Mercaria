@@ -126,12 +126,17 @@ export const rebuildCountersSchema = z
   })
   .strict();
 
-/** `POST /internal/product-saves/migrations` — run one migration page. */
+/**
+ * `POST /internal/product-saves/migrations` — run one migration page.
+ *
+ * `dryRun` defaults to `true`: a page writes only when the operator sends
+ * `dryRun: false` explicitly.
+ */
 export const runMigrationSchema = z
   .object({
     limit: z.number().int().min(1).max(1000).default(100),
     cursor: entityId.optional(),
-    dryRun: z.boolean().optional(),
+    dryRun: z.boolean().default(true),
   })
   .strict();
 

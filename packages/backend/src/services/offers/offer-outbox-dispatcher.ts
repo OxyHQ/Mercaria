@@ -6,15 +6,14 @@
  * N tasks share the work without handing each other a row, and a dead task's
  * lease is reclaimed rather than stranding a listing.
  *
- * ## The LOOP is gated; the durable record never is
+ * ## The durable record is the queue
  *
- * `OFFER_MATERIALIZATION_ENABLED` stops this loop and nothing else. Catalogue
- * writes keep enqueuing while it is off, so turning it on drains the backlog
- * instead of stranding it, and turning it off during an incident parks the work.
- * That is safe here in a way it would not be for a checkout gate, because the
- * gate is DERIVED at read time: a listing restricted while the loop is off has a
- * stale offer row and is still not buyable, because
- * `deriveNativeCheckoutEligibility` reads `listings.status` live.
+ * Catalogue writes enqueue, so work outstanding when a process stops is
+ * drained by the next one rather than stranded. A lagging queue is safe here in
+ * a way it would not be for a checkout gate, because the gate is DERIVED at
+ * read time: a listing restricted before its row converges has a stale offer
+ * row and is still not buyable, because `deriveNativeCheckoutEligibility` reads
+ * `listings.status` live.
  *
  * ## Backoff and dead letters
  *
@@ -144,13 +143,6 @@ async function tick(): Promise<void> {
 /** Begin draining. Idempotent — a second call is a no-op. */
 export function startOfferOutboxDispatcher(): void {
   if (timer !== undefined) return;
-  if (!config.offers.materializationEnabled) {
-    log.general.info(
-      '[Offers] native offer materialization disabled; convergence requests are stored and ' +
-        'will run once enabled',
-    );
-    return;
-  }
 
   timer = setInterval(() => {
     void tick();

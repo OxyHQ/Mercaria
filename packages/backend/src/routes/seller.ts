@@ -54,7 +54,6 @@ import {
   startSellerDraftSchema,
 } from '../middleware/sell-yours-schemas.js';
 import { assertNoProofFields } from '../services/sell-yours/draft.service.js';
-import { config } from '../config/index.js';
 import { respondWithError } from '../lib/errors/error-codes.js';
 
 /**
@@ -217,9 +216,7 @@ router.use(
  *
  * Mounted under `/seller` because a draft is one seller's own work-in-progress
  * and the router's `authenticateToken` already establishes them — the same
- * reasoning `/seller/listings` uses. `SELL_YOURS_ENABLED` gates the MOUNT and
- * never a stored draft: with it off the flow is unavailable and every draft is
- * exactly where its owner left it.
+ * reasoning `/seller/listings` uses.
  *
  * `assertNoProofFieldsMiddleware` runs BEFORE the `.strict()` schemas, so a
  * seller who sends a serial number is told what Mercaria does not accept and
@@ -228,39 +225,37 @@ router.use(
  * `/drafts/candidates` is registered before `/drafts/:id` — otherwise
  * `candidates` is read as a draft id and every scan answers 404.
  */
-if (config.sellYours.enabled) {
-  router.get(
-    '/drafts/candidates',
-    makeRateLimiter('listings'),
-    validateQuery(sellerMatchCandidateQuerySchema),
-    listMatchCandidates,
-  );
-  router.get('/drafts', makeRateLimiter('listings'), listDrafts);
-  router.post(
-    '/drafts',
-    makeRateLimiter('listings'),
-    assertNoProofFieldsMiddleware,
-    validateBody(startSellerDraftSchema),
-    startDraft,
-  );
-  router.get(
-    '/drafts/:id',
-    makeRateLimiter('listings'),
-    validateId('id'),
-    validateQuery(sellerDraftPreviewQuerySchema),
-    getDraftPreview,
-  );
-  router.patch(
-    '/drafts/:id',
-    makeRateLimiter('listings'),
-    validateId('id'),
-    assertNoProofFieldsMiddleware,
-    validateBody(patchSellerDraftSchema),
-    patchDraft,
-  );
-  router.delete('/drafts/:id', makeRateLimiter('listings'), validateId('id'), deleteDraft);
-  router.post('/drafts/:id/publish', makeRateLimiter('listings'), validateId('id'), publishDraft);
-}
+router.get(
+  '/drafts/candidates',
+  makeRateLimiter('listings'),
+  validateQuery(sellerMatchCandidateQuerySchema),
+  listMatchCandidates,
+);
+router.get('/drafts', makeRateLimiter('listings'), listDrafts);
+router.post(
+  '/drafts',
+  makeRateLimiter('listings'),
+  assertNoProofFieldsMiddleware,
+  validateBody(startSellerDraftSchema),
+  startDraft,
+);
+router.get(
+  '/drafts/:id',
+  makeRateLimiter('listings'),
+  validateId('id'),
+  validateQuery(sellerDraftPreviewQuerySchema),
+  getDraftPreview,
+);
+router.patch(
+  '/drafts/:id',
+  makeRateLimiter('listings'),
+  validateId('id'),
+  assertNoProofFieldsMiddleware,
+  validateBody(patchSellerDraftSchema),
+  patchDraft,
+);
+router.delete('/drafts/:id', makeRateLimiter('listings'), validateId('id'), deleteDraft);
+router.post('/drafts/:id/publish', makeRateLimiter('listings'), validateId('id'), publishDraft);
 // Local discovery (#93 P2P) — a coarse AREA, opted into per listing. The write
 // accepts a precise position and the server rounds it to a cell before storing;
 // `listing_local_discovery` has no coordinate column, so nothing here can

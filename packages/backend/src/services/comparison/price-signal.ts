@@ -1,18 +1,12 @@
 /**
- * Price-history summaries in a comparison, and the policy that gates them
- * (#96 grounded input item 6: "price-history or price-signal summaries only
- * when policy permits").
+ * Price-history summaries in a comparison (#96 grounded input item 6:
+ * "price-history or price-signal summaries only when policy permits").
  *
- * ## The policy is #78's own lever, read by the CALLER
- *
- * `PRICE_HISTORY_PUBLIC_READS_ENABLED` gates whether a deployment publishes
- * price history to buyers at all, and this module honours it rather than
- * reaching past it — the controller resolves it and passes
- * `priceSignalsPermitted`, so there is exactly one place the rollout is
- * decided. With it off, a comparison carries NO price signals and the
- * explanation package therefore has none to summarize, instead of a paragraph
- * quietly claiming a price is unusually low on evidence the deployment decided
- * not to serve.
+ * #78's policy is the series itself: a series exists only in the currencies
+ * `PRICE_HISTORY_SERIES_CURRENCIES` lists, and a comparison in any other
+ * currency carries NO price signal, so the explanation package has none to
+ * summarize rather than a paragraph claiming a price is unusually low on
+ * evidence nobody built.
  *
  * ## Only a POINT-BACKED low is carried, and it names its window
  *
@@ -36,7 +30,6 @@ import type {
   CurrencyCode,
   PriceHistoryResponse,
 } from '@mercaria/shared-types';
-import { config } from '../../config/index.js';
 import { readPriceHistory } from '../price-history/read.service.js';
 import { renderMoney } from './render.js';
 import type { ComparisonRecordIndex } from './record-refs.js';
@@ -143,9 +136,4 @@ function coverageOf(
   }
   if (end < start) end = start;
   return { from: new Date(start).toISOString(), through: new Date(end).toISOString() };
-}
-
-/** Whether this deployment publishes price history to buyers at all (#78's lever). */
-export function priceSignalsPermitted(): boolean {
-  return config.priceHistory.publicReadsEnabled;
 }

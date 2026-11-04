@@ -1,12 +1,10 @@
 /**
  * The rebuild loop (#78 operations 1 and 2).
  *
- * `PRICE_HISTORY_ENABLED` gates the LOOP and never the durable record: an
- * observation is written on every offer write whatever this flag says, and
- * turning the flag on drains whatever accumulated while it was off. Turning it
- * off cannot make a stored point disappear either — what stops is the
- * convergence, and a series then reports its own `rebuiltAt` and coverage so a
- * reader can see exactly how stale it is.
+ * An observation is written on every offer write, and a series is enqueued
+ * only in the currencies `PRICE_HISTORY_SERIES_CURRENCIES` lists — that list,
+ * empty by default, is the real switch. A series reports its own `rebuiltAt`
+ * and coverage, so a reader can see exactly how stale it is.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -77,8 +75,6 @@ export async function runPriceSeriesRebuildTick(
  * followed.
  */
 export function startPriceSeriesRebuildDispatcher(): void {
-  if (!config.priceHistory.enabled) return;
-
   const leaseOwner = `price-history-${randomUUID()}`;
   const timer = setInterval(() => {
     void runPriceSeriesRebuildTick(leaseOwner).catch((err: unknown) => {

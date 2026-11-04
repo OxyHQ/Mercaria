@@ -614,11 +614,10 @@ export interface ComparisonRelationshipRecord {
  * A price-history summary, carried ONLY when policy permits (issue grounded
  * input item 6).
  *
- * #78 gates its buyer-facing reads behind `PRICE_HISTORY_PUBLIC_READS_ENABLED`,
- * and this input honours that lever rather than reaching past it: with the
- * lever off the array is EMPTY and the explanation package says so, instead of
- * a comparison quietly claiming a price is unusually low on evidence a
- * deployment decided not to publish.
+ * #78 builds a series only in the currencies a deployment lists, and a point
+ * backs every summary: where no series covers the subject the array is EMPTY
+ * and the explanation package says so, instead of a comparison quietly
+ * claiming a price is unusually low on evidence nobody built.
  */
 export interface ComparisonPriceSignal {
   readonly ref: string;

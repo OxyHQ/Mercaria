@@ -579,7 +579,7 @@ function assertReportSums(
 /**
  * Run one pass.
  *
- * The mode defaults to `dry_run`, the `PRODUCT_SAVE_MIGRATION_ENABLED` posture:
+ * The mode defaults to `dry_run`, the product-save migration's posture:
  * a migration that writes because somebody forgot a flag is the one failure
  * neither a report nor a rollback can undo.
  */

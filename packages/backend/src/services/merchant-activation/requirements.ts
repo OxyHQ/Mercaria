@@ -246,16 +246,11 @@ const DERIVATIONS: Readonly<Record<MerchantActivationRequirementKey, Derivation>
   // what makes the guarantee visible on the dashboard instead of implicit.
   guest_merchant_order_access: () => OK,
 
-  // #110's buyer WRITE mount, switched off deployment-wide. The reason names
-  // THAT, and the owner is the deployment: #110 shipped, so pointing a merchant
-  // at it would send them to wait for something that already exists. It read
-  // `pickup_not_supported`/`#110` until this fix — a reason belonging to an
-  // unrelated condition, on the merchant's own dashboard, as the stated cause
-  // of their guest checkout being `ineligible`.
-  guest_support_and_returns_available: (f) =>
-    f.guest.buyerRequestsEnabled
-      ? OK
-      : cannotAnswer('guest_support_requests_disabled', 'deployment'),
+  // #110's buyer request path is always mounted, so this is MET structurally,
+  // like the two refund requirements below. It stays in the registry because
+  // it is part of the published readiness contract and of every stored
+  // capability event.
+  guest_support_and_returns_available: () => OK,
 
   // The one that FAILS CLOSED and is not a merchant's fault. Mercaria has no
   // outbound mail transport: #108's registry is empty and every send fails

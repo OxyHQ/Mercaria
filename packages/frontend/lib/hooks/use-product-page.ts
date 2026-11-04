@@ -115,10 +115,9 @@ export function useProductPage(
  * about different things, and a chart that blended them would be the one shape
  * #78 exists to refuse.
  *
- * `retry: false` because the ordinary answer on a deployment that has not
- * enabled public price-history reads is a 404 from an unmounted router. That is
- * a configuration fact, not a transient failure, and the panel renders nothing
- * rather than an error a shopper cannot act on.
+ * `retry: false` because the panel is decoration on the product page: a failed
+ * read renders nothing rather than an error a shopper cannot act on, and
+ * retrying would spend requests on a panel the page does not need.
  */
 export function useProductPriceHistory(input: {
   canonicalProductId: string | undefined;

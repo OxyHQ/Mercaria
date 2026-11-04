@@ -1,12 +1,9 @@
 /**
  * The evaluation loop (#79 evaluation 1, abuse rule 2).
  *
- * `PRICE_ALERT_EVALUATION_ENABLED` gates the LOOP and never the durable record:
- * a queue row is written on every offer write to a watched product whatever this
- * flag says, and turning it on drains whatever accumulated while it was off.
- * Turning it off cannot lose a qualifying event either — what stops is the
- * DECIDING, and the offers are still there to be decided against when it comes
- * back. The three levers and what each does are in `config/index.ts`.
+ * A queue row is written on every offer write to a watched product, so work
+ * outstanding when a process stops is drained by the next one: a stopped loop
+ * stops the DECIDING and never loses a qualifying event.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -80,8 +77,6 @@ export async function runPriceAlertEvaluationTick(
  * `LeaderElection` established and every Oxy singleton since has followed.
  */
 export function startPriceAlertEvaluationDispatcher(): void {
-  if (!config.priceAlerts.evaluationEnabled) return;
-
   const leaseOwner = `price-alert-eval-${randomUUID()}`;
   const timer = setInterval(() => {
     void runPriceAlertEvaluationTick(leaseOwner).catch((err: unknown) => {

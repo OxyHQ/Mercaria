@@ -409,8 +409,8 @@ ADR 0007 D12's six levers are the rollout controls and **this workstream adds
 none**, deliberately: nothing here gates a durable record, the classification is
 derived, and the one repair is a projection whose rollback is re-running it. The
 mode of the write is a command-line argument because it is an operator's decision
-on the day (#367 step 4's ruling, and `PRODUCT_SAVE_MIGRATION_ENABLED`'s before
-it).
+on the day (#367 step 4's ruling, and the product-save migration's `dryRun`
+default before it).
 
 The staged order the epic asks for, with the gate at each step:
 

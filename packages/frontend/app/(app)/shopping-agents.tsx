@@ -120,8 +120,21 @@ export default function ShoppingAgentsScreen() {
               </View>
             ) : null}
 
+            {/*
+              Neutral on purpose: an error here is as often the server
+              answering one as the network failing, so the copy blames
+              neither and offers the retry.
+            */}
             {agents.isError ? (
-              <Text className="text-sm text-text-secondary">{t('shoppingAgents.loadError')}</Text>
+              <EmptyState
+                variant="compact"
+                description={t('shoppingAgents.loadError')}
+                action={{
+                  label: t('common.tryAgain'),
+                  onPress: () => void agents.refetch(),
+                  loading: agents.isFetching,
+                }}
+              />
             ) : null}
 
             {!agents.isPending && !agents.isError && list.length === 0 ? (

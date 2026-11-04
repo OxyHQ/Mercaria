@@ -13,8 +13,8 @@
  *
  * `--apply` is required to write anything, and there is no environment variable
  * for it: a migration that wrote because somebody forgot a flag is the one
- * failure neither a report nor a rollback can undo
- * (`PRODUCT_SAVE_MIGRATION_ENABLED`'s decision, and #367 step 4's).
+ * failure neither a report nor a rollback can undo (the product-save
+ * migration's `dryRun` default, and #367 step 4's).
  *
  * A dry run is not a prediction. It runs the identical statements inside a
  * transaction and rolls them back, so it exercises every trigger and CHECK the

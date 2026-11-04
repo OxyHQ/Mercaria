@@ -39,18 +39,24 @@ compares nothing.
 `CATALOG_INGESTION_ENABLED`, `CANONICAL_GRAPH_ENABLED`,
 `CANONICAL_WRITE_PUBLICATION_ENABLED` and `CANONICAL_SEARCH` default ON. So do the
 read MOUNTS that need no secret and gate nothing durable:
-`CATALOG_TAXONOMY_V2_ENABLED`, `FACETS_ENABLED`, `PRODUCT_SAVES_ENABLED` (reads
-stay `off`, the migration stays a dry run), `WATCHLISTS_ENABLED`,
-`PRICE_ALERTS_ENABLED`, `PRICE_ALERT_EVALUATION_ENABLED` and
+`CATALOG_TAXONOMY_V2_ENABLED`, `FACETS_ENABLED` and
 `NEARBY_DISCOVERY_ENABLED` (which still stays off without `GOWAY_API_URL`).
 
 Each remains a lever: setting it OFF is the rollback, exactly as D24 describes.
 
 Deliberately still OFF: `SEO_ROUTES_ENABLED` (turning it on without
 `SEO_INDEXING_MODE` serves `noindex` and an empty sitemap; indexing the catalogue
-is a product decision), `OFFER_REFRESH_ENABLED`, `OFFER_EXPIRY_SWEEP_ENABLED`,
-`PRICE_HISTORY_ENABLED` (no series currencies are chosen), the price-signal levers
-(they need a published policy) and every lever that needs a secret.
+is a product decision) and every lever that needs a secret.
+
+**Amended 2026-10-16 — no longer levers at all.** Product saves (reads stay
+`off`; a migration page is a dry run unless the request says `dryRun: false`),
+watchlists, price alerts with their evaluation and delivery, shopping agents,
+offer materialization, offer refresh, the offer expiry sweep, the price-history
+rebuild and its public reads (no series is built until
+`PRICE_HISTORY_SERIES_CURRENCIES` names a currency), and price signals with their
+public reads (every signal is `unmeasured` until a policy is published) are
+always on. Their `*_ENABLED` variables are gone; stopping one of their loops is a
+deploy.
 
 ### D2. Sources are declared in code
 

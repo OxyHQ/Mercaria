@@ -7,13 +7,12 @@
  * be the first place a second answer appeared — #74's rule for the same shape
  * of surface, one domain over.
  *
- * ## The two rollout levers are resolved HERE and passed IN
+ * ## The rollout lever is resolved HERE and passed IN
  *
  * `CANONICAL_OFFER_COMPARISON` decides whether the offers half may be served at
- * all, and `PRICE_HISTORY_PUBLIC_READS_ENABLED` decides whether #78's signals
- * may enter the grounded input. Both are read once, in this file, and handed to
- * the services as booleans — the `readCanonicalProductPage` decision, so a
- * service reading `config` is never a second place a rollout is decided.
+ * all. It is read once, in this file, and handed to the services as a boolean —
+ * the `readCanonicalProductPage` decision, so a service reading `config` is
+ * never a second place a rollout is decided.
  *
  * A comparison with the offers lever off still answers: the products, their
  * typed attributes and their constraint outcomes are all real, and every
@@ -130,7 +129,6 @@ export async function compareProductsHandler(req: Request, res: Response): Promi
       ...(constraints === undefined ? {} : { constraints }),
       offerLimit: config.pagination.defaultPageSize,
       offerComparisonPermitted: offersPermitted(),
-      priceSignalsPermitted: config.priceHistory.publicReadsEnabled,
     });
 
     sendSuccess(res, result);

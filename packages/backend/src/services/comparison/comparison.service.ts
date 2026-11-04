@@ -99,8 +99,6 @@ export interface ProductComparisonRequest {
    * is decided.
    */
   readonly offerComparisonPermitted: boolean;
-  /** Whether #78's price signals may enter the input (grounded input item 6). */
-  readonly priceSignalsPermitted: boolean;
 }
 
 /**
@@ -233,17 +231,15 @@ export async function compareCanonicalProducts(
             request.market,
           );
 
-    // ── #78's price signals, only where policy permits ────────────────────
-    if (request.priceSignalsPermitted) {
-      const signal = await readSubjectPriceSignal({
-        index,
-        subjectRef,
-        canonicalProductId: product.id,
-        comparisonCurrency: request.comparisonCurrency,
-        ...(request.market === undefined ? {} : { market: request.market }),
-      });
-      if (signal !== undefined) priceSignals.push(signal);
-    }
+    // ── #78's price signals, only where a point backs one ─────────────────
+    const signal = await readSubjectPriceSignal({
+      index,
+      subjectRef,
+      canonicalProductId: product.id,
+      comparisonCurrency: request.comparisonCurrency,
+      ...(request.market === undefined ? {} : { market: request.market }),
+    });
+    if (signal !== undefined) priceSignals.push(signal);
 
     const commerce = summariseCommerce(subjectOffers, request.offerComparisonPermitted);
     subjects.push({

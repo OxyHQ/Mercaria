@@ -29,11 +29,9 @@ import type {
 } from '@mercaria/shared-types';
 import {
   discloseProductSaveCount,
-  PRODUCT_SAVE_PRICE_ALERT_DISABLED,
   PRODUCT_SAVE_PRICE_ALERT_SUPPORTED,
 } from '@mercaria/shared-types';
 import { eq, inArray, sql } from 'drizzle-orm';
-import { config } from '../../config/index.js';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import { canonicalImages, canonicalProducts } from '../../db/schema/canonicalCatalog.js';
 import { catalogSplitJobs } from '../../db/schema/curation.js';
@@ -110,14 +108,11 @@ export async function projectSavedProducts(
       product: summary,
       offer,
       priceChange: derivePriceChange(dto.referencePrice, offer),
-      // #79 CLOSED the seam #80 opened, and this is still one value for the
-      // whole page rather than a per-save read: whether alerts are MOUNTED is a
-      // deployment fact, and reading anything per-save would mean this domain
+      // #79 CLOSED the seam #80 opened, and this is one constant rather than a
+      // per-save read: reading anything per-save would mean this domain
       // reaching #79's, which `product-save-isolation.test.ts` refuses. The
       // client asks `/price-alerts` what the buyer has actually set.
-      priceAlert: config.priceAlerts.enabled
-        ? PRODUCT_SAVE_PRICE_ALERT_SUPPORTED
-        : PRODUCT_SAVE_PRICE_ALERT_DISABLED,
+      priceAlert: PRODUCT_SAVE_PRICE_ALERT_SUPPORTED,
     });
   }
 

@@ -6,10 +6,9 @@
  * it under `/product-saves` would name the response after the half of it a
  * rolled-back deployment does not serve.
  *
- * Mounted with `/product-saves` under `PRODUCT_SAVES_ENABLED` — the read mode
- * (`PRODUCT_SAVE_READS`) is the lever INSIDE an enabled deployment, and the two
- * are independent on purpose: `enabled=true, readMode=off` is a deployment that
- * has the surface and is serving the old list, which is where a rollback lands.
+ * Always mounted with `/product-saves`. The read mode (`PRODUCT_SAVE_READS`)
+ * decides what it serves: `off` is the surface serving the old list, which is
+ * where a rollback lands.
  */
 
 import { Router } from 'express';

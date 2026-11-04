@@ -121,7 +121,6 @@ export interface ActivationGuestFacts {
   readonly fulfilmentMethods: readonly string[];
   readonly sellerBlockedByOperator: boolean;
   readonly transactionalTransportConfigured: boolean;
-  readonly buyerRequestsEnabled: boolean;
 }
 
 /** Everything `requirements.ts` is allowed to see. */
@@ -295,7 +294,6 @@ export async function readMerchantActivationFacts(
       fulfilmentMethods: guestFulfilmentMethods,
       sellerBlockedByOperator: rollout.blockedSellerKeys.includes(sellerKey),
       transactionalTransportConfigured: hasGuestMessageTransport(),
-      buyerRequestsEnabled: config.buyerRequests.requestsEnabled,
     },
   };
 }

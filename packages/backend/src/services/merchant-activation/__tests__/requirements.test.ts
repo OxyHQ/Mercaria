@@ -231,38 +231,13 @@ describe('a capability nobody built is UNEVALUABLE and names its owner', () => {
   });
 });
 
-describe('a refusal names its OWN condition', () => {
-  it('reports buyer requests being off as buyer requests being off', () => {
-    // The wrong answer this replaces: `guest_support_and_returns_available`
-    // answered `pickup_not_supported`, owner `#110`, when the fact it had read
-    // was `BUYER_REQUESTS_ENABLED=false`. It reaches the merchant's own
-    // dashboard as the stated cause of their guest checkout being `ineligible`,
-    // and it sent them to wait for pickup — which had already shipped.
-    const outcome = outcomes(activationFacts({ guest: { buyerRequestsEnabled: false } })).get(
-      'guest_support_and_returns_available',
-    );
-    expect(outcome?.state).toBe('unevaluable');
-    expect(outcome?.state === 'unevaluable' && outcome.reason).toBe(
-      'guest_support_requests_disabled',
-    );
-    // The owner moved with the code. #110 SHIPPED, so naming it as the owner of
-    // a gap points a merchant at work that is already done; the deployment is
-    // what turned the mount off.
-    expect(outcome?.state === 'unevaluable' && outcome.owner).toBe('deployment');
-  });
-
-  it('never answers a guest-support question with a PICKUP word', () => {
-    // Kept as a value-level scan rather than left to the union: the defect was
-    // a plausible-looking member of a thirty-code vocabulary, and the next one
-    // would be too. This fires on any pickup-named reason re-appearing here,
-    // whatever it is called.
-    const outcome = outcomes(activationFacts({ guest: { buyerRequestsEnabled: false } })).get(
-      'guest_support_and_returns_available',
-    );
-    const reason = outcome?.state === 'satisfied' ? '' : (outcome?.reason ?? '');
-    // The floor: an empty reason would satisfy the assertion below vacuously.
-    expect(reason.length).toBeGreaterThan(5);
-    expect(reason).not.toMatch(/pickup/i);
+describe('guest support and returns', () => {
+  it('is met structurally, because the buyer request path is always mounted', () => {
+    // It used to read a deployment switch (`BUYER_REQUESTS_ENABLED`) and could
+    // answer `unevaluable`. The switch is gone, so the requirement has nothing
+    // to refuse on — and must never borrow an unrelated reason to do so.
+    const outcome = outcomes(activationFacts()).get('guest_support_and_returns_available');
+    expect(outcome?.state).toBe('satisfied');
   });
 });
 

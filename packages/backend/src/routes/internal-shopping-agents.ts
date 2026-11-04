@@ -16,9 +16,8 @@
  * refused.
  *
  * Mounted on the SAME `catalog.operate` key
- * #54/#56/#57/#58/#60/#62/#68/#70/#78/#79 use, and deliberately NOT gated on
- * `SHOPPING_AGENTS_ENABLED`: the evidence has to be readable during the
- * incident that turned the shopper surface off.
+ * #54/#56/#57/#58/#60/#62/#68/#70/#78/#79 use, and always mounted: the evidence
+ * has to be readable during any incident that turns the shopper surface off.
  */
 
 import { Router } from 'express';

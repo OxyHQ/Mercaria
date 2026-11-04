@@ -125,7 +125,6 @@ export function activationFacts(override: ActivationFactsOverride = {}): Merchan
       fulfilmentMethods: ['standard', 'express', 'pickup'],
       sellerBlockedByOperator: false,
       transactionalTransportConfigured: true,
-      buyerRequestsEnabled: true,
       ...override.guest,
     },
     nativeSatisfied: override.nativeSatisfied ?? true,

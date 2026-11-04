@@ -168,12 +168,11 @@ describe('saving a product has no side effects and no reach', () => {
     // The positive control for WALL 1: proving the domain reaches no alert is
     // only half the claim — #80 API rule 6 also asks the API to OFFER the
     // action, so the projection has to actually carry the field rather than
-    // omitting it entirely. Since #79 landed, the value is a DEPLOYMENT fact
-    // (is the surface mounted) and never a per-save read, which is what keeps
-    // it on the right side of the wall above.
+    // omitting it entirely. Since #79 landed, the value is a CONSTANT and never
+    // a per-save read, which is what keeps it on the right side of the wall
+    // above.
     const projection = domain.find((file) => file.relative.endsWith('saved-product-view.ts'));
     expect(projection?.source).toContain('PRODUCT_SAVE_PRICE_ALERT_SUPPORTED');
-    expect(projection?.source).toContain('PRODUCT_SAVE_PRICE_ALERT_DISABLED');
   });
 
   it('WALL 2: no ranking module can reach the product-save domain', () => {
@@ -258,7 +257,6 @@ describe('saving a product has no side effects and no reach', () => {
     // …and does NOT fire on the #78 seam this domain legitimately carries,
     // which is the whole reason the detector is written as a reach rather than
     // as the word: firing here would make deleting the refusal the fix.
-    expect(ALERT_REFERENCE.test("reason: 'price_alerts_disabled'")).toBe(false);
     expect(ALERT_REFERENCE.test('priceAlert: PRODUCT_SAVE_PRICE_ALERT_SUPPORTED,')).toBe(false);
     // …and DOES fire on the one thing #79 landing could tempt somebody into:
     // reading the alert domain from here to say "you already have one".
