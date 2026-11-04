@@ -146,7 +146,7 @@ describe('the deploy workflow and the migrator agree', () => {
   });
 
   it.each(['mercaria', 'marketplace'])(
-    'renders a historical %s task without the retired shared secret while retaining provider bindings',
+    'renders a historical %s task without the retired shared secret or Stripe credentials while retaining provider bindings',
     (formerProduct) => {
       const steps = (parse(workflow) as WorkflowFile).jobs.deploy.steps;
       const register = steps.find((step) =>
@@ -167,7 +167,7 @@ describe('the deploy workflow and the migrator agree', () => {
       );
       const retainedSecrets = [
         { name: 'DATABASE_URL', valueFrom: '/oxy/mercaria/DATABASE_URL' },
-        { name: 'STRIPE_SECRET_KEY', valueFrom: '/oxy/mercaria/STRIPE_SECRET_KEY' },
+        { name: 'SHOPIFY_CLIENT_SECRET', valueFrom: '/oxy/mercaria/SHOPIFY_CLIENT_SECRET' },
         { name: 'CONNECTOR_ENCRYPTION_KEY', valueFrom: '/oxy/mercaria/CONNECTOR_ENCRYPTION_KEY' },
       ];
       const render = (definition: unknown) =>
@@ -198,10 +198,18 @@ describe('the deploy workflow and the migrator agree', () => {
             image: 'previous-image',
             environment: [
               { name: retired.name, value: retired.syntheticPlaintext },
+              { name: 'MERCHANT_BILLING_PEABLE_COHORT', value: '{"retired":true}' },
               { name: 'INTEGRATIONS_URL', value: 'https://connector.example' },
             ],
             secrets: [
               ...retainedSecrets,
+              // Merchant billing is native Peable and the Stripe rail is off:
+              // Mercaria holds no Stripe credential (ADR 0009 D17).
+              ...[
+                'STRIPE_SECRET_KEY',
+                'STRIPE_WEBHOOK_SECRET',
+                'STRIPE_CONNECT_WEBHOOK_SECRET',
+              ].map((name) => ({ name, valueFrom: `/oxy/mercaria/${name}` })),
               {
                 name: retired.name,
                 valueFrom: retired.reference.replace('/mercaria/', `/${formerProduct}/`),
