@@ -141,6 +141,12 @@ jobs:
       - name: Verify Oxy ecosystem dependencies
         run: bun run doctor:oxy
 
+      # Translation keys follow ADR 0055: nested identifier segments under a
+      # namespace, and no key in a translation that English lacks (a plural
+      # category the locale selects is allowed).
+      - name: Translation key convention
+        run: bun run i18n:check
+
       - name: Verify production deployment gate fixtures
         run: |
           bash -n \
