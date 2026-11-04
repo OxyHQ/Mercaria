@@ -30,7 +30,7 @@
         "@oxy.so/db": "^1.4.0",
         "@oxy.so/mcp": "1.4.1",
         "@oxy.so/moovo-sdk": "0.3.0",
-        "@peable.to/sdk": "0.8.0",
+        "@peable.to/sdk": "1.0.0",
         "@socket.io/redis-adapter": "^8.3.0",
         "bullmq": "^5.80.4",
         "cors": "^2.8.6",
@@ -1028,11 +1028,11 @@
 
     "@parcel/watcher-win32-x64": ["@parcel/watcher-win32-x64@2.5.6", "", { "os": "win32", "cpu": "x64" }, "sha512-hbQlYcCq5dlAX9Qx+kFb0FHue6vbjlf0FrNzSKdYK2APUf7tGfGxQCk2ihEREmbR6ZMc0MVAD5RIX/41gpUzTw=="],
 
-    "@peable.to/contracts": ["@peable.to/contracts@0.3.0", "", { "dependencies": { "zod": "^4.6.7" } }, "sha512-ro2hEtxglLgU8iANt6ZgjKKe5ro6o50rHwfon0bI+GyYIsJ5OMyC3qAmWnZeHKiat76xwCfBhXek1X59Iyq2bg=="],
+    "@peable.to/contracts": ["@peable.to/contracts@1.0.0", "", { "dependencies": { "zod": "^4.6.7" } }, "sha512-lU/n7kb0M19XGV0keplGwveBADBOFoS+6arLIEsh31bbRYKc54mA+exzs4LUMWIFD1+GfhGxOWVtPcfeCnq8AQ=="],
 
-    "@peable.to/sdk": ["@peable.to/sdk@0.8.0", "", { "dependencies": { "@peable.to/contracts": "0.3.0", "@peable.to/shared-types": "0.6.0", "qrcode-generator": "^2.0.4", "socket.io-client": "^4.8.3" }, "peerDependencies": { "@oxy.so/bloom": ">=16.10.0", "react": ">=19.0.0 <20.0.0", "react-native": ">=0.86.0 <1.0.0" }, "optionalPeers": ["@oxy.so/bloom", "react", "react-native"] }, "sha512-DPjTam2k0s5d0ZsQcxcpH7z5Cwde3KRuBl+0ol2ifuY/iMR/eo4KT4XcD21FZ+myqaM5g0aruc/wZWf0+k4KGg=="],
+    "@peable.to/sdk": ["@peable.to/sdk@1.0.0", "", { "dependencies": { "@peable.to/contracts": "1.0.0", "@peable.to/shared-types": "1.0.0", "qrcode-generator": "^2.0.4", "socket.io-client": "^4.8.3" }, "peerDependencies": { "@oxy.so/bloom": ">=16.10.0", "react": ">=19.0.0 <20.0.0", "react-native": ">=0.86.0 <1.0.0" }, "optionalPeers": ["@oxy.so/bloom", "react", "react-native"] }, "sha512-EGtAnwp4vkYig2vEilv3UBDaogoCBa6rdrtKZD1dkdyp3K64R6OJ91xgIic2rdU29vkKcAud2ASi4kRSw7MTbw=="],
 
-    "@peable.to/shared-types": ["@peable.to/shared-types@0.6.0", "", { "dependencies": { "@peable.to/contracts": "0.3.0" } }, "sha512-Ng9JoAjJETD1Mj/LH55raEv9o9rC4ijtBhZtcdn1O9xPQT2sx1/5XZT6rrQ0XC4oGK4/dLxAOcMkBgs6gZGCHw=="],
+    "@peable.to/shared-types": ["@peable.to/shared-types@1.0.0", "", { "dependencies": { "@peable.to/contracts": "1.0.0" } }, "sha512-1/yAfR/+aNuqKnjB2aPwQZgK6R+ribtHAHvmG/079MoBa9d20FE7ZzUkL8avhhsoXu9mzV9OPK2jogYe6th+2g=="],
 
     "@pinojs/redact": ["@pinojs/redact@0.4.0", "", {}, "sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg=="],
 

@@ -53,6 +53,7 @@
 import { describe, it, expect, afterAll, beforeAll } from 'vitest';
 import express from 'express';
 import { createHmac } from 'node:crypto';
+import { PEABLE_API_VERSION } from '@peable.to/sdk';
 import { and, eq } from 'drizzle-orm';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
@@ -134,16 +135,23 @@ function listen(app: express.Express): Promise<string> {
   });
 }
 
-/** A syntactically complete gateway event body. */
-function eventBody(overrides: { id?: string; type?: string; intentId?: string }): string {
-  const type = overrides.type ?? 'payment_intent.settled';
+/** A syntactically complete gateway event body, in the published wire's shapes. */
+function eventBody(overrides: {
+  id?: string;
+  type?: string;
+  intentId?: string;
+  livemode?: boolean;
+}): string {
+  const type = overrides.type ?? 'payment_intent.succeeded';
   const created = Math.floor(Date.now() / 1000);
+  const livemode = overrides.livemode ?? false;
   const paymentIntentId = overrides.intentId ?? 'pi_peable_test_1';
   const object =
     type === 'connected_account.updated'
       ? {
           id: 'ca_peable_fixture',
           object: 'connected_account',
+          livemode,
           external_ref: 'store_fixture',
           rails: ['card'],
           faircoin: null,
@@ -152,56 +160,76 @@ function eventBody(overrides: { id?: string; type?: string; intentId?: string })
           payable: false,
           payouts_enabled: false,
           charges_enabled: false,
-          transfers_capability: 'pending',
-          card_payments_capability: null,
-          requirements: {
-            currently_due: 1,
-            eventually_due: 1,
-            past_due: 0,
-            pending_verification: 0,
-          },
-          disabled_reason_codes: [],
-          last_synced_at: null,
           created,
           updated_at: created,
         }
-      : type === 'payment_intent.disputed' || type === 'payment_intent.dispute_closed'
+      : type.startsWith('charge.dispute.')
         ? {
             id: 'dp_peable_fixture',
             object: 'dispute',
-            payment_intent_id: paymentIntentId,
+            livemode,
+            payment_intent: paymentIntentId,
+            charge: 'ch_peable_fixture',
             amount: '1000',
             currency: 'EUR',
-            status: type === 'payment_intent.disputed' ? 'needs_response' : 'won',
-            reason: null,
-            evidence_due_at: null,
-            evidence_submitted_at: null,
+            status: type === 'charge.dispute.closed' ? 'won' : 'needs_response',
+            reason: 'general',
             created,
-            updated_at: created,
           }
-        : {
-            id: paymentIntentId,
-            object: 'payment_intent',
-            status: 'settled',
-            amount: '1000',
-            currency: 'EUR',
-            rail: 'card',
-            network: null,
-            address: null,
-            merchant_id: 'merch_fixture',
-            txid: null,
-            confirmations: 0,
-            client_secret: 'synthetic-client-secret',
-            metadata: {},
-            expires_at: created,
-            created,
-            updated_at: created,
-          };
+        : type === 'charge.refunded'
+          ? {
+              id: 'ch_peable_fixture',
+              object: 'charge',
+              livemode,
+              payment_intent: paymentIntentId,
+              amount: '1000',
+              amount_captured: '1000',
+              amount_refunded: '1000',
+              currency: 'EUR',
+              status: 'succeeded',
+              refunded: true,
+              created,
+            }
+          : type.startsWith('refund.')
+            ? {
+                id: 're_peable_fixture',
+                object: 'refund',
+                livemode,
+                external_ref: 'refund_fixture',
+                origin: 'merchant',
+                payment_intent: paymentIntentId,
+                amount: '1000',
+                currency: 'EUR',
+                status: 'succeeded',
+                created,
+                updated_at: created,
+              }
+            : {
+                id: paymentIntentId,
+                object: 'payment_intent',
+                livemode,
+                status: 'succeeded',
+                rail: 'card',
+                amount: '1000',
+                amount_received: '1000',
+                amount_refunded: '0',
+                currency: 'EUR',
+                merchant_id: 'merch_fixture',
+                faircoin: null,
+                client_secret: 'synthetic-client-secret',
+                metadata: {},
+                expires_at: created,
+                created,
+                updated_at: created,
+              };
   return JSON.stringify({
     id: overrides.id ?? 'evt_peable_1',
     object: 'event',
+    api_version: PEABLE_API_VERSION,
+    livemode,
     type,
     created,
+    request: { id: null, idempotency_key: null },
     data: { object },
   });
 }
@@ -395,10 +423,10 @@ describe('Peable webhook signature verification', () => {
 
 describe('published SDK webhook families and rotation', () => {
   for (const type of [
-    'payment_intent.refunded',
-    'payment_intent.partially_refunded',
-    'payment_intent.disputed',
-    'payment_intent.dispute_closed',
+    'charge.refunded',
+    'refund.updated',
+    'charge.dispute.created',
+    'charge.dispute.closed',
     'connected_account.updated',
   ]) {
     for (const [keyName, secret] of [
@@ -431,9 +459,19 @@ describe('published SDK webhook families and rotation', () => {
       ['wrong', 'wrong-secret', Math.floor(Date.now() / 1000)],
     ] as const) {
       const id = `evt_sdk_${suffix}`;
-      const payload = eventBody({ id, type: 'payment_intent.refunded' });
+      const payload = eventBody({ id, type: 'charge.refunded' });
       expect((await post(base, payload, sign(payload, secret, timestamp))).status).toBe(400);
       expect(await storedEvents(id)).toHaveLength(0);
     }
+  });
+  it('acknowledges an authentic delivery of the OTHER mode and stores nothing', async () => {
+    const id = 'evt_sdk_other_mode';
+    // This deployment is test mode (`NODE_ENV` is not `production`).
+    const payload = eventBody({ id, livemode: true });
+    const base = await listen(createApp());
+    const answer = await post(base, payload, sign(payload, SECRET));
+    expect(answer.status).toBe(200);
+    expect(answer.body).toContain('livemode_mismatch');
+    expect(await storedEvents(id)).toHaveLength(0);
   });
 });

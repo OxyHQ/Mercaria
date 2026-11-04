@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { createServer, type Server } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { Peable, type BillingSubscription } from '@peable.to/sdk';
+import { PEABLE_TRANSPORT } from '../../../payments/peable/client.js';
 import { connectPostgres, closePostgres, type Database } from '../../../../db/postgres.js';
 import { stores } from '../../../../db/schema/stores.js';
 import {
@@ -293,6 +294,7 @@ beforeEach(() => {
       secret: 'fixture-secret',
       baseURL: url,
       oxyApiUrl: url,
+      ...PEABLE_TRANSPORT,
     }),
     {
       merchantId: 'merchant-fixture',

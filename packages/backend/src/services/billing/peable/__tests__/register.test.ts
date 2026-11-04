@@ -264,6 +264,9 @@ describe('billing cohort registration', () => {
     expect(seam.constructed).toHaveBeenCalledExactlyOnceWith({
       oxy: seam.oxy,
       baseURL: 'http://unused',
+      // One attempt: a lost response must reach the caller as an unknown outcome.
+      timeout: 20_000,
+      maxNetworkRetries: 0,
     });
   });
   it('does not enable the out-of-cohort legacy mutator', async () => {

@@ -1,11 +1,8 @@
-import { peableForOxyService } from '@peable.to/sdk';
 import { createHash } from 'node:crypto';
 import { log } from '../../lib/logger.js';
 import { config } from '../../config/index.js';
-import {
-  oxyServiceClient,
-  requiredOxyServiceClient,
-} from '../../capabilities/oxy-service-client.js';
+import { oxyServiceClient } from '../../capabilities/oxy-service-client.js';
+import { createPeableClient } from '../payments/peable/client.js';
 import { registerBillingProvider } from './provider.js';
 import { StripeBillingProvider } from './stripe/stripe-billing.js';
 import { billingCohortSchema, CohortBillingProvider } from './peable/adapter.js';
@@ -36,10 +33,7 @@ export async function registerMerchantBillingProvider(): Promise<void> {
   if (accountId !== cohort.platformAccountId || legacy.livemode !== cohort.livemode) {
     throw new Error('Merchant billing platform account or mode differs from the cohort.');
   }
-  const client = peableForOxyService({
-    oxy: requiredOxyServiceClient(),
-    baseURL: config.payments.peable.baseUrl,
-  });
+  const client = createPeableClient();
   // Namespace must resolve through Mercaria's identity; never register a merchant here.
   const merchant = await client.merchants.retrieve();
   if (

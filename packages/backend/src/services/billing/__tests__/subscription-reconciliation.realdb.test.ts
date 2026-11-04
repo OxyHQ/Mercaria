@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { eq, inArray } from 'drizzle-orm';
 import { Peable, type BillingSubscription } from '@peable.to/sdk';
+import { PEABLE_TRANSPORT } from '../../payments/peable/client.js';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import { stores } from '../../../db/schema/stores.js';
 import {
@@ -244,6 +245,7 @@ beforeAll(async () => {
       secret: 'fixture-secret',
       baseURL: url,
       oxyApiUrl: url,
+      ...PEABLE_TRANSPORT,
     }),
     cohort,
     async (ref) => {

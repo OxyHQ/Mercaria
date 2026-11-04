@@ -24,16 +24,47 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 import { createServer } from 'node:http';
 import { createHmac } from 'node:crypto';
+import { PEABLE_API_VERSION } from '@peable.to/sdk';
 import type { PaymentProviderStage } from '../provider.js';
 import { PaymentProviderError } from '../provider.js';
 
 /** The gateway's own state, per intent. */
 interface FakeIntent {
   id: string;
-  status: string;
+  status: 'requires_payment_method' | 'succeeded' | 'canceled';
   amount: string;
   currency: string;
   refundedMinor: number;
+}
+
+/** An intent as the gateway renders it: the fields the adapter reads. */
+function renderIntent(intent: FakeIntent, withClientAction: boolean): Record<string, unknown> {
+  return {
+    id: intent.id,
+    object: 'payment_intent',
+    livemode: false,
+    status: intent.status,
+    amount: intent.amount,
+    amount_received: intent.status === 'succeeded' ? intent.amount : '0',
+    amount_refunded: String(intent.refundedMinor),
+    currency: intent.currency,
+    last_payment_error: null,
+    ...(withClientAction
+      ? { client_action: { kind: 'client_secret', value: `${intent.id}_secret` } }
+      : {}),
+  };
+}
+
+/** A refund as the gateway renders it. */
+function renderRefund(id: string, intentId: string): Record<string, unknown> {
+  return {
+    id,
+    object: 'refund',
+    livemode: false,
+    payment_intent: intentId,
+    status: 'succeeded',
+    failure_code: null,
+  };
 }
 
 const intents = new Map<string, FakeIntent>();
@@ -121,21 +152,20 @@ async function fakeGateway(request: FakeRequest): Promise<unknown> {
   if (request.method === 'POST' && request.path === '/v1/payment_intents') {
     const key = request.idempotencyKey ?? '';
     const existing = intentsByKey.get(key);
-    if (existing !== undefined) {
-      const intent = intents.get(existing);
-      return { ...intent, client_action: { kind: 'client_secret', value: `${existing}_secret` } };
-    }
+    const existingIntent = existing === undefined ? undefined : intents.get(existing);
+    if (existingIntent) return renderIntent(existingIntent, true);
     nextId += 1;
     const id = `pi_fake_${String(nextId)}`;
-    intents.set(id, {
+    const intent: FakeIntent = {
       id,
-      status: 'created',
+      status: 'requires_payment_method',
       amount: String(body.amount),
       currency: String(body.currency),
       refundedMinor: 0,
-    });
+    };
+    intents.set(id, intent);
     intentsByKey.set(key, id);
-    return { ...intents.get(id), client_action: { kind: 'client_secret', value: `${id}_secret` } };
+    return renderIntent(intent, true);
   }
 
   const intentMatch = /^\/v1\/payment_intents\/([^/]+)$/.exec(request.path);
@@ -149,12 +179,12 @@ async function fakeGateway(request: FakeRequest): Promise<unknown> {
         retryable: false,
       });
     }
-    return { ...intent, client_action: { kind: 'client_secret', value: `${intent.id}_secret` } };
+    return renderIntent(intent, true);
   }
 
-  const rejectMatch = /^\/v1\/payment_intents\/([^/]+)\/reject$/.exec(request.path);
-  if (request.method === 'POST' && rejectMatch) {
-    const intent = intents.get(decodeURIComponent(rejectMatch[1] ?? ''));
+  const cancelMatch = /^\/v1\/payment_intents\/([^/]+)\/cancel$/.exec(request.path);
+  if (request.method === 'POST' && cancelMatch) {
+    const intent = intents.get(decodeURIComponent(cancelMatch[1] ?? ''));
     if (!intent) {
       throw new PaymentProviderError({
         provider: 'peable',
@@ -163,11 +193,11 @@ async function fakeGateway(request: FakeRequest): Promise<unknown> {
         retryable: false,
       });
     }
-    // The real gateway's `LEGAL_SOURCES` allows `card_canceled` only from
-    // `created` and `requires_action`. Cancelling a payment that already took
-    // the buyer's money is not a cancellation, it is a refund — and a fake that
-    // allowed it would let an adapter through that calls the wrong one.
-    if (intent.status !== 'created' && intent.status !== 'requires_action') {
+    // The real gateway cancels only while nothing is moving money. Cancelling a
+    // payment that already took the buyer's money is not a cancellation, it is
+    // a refund — and a fake that allowed it would let an adapter through that
+    // calls the wrong one.
+    if (intent.status !== 'requires_payment_method') {
       throw new PaymentProviderError({
         provider: 'peable',
         stage: request.stage,
@@ -175,13 +205,33 @@ async function fakeGateway(request: FakeRequest): Promise<unknown> {
         retryable: false,
       });
     }
-    intent.status = 'rejected';
-    return { ...intent };
+    intent.status = 'canceled';
+    return renderIntent(intent, false);
+  }
+
+  const refundListMatch = /^\/v1\/payment_intents\/([^/]+)\/refunds$/.exec(request.path);
+  if (request.method === 'GET' && refundListMatch) {
+    const intent = intents.get(decodeURIComponent(refundListMatch[1] ?? ''));
+    if (!intent) {
+      throw new PaymentProviderError({
+        provider: 'peable',
+        stage: request.stage,
+        message: 'payment intent not found',
+        retryable: false,
+      });
+    }
+    return {
+      object: 'list',
+      data: [],
+      has_more: false,
+      url: request.path,
+      remaining_refundable: String(Number(intent.amount) - intent.refundedMinor),
+    };
   }
 
   if (request.method === 'POST' && request.path === '/v1/refunds') {
     const ref = String(body.external_ref);
-    const intent = intents.get(String(body.payment_intent_id));
+    const intent = intents.get(String(body.payment_intent));
     if (!intent) {
       throw new PaymentProviderError({
         provider: 'peable',
@@ -190,26 +240,21 @@ async function fakeGateway(request: FakeRequest): Promise<unknown> {
         retryable: false,
       });
     }
-    // The real gateway refuses a refund unless the payment settled. Mirrored
+    // The real gateway refuses a refund unless the payment succeeded. Mirrored
     // here because the contract suite asserts exactly that refusal, and a fake
     // that refunded anything would pass an adapter that never checks.
-    if (intent.status !== 'settled' && intent.status !== 'partially_refunded') {
+    if (intent.status !== 'succeeded') {
       throw new PaymentProviderError({
         provider: 'peable',
         stage: 'refund',
-        message: `a refund needs a settled payment; this one is '${intent.status}'`,
+        message: `a refund needs a succeeded payment; this one is '${intent.status}'`,
         retryable: false,
       });
     }
     const existing = refundsByRef.get(ref);
     if (existing) {
       // The converged retry: the SAME refund, and no second movement.
-      return {
-        id: existing.id,
-        status: 'succeeded',
-        payment_status: intent.status,
-        failure_code: null,
-      };
+      return renderRefund(existing.id, intent.id);
     }
     const amount = Number(body.amount);
     if (intent.refundedMinor + amount > Number(intent.amount)) {
@@ -223,20 +268,19 @@ async function fakeGateway(request: FakeRequest): Promise<unknown> {
     nextId += 1;
     const id = `re_fake_${String(nextId)}`;
     intent.refundedMinor += amount;
-    intent.status =
-      intent.refundedMinor >= Number(intent.amount) ? 'refunded' : 'partially_refunded';
     refundsByRef.set(ref, { id, amount: String(amount), intentId: intent.id });
-    return { id, status: 'succeeded', payment_status: intent.status, failure_code: null };
+    return renderRefund(id, intent.id);
   }
 
   if (request.method === 'POST' && request.path === '/v1/transfers') {
     const ref = String(body.external_ref);
     const existing = transfersByRef.get(ref);
-    if (existing) return { id: existing.id, status: 'paid', amount_reversed: '0' };
+    if (existing)
+      return { id: existing.id, object: 'transfer', status: 'paid', amount_reversed: '0' };
     nextId += 1;
     const id = `tr_fake_${String(nextId)}`;
-    transfersByRef.set(ref, { id, intentId: String(body.payment_intent_id), reversedMinor: 0 });
-    return { id, status: 'paid', amount_reversed: '0' };
+    transfersByRef.set(ref, { id, intentId: String(body.payment_intent), reversedMinor: 0 });
+    return { id, object: 'transfer', status: 'paid', amount_reversed: '0' };
   }
 
   const reversalMatch = /^\/v1\/transfers\/([^/]+)\/reversals$/.exec(request.path);
@@ -252,11 +296,20 @@ async function fakeGateway(request: FakeRequest): Promise<unknown> {
       });
     }
     entry.reversedMinor += Number(body.amount);
+    nextId += 1;
     return {
       id: entry.id,
+      object: 'transfer',
       status: 'partially_reversed',
       // CUMULATIVE, which is what the adapter must report back.
       amount_reversed: String(entry.reversedMinor),
+      reversal: {
+        id: `trr_fake_${String(nextId)}`,
+        object: 'transfer_reversal',
+        external_ref: String(body.external_ref),
+        amount: String(body.amount),
+        status: 'succeeded',
+      },
     };
   }
 
@@ -273,13 +326,13 @@ const gateway = createServer(async (req, res) => {
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(Buffer.from(chunk));
   const raw = Buffer.concat(chunks).toString();
-  const path = req.url ?? '';
+  const path = new URL(req.url ?? '/', 'http://gateway.test').pathname;
   const stage: PaymentProviderStage =
     path === '/v1/payment_intents'
       ? 'createPayment'
-      : path.endsWith('/reject')
+      : path.endsWith('/cancel')
         ? 'cancel'
-        : path === '/v1/refunds'
+        : path === '/v1/refunds' || path.endsWith('/refunds')
           ? 'refund'
           : path.startsWith('/v1/transfers')
             ? 'transfer'
@@ -430,12 +483,12 @@ runPaymentProviderContract({
   /**
    * A card rail has NO capture step: the buyer confirms client-side and the
    * money is captured in the same movement (ADR 0001 D3). Settling here is
-   * therefore what the gateway's own event does — the payment reaches `settled`
-   * — and the adapter reads it back.
+   * therefore what the gateway's own event does — the payment reaches
+   * `succeeded` — and the adapter reads it back.
    */
   settle: async (provider, { providerObjectId }) => {
     const intent = intents.get(providerObjectId);
-    if (intent) intent.status = 'settled';
+    if (intent) intent.status = 'succeeded';
     await provider.getStatus(providerObjectId);
   },
   signEventFor: (_provider, { providerObjectId, status }) => {
@@ -447,9 +500,12 @@ runPaymentProviderContract({
     const payload = JSON.stringify({
       id: `evt_contract_${providerObjectId}_${String(nextId)}`,
       object: 'event',
-      type: status === 'succeeded' ? 'payment_intent.settled' : 'payment_intent.confirming',
+      api_version: PEABLE_API_VERSION,
+      livemode: false,
+      type: status === 'succeeded' ? 'payment_intent.succeeded' : 'payment_intent.processing',
       created: Math.floor(Date.now() / 1000),
-      data: { object: { id: providerObjectId } },
+      request: { id: null, idempotency_key: null },
+      data: { object: { id: providerObjectId, object: 'payment_intent' } },
     });
     const timestamp = Math.floor(Date.now() / 1000);
     const signature = createHmac('sha256', WEBHOOK_SECRET)
@@ -484,7 +540,7 @@ describe('PeablePaymentProvider settlement', () => {
       metadata: {},
     });
     const intent = intents.get(created.providerObjectId);
-    if (intent) intent.status = 'settled';
+    if (intent) intent.status = 'succeeded';
     return created.providerObjectId;
   }
 
@@ -636,8 +692,8 @@ describe('PeablePaymentProvider settlement', () => {
       stage: 'transfer',
       idempotencyKey: 'tr:order-naming',
       body: {
-        payment_intent_id: sourceId,
-        connected_account_id: 'ca_seller_naming',
+        payment_intent: sourceId,
+        connected_account: 'ca_seller_naming',
         external_ref: 'order-naming',
         amount: '2500',
       },
@@ -770,9 +826,10 @@ describe('published SDK HTTP parity', () => {
     });
     expect(wire.at(-1)).toEqual({
       method: 'POST',
-      path: `/v1/payment_intents/${created.providerObjectId}/reject`,
+      path: `/v1/payment_intents/${created.providerObjectId}/cancel`,
       stage: 'cancel',
       idempotencyKey: 'cancel:pay-http',
+      body: { cancellation_reason: 'abandoned' },
     });
   });
   test.each(['pending', 'failed'] as const)(
@@ -780,7 +837,7 @@ describe('published SDK HTTP parity', () => {
     async (state) => {
       const provider = new PeablePaymentProvider();
       const created = await provider.createPayment(request);
-      intents.get(created.providerObjectId)!.status = 'settled';
+      intents.get(created.providerObjectId)!.status = 'succeeded';
       refundLifecycle = state;
       const refundRequest = {
         paymentId: request.paymentId,
@@ -796,17 +853,25 @@ describe('published SDK HTTP parity', () => {
       expect(first.status).toBe('partially_refunded');
       expect(second.providerObjectId).toBe(first.providerObjectId);
       expect(refundsByRef.size).toBe(1);
-      expect(wire.at(-1)).toEqual({
-        method: 'POST',
-        path: '/v1/refunds',
-        stage: 'refund',
-        idempotencyKey: 're:refund-http',
-        body: {
-          payment_intent_id: created.providerObjectId,
-          external_ref: 'refund-http',
-          amount: '200',
+      // The refund, then the payment's refund budget it is judged against.
+      expect(wire.slice(-2)).toEqual([
+        {
+          method: 'POST',
+          path: '/v1/refunds',
+          stage: 'refund',
+          idempotencyKey: 're:refund-http',
+          body: {
+            payment_intent: created.providerObjectId,
+            external_ref: 'refund-http',
+            amount: '200',
+          },
         },
-      });
+        {
+          method: 'GET',
+          path: `/v1/payment_intents/${created.providerObjectId}/refunds`,
+          stage: 'refund',
+        },
+      ]);
     },
   );
 });
