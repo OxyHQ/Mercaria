@@ -3,7 +3,12 @@ import { Platform, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Button } from '@oxy.so/bloom/button';
 import { Loading } from '@oxy.so/bloom/loading';
-import { SettingsCard, SettingsRow, SettingsSection } from '@oxy.so/bloom/settings-modal';
+import {
+  SettingsCard,
+  SettingsRow,
+  SettingsSection,
+  SettingsSelect,
+} from '@oxy.so/bloom/settings-modal';
 import { TextFieldInput } from '@oxy.so/bloom/text-field';
 import { toast } from '@oxy.so/bloom/toast';
 import { useOxy } from '@oxy.so/services/ui/client';
@@ -20,7 +25,6 @@ import {
   useSettingsDialog,
   useSharedUiLocale,
 } from '@mercaria/ui';
-import { SettingsSelect } from '@mercaria/ui/settings';
 import {
   REFERRAL_PERFORMANCE_DIMENSIONS,
   type CurrencyCode,
