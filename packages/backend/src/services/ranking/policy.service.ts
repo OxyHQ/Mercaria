@@ -16,17 +16,15 @@
  * and refusing here would withdraw the comparison surface on the deploy that
  * shipped it.
  *
- * ## The canary lever stops routing, never the row
+ * ## Stopping a canary
  *
- * `RANKING_CANARY_ENABLED=false` pins every subject to the active arm and
- * changes nothing about the canary version, so an incident is one variable and a
- * resumption is one variable back. Editing the row to stop it would lose the
- * ramp somebody set, and — since a stopped canary may never return to `draft` —
- * would not be reversible at all.
+ * A canary serves the subjects its share takes for as long as it is `canary`.
+ * The kill switch is the operator route
+ * `DELETE /internal/ranking/policies/:id/canary`, which stops it without
+ * promoting it; every subject then falls to the active arm.
  */
 
 import type { RankingPolicy } from '@mercaria/shared-types';
-import { config } from '../../config/index.js';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import {
   findRankingPolicyVersion,
@@ -59,7 +57,7 @@ export async function resolveRankingPolicy(
   const active = serving.find((row) => row.status === 'active');
   const canary = serving.find((row) => row.status === 'canary');
 
-  if (canary !== undefined && config.ranking.canaryEnabled) {
+  if (canary !== undefined) {
     const arm = resolveRankingArm({
       policyKey: OFFER_COMPARISON_POLICY_KEY,
       subjectKey,

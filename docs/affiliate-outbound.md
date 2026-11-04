@@ -251,7 +251,6 @@ metric names `affiliate_reports` as its source and that stays true.
 |---|---|---|
 | `OUTBOUND_REDIRECT_ENABLED` | `false` | The `/out` MOUNT. Requires `OUTBOUND_TOKEN_SECRET` (half-configuration rule). |
 | `OUTBOUND_TOKEN_SECRET` | — | HMAC key for the opaque token. |
-| `AFFILIATE_RECONCILIATION_ENABLED` | `false` | The report-poll LOOP only. |
 | `AFFILIATE_CLICK_RETENTION_DAYS` | `400` | The click retention deadline. |
 | `AFFILIATE_REPORT_LOOKBACK_DAYS` | `45` | How far back a scheduled poll asks. |
 | `AFFILIATE_REPORT_POLL_INTERVAL_MS` | `3600000` | Between polls. |

@@ -361,7 +361,7 @@ export const CATEGORY_READ_SHAPES: readonly CategoryReadShape[] = [
     kind: 'descendants',
     title: 'Descendants of a mid-depth node, lifecycle-filtered — the facet scope',
     reader: 'db/facets/facetRepository.ts findFacetCategoryScope',
-    route: 'POST /facets (behind FACETS_ENABLED, default off)',
+    route: 'POST /facets (UNCONDITIONAL)',
     // The subtree plus the subject: the `or c.id = $1` disjunct is what adds it.
     minRowsProduced: (seed) => seed.midDescendants + 1,
     statements: 1,
@@ -435,7 +435,7 @@ export const CATEGORY_READ_SHAPES: readonly CategoryReadShape[] = [
     kind: 'category_scoped_schema_resolution',
     title: 'The most specific published product type governing a category',
     reader: 'db/facets/facetMetadataRepository.ts findProductTypeForCategory',
-    route: 'POST /facets (behind FACETS_ENABLED, default off)',
+    route: 'POST /facets (UNCONDITIONAL)',
     minRowsProduced: () => 1,
     statements: 1,
     servableBy: {
@@ -490,7 +490,7 @@ export const CATEGORY_READ_SHAPES: readonly CategoryReadShape[] = [
     kind: 'descendants',
     title: 'Products refined into each child bucket — the taxonomy facet',
     reader: 'db/facets/facetRepository.ts countCategoryBuckets',
-    route: 'POST /facets (behind FACETS_ENABLED, default off)',
+    route: 'POST /facets (UNCONDITIONAL)',
     minRowsProduced: (_seed, fixture) => fixture.bucketIds.length,
     statements: 1,
     servableBy: {

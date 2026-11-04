@@ -91,7 +91,6 @@ export async function listRankingPoliciesHandler(req: Request, res: Response): P
     const rows = await listRankingPolicyVersions(OFFER_COMPARISON_POLICY_KEY, 100);
     sendSuccess(res, {
       builtin: BUILTIN_RANKING_POLICY,
-      canaryEnabled: config.ranking.canaryEnabled,
       versions: rows.map(toPolicyView),
     });
   } catch (error: unknown) {

@@ -25,8 +25,8 @@
  * - **No rights policy and no status change.** Those live on
  *   `/internal/ingestion`, where #62's rights model is, and a second surface
  *   would be a second vocabulary for one act.
- * - **No flag write.** `AWIN_ENABLED` is read at boot, and a route that changed
- *   it at runtime would make "what was this deployment doing at 14:00"
+ * - **No configuration write.** Configuration is read at boot, and a route that
+ *   changed it at runtime would make "what was this deployment doing at 14:00"
  *   unanswerable from configuration.
  */
 
@@ -235,8 +235,7 @@ export async function changeAwinAccountStateHandler(req: Request, res: Response)
 /**
  * POST — poll the feed list NOW and reconcile advertisers and feeds.
  *
- * The supported way to bring a network up before any loop is switched on, and
- * the reason this surface stays mounted while `AWIN_ENABLED` is off.
+ * The supported way to bring a network up before any source is activated.
  */
 export async function discoverAwinHandler(req: Request, res: Response): Promise<void> {
   try {

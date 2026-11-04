@@ -110,7 +110,6 @@ async function listen(app: express.Express): Promise<{ server: Server; url: stri
 beforeAll(async () => {
   // Collection ON for the ingest cases.
   process.env.ANALYTICS_COLLECTION_MODE = 'full';
-  process.env.ANALYTICS_ENABLED = 'true';
   process.env.STRIPE_ENABLED = 'false';
   const { createApp } = await import('../../app.js');
   ({ server, url } = await listen(createApp()));
@@ -118,7 +117,6 @@ beforeAll(async () => {
 
 afterAll(async () => {
   delete process.env.ANALYTICS_COLLECTION_MODE;
-  delete process.env.ANALYTICS_ENABLED;
   await new Promise<void>((resolve, reject) => {
     server.close((err) => {
       if (err) reject(err);

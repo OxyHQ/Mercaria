@@ -37,7 +37,6 @@ import type {
 } from '@mercaria/shared-types';
 import { P2P_LOCAL_CELL_PRECISION_DEGREES } from '@mercaria/shared-types';
 import type { CurrencyCode, ItemConditionKey } from '@mercaria/shared-types';
-import { config } from '../../config/index.js';
 import { forbidden, notFound, validationError } from '../../lib/errors/error-codes.js';
 import { findListingById } from '../../db/catalog/listingRepository.js';
 import {
@@ -147,8 +146,6 @@ export async function findNearbyP2pListings(input: {
   country?: string;
   limit: number;
 }): Promise<readonly NearbyP2pListingResult[]> {
-  if (!config.pickup.p2pLocalDiscoveryEnabled) return [];
-
   const viewerCell = toLocalArea(input.origin);
   const viewerCentre = localAreaCentre(viewerCell);
 

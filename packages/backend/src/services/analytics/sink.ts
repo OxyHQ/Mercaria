@@ -251,7 +251,7 @@ export function startAnalyticsSink(): void {
   if (timer !== undefined) return;
   if (!config.analytics.enabled) {
     log.general.info(
-      '[Analytics] collection is OFF (ANALYTICS_ENABLED). No events are recorded; the ' +
+      '[Analytics] collection is OFF (ANALYTICS_COLLECTION_MODE). No events are recorded; the ' +
         'production gate stays shut until the privacy and retention review clears ' +
         '(#77 acceptance 8).',
     );

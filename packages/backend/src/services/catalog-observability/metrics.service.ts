@@ -317,7 +317,6 @@ async function readShared(
  */
 export interface MountedSurfaces {
   readonly catalogAuthoring: boolean;
-  readonly facets: boolean;
 }
 
 /** What a producer is handed. */
@@ -650,10 +649,8 @@ const PRODUCERS: Readonly<Record<string, Producer>> = {
   },
 
   /* ---- Facets ------------------------------------------------------------ */
-  facet_generation_latency: async (definition, { mounted }) => {
-    if (!mounted.facets) return notMounted(definition, 'FACETS_ENABLED');
-    return latency(definition, readRouteObservation('POST', '/facets')?.latency);
-  },
+  facet_generation_latency: async (definition) =>
+    latency(definition, readRouteObservation('POST', '/facets')?.latency),
 
   /**
    * A facet request this process ANSWERED 5xx — the live half of W17's
@@ -665,10 +662,7 @@ const PRODUCERS: Readonly<Record<string, Producer>> = {
    * always recorded `requests`, `serverErrors` and `clientErrors` for it, and
    * only `latency` was ever read.
    *
-   * `mounted.facets` first, for `facet_generation_latency`'s reason: with
-   * `FACETS_ENABLED` off the route is not mounted, and a `0 / 0` there would say
-   * "this task served no failing facet requests" about a surface that cannot be
-   * requested at all.
+   * No `mounted` guard: the route is mounted unconditionally.
    */
   /**
    * The two unconditionally-mounted observed routes, which had NO metric at all
@@ -681,8 +675,8 @@ const PRODUCERS: Readonly<Record<string, Producer>> = {
    * no surface at all.
    *
    * No `mounted` guard on either, and that is not an omission: `MountedSurfaces`
-   * carries the two FLAG-GATED surfaces, and neither of these has a lever that
-   * can withdraw the route. `/search`'s lever decides what it ANSWERS, which is
+   * carries the FLAG-GATED surface, and neither of these has a lever that can
+   * withdraw the route. `/search`'s lever decides what it ANSWERS, which is
    * a different thing and is why its own attribution limit says so.
    *
    * Latency for both is deliberately NOT published as a metric — the budget
@@ -700,8 +694,7 @@ const PRODUCERS: Readonly<Record<string, Producer>> = {
     return ratio(definition, observed?.serverErrors ?? 0, observed?.requests ?? 0);
   },
 
-  facet_generation_error_rate: async (definition, { mounted }) => {
-    if (!mounted.facets) return notMounted(definition, 'FACETS_ENABLED');
+  facet_generation_error_rate: async (definition) => {
     const observed = readRouteObservation('POST', '/facets');
     return ratio(definition, observed?.serverErrors ?? 0, observed?.requests ?? 0);
   },
@@ -1040,7 +1033,6 @@ export async function collectCatalogMetrics(
 
   const mounted: MountedSurfaces = {
     catalogAuthoring: options.mounted?.catalogAuthoring ?? config.catalogAuthoring.enabled,
-    facets: options.mounted?.facets ?? config.catalog.facetsEnabled,
   };
 
   const shared = await readShared(db, facetSampleSize);

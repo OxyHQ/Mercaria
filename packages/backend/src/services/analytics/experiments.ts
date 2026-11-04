@@ -37,7 +37,7 @@
  * Nothing in a rollback path reads this module. A feature flag is
  * `config.*`, evaluated with no database access and no analytics dependency, so
  * an experiment can be turned off while the sink is down, while the rollup is
- * stalled, and while `ANALYTICS_ENABLED` is false. `assignVariant` returning a
+ * stalled, and while analytics collection is off. `assignVariant` returning a
  * variant does not make a surface render it — the surface's own flag does.
  */
 

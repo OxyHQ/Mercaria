@@ -45,11 +45,11 @@ export function listDemandMetricsHandler(_req: Request, res: Response): void {
 /** GET /merchant-demand/:merchantId — the claimed merchant's dashboard. */
 export async function getMerchantDemandHandler(req: Request, res: Response): Promise<void> {
   try {
-    // The lever is re-read here as well as at the mount, because the two live in
-    // different files and that is exactly the pair that drifts. 404 and never
-    // 403: a merchant that cannot see its dashboard because a deployment turned
-    // the feature off must not learn that the feature exists.
-    if (!config.merchantDemand.dashboardEnabled) {
+    // The condition is re-read here as well as at the mount, because the two live
+    // in different files and that is exactly the pair that drifts. 404 and never
+    // 403: a merchant that cannot see its dashboard because a deployment collects
+    // no analytics must not learn that the feature exists.
+    if (!config.analytics.enabled) {
       sendError(res, ErrorCodes.NOT_FOUND, 'Not found', 404);
       return;
     }
@@ -102,7 +102,7 @@ export async function getMerchantDemandHandler(req: Request, res: Response): Pro
  */
 export async function getMerchantDemandPreviewHandler(req: Request, res: Response): Promise<void> {
   try {
-    if (!config.merchantDemand.previewEnabled) {
+    if (!config.analytics.enabled) {
       sendError(res, ErrorCodes.NOT_FOUND, 'Not found', 404);
       return;
     }

@@ -2,14 +2,11 @@
  * Registering the Awin adapter, and the ONE place its three dependencies are
  * satisfied (#66).
  *
- * ## The registration is gated and the durable record never is
+ * ## Registered on every deployment
  *
- * `AWIN_ENABLED` decides whether this deployment FETCHES Awin. With it off,
- * accounts, advertisers, feeds, quality snapshots, samples and every #62 row are
- * stored and readable, every run refuses with #62's own `adapter_missing`, and
- * turning the flag on drains the backlog. That is `CATALOG_INGESTION_ENABLED`'s
- * arrangement one layer down, and it is why a rollback of this source costs
- * nobody anything they configured.
+ * Registering the adapter fetches nothing: a fetch happens only for a
+ * configured, active Awin source, so a deployment with no publisher account
+ * never calls Awin.
  *
  * **It deliberately does NOT demand a credential to be set**, unlike #63's
  * `FEED_IMPORT_ENABLED`. The difference is real rather than an inconsistency:
@@ -33,7 +30,6 @@
  * match — and none of the three can. The write boundary is still the SIGNATURE.
  */
 
-import { config } from '../../config/index.js';
 import { log } from '../../lib/logger.js';
 import { registerCatalogSourceAdapter } from '../ingestion/registry.js';
 import {
@@ -50,17 +46,8 @@ import {
   type ResolvedAwinFeed,
 } from './resolve.js';
 
-/** Register the adapter, unless this deployment does not fetch Awin. */
+/** Register the adapter. */
 export function registerAwinFeedAdapter(): void {
-  if (!config.awin.enabled) {
-    log.general.info(
-      '[Awin] AWIN_ENABLED is off; the awin_feed adapter is not registered. Accounts, ' +
-        'advertisers, feeds, quality snapshots and samples are stored and every run refuses ' +
-        'until it is switched on.',
-    );
-    return;
-  }
-
   registerCatalogSourceAdapter(
     createAwinFeedAdapter({
       resolveFeed: async (sourceAccountRef) => resolveAwinFeed(sourceAccountRef),

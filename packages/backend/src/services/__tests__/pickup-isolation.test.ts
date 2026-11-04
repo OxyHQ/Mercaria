@@ -139,24 +139,17 @@ function backendModules(directory = ''): string[] {
 /**
  * The modules that MAY read a lever — the entry points, and only them.
  *
- * `checkout-gate.ts` refuses a checkout the deployment has switched off,
- * `nearby.service.ts` annotates a browse with an actor verdict, and
- * `local-discovery.service.ts` answers an empty list for a surface that is off.
- * All three are ENTRY. Nothing that reads or writes a PLACED collection is on
- * this list, which is wall 2.
+ * `checkout-gate.ts` refuses a checkout the deployment has switched off and
+ * `nearby.service.ts` annotates a browse with an actor verdict. Both are ENTRY.
+ * (P2P local discovery has no lever since `P2P_LOCAL_DISCOVERY_ENABLED` was
+ * removed, so `local-discovery.service.ts` and `pickup.controller.ts` read
+ * none.) Nothing that reads or writes a PLACED collection is on this list,
+ * which is wall 2.
  */
 const LEVER_ENTRY_POINTS = new Set([
   'services/pickup/checkout-gate.ts',
   'services/pickup/nearby.service.ts',
-  'services/pickup/local-discovery.service.ts',
   'services/pickup/collection-code.ts',
-  // The HTTP entry itself, brought into the population by #460 — it 404s
-  // `nearbyP2pHandler` when `config.pickup.p2pLocalDiscoveryEnabled` is off,
-  // which is the same job `local-discovery.service.ts` does one layer down and
-  // is ENTRY by any reading. It is named here rather than the detector being
-  // narrowed, because narrowing is the permissive direction: a detector
-  // loosened for one legitimate reader admits the violation added beside it.
-  'controllers/pickup.controller.ts',
 ]);
 
 describe('the pickup domain has no reach it should not have', () => {
@@ -184,7 +177,7 @@ describe('the pickup domain has no reach it should not have', () => {
     }
     // EXACT: an unbounded exemption set lets any number of readers ride in
     // behind the ones somebody justified (#448). This set had no count at all.
-    expect(LEVER_ENTRY_POINTS.size, 'a sixth lever reader was exempted').toBe(5);
+    expect(LEVER_ENTRY_POINTS.size, 'a fourth lever reader was exempted').toBe(3);
     for (const entry of LEVER_ENTRY_POINTS) {
       expect(
         domain.map((file) => file.relative),

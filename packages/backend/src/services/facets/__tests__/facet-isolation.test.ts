@@ -500,7 +500,8 @@ function scanFor(
 }
 
 /**
- * ADR 0007 D12: `FACETS_ENABLED` gates the MOUNT and never anything durable.
+ * The facet domain reaches no configuration. (ADR 0007 D12's `FACETS_ENABLED`
+ * mount lever was removed; `/facets` is mounted unconditionally.)
  *
  * The wall is BLANKET here — no configuration at all — and it can be, because the
  * facet domain reads none today. That is the stronger form
@@ -510,14 +511,13 @@ function scanFor(
  *
  * Scoped to the two OWNED directories and deliberately NOT to the shared
  * controller, route and schema modules `facetNamedHttpModules()` derives: those
- * are where a page bound or a cache TTL legitimately belongs, and the mount flag
- * itself is read in `app.ts`. A wall that covered them would be refused by the
- * first legitimate bound and then widened, taking the prohibition with it.
+ * are where a page bound or a cache TTL legitimately belongs. A wall that covered
+ * them would be refused by the first legitimate bound and then widened, taking
+ * the prohibition with it.
  *
- * This domain owns no table and writes no row, so what the lever protects is not
- * a record — it is the promise that nothing downstream of the flag CACHES a
- * verdict taken while it was on, or refuses a read that another surface still
- * serves.
+ * This domain owns no table and writes no row; what the wall protects is the
+ * promise that a facet answer is a function of the catalogue alone, never of a
+ * per-deployment switch.
  */
 const FACET_LEVER_PATTERN = /from\s+['"][^'"]*\/config(?:\/[^'"]*)?['"]|process\s*\.\s*env\b/u;
 
@@ -526,7 +526,7 @@ function facetOwnedPaths(): string[] {
   return BACKEND_DIRECTORIES.flatMap((relative) => walk(join(SRC_ROOT, relative), ['.ts']));
 }
 
-describe('the rollout lever gates the MOUNT, and the domain reaches no configuration', () => {
+describe('the facet domain reaches no configuration', () => {
   it('no module under services/facets or db/facets imports config or reads process.env', () => {
     const paths = facetOwnedPaths();
     // The vacuity floor, restated locally rather than borrowed: this wall runs
@@ -546,7 +546,7 @@ describe('the rollout lever gates the MOUNT, and the domain reaches no configura
     expect(
       FACET_LEVER_PATTERN.test(stripComments("import { config } from '../../config/index.js';")),
     ).toBe(true);
-    expect(FACET_LEVER_PATTERN.test(stripComments('const on = process.env.FACETS_ENABLED;'))).toBe(
+    expect(FACET_LEVER_PATTERN.test(stripComments('const on = process.env.FACETS_LIMIT;'))).toBe(
       true,
     );
     expect(
@@ -564,7 +564,7 @@ describe('the rollout lever gates the MOUNT, and the domain reaches no configura
     const victim = paths[paths.length - 1];
     expect(victim, 'the walk found no file to mutate').toBeDefined();
     if (victim === undefined) return;
-    const mutated = `${readFileSync(victim, 'utf8')}\nconst leaked = process.env.FACETS_ENABLED;\n`;
+    const mutated = `${readFileSync(victim, 'utf8')}\nconst leaked = process.env.FACETS_LIMIT;\n`;
     const offenders = paths.filter((path) =>
       FACET_LEVER_PATTERN.test(
         stripComments(path === victim ? mutated : readFileSync(path, 'utf8')),

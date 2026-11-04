@@ -1,8 +1,8 @@
 /**
- * The STATIC `sitemap.xml` — the flag-off floor, gated like `robots.txt` (#371).
+ * The STATIC `sitemap.xml` — the floor, gated like `robots.txt` (#371).
  *
- * The storefront ships two crawl artefacts for the `SEO_ROUTES_ENABLED=false`
- * state, because that is what a crawler gets when the worker's proxy cannot
+ * The storefront ships two crawl artefacts for the `SEO_INDEXING_MODE=off`
+ * state (the `/seo/*` routers unmounted), because that is what a crawler gets when the worker's proxy cannot
  * answer. `seo-robots.test.ts` gates one of them; this file gates the other,
  * which until #371 had no gate at all and was written by a build step.
  *

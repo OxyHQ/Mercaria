@@ -279,22 +279,19 @@ surface carrying it would be a way to read one.
 ## Environment
 
 ```
-MERCHANT_ACTIVATION_TEST_ORDER_REQUIRED=false   # whether #85 state 12 BLOCKS
-MERCHANT_ACTIVATION_OBSERVATION_ENABLED=false   # the sweep LOOP, never a row
 MERCHANT_ACTIVATION_OBSERVATION_INTERVAL_MS=900000
 MERCHANT_ACTIVATION_OBSERVATION_BATCH_SIZE=100
 ```
 
-**Neither lever gates a durable record and neither gates a surface**, and a
-scanned gate says so. There is deliberately no `MERCHANT_ACTIVATION_ENABLED`:
-activation is a derivation over state eight other domains already own, and a flag
-switching it off would not stop those facts being true, it would only stop
-anybody being told.
+The observation sweep runs on every deployment; these are its tunables. **Nothing
+here gates a durable record or a surface**, and a scanned gate says so. There is
+deliberately no `MERCHANT_ACTIVATION_ENABLED`: activation is a derivation over
+state eight other domains already own, and a flag switching it off would not stop
+those facts being true, it would only stop anybody being told.
 
-`MERCHANT_ACTIVATION_TEST_ORDER_REQUIRED` defaults FALSE as a decision rather
-than a timid default: there is no launch plan in this repository requiring a test
-order, and making it blocking by default would mean the requirement refuses the
-very order that satisfies it. It is always DERIVED and always reported.
+#85 state 12 (a completed test order) is ADVISORY, always: making it blocking
+would mean the requirement refuses the very order that satisfies it. It is always
+DERIVED and always reported.
 
 ## Migration
 

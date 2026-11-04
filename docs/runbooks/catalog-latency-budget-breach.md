@@ -13,10 +13,10 @@ rather than pointed at `GET /catalog-authoring/categories`, which is a localized
 browse with no text parameter. So an alert naming a fifth surface is reading
 something other than this one.
 
-**Second: on a DEFAULT deployment only two of the four are mounted.**
+**Second: on a DEFAULT deployment only three of the four are mounted.**
 `GET /catalog-authoring/schemas/:productTypeKey` sits behind
-`CATALOG_AUTHORING_ENABLED` and `POST /facets` behind `FACETS_ENABLED`, both
-defaulting to false. Those two therefore have no observation and no verdict here —
+`CATALOG_AUTHORING_ENABLED`, defaulting to false (`POST /facets` is mounted
+unconditionally). That route therefore has no observation and no verdict here —
 and the LATENCY report cannot tell you that, because it omits the verdict for a
 cold task in exactly the same way. **The metrics report is the discriminator**: it
 answers `unmeasured` / `surface_not_mounted` for a route that cannot be served,
@@ -119,9 +119,8 @@ a duration some request actually took.
   is in the HANDLER, not the mount, which is why `/search` never reports
   `surface_not_mounted`.
 - **Not a breach at all on a surface that is not mounted.** With
-  `CATALOG_AUTHORING_ENABLED` or `FACETS_ENABLED` off there is no observation to
-  breach, and any figure attributed to those two routes came from somewhere other
-  than this report.
+  `CATALOG_AUTHORING_ENABLED` off there is no observation to breach, and any
+  figure attributed to that route came from somewhere other than this report.
 
 ## The first three things to check
 

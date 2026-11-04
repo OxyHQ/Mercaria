@@ -516,14 +516,14 @@ async function tick(): Promise<void> {
 /**
  * Start the rollup loop. Idempotent.
  *
- * Gated on the LOOP, never on the records: events keep being written while the
- * rollup is off, and switching it on computes the backlog rather than losing it
+ * Runs whenever collection is on. A pass computes every completed day not yet
+ * rolled up, so a stalled loop catches up on its backlog rather than losing it
  * — the outbox rule, which applies here because the input is durable even
  * though the output is derived.
  */
 export function startAnalyticsRollup(): void {
   if (timer !== undefined) return;
-  if (!config.analytics.enabled || !config.analytics.rollupEnabled) return;
+  if (!config.analytics.enabled) return;
 
   timer = setInterval(() => {
     void tick();

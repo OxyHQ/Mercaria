@@ -5,10 +5,11 @@ that are load-bearing across domains; this document carries the mechanics, each
 metric's provenance, the disclosure policy, the acquisition workflow and the
 seams.
 
-Both merchant-facing surfaces are **OFF** by default
-(`MERCHANT_DEMAND_ENABLED=false`, `MERCHANT_DEMAND_PREVIEW_ENABLED=false`), and
-every event-sourced figure additionally reports `collection_disabled` while
-#77's `ANALYTICS_COLLECTION_MODE` is `off`, which is also its default.
+Both merchant-facing surfaces (the claimed dashboard and the unclaimed public
+preview) are mounted iff #77's analytics collection is on — that is, iff
+`ANALYTICS_COLLECTION_MODE` is not `off`, which is its default. They have no
+lever of their own: figures built from events a deployment does not collect
+would be a dashboard of zeros.
 
 ---
 
@@ -310,9 +311,9 @@ explicitly, which is what the grant union is for.
 the fourth operator key, not a new one. That key already grants the broadest
 reading power in the codebase ("what is demand doing across the marketplace"),
 and this surface is that power applied one merchant at a time plus a workflow
-for acting on it; a new operator key would be a second answer to who holds it.
-Anyone without it gets 404, never 401, and it stays mounted while both
-merchant-facing levers are off.
+for acting on it; a new operator key would be a second answer to who holds it. Anyone
+without it gets 404, never 401, and it stays mounted while the merchant-facing
+surfaces are off.
 
 ### The claim verdict is not duplicated, and the funnel is DERIVED
 
@@ -421,16 +422,16 @@ survives a candidate being re-queued by somebody who did not read the state.
 ## Environment
 
 ```
-MERCHANT_DEMAND_ENABLED=false            # the CLAIMED merchant dashboard mount
-MERCHANT_DEMAND_PREVIEW_ENABLED=false    # the UNCLAIMED merchant public preview mount
 MERCHANT_DEMAND_SNAPSHOT_RETENTION_DAYS=400
 MERCHANT_DEMAND_DEFAULT_WINDOW_DAYS=30    # must be one of 7 | 30 | 90, else falls back to 30
 MERCHANT_DEMAND_MARKETS=                 # EMPTY ⇒ the undimensioned bucket is the only askable slice
 MERCHANT_DEMAND_MAX_PRODUCT_ROWS=200
 ```
 
-Neither lever gates a durable record, and the operator surface reads none of
-them. There is deliberately no `merchant_demand.operate` key.
+There is no mount lever: the dashboard and the preview follow analytics
+collection (`ANALYTICS_COLLECTION_MODE`), nothing gates a durable record, and
+the operator surface does not depend on collection. There is deliberately no
+`merchant_demand.operate` key.
 
 ---
 

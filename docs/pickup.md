@@ -407,7 +407,7 @@ no member meaning yes.
 |---|---|
 | `GET /nearby` | Mounted only when `NEARBY_DISCOVERY_ENABLED` is on. `resolveCommerceActor`, so signed-out browsing works. `Cache-Control: private, no-store`. `?locale=` for place names; the cursor is GoWay's, passed through |
 | `GET /nearby/places` | The manual fallback: `?q=` a town |
-| `GET /nearby/p2p` | 404 while `P2P_LOCAL_DISCOVERY_ENABLED` is off |
+| `GET /nearby/p2p` | Coarse P2P local discovery; served wherever `/nearby` is mounted |
 | `GET /search?nearLatitude=&nearLongitude=` | #70's filter 10, a CONTRACT CHANGE rather than a parameter that was accepted and ignored. A MEMBERSHIP filter, never an ordering |
 
 ### Public integration (`/public/v1`)
@@ -485,7 +485,6 @@ GOWAY_PLACE_STALE_TTL_SECONDS=86400       # last-good place during an outage
 NEARBY_DISCOVERY_ENABLED=true             # mounts /nearby
 STORE_PICKUP_ENABLED=false                # may a checkout resolve a pickup
 GUEST_STORE_PICKUP_ENABLED=false          # may a GUEST collect
-P2P_LOCAL_DISCOVERY_ENABLED=false         # the coarse P2P surface
 GUEST_PICKUP_REQUIRE_NOTIFICATION_TRANSPORT=false
 PICKUP_COLLECTION_CODE_KEY=               # 64 hex; demanded by STORE_PICKUP_ENABLED
 ```

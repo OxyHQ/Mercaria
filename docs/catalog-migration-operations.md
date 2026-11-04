@@ -51,7 +51,7 @@ And two levers D12 does not name but a rollout must:
 
 | Lever | State | Where |
 |---|---|---|
-| `FACETS_ENABLED` | **exists**, default false | `config/index.ts:1949`, `:3722` → `config.catalog.facetsEnabled` |
+| `FACETS_ENABLED` | **REMOVED** — `/facets` is mounted unconditionally | `app.ts` |
 | `CATALOG_ROLLOUT_COHORTS` | **exists**, default EMPTY (= every cohort) | `config.catalog.rolloutCohorts`; the gate is `middleware/catalog-rollout.ts` |
 
 Two of the three absences were already recorded by W17
@@ -71,13 +71,15 @@ different in each case and none of them is "the lever was forgotten":
   transitively contained.** `services/catalog-localization/read.service.ts`
   exports exactly two readers (`readLocalizedCategories:54`,
   `readLocalizedAttributeValues:156`) and they have exactly two external
-  consumers: `services/facets/facet.service.ts:82` (behind `FACETS_ENABLED`) and
+  consumers: `services/facets/facet.service.ts:82` (behind `FACETS_ENABLED` when
+  this was written; unconditional since that lever was removed) and
   `services/catalog-authoring/schema.service.ts:92` (behind
   `CATALOG_AUTHORING_ENABLED`). `routes/categories.ts` contains **zero**
   occurrences of `locale` — positive control: `routes/navigation.ts` contains
   two, so the search finds the word where it exists. So with the four levers off
-  no public surface serves a localized label, and the base-locale behaviour D12
-  promises is what a shopper gets. **This containment has no gate** (see below),
+  no public surface served a localized label, and the base-locale behaviour D12
+  promises was what a shopper got; the facet rail now serves localized labels
+  unconditionally. **This containment has no gate** (see below),
   which is the whole reason it is written down here.
 - **`CATALOG_AUTHORING_COHORTS` was a real missing capability and it has been
   CLOSED**, as `CATALOG_ROLLOUT_COHORTS` — renamed because it narrows all four
@@ -130,10 +132,9 @@ that belong to #60's `CANONICAL_PUBLIC_ROUTES_ENABLED` (`app.ts:485`) and to no
 |---|---|
 | `CATALOG_AUTHORING_ENABLED` | `/stores/:storeId/product-drafts`, `/catalog-authoring` |
 | `CATALOG_PROPOSALS_ENABLED` | `/catalog-proposals` |
-| `FACETS_ENABLED` | `/facets` |
 | `CATALOG_TAXONOMY_V2_ENABLED` | `/navigation` |
 
-**Five mounts, every one of them a surface this epic ADDED.** Nothing a shopper
+**Four mounts (`/facets`, once a fifth, is now unconditional), every one of them a surface this epic ADDED.** Nothing a shopper
 or a buyer used before the epic is behind any of them: `/listings`
 (`app.ts:243`), `/categories` (`:245`), `/cart` (`:316`), `/checkout` (`:318`),
 `/search` (`:589`), `/catalog-attributes` (`:729`), `/compatibility` (`:1028`)

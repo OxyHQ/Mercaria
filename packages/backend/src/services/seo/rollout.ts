@@ -1,23 +1,19 @@
 /**
- * The SEO rollout levers (#75 acceptance 8: "route and SEO rollout is
- * feature-flagged and reversible") — the ONE place the flags are interpreted.
+ * The SEO rollout lever (#75 acceptance 8: "route and SEO rollout is
+ * feature-flagged and reversible") — the ONE place it is interpreted.
  *
- * ## Two levers, because they bound different blast radii
+ * ## One lever, `SEO_INDEXING_MODE`, and it also decides the mount
  *
- * `SEO_ROUTES_ENABLED` mounts the routers at all. Off, `/seo/*` answers 404,
- * the Cloudflare Worker's lookup fails and the worker serves the storefront
- * shell exactly as it does today — no metadata injection, no redirects, the
- * static `robots.txt` and `sitemap.xml`. That is the blunt rollback, and it
- * does not depend on every handler having remembered its gate.
+ * `off` (the default) leaves the `/seo/*` routers UNMOUNTED: `/seo/*` answers
+ * 404, the Cloudflare Worker's lookup fails and the worker serves the
+ * storefront shell — no metadata injection, no redirects, the static
+ * `robots.txt` and `sitemap.xml`. That is the blunt rollback, and it does not
+ * depend on every handler having remembered its gate. Mounting the routers
+ * with indexing off would instead make the worker serve the API's `noindex`
+ * documents and an EMPTY sitemap, which is worse than the static floor — so
+ * the mount follows the mode (see {@link seoRoutesMounted}).
  *
- * `SEO_INDEXING_MODE` decides whether anything may be INDEXED, and it is
- * separate because the two decisions are genuinely different. Correct titles,
- * a correct canonical tag and a correct sharing card are worth having before
- * anybody invites a crawler in; a deployment can serve all three with
- * `SEO_INDEXING_MODE=off` and every page will say `noindex` and every sitemap
- * will be empty. Turning indexing off during an incident therefore does not
- * take link previews down with it — the `CANONICAL_READS` /
- * `CANONICAL_OFFER_COMPARISON` split, applied to this domain.
+ * `canary` and `on` mount the routers and decide what may be INDEXED.
  *
  * ## `canary` with an empty list indexes NOTHING
  *
@@ -45,6 +41,14 @@
  */
 
 import { config } from '../../config/index.js';
+
+/**
+ * Whether the public `/seo/*` routers are mounted: iff `SEO_INDEXING_MODE` is
+ * `canary` or `on`. See the module docblock for why `off` leaves them unmounted.
+ */
+export function seoRoutesMounted(): boolean {
+  return config.seo.indexingMode !== 'off';
+}
 
 /**
  * May this entity be indexed right now?

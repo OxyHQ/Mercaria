@@ -52,6 +52,11 @@ is a product decision), `OFFER_REFRESH_ENABLED`, `OFFER_EXPIRY_SWEEP_ENABLED`,
 `PRICE_HISTORY_ENABLED` (no series currencies are chosen), the price-signal levers
 (they need a published policy) and every lever that needs a secret.
 
+> Since amended: `FACETS_ENABLED` and `SEO_ROUTES_ENABLED` no longer exist.
+> `/facets` is mounted unconditionally, and `/seo/*` is mounted iff
+> `SEO_INDEXING_MODE` is `canary` or `on` — so with the mode at its `off`
+> default it stays unmounted, for the reason above.
+
 ### D2. Sources are declared in code
 
 `services/open-data/sources.ts` lists the sources Mercaria runs: provider, account

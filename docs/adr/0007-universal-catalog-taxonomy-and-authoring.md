@@ -912,7 +912,9 @@ or a mount**, never a stored row:
 - `FACETS_ENABLED` — the facet, filter and sort rail (`POST /facets`). Default
   false. **This decision did not name it and should have**: it is a public
   surface this epic added, it is one of the four things a rollback turns off, and
-  the domain it gates owns no table and writes no row.
+  the domain it gates owns no table and writes no row. **Since REMOVED**: the
+  facet rail is mounted unconditionally (still behind the rollout-cohort gate),
+  so three mount levers remain.
 
 The four levers are read in **six** non-test places, and no repository, outbox
 enqueue, loop or checkout path reads any of them.

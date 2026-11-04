@@ -190,11 +190,9 @@ const DERIVATIONS: Readonly<Record<MerchantActivationRequirementKey, Derivation>
 
   native_checkout_not_paused: (f) => deriveNativeCheckoutNotPaused(f.settings),
 
-  // #85 state 12. Whether it BLOCKS is a deployment policy
-  // (`MERCHANT_ACTIVATION_TEST_ORDER_REQUIRED`), because there is no launch plan
-  // in this repository requiring one and making it blocking by default would
-  // mean no merchant could ever take a first order. It is always EVALUATED and
-  // always reported; `blocking` decides whether the answer withholds anything.
+  // #85 state 12. ADVISORY (`ADVISORY_REQUIREMENTS` in `activation.service.ts`):
+  // making it block would mean no merchant could ever take a first order. It is
+  // always EVALUATED and always reported, and never withholds anything.
   test_order_completed: (f) => (f.completedOrderCount > 0 ? OK : no('no_completed_test_order')),
 
   /* ── Guest ──────────────────────────────────────────────────────────── */

@@ -24,7 +24,7 @@ import apiClient from './client';
  * of the request type: {@link FacetSelectionEntry} has no label field to put
  * one in.
  *
- * ## `FACETS_ENABLED` defaults off, and a 404 is a rail that is not offered
+ * ## A 404 is a rail that is not offered
  *
  * The caller renders no filters rather than an empty rail with a spinner. A
  * filter set composed on the client to fill the gap would be exactly the

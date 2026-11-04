@@ -7,9 +7,10 @@
  * query returns. Anyone without the key is answered 404, never
  * 401 — the rule every operator surface here follows.
  *
- * It stays mounted while `NL_INTENT_ENABLED` is off, the `/internal/backfill`
- * rule: the evidence has to be readable during the incident that turned the
- * model half off, and the benchmark an operator runs to turn it back on is here.
+ * It stays mounted whether or not a model is registered or enabled, the
+ * `/internal/backfill` rule: the evidence has to be readable during the
+ * incident that turned the model half off, and the benchmark an operator runs to
+ * turn it back on is here.
  *
  * Route ORDER is load-bearing: the two literal collections precede
  * `/turns/:turnId`, so no parameter route can swallow them.

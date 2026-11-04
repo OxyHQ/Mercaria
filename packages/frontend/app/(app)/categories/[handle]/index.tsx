@@ -50,8 +50,8 @@ import { useCatalogSeo } from '@/lib/catalog/use-catalog-seo';
  * with no remaining SYNTACTIC reference anywhere in the app — removed here,
  * not orphaned here; they had no live caller before this file changed
  * either. They are left in place, deliberately: the backend `/facets`
- * surface and `FACETS_ENABLED` are untouched (and were never reachable from
- * this screen regardless), and `facet-consumption.ts`'s own docblock
+ * surface is untouched (and was never reachable from this screen
+ * regardless), and `facet-consumption.ts`'s own docblock
  * describes the future grid (`GET /search` or `/catalog-pages`) that is
  * meant to consume that rail. Deleting the component now would make that
  * future task rebuild it from nothing.

@@ -6,8 +6,8 @@
  * catalogue says and who may read what a crawler is told about it are the same
  * power over the same graph. Anyone without the key is answered 404
  * (never a 401 that would advertise the surface), and it STAYS mounted
- * while `SEO_ROUTES_ENABLED` is off — the evidence has to be readable during
- * the incident that turned the public surface off.
+ * while `/seo/*` is not (`SEO_INDEXING_MODE` is `off`) — the evidence has to be
+ * readable during the incident that turned the public surface off.
  *
  * ## THREE reads and no write, and the omissions are the design
  *

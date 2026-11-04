@@ -7,8 +7,8 @@ import type { useListings } from '@/lib/hooks/use-listings';
  * ## The question this answers, and why it is not "is there a rail"
  *
  * `useFacets` already decides whether a rail EXISTS: `POST /facets` is behind
- * `FACETS_ENABLED`, a 404 leaves `data === undefined`, and a consumer renders
- * nothing. That is a fact about the SERVER.
+ * the catalog rollout-cohort gate, a 404 leaves `data === undefined`, and a
+ * consumer renders nothing. That is a fact about the SERVER.
  *
  * This is the other half and nothing was asking it: given that a rail exists,
  * can the grid underneath it do anything with what a shopper picks? A filter

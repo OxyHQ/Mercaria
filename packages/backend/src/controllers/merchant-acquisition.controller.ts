@@ -293,8 +293,6 @@ export async function acquisitionHealthHandler(_req: Request, res: Response): Pr
       pipeline: Object.fromEntries(byState),
       metricsAwaitingSeams: metricsAwaitingSeams(),
       merchantDemand: {
-        dashboardEnabled: config.merchantDemand.dashboardEnabled,
-        previewEnabled: config.merchantDemand.previewEnabled,
         collectionMode: config.analytics.collectionMode,
       },
     });

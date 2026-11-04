@@ -1,6 +1,6 @@
 # Mercaria by Oxy
 #
-# This is the FLAG-OFF FLOOR. When SEO_ROUTES_ENABLED is on, the worker proxies
+# This is the FLOOR. When SEO_INDEXING_MODE is canary or on, the worker proxies
 # /robots.txt to the API, which renders the same rules from
 # SEO_ROBOTS_DISALLOWED_PATHS in @mercaria/shared-types. This copy is what a
 # crawler gets when the API cannot answer.
