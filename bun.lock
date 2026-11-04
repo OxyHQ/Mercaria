@@ -19,7 +19,7 @@
       "version": "1.0.0",
       "dependencies": {
         "@aws-sdk/credential-provider-node": "^3.972.84",
-        "@clarity.surf/sdk": "0.10.0",
+        "@clarity.surf/sdk": "0.11.0",
         "@crowdsource.you/contracts": "1.1.1",
         "@crowdsource.you/core": "3.1.0",
         "@goway.to/sdk": "0.3.0",
@@ -682,7 +682,7 @@
 
     "@borewit/text-codec": ["@borewit/text-codec@0.2.1", "", {}, "sha512-k7vvKPbf7J2fZ5klGRD9AeKfUvojuZIQ3BT5u7Jfv+puwXkUBUT5PVyMDfJZpy30CBDXGMgw7fguK/lpOMBvgw=="],
 
-    "@clarity.surf/sdk": ["@clarity.surf/sdk@0.10.0", "", {}, "sha512-WVhTWob5QatPKPfX5YXmOh1sd0EhYIny7SCJJWTUI9eNdvXEVF0CiluYz1mzcP0Ys465JdVrVihn/APlmDCo6w=="],
+    "@clarity.surf/sdk": ["@clarity.surf/sdk@0.11.0", "", {}, "sha512-Zw39djZKKOpxmNhx+2RP+iIVvaGS80xNmx9uTZK3qd3/uK3uDA+FKzVx28scBVZTFtm6PMC/kKDa0B5xRPe9mg=="],
 
     "@crowdsource.you/contracts": ["@crowdsource.you/contracts@1.1.1", "", { "dependencies": { "zod": "^4.6.5" } }, "sha512-gkD3PuUXjDJu/I/E+1Q/7ZYnz+mr/OrPENRcegZs8Zahzsro/mcWzQvEDUJlVyrAIfYaRNb169nhH78ZCDqNqA=="],
 
