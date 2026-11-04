@@ -43,7 +43,6 @@ module.exports = {
       // nothing here renders an image through react-native's own Image — app
       // images, @mercaria/ui, Bloom and @oxy.so/services all draw with expo-image.
       ['expo-build-properties', { android: { gifEnabled: false, webpEnabled: false } }],
-      '@oxy.so/app-preset/plugin/withOxyAndroidRelease',
       // Native OS splash (Oxy family "Instagram, from Meta" pattern): Mercaria's
       // own logo (white on transparent) centered on the dark brand background,
       // with the shared Oxy symbol pinned to the bottom. `oxySplashScreenPlugin`
