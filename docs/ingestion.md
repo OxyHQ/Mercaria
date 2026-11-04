@@ -399,11 +399,11 @@ deliberately bounds.
 
 ## The operator surface
 
-`/internal/ingestion/*`, behind the SAME `CATALOG_OPERATOR_OXY_USER_IDS`
-allow-list #54/#56/#57/#58/#60 use — who may reshape the canonical catalogue,
+`/internal/ingestion/*`, behind the SAME `catalog.operate`
+key #54/#56/#57/#58/#60 use — who may reshape the canonical catalogue,
 who may migrate the native one into it and who may decide what an external
-source may do are the same power over the same graph. Empty list = not mounted
-(404, never a 401 that would advertise the surface).
+source may do are the same power over the same graph. Anyone without it gets
+404, never a 401 that would advertise the surface.
 
 It stays mounted while `CATALOG_INGESTION_ENABLED` is off, deliberately:
 configuring a source, reviewing its terms and draining it by hand is how a feed
@@ -607,8 +607,8 @@ Each is a NAMED contract that fails closed, never a stub that lies.
 
 ## Production-readiness checklist
 
-1. `CATALOG_OPERATOR_OXY_USER_IDS` populated, or the surface is not mounted and
-   nobody can configure a source or review a policy.
+1. `catalog.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`), or nobody can configure a source
+   or review a policy.
 2. At least one adapter registered. #63's `product_feed` is registered by
    `FEED_IMPORT_ENABLED=true` (which additionally requires
    `FEED_IMPORT_AUTH_ENCRYPTION_KEY`); #65 and #66 ship none yet, and until an

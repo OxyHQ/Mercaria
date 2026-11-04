@@ -374,10 +374,10 @@ enforcement:
   three. A half version here would be a second price filter with different
   behaviour.
 
-There is **no operator surface and no seventh allow-list**. Everything an
+There is **no operator surface and no new operator key**. Everything an
 operator would do to a brand, a family or a relationship already exists on
 `/internal/canonical-catalog` and `/internal/commerce-graph`, behind
-`CATALOG_OPERATOR_OXY_USER_IDS`; a correction lands in a queue those surfaces
+`catalog.operate`; a correction lands in a queue those surfaces
 already read.
 
 ---

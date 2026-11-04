@@ -6,11 +6,18 @@ import { productMediaRouter } from '../product-media.js';
 import { PRODUCT_IMAGE_MAX_BYTES } from '../../../services/catalog-media/upload.js';
 
 // Oxy is replaced at the SDK boundary: `uploadUserMedia(owner, bytes, mime)`.
-vi.mock('../../../capabilities/oxy-service-client.js', () => ({
-  oxyServiceClient: () => ({
-    assets: { uploadUserMedia: (...args: unknown[]) => upstream(...args) },
-  }),
-}));
+vi.mock('../../../middleware/auth.js', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../../../middleware/auth.js')>();
+  const { overOxyClient } = await import('../../../__tests__/over-oxy-client.js');
+  return {
+    ...original,
+    get oxyClient() {
+      return overOxyClient(original.oxyClient, {
+        assets: { uploadUserMedia: (...args: unknown[]) => upstream(...args) },
+      });
+    },
+  };
+});
 const flags = vi.hoisted(() => ({ video: false }));
 vi.mock('../../../config/index.js', () => ({
   config: {

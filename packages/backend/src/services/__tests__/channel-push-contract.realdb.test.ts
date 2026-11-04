@@ -32,10 +32,17 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 // Store ownership, the media adapter, catalog services, repositories and
 // PostgreSQL constraints remain real.
 const oxyFiles = vi.hoisted(() => ({ current: undefined as undefined | { client: unknown } }));
-vi.mock('../../capabilities/oxy-service-client.js', async () => {
+vi.mock('../../middleware/auth.js', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../../middleware/auth.js')>();
+  const { overOxyClient } = await import('../../__tests__/over-oxy-client.js');
   const { createFakeOxyFiles } = await import('../../__tests__/oxy-files-fake.js');
   oxyFiles.current = createFakeOxyFiles();
-  return { oxyServiceClient: () => oxyFiles.current?.client };
+  return {
+    ...original,
+    get oxyClient() {
+      return overOxyClient(original.oxyClient, oxyFiles.current?.client);
+    },
+  };
 });
 
 import express from 'express';

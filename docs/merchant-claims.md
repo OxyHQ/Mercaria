@@ -4,7 +4,7 @@
 `services/merchant-claims/` + `db/merchant-claims/` + `db/schema/merchantClaims.ts`
 (5 tables), plus `/merchant-claims/*` (claimant) and
 `/internal/commerce-graph/claims/*` (operator review, the SAME
-`CATALOG_OPERATOR_OXY_USER_IDS` gate #54 uses). Schema decisions:
+`catalog.operate` gate #54 uses). Schema decisions:
 `db/schema/CONVENTIONS.md` §"Merchant claiming". The rules that are
 load-bearing:
 

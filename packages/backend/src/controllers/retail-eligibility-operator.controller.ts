@@ -71,7 +71,7 @@ import {
   revokeRetailEligibilityExceptionAudited,
 } from '../services/retail-eligibility/exception.service.js';
 import { getRetailEligibility } from '../services/retail-eligibility/retail-eligibility.service.js';
-import { retailOperatorId } from '../middleware/retail-operator-authz.js';
+import { operatorId } from '../middleware/operator-authz.js';
 import { config } from '../config/index.js';
 import { sendSuccess } from '../utils/api-response.js';
 import { routeParam } from '../utils/request.js';
@@ -217,7 +217,7 @@ export async function createRetailEligibilityPolicyHandler(
         ? { exceptionDualApprovalRequired: input.exceptionDualApprovalRequired }
         : {}),
       reason: input.reason,
-      createdByOxyUserId: retailOperatorId(req),
+      createdByOxyUserId: operatorId(req),
     });
     sendSuccess(res, { policy: policyView(row) }, 201);
   } catch (err) {
@@ -234,7 +234,7 @@ export async function activateRetailEligibilityPolicyHandler(
   try {
     const row = await activateRetailEligibilityPolicyVersion({
       id: routeParam(req, 'id'),
-      approvedByOxyUserId: retailOperatorId(req),
+      approvedByOxyUserId: operatorId(req),
       reason: body<{ reason: string }>(req).reason,
     });
     sendSuccess(res, { policy: policyView(row) });
@@ -252,7 +252,7 @@ export async function retireRetailEligibilityPolicyHandler(
   try {
     const row = await retireRetailEligibilityPolicyVersion({
       id: routeParam(req, 'id'),
-      actorOxyUserId: retailOperatorId(req),
+      actorOxyUserId: operatorId(req),
       reason: body<{ reason: string }>(req).reason,
     });
     sendSuccess(res, { policy: policyView(row) });
@@ -303,7 +303,7 @@ export async function recordRetailCategoryRuleHandler(req: Request, res: Respons
         ? { requiresBatchTraceability: input.requiresBatchTraceability }
         : {}),
       reason: input.reason,
-      recordedByOxyUserId: retailOperatorId(req),
+      recordedByOxyUserId: operatorId(req),
     });
     sendSuccess(res, { rule: row }, 201);
   } catch (err) {
@@ -375,7 +375,7 @@ export async function recordRetailMarketCapabilityHandler(
         : {}),
       ...(input.customerInvoiceNote ? { customerInvoiceNote: input.customerInvoiceNote } : {}),
       reason: input.reason,
-      recordedByOxyUserId: retailOperatorId(req),
+      recordedByOxyUserId: operatorId(req),
     });
     sendSuccess(res, { capability: row }, 201);
   } catch (err) {
@@ -426,7 +426,7 @@ export async function recordResaleEvidenceHandler(req: Request, res: Response): 
       ...(input.issuer ? { issuer: input.issuer } : {}),
       ...(input.note ? { note: input.note } : {}),
       reason: input.reason,
-      recordedByOxyUserId: retailOperatorId(req),
+      recordedByOxyUserId: operatorId(req),
     });
     sendSuccess(res, { evidence: row }, 201);
   } catch (err) {
@@ -440,7 +440,7 @@ export async function verifyResaleEvidenceHandler(req: Request, res: Response): 
   try {
     const row = await verifyResaleEvidence({
       id: routeParam(req, 'id'),
-      verifiedByOxyUserId: retailOperatorId(req),
+      verifiedByOxyUserId: operatorId(req),
       reason: body<{ reason: string }>(req).reason,
     });
     sendSuccess(res, { evidence: row });
@@ -455,7 +455,7 @@ export async function rejectResaleEvidenceHandler(req: Request, res: Response): 
   try {
     const row = await rejectResaleEvidence({
       id: routeParam(req, 'id'),
-      actorOxyUserId: retailOperatorId(req),
+      actorOxyUserId: operatorId(req),
       reason: body<{ reason: string }>(req).reason,
     });
     sendSuccess(res, { evidence: row });
@@ -470,7 +470,7 @@ export async function revokeResaleEvidenceHandler(req: Request, res: Response): 
   try {
     const row = await revokeResaleEvidence({
       id: routeParam(req, 'id'),
-      revokedByOxyUserId: retailOperatorId(req),
+      revokedByOxyUserId: operatorId(req),
       reason: body<{ reason: string }>(req).reason,
     });
     sendSuccess(res, { evidence: row });
@@ -500,7 +500,7 @@ export async function recordComplianceEvidenceHandler(req: Request, res: Respons
       ...(input.sha256 ? { sha256: input.sha256 } : {}),
       ...(input.note ? { note: input.note } : {}),
       reason: input.reason,
-      recordedByOxyUserId: retailOperatorId(req),
+      recordedByOxyUserId: operatorId(req),
     });
     sendSuccess(res, { evidence: row }, 201);
   } catch (err) {
@@ -514,7 +514,7 @@ export async function verifyComplianceEvidenceHandler(req: Request, res: Respons
   try {
     const row = await verifyComplianceEvidence({
       id: routeParam(req, 'id'),
-      verifiedByOxyUserId: retailOperatorId(req),
+      verifiedByOxyUserId: operatorId(req),
       reason: body<{ reason: string }>(req).reason,
     });
     sendSuccess(res, { evidence: row });
@@ -529,7 +529,7 @@ export async function rejectComplianceEvidenceHandler(req: Request, res: Respons
   try {
     const row = await rejectComplianceEvidence({
       id: routeParam(req, 'id'),
-      actorOxyUserId: retailOperatorId(req),
+      actorOxyUserId: operatorId(req),
       reason: body<{ reason: string }>(req).reason,
     });
     sendSuccess(res, { evidence: row });
@@ -544,7 +544,7 @@ export async function revokeComplianceEvidenceHandler(req: Request, res: Respons
   try {
     const row = await revokeComplianceEvidence({
       id: routeParam(req, 'id'),
-      revokedByOxyUserId: retailOperatorId(req),
+      revokedByOxyUserId: operatorId(req),
       reason: body<{ reason: string }>(req).reason,
     });
     sendSuccess(res, { evidence: row });
@@ -584,7 +584,7 @@ export async function raiseRetailSuppressionHandler(req: Request, res: Response)
       ...(input.externalReference ? { externalReference: input.externalReference } : {}),
       ...(input.effectiveFrom ? { effectiveFrom: new Date(input.effectiveFrom) } : {}),
       reason: input.reason,
-      raisedByOxyUserId: retailOperatorId(req),
+      raisedByOxyUserId: operatorId(req),
     });
     sendSuccess(res, { suppression, created }, created ? 201 : 200);
   } catch (err) {
@@ -598,7 +598,7 @@ export async function liftRetailSuppressionHandler(req: Request, res: Response):
   try {
     const row = await liftRetailSuppressionAudited({
       id: routeParam(req, 'id'),
-      liftedByOxyUserId: retailOperatorId(req),
+      liftedByOxyUserId: operatorId(req),
       reason: body<{ reason: string }>(req).reason,
     });
     sendSuccess(res, { suppression: row });
@@ -642,7 +642,7 @@ export async function requestRetailEligibilityExceptionHandler(
       justification: input.justification,
       expiresAt: new Date(input.expiresAt),
       reason: input.reason,
-      requestedByOxyUserId: retailOperatorId(req),
+      requestedByOxyUserId: operatorId(req),
     });
     sendSuccess(res, { exception: row }, 201);
   } catch (err) {
@@ -659,7 +659,7 @@ export async function approveRetailEligibilityExceptionHandler(
   try {
     const row = await approveRetailEligibilityExceptionAudited({
       id: routeParam(req, 'id'),
-      approvedByOxyUserId: retailOperatorId(req),
+      approvedByOxyUserId: operatorId(req),
       reason: body<{ reason: string }>(req).reason,
     });
     sendSuccess(res, { exception: row });
@@ -677,7 +677,7 @@ export async function rejectRetailEligibilityExceptionHandler(
   try {
     const row = await rejectRetailEligibilityExceptionAudited({
       id: routeParam(req, 'id'),
-      rejectedByOxyUserId: retailOperatorId(req),
+      rejectedByOxyUserId: operatorId(req),
       reason: body<{ reason: string }>(req).reason,
     });
     sendSuccess(res, { exception: row });
@@ -695,7 +695,7 @@ export async function revokeRetailEligibilityExceptionHandler(
   try {
     const row = await revokeRetailEligibilityExceptionAudited({
       id: routeParam(req, 'id'),
-      revokedByOxyUserId: retailOperatorId(req),
+      revokedByOxyUserId: operatorId(req),
       reason: body<{ reason: string }>(req).reason,
     });
     sendSuccess(res, { exception: row });

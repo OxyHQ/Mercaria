@@ -161,8 +161,8 @@ export async function advanceRetailWarrantyCase(
  * alone: a notice re-sent is better than one swallowed.
  *
  * It does NOT raise a #121 suppression. Deciding that a product must come off
- * sale is a compliance power on a different allow-list
- * (`RETAIL_OPERATOR_OXY_USER_IDS`) with four-eyes behind it, and a warranty
+ * sale is a compliance power on a different key
+ * (`retail.operate`) with four-eyes behind it, and a warranty
  * operator reaching it from here would be that power granted sideways. The
  * escalation is the signal; `/internal/retail-eligibility/*` is where somebody
  * acts on it.

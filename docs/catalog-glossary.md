@@ -183,7 +183,7 @@ flowchart LR
         M1[POST product-drafts]
         M2[POST catalog-proposals]
     end
-    subgraph operator["A catalog operator (CATALOG_OPERATOR_OXY_USER_IDS)"]
+    subgraph operator["A catalog operator (catalog.operate)"]
         O1["/internal/catalog-governance"]
         O2["/internal/catalog-proposals"]
         O3["/internal/navigation"]

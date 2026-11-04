@@ -18,29 +18,32 @@ const sdk = vi.hoisted(() => ({
   add: vi.fn(),
   remove: vi.fn(),
   reconcile: vi.fn(),
-  configured: true,
 }));
 const ledger = vi.hoisted(() => ({ record: vi.fn() }));
 vi.mock('../../../db/oxyFiles/applicationFileRepository.js', () => ({
   recordApplicationFiles: ledger.record,
 }));
-vi.mock('../../../capabilities/oxy-service-client.js', () => ({
-  oxyServiceClient: () =>
-    sdk.configured
-      ? {
-          assets: {
-            importAppFile: sdk.importAppFile,
-            importAppFiles: sdk.importAppFiles,
-            importUserMedia: sdk.importUserMedia,
-            uploadAppFile: sdk.uploadAppFile,
-            uploadUserMedia: sdk.uploadUserMedia,
-            uploadAppFileLarge: sdk.uploadAppFileLarge,
-            adoptAppFile: sdk.adoptAppFile,
-            references: { add: sdk.add, remove: sdk.remove, reconcile: sdk.reconcile },
-          },
-        }
-      : null,
-}));
+vi.mock('../../../middleware/auth.js', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../../../middleware/auth.js')>();
+  const { overOxyClient } = await import('../../../__tests__/over-oxy-client.js');
+  return {
+    ...original,
+    get oxyClient() {
+      return overOxyClient(original.oxyClient, {
+        assets: {
+          importAppFile: sdk.importAppFile,
+          importAppFiles: sdk.importAppFiles,
+          importUserMedia: sdk.importUserMedia,
+          uploadAppFile: sdk.uploadAppFile,
+          uploadUserMedia: sdk.uploadUserMedia,
+          uploadAppFileLarge: sdk.uploadAppFileLarge,
+          adoptAppFile: sdk.adoptAppFile,
+          references: { add: sdk.add, remove: sdk.remove, reconcile: sdk.reconcile },
+        },
+      });
+    },
+  };
+});
 import { LargeUploadFailedError } from '@oxy.so/core/server';
 import {
   addOxyFileReferences,
@@ -65,7 +68,6 @@ const FILE = { id: 'oxy-file-1', mime: 'image/png', size: 10, visibility: 'publi
 beforeEach(() => {
   vi.resetAllMocks();
   ledger.record.mockResolvedValue(undefined);
-  sdk.configured = true;
   sdk.importAppFile.mockResolvedValue({ file: FILE, outcome: 'existing', deduplicated: true });
   sdk.importUserMedia.mockResolvedValue({ file: FILE, outcome: 'downloaded', deduplicated: false });
 });
@@ -125,13 +127,6 @@ describe('import by URL', () => {
     expect((error as Error).message).toBe(
       'Oxy has not authorized Mercaria to import the media source.',
     );
-  });
-
-  it('refuses without Mercaria credentials', async () => {
-    sdk.configured = false;
-    await expect(
-      importOxyFileFromUrl({ kind: 'application' }, 'https://s.example/a.png'),
-    ).rejects.toThrow(/credentials/);
   });
 });
 
@@ -547,12 +542,5 @@ describe('batch import for the application (one rate-limit unit per 50 sources)'
       expect(isOxyRateLimited(result.error)).toBe(true);
       expect(result.error?.retryAfterMs).toBe(3_600_000);
     }
-  });
-
-  it('refuses without Mercaria credentials', async () => {
-    sdk.configured = false;
-    await expect(importApplicationFilesFromUrls(['https://s.example/1'])).rejects.toThrow(
-      /credentials/,
-    );
   });
 });

@@ -410,7 +410,7 @@ afterAll(async () => {
 
 // Real shared transport owns the bearer and its single 401 refresh. Only the
 // workload mint is replaced; requests still traverse the SDK and HTTP gateway.
-vi.mock('../../../capabilities/oxy-service-client.js', async () => {
+vi.mock('../../../middleware/auth.js', async (importOriginal) => {
   const { OxyServer } = await import('@oxy.so/core/server');
   const oxy = new OxyServer({ baseURL: 'https://unused.oxy.test' });
   Object.assign(oxy, {
@@ -429,7 +429,10 @@ vi.mock('../../../capabilities/oxy-service-client.js', async () => {
       identityToken = null;
     },
   });
-  return { requiredOxyServiceClient: () => oxy, oxyServiceClient: () => oxy };
+  return {
+    ...(await importOriginal<typeof import('../../../middleware/auth.js')>()),
+    oxyClient: oxy,
+  };
 });
 
 vi.mock('../../../config/index.js', async (importOriginal) => {

@@ -12,11 +12,18 @@ vi.mock('../../config/index.js', () => ({
 vi.mock('../../db/stores/storeRepository.js', () => ({
   findStoreById: async () => ({ oxyAccountId: 'persisted-owner' }),
 }));
-vi.mock('../../capabilities/oxy-service-client.js', () => ({
-  oxyServiceClient: () => ({
-    assets: { importUserMedia: (...args: unknown[]) => state.importUserMedia(...args) },
-  }),
-}));
+vi.mock('../../middleware/auth.js', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../../middleware/auth.js')>();
+  const { overOxyClient } = await import('../../__tests__/over-oxy-client.js');
+  return {
+    ...original,
+    get oxyClient() {
+      return overOxyClient(original.oxyClient, {
+        assets: { importUserMedia: (...args: unknown[]) => state.importUserMedia(...args) },
+      });
+    },
+  };
+});
 import { synchronizeStoreMedia } from '../catalog-media/sync.js';
 import { matchesProductVideo, PRODUCT_VIDEO_MAX_BYTES } from '../catalog-media/policy.js';
 const mp4 = Buffer.from('00000018667479706d703432000000006d70343269736f6d', 'hex');

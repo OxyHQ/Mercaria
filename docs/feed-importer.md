@@ -536,7 +536,7 @@ if (session.status === 'uploading') {
 
 ### Operator — `/internal/feed-imports/*`
 
-On the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54/#56/#57/#58/#60/#62
+On the SAME `catalog.operate` key #54/#56/#57/#58/#60/#62
 use. Mounted while `FEED_IMPORT_ENABLED` is off, deliberately: a merchant's
 mapping, their validation reports and the reason their last pass failed are
 exactly the evidence somebody needs during the incident that turned the importer
@@ -734,8 +734,8 @@ Each is a NAMED contract, not a stub.
 
 1. `FEED_IMPORT_AUTH_ENCRYPTION_KEY` set (32 bytes hex), or `FEED_IMPORT_ENABLED`
    stays off and says so.
-2. `CATALOG_OPERATOR_OXY_USER_IDS` populated, or `/internal/feed-imports` is not
-   mounted and nobody can trace a merchant's feed.
+2. `catalog.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`), or nobody can trace a merchant's
+   feed through `/internal/feed-imports`.
 3. Per feed: a MERCHANT bound on the #62 source (no merchant, no offers), a
    rights policy published and reviewed, the source status moved to `active`.
 4. Per feed: the delivery mode confirmed with the merchant. `snapshot` on a

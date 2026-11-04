@@ -575,7 +575,7 @@ metric a rollout is judged on.
 | Route | Who | What |
 |---|---|---|
 | `GET /search` | public, `rl:listings:` | the canonical answer; 404 unless `CANONICAL_SEARCH=on` |
-| `GET /internal/search/shadow` | `CATALOG_OPERATOR_OXY_USER_IDS` | the shadow counters and the lever they were taken under |
+| `GET /internal/search/shadow` | `catalog.operate` | the shadow counters and the lever they were taken under |
 | `POST /internal/search/explain` | same | what one query returns RIGHT NOW, with its full trace |
 
 The operator surface is on the SAME catalog allow-list #54/#55/#56/#57/#58/#60/

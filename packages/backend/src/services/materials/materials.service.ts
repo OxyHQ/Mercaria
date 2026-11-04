@@ -22,8 +22,8 @@ import {
 } from '../../db/schema/materials.js';
 import { PublicApiError } from '../public-api/errors.js';
 import { publicCursorFingerprint } from '../public-api/cursor.js';
-import { readCallerAccountRole } from '../oxy-account-graph.js';
-import { MercariaError } from '../../lib/errors/error-codes.js';
+import { oxyAccessOutcome } from '../../lib/errors/oxy-access.js';
+import { oxyClient } from '../../middleware/auth.js';
 import type { StoreCaller } from '../store-access.service.js';
 
 const offerColumns = {
@@ -45,20 +45,32 @@ const reservationColumns = getTableColumns(materialReservations);
 type OfferRow = typeof materialOffers.$inferSelect;
 type ReservationRow = typeof materialReservations.$inferSelect;
 
-/** No role cache: a removed organization member cannot act using a prior materials response. */
+/**
+ * The account the caller acts as, once Oxy confirms they may act for
+ * `accountId` (`account:act_as` — its owners, admins and editors). Always asked
+ * fresh: a removed organization member cannot act on a cached answer.
+ */
 async function authorize(caller: StoreCaller | null, accountId: string): Promise<string> {
   if (!caller) throw new PublicApiError('unauthorized', 'Sign in to manage donated materials');
   if (caller.accountId === accountId && caller.actorAccountId === accountId && !caller.delegated)
     return accountId;
-  let role: Awaited<ReturnType<typeof readCallerAccountRole>>;
+  let mayAct: boolean;
   try {
-    role = await readCallerAccountRole(caller.accessToken, accountId);
+    const access = await oxyClient.accountAccessFor(
+      { userId: caller.accountId, sessionId: caller.sessionId, accessToken: caller.accessToken },
+      accountId,
+      { fresh: true },
+    );
+    mayAct = access.has('account:act_as');
   } catch (err) {
-    if (err instanceof MercariaError && err.httpStatus === 401)
+    const outcome = oxyAccessOutcome(err);
+    if (outcome === 'session_required')
       throw new PublicApiError('unauthorized', 'Your Oxy session is no longer valid');
-    throw new PublicApiError('service_unavailable', 'Account access cannot be checked right now');
+    if (outcome === 'unavailable')
+      throw new PublicApiError('service_unavailable', 'Account access cannot be checked right now');
+    mayAct = false;
   }
-  if (role !== 'owner' && role !== 'admin' && role !== 'editor')
+  if (!mayAct)
     throw new PublicApiError(
       'forbidden',
       'This account does not authorize you to manage materials',

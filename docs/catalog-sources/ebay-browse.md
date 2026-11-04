@@ -441,9 +441,9 @@ measurement problem by creating a freshness one.
 
 ### The operator surface
 
-`/internal/ebay/*`, behind the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list
-#54/#56/#57/#58/#60/#62 use. Empty = not mounted (404, never a 401 that would
-advertise it). It stays mounted while `EBAY_ENABLED` and `EBAY_FETCH_ENABLED` are
+`/internal/ebay/*`, behind the SAME `catalog.operate` key
+#54/#56/#57/#58/#60/#62 use. Anyone without it gets 404, never a 401 that would
+advertise it. It stays mounted while `EBAY_ENABLED` and `EBAY_FETCH_ENABLED` are
 off, because reading the budget is exactly what somebody does after flipping the
 kill switch.
 
@@ -484,7 +484,7 @@ every line is green.
 2. [ ] EPN account; a 10-digit campaign id in `EPN_CAMPAIGN_ID`.
 3. [ ] **Buy API production application approved** and the Buy-API contracts
        signed. A sandbox keyset never feeds public pages (#64 §9.1).
-4. [ ] `CATALOG_OPERATOR_OXY_USER_IDS` populated, or nobody can configure the
+4. [ ] `catalog.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`), or nobody can configure the
        source or review its policy.
 5. [ ] The source configured with `seller_identity = per_record`, an eBay
        operator merchant BOUND, and a marketplace storefront BOUND.

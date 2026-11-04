@@ -16,11 +16,18 @@ import { backfillListingMedia } from '../catalog-media/backfill.js';
 // by URL (ADR 0043 D7). These cases prove maintenance atomicity/identity in real
 // PostgreSQL; they do not prove live Oxy imports.
 const { importMedia } = vi.hoisted(() => ({ importMedia: vi.fn() }));
-vi.mock('../../capabilities/oxy-service-client.js', () => ({
-  oxyServiceClient: () => ({
-    assets: { importUserMedia: (...args: unknown[]) => importMedia(...args) },
-  }),
-}));
+vi.mock('../../middleware/auth.js', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../../middleware/auth.js')>();
+  const { overOxyClient } = await import('../../__tests__/over-oxy-client.js');
+  return {
+    ...original,
+    get oxyClient() {
+      return overOxyClient(original.oxyClient, {
+        assets: { importUserMedia: (...args: unknown[]) => importMedia(...args) },
+      });
+    },
+  };
+});
 /** What Oxy answers for an import: the stored public image. */
 function imported(id: string) {
   return {

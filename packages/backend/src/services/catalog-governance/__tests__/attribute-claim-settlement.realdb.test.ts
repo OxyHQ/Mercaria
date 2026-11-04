@@ -48,7 +48,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq, inArray } from 'drizzle-orm';
 import { uuidv7 } from '@oxy.so/db';
-import type { Request } from 'express';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import { listings, productVariants } from '../../../db/schema/catalog.js';
 import { attributeDefinitions } from '../../../db/schema/attributeRegistry.js';
@@ -62,6 +61,7 @@ import { typedVariantSignature } from '../../variant-axes/signature.js';
 import { catalogGovernanceAuditEvents } from '../../../db/schema/catalogGovernance.js';
 import { governanceActor, type CatalogGovernanceActor } from '../actor.js';
 import { readAttributeClaimQueue, settleAttributeClaim } from '../attribute-claim.service.js';
+import { gatedOperatorRequest } from '../../../__tests__/oxy-app-permissions-fake.js';
 
 let db: Database;
 
@@ -89,7 +89,7 @@ const createdAttributeIds: string[] = [];
  * brand stops being a property of the call graph.
  */
 function actorWith(...roles: Parameters<typeof governanceActor>[1]): CatalogGovernanceActor {
-  return governanceActor({ userId: OPERATOR } as unknown as Request, roles);
+  return governanceActor(gatedOperatorRequest(OPERATOR), roles);
 }
 
 /**

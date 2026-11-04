@@ -15,8 +15,8 @@
  *
  * 1. **The session IS the owning account, undelegated** — the person who owns a
  *    personal store, or an agent operating itself. Owner, with no round trip.
- * 2. **Anything else asks Oxy, with the CALLER's own bearer**
- *    (`oxy-account-graph.ts`).
+ * 2. **Anything else asks Oxy, with the CALLER's own bearer** —
+ *    `oxyClient.accountAccessFor`, the SDK's reader of `GET /accounts/:id`.
  *
  * Rule 1 deliberately excludes a DELEGATED session. A person who switched into
  * an organization authenticates AS it (`req.userId` is the organization), but
@@ -26,30 +26,21 @@
  * role withholds. Asking Oxy instead gets the operator's own role, which is
  * Oxy's answer for that session everywhere else too.
  *
- * ## Failure is CLOSED, and it is a 503
+ * ## Failure is CLOSED, an outage is a 503, and only answers are remembered
  *
- * An Oxy outage refuses the request with `SERVICE_UNAVAILABLE`; it never falls
- * back to "probably still a member". See `oxy-account-graph.ts` for how each
- * Oxy outcome is read.
- *
- * ## The cache is short, per process, and keyed on the HUMAN
- *
- * A role is cached for {@link ROLE_CACHE_TTL_MS} (an absence for
- * {@link NO_ROLE_CACHE_TTL_MS}, so somebody just added is not kept waiting),
- * keyed on the ACTOR — `getOxyActor().actorAccountId` — and the account asked
- * about. Keyed on the session's account instead, two people operating one
- * organization would share each other's answers. A caller whose actor Oxy did
- * not report is never cached: there is no key that is safe to share.
- *
- * In-process rather than Redis on purpose: a revocation is bounded by the TTL
- * either way, and Redis would put a second network dependency in front of
- * every admin request for no gain in correctness.
+ * The SDK maps every outcome one way (`lib/errors/oxy-access.ts`): 401 → sign in
+ * again, 403/404 → no access, anything else → `SERVICE_UNAVAILABLE`, never
+ * "probably still a member". It caches only POSITIVE answers, per session, for
+ * 30 s — a refusal or an outage is never remembered, so the next request asks
+ * again — and a write asks `fresh` (`loadStore` passes it for every
+ * non-read method), so a revoked role cannot keep changing a store.
  */
 
 import type { Request } from 'express';
 import type { AccountRole } from '@oxy.so/core';
-import { getOxyActor, getOxyUserId } from '@oxy.so/core/server';
+import { getOxyActor, getOxyUserId, type OxyCallerRequest } from '@oxy.so/core/server';
 import {
+  STORE_ACCOUNT_ROLES,
   STORE_PERMISSIONS,
   effectiveStorePermissions,
   type StoreAccess,
@@ -62,18 +53,11 @@ import {
   type StorePermissionOverrideRow,
   type StoreRow,
 } from '../db/stores/storeRepository.js';
-import { forbidden, MercariaError } from '../lib/errors/error-codes.js';
+import { forbidden, MercariaError, serviceUnavailable } from '../lib/errors/error-codes.js';
+import { oxyAccessOutcome } from '../lib/errors/oxy-access.js';
+import { log } from '../lib/logger.js';
+import { oxyClient } from '../middleware/auth.js';
 import { ErrorCodes } from '../utils/api-response.js';
-import { listCallerAccountRoles, readCallerAccountRole } from './oxy-account-graph.js';
-
-/** How long a resolved role is reused. */
-export const ROLE_CACHE_TTL_MS = 45_000;
-
-/** How long "no role" is reused — shorter, so a fresh invitation lands quickly. */
-export const NO_ROLE_CACHE_TTL_MS = 10_000;
-
-/** Entries kept before the oldest is evicted. */
-const ROLE_CACHE_MAX_ENTRIES = 10_000;
 
 /**
  * The caller a store-access question is asked for. Built from a verified
@@ -90,8 +74,16 @@ export interface StoreCaller {
   readonly actorAccountId: string | null;
   /** Whether the session is a person operating another account. */
   readonly delegated: boolean;
+  /** The verified Oxy session — what an answer about this caller is cached under. */
+  readonly sessionId: string;
   /** The caller's own bearer, forwarded to Oxy and nowhere else. */
   readonly accessToken: string;
+}
+
+/** Options for one access question. */
+export interface StoreAccessOptions {
+  /** Ask Oxy rather than reuse a cached answer — every write passes it. */
+  readonly fresh?: boolean;
 }
 
 /**
@@ -99,20 +91,28 @@ export interface StoreCaller {
  * permissions. Assigning one to the other is the compile-time check: a role
  * Oxy adds fails `tsc` here instead of locking its holders out silently.
  */
-function asStoreAccountRole(role: AccountRole): StoreAccountRole {
+function storeRoleOf(role: AccountRole): StoreAccountRole {
   return role;
+}
+
+/** A role name Oxy answered, or `null` for one outside the vocabulary (no permissions). */
+function parseStoreRole(role: string): StoreAccountRole | null {
+  return (STORE_ACCOUNT_ROLES as readonly string[]).includes(role)
+    ? storeRoleOf(role as AccountRole)
+    : null;
 }
 
 /** The caller of an authenticated request, or `null` when it carries none. */
 export function storeCallerFrom(req: Request): StoreCaller | null {
   const accountId = getOxyUserId(req);
-  const accessToken = req.accessToken;
-  if (!accountId || !accessToken) return null;
+  const { accessToken, sessionId } = req;
+  if (!accountId || !accessToken || !sessionId) return null;
   const actor = getOxyActor(req);
   return {
     accountId,
     actorAccountId: actor?.actorAccountId ?? null,
     delegated: actor?.delegated ?? false,
+    sessionId,
     accessToken,
   };
 }
@@ -146,26 +146,48 @@ function isUndelegatedSelf(caller: StoreCaller, accountId: string): boolean {
   );
 }
 
-const roleCache = new Map<string, { role: StoreAccountRole | null; expiresAt: number }>();
-
-function cacheKey(caller: StoreCaller, accountId: string): string | null {
-  return caller.actorAccountId === null ? null : `${caller.actorAccountId}\u0000${accountId}`;
+/** The request shape the SDK's caller readers take, for this caller. */
+function oxyCaller(caller: StoreCaller): OxyCallerRequest {
+  return { userId: caller.accountId, sessionId: caller.sessionId, accessToken: caller.accessToken };
 }
 
-function rememberRole(key: string, role: StoreAccountRole | null): void {
-  if (roleCache.size >= ROLE_CACHE_MAX_ENTRIES) {
-    const oldest = roleCache.keys().next().value;
-    if (oldest !== undefined) roleCache.delete(oldest);
+/** A failed Oxy read, as the error a store route answers. `null` is "no access". */
+function storeAccessFailure(error: unknown, context: Record<string, unknown>): null {
+  switch (oxyAccessOutcome(error)) {
+    case 'denied':
+      return null;
+    case 'session_required':
+      throw new MercariaError({
+        code: ErrorCodes.UNAUTHORIZED,
+        message: 'Your Oxy session is no longer valid. Sign in again.',
+      });
+    case 'unavailable':
+      log.general.warn({ err: error, ...context }, '[StoreAccess] Oxy account graph unavailable');
+      throw serviceUnavailable(
+        'Store access cannot be checked right now because Oxy is unavailable. Try again shortly.',
+      );
   }
-  const ttl = role === null ? NO_ROLE_CACHE_TTL_MS : ROLE_CACHE_TTL_MS;
-  // Delete first so a refreshed entry moves to the young end of the eviction order.
-  roleCache.delete(key);
-  roleCache.set(key, { role, expiresAt: Date.now() + ttl });
 }
 
-/** Forget every cached role. */
-export function resetStoreAccessCacheForTests(): void {
-  roleCache.clear();
+/**
+ * What the caller may do in an Oxy account, or `null` when Oxy says they hold
+ * nothing there.
+ *
+ * Throws `SERVICE_UNAVAILABLE` when Oxy cannot answer and `UNAUTHORIZED` when
+ * it no longer accepts the caller's bearer.
+ */
+async function readAccountAccess(
+  caller: StoreCaller,
+  accountId: string,
+  options: StoreAccessOptions,
+) {
+  try {
+    return await oxyClient.accountAccessFor(oxyCaller(caller), accountId, {
+      fresh: options.fresh === true,
+    });
+  } catch (error) {
+    return storeAccessFailure(error, { accountId });
+  }
 }
 
 /**
@@ -177,17 +199,11 @@ export function resetStoreAccessCacheForTests(): void {
 export async function resolveAccountRole(
   caller: StoreCaller,
   accountId: string,
+  options: StoreAccessOptions = {},
 ): Promise<StoreAccountRole | null> {
   if (isUndelegatedSelf(caller, accountId)) return 'owner';
-
-  const key = cacheKey(caller, accountId);
-  const cached = key === null ? undefined : roleCache.get(key);
-  if (cached && cached.expiresAt > Date.now()) return cached.role;
-
-  const oxyRole = await readCallerAccountRole(caller.accessToken, accountId);
-  const role = oxyRole === null ? null : asStoreAccountRole(oxyRole);
-  if (key !== null) rememberRole(key, role);
-  return role;
+  const access = await readAccountAccess(caller, accountId, options);
+  return access === null ? null : parseStoreRole(access.role);
 }
 
 /**
@@ -211,8 +227,9 @@ function accessFor(
 export async function resolveStoreAccess(
   caller: StoreCaller,
   store: Pick<StoreRow, 'id' | 'oxyAccountId'>,
+  options: StoreAccessOptions = {},
 ): Promise<StoreAccess | null> {
-  const role = await resolveAccountRole(caller, store.oxyAccountId);
+  const role = await resolveAccountRole(caller, store.oxyAccountId, options);
   if (role === null) return null;
   const override = await findStorePermissionOverride(store.id, overrideSubject(caller));
   return accessFor(store, caller, role, override);
@@ -225,16 +242,31 @@ export interface AccessibleStore {
 }
 
 /**
- * Every store the caller can reach, newest first: the stores owned by any
- * account Oxy lists for them — ONE `GET /accounts`, which is anchored on the
- * human operator, so the answer is the same whichever of their accounts the
- * session is currently acting as.
+ * Every account the caller reaches, with their role in each — ONE `GET /accounts`
+ * as the caller, anchored on the human operator, so the answer is the same
+ * whichever of their accounts the session is currently acting as.
  */
-export async function listAccessibleStores(caller: StoreCaller): Promise<AccessibleStore[]> {
+async function listCallerAccountRoles(caller: StoreCaller): Promise<Map<string, StoreAccountRole>> {
   const roles = new Map<string, StoreAccountRole>();
-  for (const [accountId, role] of await listCallerAccountRoles(caller.accessToken)) {
-    roles.set(accountId, asStoreAccountRole(role));
+  let nodes: Awaited<ReturnType<typeof oxyClient.accounts.list>>;
+  try {
+    nodes = await oxyClient.withUser(caller.accessToken, (user) => user.accounts.list());
+  } catch (error) {
+    storeAccessFailure(error, { op: 'list' });
+    return roles;
   }
+  for (const node of nodes) {
+    // `self` is the caller's own personal account: implicit ownership, no row.
+    if (node.relationship === 'self') roles.set(node.accountId, 'owner');
+    else if (node.callerMembership)
+      roles.set(node.accountId, storeRoleOf(node.callerMembership.role));
+  }
+  return roles;
+}
+
+/** Every store the caller can reach, newest first. */
+export async function listAccessibleStores(caller: StoreCaller): Promise<AccessibleStore[]> {
+  const roles = await listCallerAccountRoles(caller);
   // The session's own account, when it is the caller undelegated — the list
   // carries it as `self` already; this only saves a person whose list Oxy
   // could not resolve from losing their personal store.
@@ -254,14 +286,16 @@ export async function listAccessibleStores(caller: StoreCaller): Promise<Accessi
 
 /**
  * Refuse unless the caller may put a store under `accountId`: they ARE that
- * account undelegated, or they hold `owner` or `admin` in it. Creating a store
- * for an organization and moving a store to one are both commitments the
+ * account undelegated, or Oxy grants them `account:update` in it — the
+ * permission its governors (owners and admins) hold. Creating a store for an
+ * organization and moving a store to one are both commitments the
  * organization's governors make, which is the line Oxy draws for its own
- * account administration.
+ * account administration. Always asked fresh: it is a write.
  */
 export async function assertMayOwnStores(caller: StoreCaller, accountId: string): Promise<void> {
-  const role = await resolveAccountRole(caller, accountId);
-  if (role !== 'owner' && role !== 'admin') {
+  if (isUndelegatedSelf(caller, accountId)) return;
+  const access = await readAccountAccess(caller, accountId, { fresh: true });
+  if (!access?.has('account:update')) {
     throw forbidden('Only an owner or admin of that Oxy account can give it a store');
   }
 }

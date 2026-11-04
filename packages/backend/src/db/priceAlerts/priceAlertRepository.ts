@@ -151,7 +151,7 @@ export async function findPriceAlertForOwner(
  * Deliberately separate from {@link findPriceAlertForOwner} rather than an
  * optional owner parameter: an owner argument that can be omitted is one a
  * caller forgets, and the two callers of this one are a leased worker and a
- * surface behind an operator allow-list. A `deleted` alert IS returned here,
+ * surface behind an operator key. A `deleted` alert IS returned here,
  * because a queued delivery naming it has to be able to say why it was
  * suppressed.
  */

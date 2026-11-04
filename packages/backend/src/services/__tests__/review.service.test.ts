@@ -238,6 +238,7 @@ const BUYER: StoreCaller = {
   accountId: 'buyer-1',
   actorAccountId: 'buyer-1',
   delegated: false,
+  sessionId: 'test-session',
   accessToken: 'bearer-buyer-1',
 };
 

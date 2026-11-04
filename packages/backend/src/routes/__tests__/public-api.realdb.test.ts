@@ -68,6 +68,14 @@ import {
 const world = createPublicApiWorld();
 const { RUN, TERM, VIEWER, PERSON, OWNER_ACCOUNT, SENTINEL, ids, storeAHandle } = world;
 
+/** The Oxy person behind a seller id, as the mocked `users` reads answer. */
+const person = vi.hoisted(() => (id: string) => ({
+  id,
+  username: `person${id.slice(-6)}`,
+  name: { displayName: 'Pat Seller' },
+  avatar: `avatar-${id}`,
+}));
+
 vi.mock('../../middleware/auth.js', () => {
   const actorOf = (req: express.Request): string | undefined => {
     const raw = req.headers['x-test-actor'];
@@ -84,14 +92,12 @@ vi.mock('../../middleware/auth.js', () => {
           },
       },
       assets: { publicUrl: (fileId: string) => `https://media.test.invalid/${fileId}` },
+      // `get` for one card, `lookupMany` for a batch (`getProfiles`): the same
+      // person either way, and nobody is missing or failed.
       users: {
-        get: (id: string) =>
-          Promise.resolve({
-            id,
-            username: `person${id.slice(-6)}`,
-            name: { displayName: 'Pat Seller' },
-            avatar: `avatar-${id}`,
-          }),
+        get: (id: string) => Promise.resolve(person(id)),
+        lookupMany: (ids: string[]) =>
+          Promise.resolve({ found: [...new Set(ids)].map(person), missing: [], failed: [] }),
       },
     },
     authenticateToken: (_req: express.Request, res: express.Response): void => {

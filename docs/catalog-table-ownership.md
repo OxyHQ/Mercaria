@@ -180,7 +180,7 @@ them**, and that difference is the thing to know before adding a route.
 
 | Subject | Sole writer | Reachable over HTTP by | Add-direction gate |
 |---|---|---|---|
-| `categories` | `db/taxonomy/taxonomyRepository.ts` | `/internal/catalog-governance` only (operator allow-list) | **Yes** — `db/__tests__/taxonomy-write-chokepoint.test.ts:136` finds only the repository and its two named exceptions |
+| `categories` | `db/taxonomy/taxonomyRepository.ts` | `/internal/catalog-governance` only (`catalog.operate`) | **Yes** — `db/__tests__/taxonomy-write-chokepoint.test.ts:136` finds only the repository and its two named exceptions |
 | controlled values (`attribute_enum_values`) | `db/attributes/definitionRepository.ts:322` | `/internal/catalog-attributes`, and proposal APPROVAL by an operator | **Yes** — `services/catalog-proposals/__tests__/catalog-proposal-isolation.test.ts:157` and `:172`, which also forbid the one writer from minting anything else |
 | `attribute_definitions` | `db/attributes/definitionRepository.ts:51`, `:174` | `/internal/catalog-attributes`, governance apply | **No** — the operator mount is gated and tested, but no repo-wide writer census exists |
 | `brands` | `db/canonical/brandRepository.ts` | nothing: `createBrand` has one caller, the vertical seed, reached only through governance `vertical_package_apply`; `updateBrand` has zero callers | **No** |
@@ -196,13 +196,13 @@ they defend the modules that exist and not a module somebody adds elsewhere.
 The operator mounts themselves are gated, and the gate is tested in both
 directions: `routes/__tests__/catalog-rollout.realdb.test.ts:398` asserts each
 listed `/internal/*` catalog router is still MOUNTED with every rollout lever
-off, and `:408` asserts each answers **404 when
-`CATALOG_OPERATOR_OXY_USER_IDS` is empty**.
+off, and `:408` asserts each answers **404 to a caller without
+`catalog.operate`**.
 
 **Read that test's coverage before relying on it.** Its `INTERNAL` list
 (`:281`) names **nine** surfaces and `:421` pins the length at nine, calling it
-the vacuity floor. There are **26** `app.use` mounts inside a
-`config.catalog.graphOperatorSurfaceEnabled` block in `app.ts` — the count is
+the vacuity floor. There are **26** `catalog.operate`-gated `app.use` mounts in
+`app.ts` — the count is
 `app.ts:286, 471, 519, 644, 724, 745, 749, 754, 755, 760, 765, 772, 782, 796,
 810, 819, 823, 833, 844, 854, 865, 876, 886, 992, 1008, 1014`. So seventeen
 surfaces are unasserted, and the floor cannot notice: it is computed from the
@@ -396,8 +396,9 @@ D12 is corrected in place and states each reason; the operational detail is
 [`catalog-migration-operations.md`](catalog-migration-operations.md) and
 [`runbooks/catalog-rollout-rollback.md`](runbooks/catalog-rollout-rollback.md).
 
-**Turning every lever off leaves every row readable — conditionally.** The nine
-`/internal/*` catalog surfaces are gated on `CATALOG_OPERATOR_OXY_USER_IDS`
-being non-empty, and an empty list answers 404. The evidence has to be readable
-during the incident that turned the levers off, so that list is part of the
-rollback plan and not an afterthought.
+**Turning every lever off leaves every row readable — to a `catalog.operate`
+holder.** The nine `/internal/*` catalog surfaces are mounted on every
+deployment and answer 404 to anyone without the key. The evidence has to be
+readable during the incident that turned the levers off, so having the key
+granted to the people on call is part of the rollback plan and not an
+afterthought.

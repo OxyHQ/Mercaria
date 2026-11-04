@@ -1,18 +1,14 @@
 /**
  * Who may reach `/internal/commerce-graph/*` — issue #54, the operator-only
  * linkage surface. The `internal-payments.test.ts` shape, applied to the
- * catalog operator allow-list, and the same four properties:
+ * `catalog.operate` application role, and the same three properties:
  *
- *  - an allow-listed Oxy operator gets past the gate;
- *  - an authenticated Oxy user who is NOT allow-listed gets 403, not a write;
- *  - a deployment with an EMPTY allow-list has no such surface at all — 404,
- *    from the MOUNT, because a 401 would advertise that the surface exists;
- *  - the PAYMENTS allow-list does not open this surface: the two lists are
- *    separate powers, and the cross-list case is the one a refactor toward
- *    "one operator list" would silently break.
- *
- * Two real apps against two frozen configs, because the empty-list case is a
- * property of the MOUNT, not of any handler.
+ *  - a holder of `catalog.operate` gets past the gate;
+ *  - an authenticated Oxy user holding no key gets 404 — the surface is never
+ *    revealed, and a 401 would advertise that it exists;
+ *  - holding `payments.operate` does not open this surface: the two keys are
+ *    separate powers, and the cross-desk case is the one a refactor toward
+ *    "one operator key" would silently break.
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
@@ -26,29 +22,49 @@ const MERCHANT_USER = 'oxy-user-merchant-1';
 
 /** Whichever caller the current request is acting as. */
 let currentUser = CATALOG_OPERATOR;
+const GRANTS: Readonly<Record<string, readonly string[]>> = {
+  [CATALOG_OPERATOR]: ['catalog.operate'],
+  [PAYMENTS_OPERATOR]: ['payments.operate'],
+};
+const appPermissions = vi.hoisted(() => ({
+  current: undefined as
+    | undefined
+    | import('../../__tests__/oxy-app-permissions-fake.js').FakeAppPermissions,
+}));
 
 // The Oxy SDK's own user resolution, stubbed to whatever the test is acting
-// as. Everything downstream — the allow-list comparison, the mount check, the
-// zod bodies — is the production chain.
+// as. Everything downstream — the operator gate, the zod bodies — is the
+// production chain; who holds which key comes from the app-permission fake.
 vi.mock('@oxy.so/core/server', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@oxy.so/core/server')>()),
   getRequiredOxyUserId: () => currentUser,
 }));
-vi.mock('../../middleware/auth.js', () => ({
-  authenticateToken: (
-    _req: express.Request,
-    _res: express.Response,
-    next: express.NextFunction,
-  ) => {
-    next();
-  },
-  oxyClient: {
-    middleware: { auth: () => (_req: unknown, res: express.Response) => res.sendStatus(401) },
-  },
-  optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
-    next();
-  },
-}));
+vi.mock('../../middleware/auth.js', async () => {
+  const { fakeAppPermissions } = await import('../../__tests__/oxy-app-permissions-fake.js');
+  const fake = fakeAppPermissions(
+    () => GRANTS[currentUser] ?? [],
+    () => currentUser,
+  );
+  appPermissions.current = fake;
+  return {
+    authenticateToken: (
+      _req: express.Request,
+      _res: express.Response,
+      next: express.NextFunction,
+    ) => {
+      next();
+    },
+    oxyClient: {
+      middleware: {
+        requireAppPermission: fake.requireAppPermission,
+        auth: () => (_req: unknown, res: express.Response) => res.sendStatus(401),
+      },
+    },
+    optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
+      next();
+    },
+  };
+});
 vi.mock('../../lib/rate-limit.js', () => ({
   makeRateLimiter:
     () => (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
@@ -77,59 +93,32 @@ vi.mock('../../db/postgres.js', () => ({
   closePostgres: () => Promise.resolve(),
 }));
 
-let enabledServer: Server;
-let disabledServer: Server;
-let enabledUrl: string;
-let disabledUrl: string;
+let server: Server;
+let url: string;
 
-/** Start one app and return its base URL. */
 async function listen(app: express.Express): Promise<{ server: Server; url: string }> {
-  const server = await new Promise<Server>((resolve) => {
-    const started = app.listen(0, () => {
-      resolve(started);
+  const started = await new Promise<Server>((resolve) => {
+    const listening = app.listen(0, () => {
+      resolve(listening);
     });
   });
-  const { port } = server.address() as AddressInfo;
-  return { server, url: `http://127.0.0.1:${String(port)}` };
-}
-
-/**
- * Build a real app against a FROZEN config for one allow-list state.
- * `config/index.ts` reads process.env once at module load; `vi.resetModules()`
- * gives each app its own frozen view.
- */
-async function buildApp(catalogOperatorIds: string): Promise<express.Express> {
-  vi.resetModules();
-  process.env.CATALOG_OPERATOR_OXY_USER_IDS = catalogOperatorIds;
-  // The payments operator surface stays configured in BOTH apps, so the
-  // cross-list case below proves separation rather than absence.
-  process.env.PAYMENT_OPERATOR_OXY_USER_IDS = PAYMENTS_OPERATOR;
-  process.env.STRIPE_ENABLED = 'false';
-  const { createApp } = await import('../../app.js');
-  return createApp();
+  const { port } = started.address() as AddressInfo;
+  return { server: started, url: `http://127.0.0.1:${String(port)}` };
 }
 
 beforeAll(async () => {
-  ({ server: enabledServer, url: enabledUrl } = await listen(await buildApp(CATALOG_OPERATOR)));
-  ({ server: disabledServer, url: disabledUrl } = await listen(await buildApp('')));
+  process.env.STRIPE_ENABLED = 'false';
+  const { createApp } = await import('../../app.js');
+  ({ server, url } = await listen(createApp()));
 }, 60_000);
 
 afterAll(async () => {
-  // vitest reuses a worker PROCESS across files while giving each its own
-  // module registry; these would otherwise leak into a sibling's frozen config.
-  delete process.env.CATALOG_OPERATOR_OXY_USER_IDS;
-  delete process.env.PAYMENT_OPERATOR_OXY_USER_IDS;
-  await Promise.all(
-    [enabledServer, disabledServer].map(
-      (server) =>
-        new Promise<void>((resolve, reject) => {
-          server.close((err) => {
-            if (err) reject(err);
-            else resolve();
-          });
-        }),
-    ),
-  );
+  await new Promise<void>((resolve, reject) => {
+    server.close((err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
 });
 
 /** Every path the surface exposes, with a method and a minimal valid body. */
@@ -165,34 +154,27 @@ async function call(
   });
 }
 
-describe('the catalog operator allow-list', () => {
-  it('lets an allow-listed catalog operator through the gate on every path', async () => {
+describe('the catalog.operate application role', () => {
+  it('lets a holder of catalog.operate through the gate on every path', async () => {
     // Past the GATE is the assertion, not a 200: the database is stubbed to
     // throw, so handlers answer 500 — what matters is that none answers 403
     // or 404, which is exactly what a gate refusing the right caller yields.
     for (const route of PATHS) {
-      const res = await call(enabledUrl, route, CATALOG_OPERATOR);
+      const res = await call(url, route, CATALOG_OPERATOR);
       expect([403, 404]).not.toContain(res.status);
     }
   });
 
-  it('refuses an authenticated non-operator with 403 on every path', async () => {
+  it('answers a caller holding no key with 404 on every path', async () => {
     for (const route of PATHS) {
-      const res = await call(enabledUrl, route, MERCHANT_USER);
-      expect(res.status).toBe(403);
+      const res = await call(url, route, MERCHANT_USER);
+      expect(res.status).toBe(404);
     }
   });
 
-  it('does not open for a PAYMENTS operator — the two lists are separate powers', async () => {
+  it('does not open for a holder of payments.operate — the two keys are separate powers', async () => {
     for (const route of PATHS) {
-      const res = await call(enabledUrl, route, PAYMENTS_OPERATOR);
-      expect(res.status).toBe(403);
-    }
-  });
-
-  it('answers 404 on every path when the allow-list is empty — the surface is not mounted', async () => {
-    for (const route of PATHS) {
-      const res = await call(disabledUrl, route, CATALOG_OPERATOR);
+      const res = await call(url, route, PAYMENTS_OPERATOR);
       expect(res.status).toBe(404);
     }
   });

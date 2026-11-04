@@ -258,12 +258,14 @@ describe('header-only guest commerce through the real app', () => {
           'x-mercaria-guest-transport,x-mercaria-guest-persistence,x-mercaria-portal-token,x-mercaria-referral-state',
       },
     });
-    expect(res.status).toBe(200);
+    // 204: `createOxyCors` answers an admitted preflight with no content.
+    expect(res.status).toBe(204);
     expect(res.headers.get('access-control-allow-credentials')).toBeNull();
-    expect(res.headers.get('access-control-allow-headers')).toContain('X-Mercaria-Portal-Token');
-    expect(res.headers.get('access-control-allow-headers')).toContain(
-      'X-Mercaria-Guest-Persistence',
-    );
+    // `createOxyCors` answers an allowed origin with the headers its preflight
+    // asked for, as the browser sent them (lower-case), so compare without case.
+    const allowHeaders = (res.headers.get('access-control-allow-headers') ?? '').toLowerCase();
+    expect(allowHeaders).toContain('x-mercaria-portal-token');
+    expect(allowHeaders).toContain('x-mercaria-guest-persistence');
     const issued = await fetch(`${baseUrl}/guest/session`, {
       method: 'POST',
       headers: { origin: ALLOWED_ORIGIN, 'x-mercaria-guest-transport': 'header' },

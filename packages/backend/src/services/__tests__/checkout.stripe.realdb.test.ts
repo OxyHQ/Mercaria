@@ -206,9 +206,12 @@ let shoppingServer: Server;
 let shoppingUrl: string;
 
 beforeAll(async () => {
-  supervision = await startSupervisionHttpFixture();
+  // The catalogue-safety reviewer holds `catalog.operate`, answered by the
+  // fixture's roles read exactly as Oxy would.
+  supervision = await startSupervisionHttpFixture({
+    appPermissions: { 'catalog-platform-operator': ['catalog.operate'] },
+  });
   process.env.OXY_API_URL = supervision.url;
-  process.env.CATALOG_OPERATOR_OXY_USER_IDS = 'catalog-platform-operator';
   // Set BEFORE importing anything that reads config: `config/index.ts` reads
   // process.env once at module load and freezes the result.
   process.env.STRIPE_ENABLED = 'true';
@@ -1303,7 +1306,8 @@ describe('supervised shopping through the existing checkout and payment seam', (
       'POST',
       { contentDigest: 'a'.repeat(64), decision: 'allow' },
     );
-    expect(deniedReview.status).toBe(403);
+    // A seller holds no `catalog.operate`: the review surface is not revealed.
+    expect(deniedReview.status).toBe(404);
     const unreviewed = await shoppingRequest('/supervised-shopping/cart/items', token, 'POST', {
       listingId: first.listingId,
       variantId: first.variantId,

@@ -116,6 +116,9 @@ describe('the deploy workflow and the migrator agree', () => {
     // The retired media bucket (never written; oxy-infra deleted it) leaves the
     // running revision on the next release instead of being carried forward.
     expect(register?.run).toContain('.name != "AWS_S3_BUCKET"');
+    // Operators are Oxy application roles held by organization role (oxy ADR
+    // 0056); no revision names an operator list, so the release filters none.
+    expect(register?.run).not.toContain('_OPERATOR_OXY_USER_IDS');
     expect(register?.env?.GOWAY_API_URL).toBeUndefined();
     expect(JSON.parse(jobs.deploy.env?.RELEASE_ENVIRONMENT ?? '{}')).toEqual({
       OXY_API_URL: 'https://api.oxy.so',

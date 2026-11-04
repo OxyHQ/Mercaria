@@ -77,7 +77,7 @@ import {
   type OxyServer,
 } from '@oxy.so/core/server';
 import { isOxyFileId } from '@mercaria/shared-types';
-import { oxyServiceClient } from '../../capabilities/oxy-service-client.js';
+import { oxyClient } from '../../middleware/auth.js';
 import { recordApplicationFiles } from '../../db/oxyFiles/applicationFileRepository.js';
 import { log } from '../../lib/logger.js';
 
@@ -113,12 +113,6 @@ export class OxyFilesError extends Error {
 }
 
 const UPLOAD_TIMEOUT_MS = 25_000;
-
-function client(): OxyServer {
-  const configured = oxyServiceClient();
-  if (!configured) throw new OxyFilesError('Oxy Files needs Mercaria application credentials.');
-  return configured;
-}
 
 function statusOf(error: unknown): number | undefined {
   if (error instanceof OxyApiError) return error.status;
@@ -367,15 +361,14 @@ export async function importOxyFileFromUrl(
 ): Promise<StoredOxyFile> {
   if (owner.kind === 'account' && !owner.oxyUserId)
     throw new OxyFilesError('An account-owned import needs its owner.');
-  const oxy = client();
   const revalidate = options.revalidate ? { revalidate: true } : {};
   let answer: unknown;
   try {
     // Retried on 429: Oxy answers the same file per (owner, URL).
     answer = await withOxyRateLimitRetry<unknown>(() =>
       owner.kind === 'application'
-        ? oxy.assets.importAppFile(sourceUrl, { visibility: 'public', ...revalidate })
-        : oxy.assets.importUserMedia(owner.oxyUserId, sourceUrl, {
+        ? oxyClient.assets.importAppFile(sourceUrl, { visibility: 'public', ...revalidate })
+        : oxyClient.assets.importUserMedia(owner.oxyUserId, sourceUrl, {
             visibility: 'public',
             ...revalidate,
           }),
@@ -423,7 +416,6 @@ export type ApplicationImportResult =
 export async function importApplicationFilesFromUrls(
   sourceUrls: readonly string[],
 ): Promise<ApplicationImportResult[]> {
-  const oxy = client();
   const distinct = [...new Set(sourceUrls)];
   const answers = new Map<string, ApplicationImportResult>();
   let failure: OxyFilesError | undefined;
@@ -436,7 +428,7 @@ export async function importApplicationFilesFromUrls(
     let results: Awaited<ReturnType<OxyServer['assets']['importAppFiles']>>;
     try {
       results = await withOxyRateLimitRetry(() =>
-        oxy.assets.importAppFiles(
+        oxyClient.assets.importAppFiles(
           chunk.map((sourceUrl) => ({ sourceUrl, visibility: 'public' as const })),
         ),
       );
@@ -495,7 +487,6 @@ export async function uploadOxyFile(
 ): Promise<StoredOxyFile> {
   if (owner.kind === 'account' && !owner.oxyUserId)
     throw new OxyFilesError('An account-owned upload needs its owner.');
-  const oxy = client();
   const body = new Uint8Array(bytes);
   try {
     // Retried on 429, briefly (a merchant waits on this): Oxy answers the same
@@ -504,7 +495,7 @@ export async function uploadOxyFile(
       const uploaded = storedFile(
         await withOxyRateLimitRetry(
           () =>
-            oxy.assets.uploadAppFile(body, mime, {
+            oxyClient.assets.uploadAppFile(body, mime, {
               visibility: 'public',
               originalName,
               timeout: UPLOAD_TIMEOUT_MS,
@@ -518,7 +509,7 @@ export async function uploadOxyFile(
     return storedFile(
       await withOxyRateLimitRetry(
         () =>
-          oxy.assets.uploadUserMedia(owner.oxyUserId, body, mime, {
+          oxyClient.assets.uploadUserMedia(owner.oxyUserId, body, mime, {
             originalName,
             timeout: UPLOAD_TIMEOUT_MS,
           }),
@@ -549,13 +540,12 @@ export async function uploadPrivateApplicationFile(
   mime: string,
   options: { filename: string; metadata?: Readonly<Record<string, string>> },
 ): Promise<StoredOxyFile> {
-  const oxy = client();
   let answer: unknown;
   try {
     // Retried on 429: calling again for the same bytes RESUMES the upload (only
     // the parts storage lacks are sent), and stored bytes answer at once.
     answer = await withOxyRateLimitRetry(() =>
-      oxy.assets.uploadAppFileLarge(source, {
+      oxyClient.assets.uploadAppFileLarge(source, {
         mime,
         visibility: 'private',
         filename: options.filename,
@@ -728,12 +718,11 @@ export async function openClientUpload(input: {
   mime: string;
   filename: string;
 }): Promise<ClientUploadState> {
-  const oxy = client();
   try {
     // Retried on 429: opening the same bytes again answers the same session.
     const answer = await withOxyRateLimitRetry(
       () =>
-        oxy.serviceRequest<unknown>(
+        oxyClient.serviceRequest<unknown>(
           'POST',
           APP_UPLOADS,
           {
@@ -761,11 +750,10 @@ export async function clientUploadPartUrls(
   uploadId: string,
   partNumbers: readonly number[],
 ): Promise<readonly ClientUploadPart[]> {
-  const oxy = client();
   try {
     const answer = await withOxyRateLimitRetry(
       () =>
-        oxy.serviceRequest<{ parts?: unknown }>(
+        oxyClient.serviceRequest<{ parts?: unknown }>(
           'POST',
           appUploadPath(uploadId, '/parts'),
           { partNumbers: [...partNumbers] },
@@ -782,11 +770,12 @@ export async function clientUploadPartUrls(
 
 /** Where a client-driven upload stands now. */
 export async function describeClientUpload(uploadId: string): Promise<ClientUploadState> {
-  const oxy = client();
   try {
     const answer = await withOxyRateLimitRetry(
       () =>
-        oxy.serviceRequest<unknown>('GET', appUploadPath(uploadId), undefined, { cache: false }),
+        oxyClient.serviceRequest<unknown>('GET', appUploadPath(uploadId), undefined, {
+          cache: false,
+        }),
       INTERACTIVE_RATE_LIMIT,
     );
     const state = clientUploadState(answer);
@@ -808,11 +797,10 @@ const TERMINAL_COMPLETION_STATUSES = new Set([410, 413, 415, 422, 451]);
  * with storage's own code for a terminal refusal. Idempotent.
  */
 export async function completeClientUpload(uploadId: string): Promise<ClientUploadState> {
-  const oxy = client();
   try {
     const answer = await withOxyRateLimitRetry(
       () =>
-        oxy.serviceRequest<unknown>('POST', appUploadPath(uploadId, '/complete'), undefined, {
+        oxyClient.serviceRequest<unknown>('POST', appUploadPath(uploadId, '/complete'), undefined, {
           cache: false,
         }),
       INTERACTIVE_RATE_LIMIT,
@@ -848,12 +836,11 @@ export async function completeClientUpload(uploadId: string): Promise<ClientUplo
 export async function adoptAsPrivateApplicationFile(
   fileId: string,
 ): Promise<StoredOxyFile & { sha256: string }> {
-  const oxy = client();
   let answer: Awaited<ReturnType<OxyServer['assets']['adoptAppFile']>>;
   try {
     // Retried on 429: adoption is idempotent per (application, bytes).
     answer = await withOxyRateLimitRetry(() =>
-      oxy.assets.adoptAppFile(fileId, { visibility: 'private' }),
+      oxyClient.assets.adoptAppFile(fileId, { visibility: 'private' }),
     );
   } catch (error) {
     throw refusal('adopt the file', error);
@@ -873,9 +860,8 @@ export async function addOxyFileReferences(
   if (references.length === 0) return [];
   try {
     // Retried on 429: adding a held reference answers `exists`.
-    const oxy = client();
     return await withOxyRateLimitRetry(
-      () => oxy.assets.references.add([...references]),
+      () => oxyClient.assets.references.add([...references]),
       REFERENCE_RATE_LIMIT,
     );
   } catch (error) {
@@ -891,9 +877,8 @@ export async function removeOxyFileReferences(
   if (references.length === 0) return [];
   try {
     // Retried on 429: removing a withdrawn reference answers `not_found`.
-    const oxy = client();
     return await withOxyRateLimitRetry(
-      () => oxy.assets.references.remove([...references]),
+      () => oxyClient.assets.references.remove([...references]),
       REFERENCE_RATE_LIMIT,
     );
   } catch (error) {
@@ -916,7 +901,7 @@ export async function reconcileOxyFileReferences(
   options: { dryRun: boolean },
 ): Promise<ServiceReferenceReconcileResult> {
   try {
-    return await client().assets.references.reconcile(entityType, items, {
+    return await oxyClient.assets.references.reconcile(entityType, items, {
       dryRun: options.dryRun,
     });
   } catch (error) {
@@ -967,7 +952,7 @@ export async function mintPrivateDownloadUrls(
 ): Promise<ServiceLinkedDownloadUrl[]> {
   if (fileIds.length === 0) return [];
   try {
-    return await client().assets.linkedDownloadUrls([...fileIds]);
+    return await oxyClient.assets.linkedDownloadUrls([...fileIds]);
   } catch (error) {
     if (error instanceof OxyFilesError) throw error;
     throw refusal('mint a download URL', error);
@@ -977,7 +962,7 @@ export async function mintPrivateDownloadUrls(
 /** Delete one of this application's own files (`files:app:delete`). */
 export async function deleteApplicationFile(fileId: string): Promise<void> {
   try {
-    await client().assets.deleteAppFile(fileId);
+    await oxyClient.assets.deleteAppFile(fileId);
   } catch (error) {
     if (error instanceof OxyFilesError) throw error;
     throw refusal('delete the file', error);

@@ -147,11 +147,11 @@ decided them.
 
 ## Operator surface
 
-`/internal/retail-pilot/*`, behind the SAME sixth allow-list
-(`PROCUREMENT_OPERATOR_OXY_USER_IDS`) that #122 and #124 use, and deliberately
-not a seventh: publishing the bounds Mercaria buys under, recording its supplier
-balance and pausing entry are the same power as reading what Mercaria pays a
-supplier and flipping a supplier kill switch. Empty list = not mounted (404).
+`/internal/retail-pilot/*`, behind the SAME sixth operator key
+(`procurement.operate`) that #122 and #124 use, and deliberately not a seventh:
+publishing the bounds Mercaria buys under, recording its supplier balance and
+pausing entry are the same power as reading what Mercaria pays a supplier and
+flipping a supplier kill switch. Anyone without the key gets 404.
 
 Draft a version · allow-list a SKU on it · publish a threshold on it · publish
 the draft · read and record funding · raise a stop · lift a stop. That is the
@@ -166,9 +166,9 @@ every one of them advisory).
 ## Environment
 
 The pilot adds **no environment variable**. That is the design: its bounds are
-rows. What it reads is `PROCUREMENT_OPERATOR_OXY_USER_IDS` (whether the operator
-surface mounts at all) and, indirectly, `MERCARIA_RETAIL_ENABLED` (#123's entry
-switch, checked before this gate is reached).
+rows. What it reads is, indirectly, `MERCARIA_RETAIL_ENABLED` (#123's entry
+switch, checked before this gate is reached); who may operate it is the
+`procurement.operate` application role, decided in Oxy.
 
 ## Seams left to their owners
 

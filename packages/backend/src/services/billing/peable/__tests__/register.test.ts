@@ -4,7 +4,6 @@ const seam = vi.hoisted(() => ({
   raw: '',
   enabled: true,
   live: false,
-  identity: true,
   oxy: {},
   account: vi.fn(),
   merchant: vi.fn(),
@@ -41,9 +40,10 @@ vi.mock('../../../payments/stripe/client.js', () => ({
     return { accounts: { retrieve: seam.account }, subscriptions: { retrieve: vi.fn() } };
   },
 }));
-vi.mock('../../../../capabilities/oxy-service-client.js', () => ({
-  oxyServiceClient: () => (seam.identity ? {} : null),
-  requiredOxyServiceClient: () => seam.oxy,
+vi.mock('../../../../middleware/auth.js', () => ({
+  get oxyClient() {
+    return seam.oxy;
+  },
 }));
 vi.mock('../../stripe/cohort-reader.js', () => ({
   createBillingCohortStripeReader: () => ({
@@ -95,7 +95,6 @@ beforeEach(() => {
   seam.raw = '';
   seam.enabled = true;
   seam.live = false;
-  seam.identity = true;
   seam.account.mockReset().mockResolvedValue({ id: 'acct_fixture' });
   seam.merchant
     .mockReset()
@@ -245,18 +244,6 @@ describe('billing cohort registration', () => {
     );
     expect(getBillingProvider('stripe')).toBeUndefined();
     expect(seam.account).not.toHaveBeenCalled();
-  });
-  it('rejects a process with no Oxy identity before provider or gateway reads', async () => {
-    seam.raw = JSON.stringify(cohort);
-    seam.identity = false;
-    await expect(registerMerchantBillingProvider()).rejects.toThrow(
-      'Merchant billing requires an Oxy identity for Mercaria.',
-    );
-    expect(seam.account).not.toHaveBeenCalled();
-    expect(seam.constructed).not.toHaveBeenCalled();
-    expect(seam.merchant).not.toHaveBeenCalled();
-    expect(getBillingProvider('stripe')).toBeUndefined();
-    expect(seam.registered).not.toHaveBeenCalled();
   });
   it("reaches Peable as Mercaria's Oxy identity and with no credential of its own", async () => {
     seam.raw = JSON.stringify(cohort);

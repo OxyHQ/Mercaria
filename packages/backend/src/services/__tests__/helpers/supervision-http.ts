@@ -7,8 +7,17 @@ import {
   type PurchaseApproval,
 } from '@oxy.so/contracts';
 
-/** External Oxy transport fixture; the consumer SDK, middleware, SQL and PSP seam stay real. */
-export async function startSupervisionHttpFixture() {
+/**
+ * External Oxy transport fixture; the consumer SDK, middleware, SQL and PSP seam stay real.
+ *
+ * `appPermissions` is who holds which of Mercaria's application-role keys
+ * (`payments.operate`, `catalog.operate`, …), answered on `GET
+ * /applications/:appId/roles/me` for the bearer's session exactly as Oxy does —
+ * so the operator gates run unchanged against it.
+ */
+export async function startSupervisionHttpFixture(
+  options: { appPermissions?: Readonly<Record<string, readonly string[]>> } = {},
+) {
   const app = express();
   app.use(express.json());
   const sessions = new Map<string, { id: string; supervised: boolean }>();
@@ -180,13 +189,28 @@ export async function startSupervisionHttpFixture() {
     approval.status = req.body.decision === 'approve' ? 'approved' : 'rejected';
     res.json(approval);
   });
-  app.get('/users/:id', (req, res) =>
-    res.json({
-      id: req.params.id,
-      username: req.params.id,
-      name: { first: 'Seller' },
-      kind: 'personal',
-    }),
+  app.get('/applications/:appId/roles/me', (req, res) => {
+    const session = sessions.get((req.header('Authorization') ?? '').replace('Bearer ', ''));
+    if (!session) {
+      res.status(401).json({ error: 'unauthorized' });
+      return;
+    }
+    res.set('Cache-Control', 'no-store').json({
+      applicationId: req.params.appId,
+      userId: session.id,
+      permissions: [...(options.appPermissions?.[session.id] ?? [])],
+    });
+  });
+  const fixtureUser = (id: string) => ({
+    id,
+    username: id,
+    name: { first: 'Seller' },
+    kind: 'personal',
+  });
+  app.get('/users/:id', (req, res) => res.json(fixtureUser(req.params.id)));
+  // `users.lookupMany` — the batch profile read (`services/oxy-user.service.ts`).
+  app.post('/users/by-ids', (req, res) =>
+    res.json(((req.body?.ids ?? []) as string[]).map((id) => fixtureUser(id))),
   );
   app.use((_req, res) => res.status(404).json({ error: 'not_found' }));
   const server = await new Promise<Server>((resolve) => {

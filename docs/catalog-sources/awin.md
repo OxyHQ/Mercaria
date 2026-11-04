@@ -711,9 +711,9 @@ in a fetch failure. `rights_suspended` earns no grace, and neither does
 
 ### Operator — `/internal/awin/*`
 
-On the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54/#55/#56/#57/#58/#60/
-#62/#63/#68 use. Empty list = not mounted (404, never a 401 that would advertise
-the surface). It stays mounted while `AWIN_ENABLED` is off, for
+On the SAME `catalog.operate` key #54/#55/#56/#57/#58/#60/
+#62/#63/#68 use. Anyone without it gets 404, never a 401 that would advertise
+the surface. It stays mounted while `AWIN_ENABLED` is off, for
 `/internal/ingestion`'s reason: bringing a network up by hand is the supported
 path, and the evidence has to be readable during the incident that turned the
 loop off.
@@ -800,8 +800,8 @@ Nothing below is green. Each is a gate, in the §9 sense of the #64 decision.
 2. **Secrets.** `AWIN_PUBLISHER_ID`, `AWIN_FEED_API_KEY` and (for #67)
    `AWIN_PUBLISHER_API_TOKEN` in SSM
    `/oxy/mercaria/*` → the task definition. Never a placeholder.
-3. `CATALOG_OPERATOR_OXY_USER_IDS` populated, or `/internal/awin` is not mounted
-   and nobody can register an account.
+3. `catalog.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`), or nobody can register an
+   account on `/internal/awin`.
 4. Per advertiser: a MERCHANT and a STOREFRONT bound on its #62 source (no
    merchant, no offers), a rights policy published and reviewed against the
    signed programme terms (§6), a #68 freshness version if its cache term

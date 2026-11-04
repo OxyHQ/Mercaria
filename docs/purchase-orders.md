@@ -422,7 +422,6 @@ only the value behind it changes.
 | `PROCUREMENT_EVENT_LAG_SLA_MS` | 3 600 000 | when silence becomes an alert |
 | `PROCUREMENT_CALL_TIMEOUT_MS` | 20 000 | every provider call's deadline |
 | `PROCUREMENT_CONVERGENCE_GRACE_MS` | 60 000 | how old an unresolved attempt must be |
-| `PROCUREMENT_OPERATOR_OXY_USER_IDS` | empty | `/internal/procurement/*` — empty = NOT MOUNTED (404) |
 
 The first three are genuinely independent levers (#124 polling and webhooks 10),
 and **none of them gates a durable record** — a scanned gate fails the build if

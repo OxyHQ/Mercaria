@@ -617,13 +617,19 @@ out: a task naming a parameter that does not exist fails at start.
 - Register 2 Oxy RP client ids (dashboard, POS).
 - `DATABASE_URL` is live in SSM `/oxy/mercaria/DATABASE_URL` →
   the task definition; the task will not boot without it.
-- Populate the operator allow-lists above before the rails carry live money or
-  real compliance decisions. EMPTY is a working configuration and means nobody
-  can trace a payment, replay an event, run a repair, publish an eligibility
-  policy, lift a recall or approve a payout batch. Pre-launch lists:
+- Seed the operator keys (`payments.operate`, `retail.operate`,
+  `referrals.operate` and the rest — `middleware/operator-authz.ts`) before the
+  rails carry live money or real compliance decisions: they are declared in
+  Mercaria's entry of oxy's first-party registry and applied by oxy's **Seed Oxy
+  applications** workflow (`only_apps` Mercaria, dry run first), and they are held
+  by the owners and admins of the `oxy` organization — nobody is granted them per
+  person (oxy ADR 0056). Until the seed runs, nobody holds them and nobody can trace
+  a payment, replay an event, run a repair, publish an eligibility policy, lift
+  a recall or approve a payout batch. Pre-launch lists:
   `docs/payments.md`, `docs/retail-eligibility.md` and `docs/referral-pilots.md`
   §"Production-readiness checklist".
-- **Referral payouts need FOUR things, not one:** the operator list populated;
+- **Referral payouts need FOUR things, not one:** `referrals.operate` seeded and
+  held by the operators;
   `STRIPE_ENABLED` plus a payment-ready connected account per partner (with the
   rail off every partner's readiness reads `unknown`, which BLOCKS); a partner
   who actually enrolled — agreement AND tax questionnaire

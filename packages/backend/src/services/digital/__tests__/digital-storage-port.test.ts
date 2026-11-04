@@ -53,12 +53,7 @@ vi.mock('../../../middleware/auth.js', () => ({
       upload: (...args: unknown[]) => uploadRawFile(...args),
       link: (...args: unknown[]) => assetLink(...args),
       delete: (...args: unknown[]) => assetDelete(...args),
-    },
-  },
-}));
-vi.mock('../../../capabilities/oxy-service-client.js', () => ({
-  oxyServiceClient: () => ({
-    assets: {
+      // The service-lane file calls, on the SAME one client.
       linkedDownloadUrls: (...args: unknown[]) => linkedDownloadUrls(...args),
       references: { add: (...args: unknown[]) => referencesAdd(...args) },
       uploadAppFile: (...args: unknown[]) => uploadAppFile(...args),
@@ -67,7 +62,7 @@ vi.mock('../../../capabilities/oxy-service-client.js', () => ({
       importAppFile: (...args: unknown[]) => importAppFile(...args),
       deleteAppFile: (...args: unknown[]) => deleteAppFile(...args),
     },
-  }),
+  },
 }));
 vi.mock('../../../lib/logger.js', () => ({
   log: {

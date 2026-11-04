@@ -1,12 +1,11 @@
 /**
  * `/internal/feed-imports/*` — the feed importer's operator surface (#63).
  *
- * On the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54/#56/#57/#58/#60/#62
+ * On the SAME `catalog.operate` key #54/#56/#57/#58/#60/#62
  * use, and for #62's own reason: who may decide what an external source is
  * permitted to do and who may read how a feed is being mapped into the canonical
- * catalogue are the same power over the same graph. A seventh list beside
- * payments, catalog, guest, analytics, retail and procurement would be a seventh
- * thing to keep in step for no separation it does not already have.
+ * catalogue are the same power over the same graph. A separate key would be another grant
+ * to keep in step for no separation it does not already have.
  *
  * A SEPARATE router rather than routes added to `internal-ingestion.ts`, per
  * ADR 0002 D25(a)'s file-ownership protocol — the same reason #56, #57, #58, #60
@@ -56,7 +55,7 @@
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireCatalogOperator } from '../middleware/catalog-operator-authz.js';
+import { requireCatalogOperator } from '../middleware/operator-authz.js';
 import { makeRateLimiter } from '../lib/rate-limit.js';
 import { validateBody } from '../middleware/validate.js';
 import {
@@ -105,9 +104,8 @@ const router = Router();
  */
 const fetchLimiter = makeRateLimiter('feed-import-fetch', { authenticatedMax: 30 });
 
-// Authentication FIRST, then the allow-list — the gate reads the verified
-// caller, and an allow-list consulted before authentication would compare
-// against whatever a client claimed.
+// Authentication FIRST, then the operator gate — it asks Oxy about the verified
+// caller's own session, which only `authenticateToken` establishes.
 router.use(authenticateToken);
 router.use(requireCatalogOperator);
 

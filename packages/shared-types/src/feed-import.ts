@@ -183,7 +183,7 @@ export const FEED_CONFIGURATION_VERSION_STATUSES: readonly FeedConfigurationVers
  * `merchant` configurations are owned by a Mercaria STORE and are reached
  * through `/admin/stores/:storeId/feeds` behind `channels:write` (issue security
  * 6); `operator` configurations have no store and are reached only through the
- * `CATALOG_OPERATOR_OXY_USER_IDS` surface. The two are a column rather than an
+ * `catalog.operate` surface. The two are a column rather than an
  * inference from `store_id is null`, so a query that forgets the tenant
  * predicate is a missing filter on an explicit fact rather than an accident of
  * NULL semantics.

@@ -1,11 +1,12 @@
 /**
  * The ONE browser-origin authority this backend maintains.
  *
- * Two consumers, deliberately reading the same list so there is nothing to
+ * Three consumers, deliberately reading the same list so there is nothing to
  * drift (ADR 0003 D10):
  *
- *  - the CORS layer in `app.ts`, which decides whose scripts may read
- *    responses;
+ *  - the CORS layer in `app.ts` (`createOxyCors`), which decides whose scripts
+ *    may read responses;
+ *  - the Socket.IO server (`createOxySocketCors`), on both transports;
  *  - the finite referral-cookie migration gate, which requires an exact
  *    Origin on both exchange and acknowledgement; no Referer fallback.
  *
@@ -26,18 +27,19 @@ export const PRODUCTION_ORIGINS: readonly string[] = [
  * Local development origins. Mercaria's Expo apps own the 816x block of the
  * per-app local dev port map (frontend 8160, dashboard 8161, pos 8162), so
  * several Oxy apps can run side by side on one machine.
+ *
+ * Web origins only. A native client sends no `Origin` and is not subject to
+ * CORS, and an `exp://` entry has no origin to match — every custom scheme
+ * serializes to the same opaque `null`, which `createOxyCors` refuses.
  */
 export const DEV_ORIGINS: readonly string[] = [
   'http://localhost:4160',
   'http://localhost:5173',
   'http://localhost:8160',
-  'exp://localhost:8160',
   'http://10.0.2.2:8160',
   'http://localhost:8161',
-  'exp://localhost:8161',
   'http://10.0.2.2:8161',
   'http://localhost:8162',
-  'exp://localhost:8162',
   'http://10.0.2.2:8162',
 ];
 

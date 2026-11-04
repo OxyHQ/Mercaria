@@ -108,20 +108,21 @@ export const GUEST_DATA_DISPOSITIONS = [
 export type GuestDataDisposition = (typeof GUEST_DATA_DISPOSITIONS)[number];
 
 /**
- * Who may read a class. These are the SIX operator allow-lists plus the two
- * non-operator readers, named so the inventory can state access without
- * inventing a seventh vocabulary for it.
+ * Who may read a class: the operator desks that can reach guest data (Oxy
+ * application roles, `middleware/operator-authz.ts`) plus the non-operator
+ * readers, named so the inventory can state access without inventing a second
+ * vocabulary for it.
  */
 export const GUEST_DATA_ACCESS_ROLES = [
   /** The person the data is about, through their own credential. */
   'data_subject',
   /** The seller of an order, through store permissions. */
   'merchant',
-  /** `GUEST_OPERATOR_OXY_USER_IDS`. */
+  /** Holders of the `guest.operate` application role. */
   'guest_operator',
-  /** `PAYMENT_OPERATOR_OXY_USER_IDS`. */
+  /** Holders of the `payments.operate` application role. */
   'payment_operator',
-  /** `ANALYTICS_OPERATOR_OXY_USER_IDS`. */
+  /** Holders of the `analytics.operate` application role. */
   'analytics_operator',
   /** Nobody: the value exists only as a digest or ciphertext nothing projects. */
   'none',
@@ -1865,7 +1866,7 @@ export const GUEST_LAUNCH_GATE_REGISTER: readonly GuestLaunchGateDefinition[] = 
     requiredFromStage: 'stage_1_staff_canary',
     criterion:
       'Both webhook endpoints receive verified deliveries, the four reconciliation sweeps run, ' +
-      'and PAYMENT_OPERATOR_OXY_USER_IDS is non-empty so a person can drive a repair.',
+      'and payments.operate is seeded and held by at least one person so a repair can be driven.',
   },
   {
     gate: 'transactional_sender_authenticated',
@@ -1919,7 +1920,7 @@ export const GUEST_LAUNCH_GATE_REGISTER: readonly GuestLaunchGateDefinition[] = 
     gate: 'dashboard_metrics_and_alerts_live',
     title: 'Dashboard metrics and alerts live',
     discipline: 'operations',
-    evidenceKind: 'automated_check',
+    evidenceKind: 'operational_verification',
     requiredFromStage: 'stage_2_pilot_merchants',
     criterion:
       'Every guest metric computes a number rather than a seam, and every critical security ' +
@@ -1929,7 +1930,7 @@ export const GUEST_LAUNCH_GATE_REGISTER: readonly GuestLaunchGateDefinition[] = 
     gate: 'feature_flags_and_kill_switches_tested',
     title: 'Feature flags and kill switches tested',
     discipline: 'engineering',
-    evidenceKind: 'automated_check',
+    evidenceKind: 'operational_verification',
     requiredFromStage: 'stage_1_staff_canary',
     criterion:
       'The rollback suite passes: with every guest lever off, a placed guest order is still ' +
@@ -1947,7 +1948,7 @@ export const GUEST_LAUNCH_GATE_REGISTER: readonly GuestLaunchGateDefinition[] = 
     gate: 'payment_to_portal_tested_under_failure',
     title: 'Payment success to portal initialization tested under failure',
     discipline: 'engineering',
-    evidenceKind: 'automated_check',
+    evidenceKind: 'operational_verification',
     requiredFromStage: 'stage_1_staff_canary',
     criterion:
       'End-to-end tests cover session expiry between paying and returning, an app restart, and a ' +

@@ -392,12 +392,15 @@ purchase on iOS.
 `guest_launch_gate_signoffs` and `guest_rollout_stage_advances` — both
 append-only against UPDATE and DELETE by trigger.
 
-**Some gates are CHECKED, not signed.** Four are `automated_check` and are
+**Some gates are CHECKED, not signed.** One is `automated_check` and is
 evaluated against the live configuration rather than trusted from a signature: a
 gate a function can decide must not be satisfiable by somebody typing "yes", and
-`stripe_architecture_production_ready` is either configured or it is not. The
-`AUTOMATED_GATE_CHECKS` record is exhaustive, so adding a fifth automated gate
-without deciding how it is evaluated fails `tsc`.
+`stripe_architecture_production_ready` is either configured or it is not.
+`dashboard_metrics_and_alerts_live`, `feature_flags_and_kill_switches_tested`
+and `payment_to_portal_tested_under_failure` used to be read off "the analytics
+/ guest operator list is non-empty"; the operator desks are now application
+roles mounted on every deployment, so that proxy proves nothing and the three
+are `operational_verification` — signed by the person who checked.
 
 **A withdrawal is a new row saying `no`**, never an edit. The advance gate reads
 the LATEST row per (stage, gate), so a withdrawal takes effect immediately and
@@ -443,9 +446,9 @@ a `blockedBy` it could no longer name.
 ## The operator surface
 
 `/internal/guest-commerce/governance/*`, on the SAME
-`GUEST_OPERATOR_OXY_USER_IDS` allow-list #104, #108, #109 and #110 use — not a
-seventh. Empty means the whole prefix is not mounted (404, never a 401 that
-would advertise it).
+`guest.operate` key #104, #108, #109 and #110 use — not a
+new one. Anyone without it gets 404 on the whole prefix, never a 401 that would
+advertise it.
 
 | Route | Answers |
 |---|---|
@@ -510,7 +513,7 @@ than defaulted.
 
 ## The production-readiness checklist
 
-1. Populate `GUEST_OPERATOR_OXY_USER_IDS`, or none of the above is reachable.
+1. `guest.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`), or none of the above is reachable.
 2. Set `GUEST_ABUSE_SUBJECT_HASH_KEY`. Until it is set no counter is written,
    because no subject can be named safely; once it is, every attempt is
    counted whether or not friction is applied.

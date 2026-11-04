@@ -158,7 +158,7 @@ surface:
 POST /internal/catalog-governance/reviews/localization
 ```
 
-behind the same `CATALOG_OPERATOR_OXY_USER_IDS` allow-list, and every decision
+behind the same `catalog.operate` key, and every decision
 lands in the one governance audit trail beside every other kind of catalogue
 work.
 

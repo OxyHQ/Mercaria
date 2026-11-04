@@ -318,7 +318,8 @@ drain per ADR 0004 D13) and pages the owner:
 | Any product-safety or IP flag on a pilot SKU | One occurrence — delist immediately |
 | Wallet balance | < 2× trailing average daily draw → treasury top-up alert (alert, not halt) |
 
-**Owner:** the payment operator(s) listed in `PAYMENT_OPERATOR_OXY_USER_IDS`;
+**Owner:** the payments operators (holders of `payments.operate`: the owners and
+admins of the `oxy` organization);
 contact **oxy@oxy.so**. Treasury approvals (prefund, top-ups) follow ADR 0004
 D6.5 dual control.
 

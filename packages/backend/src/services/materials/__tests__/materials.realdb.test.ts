@@ -19,14 +19,27 @@ import {
   listMaterialOffers,
 } from '../materials.service.js';
 import type { StoreCaller } from '../../store-access.service.js';
-import { readCallerAccountRole } from '../../oxy-account-graph.js';
 
-vi.mock('../../oxy-account-graph.js', () => ({ readCallerAccountRole: vi.fn() }));
+/** Oxy's answer to "what is the caller's role in this account?" — `(bearer, accountId)`. */
+const { readCallerAccountRole } = vi.hoisted(() => ({ readCallerAccountRole: vi.fn() }));
+vi.mock('../../../middleware/auth.js', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../../../middleware/auth.js')>();
+  const { overOxyClient } = await import('../../../__tests__/over-oxy-client.js');
+  const { fakeAccountAccess } = await import('../../../__tests__/oxy-account-access-fake.js');
+  return {
+    ...original,
+    oxyClient: overOxyClient(
+      original.oxyClient,
+      fakeAccountAccess((bearer, accountId) => readCallerAccountRole(bearer, accountId)),
+    ),
+  };
+});
 const RUN = uuidv7();
 const person = (name: string): StoreCaller => ({
   accountId: `${RUN}_${name}`,
   actorAccountId: `${RUN}_${name}`,
   delegated: false,
+  sessionId: 'test-session',
   accessToken: 'test-bearer',
 });
 const donor = person('donor');
@@ -244,7 +257,7 @@ describe('donated materials on real PostgreSQL', () => {
     await expect(
       requestMaterial(receiver, first.id, { ...request, quantity: 4 }),
     ).rejects.toMatchObject({ code: 'conflict' });
-    vi.mocked(readCallerAccountRole).mockResolvedValue(null);
+    readCallerAccountRole.mockResolvedValue(null);
     await expect(createMaterialOffer(other, input)).rejects.toMatchObject({ code: 'forbidden' });
     await expect(getMaterialReservation(other, a.id, other.accountId)).rejects.toMatchObject({
       code: 'not_found',
@@ -258,12 +271,12 @@ describe('donated materials on real PostgreSQL', () => {
       actorAccountId: donor.accountId,
       delegated: true,
     };
-    vi.mocked(readCallerAccountRole).mockResolvedValue('editor');
+    readCallerAccountRole.mockResolvedValue('editor');
     const item = await offer(8, org);
     const row = await reserve(item.id, 2);
     await transitionMaterialReservation(org, row.id, action(org), 'accepted');
     expect(readCallerAccountRole).toHaveBeenLastCalledWith(org.accessToken, org.accountId);
-    vi.mocked(readCallerAccountRole).mockResolvedValue(null);
+    readCallerAccountRole.mockResolvedValue(null);
     await expect(
       transitionMaterialReservation(org, row.id, action(org), 'cancelled'),
     ).rejects.toMatchObject({ code: 'forbidden' });
@@ -273,15 +286,15 @@ describe('donated materials on real PostgreSQL', () => {
     await expect(listMaterialReservations(org, { accountId: org.accountId })).rejects.toMatchObject(
       { code: 'forbidden' },
     );
-    vi.mocked(readCallerAccountRole).mockResolvedValue('viewer');
+    readCallerAccountRole.mockResolvedValue('viewer');
     await expect(closeMaterialOffer(org, item.id, action(org))).rejects.toMatchObject({
       code: 'forbidden',
     });
-    vi.mocked(readCallerAccountRole).mockRejectedValue(new Error('Oxy unavailable'));
+    readCallerAccountRole.mockRejectedValue(new Error('Oxy unavailable'));
     await expect(getMaterialReservation(org, row.id, org.accountId)).rejects.toMatchObject({
       code: 'service_unavailable',
     });
-    vi.mocked(readCallerAccountRole).mockResolvedValue('admin');
+    readCallerAccountRole.mockResolvedValue('admin');
     await transitionMaterialReservation(org, row.id, action(org), 'cancelled');
     expect((await getMaterialOffer(item.id)).committedQuantity).toBe(0);
   });
@@ -292,7 +305,7 @@ describe('donated materials on real PostgreSQL', () => {
       actorAccountId: receiver.accountId,
       delegated: true,
     };
-    vi.mocked(readCallerAccountRole).mockResolvedValue('admin');
+    readCallerAccountRole.mockResolvedValue('admin');
     const item = await offer();
     const row = await reserve(item.id, 2, org);
     await transitionMaterialReservation(donor, row.id, action(donor), 'accepted');

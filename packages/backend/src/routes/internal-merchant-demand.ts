@@ -1,17 +1,16 @@
 /**
  * `/internal/merchant-demand/*` — the operator acquisition pipeline (#86).
  *
- * ## On the ANALYTICS allow-list, and deliberately not a seventh
+ * ## On the ANALYTICS key, and deliberately not a new one
  *
- * `ANALYTICS_OPERATOR_OXY_USER_IDS` already grants the broadest reading power in
+ * `analytics.operate` already grants the broadest reading power in
  * this codebase — "what is demand doing across the marketplace" — and this
  * surface is that power applied to one merchant at a time plus a workflow for
- * doing something about it. A seventh list would be a second answer to who holds
+ * doing something about it. A new key would be a second answer to who holds
  * it, and the vetting conversation would be the same conversation twice.
  *
- * Empty means the router is NOT MOUNTED: 404, never a 401 that would advertise
- * the surface. The gate is repeated in middleware because the mount and the gate
- * live in different files, which is exactly the pair that drifts.
+ * Anyone without the key is answered 404, never a 401 that would advertise the
+ * surface.
  *
  * ## Mounted while the merchant surfaces are OFF
  *
@@ -30,7 +29,7 @@
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireAnalyticsOperator } from '../middleware/analytics-operator-authz.js';
+import { requireAnalyticsOperator } from '../middleware/operator-authz.js';
 import { validateBody, validateQuery } from '../middleware/validate.js';
 import {
   acquisitionAssignSchema,
@@ -60,9 +59,8 @@ import {
 
 const router = Router();
 
-// Authentication FIRST, then the allow-list — the gate reads the verified
-// caller, and an allow-list consulted before authentication would compare
-// against whatever a client claimed.
+// Authentication FIRST, then the operator gate — it asks Oxy about the verified
+// caller's own session, which only `authenticateToken` establishes.
 router.use(authenticateToken);
 router.use(requireAnalyticsOperator);
 

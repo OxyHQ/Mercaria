@@ -2,8 +2,8 @@
  * `/internal/price-signals/*` — the price-signal operator surface (#82
  * §"Monitoring").
  *
- * On the SAME allow-list (`CATALOG_OPERATOR_OXY_USER_IDS`) every other catalogue
- * surface uses, and deliberately NOT a seventh list beside payments, catalog,
+ * On the SAME key (`catalog.operate`) every other catalogue
+ * surface uses, and deliberately NOT a new key beside payments, catalog,
  * guest, analytics, retail and procurement: deciding what "good price" MEANS is
  * the same power over the same graph as deciding which offers exist and in what
  * order they appear, which is `/internal/offers`' and `/internal/ranking`'s.
@@ -30,7 +30,7 @@
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireCatalogOperator } from '../middleware/catalog-operator-authz.js';
+import { requireCatalogOperator } from '../middleware/operator-authz.js';
 import { validateBody, validateQuery } from '../middleware/validate.js';
 import {
   priceSignalFeedbackCloseSchema,
@@ -54,9 +54,8 @@ import {
 
 const router = Router();
 
-// Authentication FIRST, then the allow-list — the gate reads the verified
-// caller, and an allow-list consulted before authentication would compare
-// against whatever a client claimed.
+// Authentication FIRST, then the operator gate — it asks Oxy about the verified
+// caller's own session, which only `authenticateToken` establishes.
 router.use(authenticateToken);
 router.use(requireCatalogOperator);
 

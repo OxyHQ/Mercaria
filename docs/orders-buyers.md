@@ -138,7 +138,7 @@ guest portal grant, a store member, a P2P seller, an operator.
 | A scoped guest order-portal session (#108) | `guest_portal_grant` |
 | A store member acting for the store that owns the order | `store_member` |
 | The P2P seller who must fulfil it | `p2p_seller` |
-| An operator on the allow-list | `operator` |
+| An operator holding the desk's key | `operator` |
 
 | Rejected | How |
 |---|---|

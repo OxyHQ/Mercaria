@@ -2,19 +2,14 @@ import { observeEcosystemSocket } from './ecosystemActivity';
 import { Server, type Socket } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import type http from 'node:http';
+import { createOxySocketCors } from '@oxy.so/core/server';
 import { isLiveEntityId } from '@oxy.so/db';
+import { ALLOWED_ORIGINS } from './lib/allowed-origins.js';
 import { getSocketAdapterClients } from './lib/redis.js';
 import { oxyClient } from './middleware/auth.js';
 import { findStoreById } from './db/stores/storeRepository.js';
 import { resolveStoreAccess } from './services/store-access.service.js';
 import { log } from './lib/logger.js';
-
-const ALLOWED_ORIGINS = [
-  process.env.WEB_URL || 'http://localhost:8160',
-  'https://mercaria.co',
-  'https://console.mercaria.co',
-  'https://gateway.mercaria.co',
-];
 
 let io: Server | null = null;
 
@@ -34,16 +29,13 @@ let io: Server | null = null;
  */
 export async function authorizeAndJoinStore(
   socket: Pick<Socket, 'join'>,
-  caller: { userId: string; accessToken: string | undefined },
+  caller: SocketCaller,
   rawStoreId: unknown,
 ): Promise<boolean> {
   // Shape-only, and it accepts both id shapes the schema stores — a pre-cutover
   // ObjectId hex and a uuid v7. The access check below is what actually
   // authorizes; this only avoids a query for input that could name nothing.
   if (typeof rawStoreId !== 'string' || !isLiveEntityId(rawStoreId)) {
-    return false;
-  }
-  if (!caller.accessToken) {
     return false;
   }
   const store = await findStoreById(rawStoreId);
@@ -55,7 +47,8 @@ export async function authorizeAndJoinStore(
       accountId: caller.userId,
       actorAccountId: null,
       delegated: false,
-      accessToken: caller.accessToken,
+      sessionId: caller.sessionId,
+      accessToken: caller.token,
     },
     store,
   );
@@ -66,21 +59,32 @@ export async function authorizeAndJoinStore(
   return true;
 }
 
-/** The bearer a handshake presented — where `middleware.socket()` read it from. */
-function handshakeToken(socket: Socket): string | undefined {
-  const token = (socket.handshake.auth as { token?: unknown } | undefined)?.token;
-  return typeof token === 'string' && token.length > 0 ? token : undefined;
+/** What `oxyClient.middleware.socket()` verified and left on `socket.data`. */
+export interface SocketCaller {
+  readonly userId: string;
+  readonly sessionId: string;
+  readonly token: string;
+}
+
+function socketCallerOf(socket: Socket): SocketCaller | null {
+  const { userId, sessionId, token } = socket.data as Partial<Record<keyof SocketCaller, unknown>>;
+  if (typeof userId !== 'string' || userId === '') return null;
+  if (typeof sessionId !== 'string' || sessionId === '') return null;
+  if (typeof token !== 'string' || token === '') return null;
+  return { userId, sessionId, token };
 }
 
 export function initSocket(server: http.Server) {
   // Hold the instance in a local const so the adapter attachment below
   // references a provably-defined server (no module-level non-null assertion).
+  //
+  // The SAME browsers the HTTP CORS layer admits (`lib/allowed-origins.ts`, the
+  // one origin authority), on both transports: `cors` answers long-polling and
+  // `allowRequest` refuses a WebSocket handshake from any other browser origin,
+  // which is the only check an upgrade gets. Never credentialed — the bearer is
+  // in the handshake, not a cookie.
   const socketServer = new Server(server, {
-    cors: {
-      origin: ALLOWED_ORIGINS,
-      methods: ['GET', 'POST'],
-      credentials: false,
-    },
+    ...createOxySocketCors({ appOrigins: [...ALLOWED_ORIGINS], allowCredentials: false }),
     transports: ['websocket', 'polling'],
   });
   io = socketServer;
@@ -109,19 +113,20 @@ export function initSocket(server: http.Server) {
   }
 
   // Authenticate EVERY connection: validates the Oxy session from
-  // `handshake.auth.token` and sets `socket.data.userId`. Unauthenticated
-  // connections are rejected. This is the ONLY source of the room identity —
-  // clients can no longer name the room they join.
+  // `handshake.auth.token` and sets `socket.data.{userId,sessionId,token}`.
+  // Unauthenticated connections are rejected. This is the ONLY source of the
+  // room identity — clients can no longer name the room they join.
   socketServer.use(oxyClient.middleware.socket());
 
   socketServer.on('connection', (socket) => {
     observeEcosystemSocket(socket);
-    const userId = (socket.data as { userId?: string }).userId;
-    if (!userId) {
-      // middleware.socket() guarantees userId, but fail closed if it is ever missing.
+    const caller = socketCallerOf(socket);
+    if (!caller) {
+      // middleware.socket() guarantees all three, but fail closed if one is ever missing.
       socket.disconnect(true);
       return;
     }
+    const { userId } = caller;
     // Auto-join the user's own room using the SERVER-VERIFIED id only.
     socket.join(`user:${userId}`);
 
@@ -135,7 +140,7 @@ export function initSocket(server: http.Server) {
     // proves user identity), so a stranger is rejected and never receives
     // another store's `sync:progress`.
     socket.on('subscribe-store', (storeId: unknown, ack?: (joined: boolean) => void) => {
-      authorizeAndJoinStore(socket, { userId, accessToken: handshakeToken(socket) }, storeId)
+      authorizeAndJoinStore(socket, caller, storeId)
         .then((joined) => {
           if (typeof ack === 'function') {
             ack(joined);

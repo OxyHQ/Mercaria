@@ -14,7 +14,7 @@
  * is real evidence and it is not a gate — it goes stale the moment somebody adds a
  * fifth read, and nothing fails. This file is the gate.
  *
- * ## Three deployments, three module graphs
+ * ## Two deployments, two module graphs
  *
  * `config/index.ts` reads `process.env` once at import and freezes the result, and
  * `app.ts` decides every mount from that frozen value — so a test that mutated the
@@ -31,23 +31,22 @@
  * without 404's absence with it on, or a route deleted outright would satisfy
  * every case here. Both directions are asserted for all six.
  *
- * ## The third deployment is the one that shows the failure mode
+ * ## The internal catalog surfaces are gated on an application role, not a mount
  *
- * `config.catalog.graphOperatorSurfaceEnabled` is DERIVED —
- * `resolveCatalogOperatorIds().length > 0` — so an EMPTY
- * `CATALOG_OPERATOR_OXY_USER_IDS` unmounts all nine `/internal/*` catalog
- * surfaces. Combined with every rollout lever off, that is a rollback in which the
- * catalogue evidence is reachable through no HTTP surface at all, which is exactly
- * the state an operator discovers during the incident that caused it. The
- * deployment exists so that failure is a red test rather than a paragraph.
+ * Every `/internal/*` catalog surface is mounted on every deployment and gated on
+ * the `catalog.operate` application role, so with every rollout lever off a holder
+ * still reaches the catalogue evidence — and a caller holding no key gets the
+ * gate's 404, which is proof the surface IS mounted (an unmounted prefix would be
+ * Express's own 404, not the gate's envelope). The trap the old env allow-list had
+ * — an empty list plus every lever off leaving the evidence reachable through no
+ * HTTP surface at all — no longer has a configuration that produces it.
  *
  * ## A real database, because half the claim is about a stored row
  *
- * The mount assertions never reach Postgres — a 403 or a 404 is decided before any
- * query. The durable-record assertions must: the point is that the ROW outlived a
- * config change, and a stubbed repository would make the case indistinguishable
- * from one where the lever had dropped it. The third deployment opens no pool at
- * all, because every path this file sends it 404s at the mount.
+ * The mount assertions never reach Postgres — a 404 is decided before any query.
+ * The durable-record assertions must: the point is that the ROW outlived a config
+ * change, and a stubbed repository would make the case indistinguishable from one
+ * where the lever had dropped it.
  *
  * ## This file is a FOURTH inserter into `catalog_proposals`, which is shared
  *
@@ -79,26 +78,39 @@ const ORDINARY_USER = 'oxy-user-catalog-rollout-ordinary';
 
 /** Whichever caller the current request is acting as. */
 let currentUser = CATALOG_OPERATOR;
+const GRANTS: Readonly<Record<string, readonly string[]>> = {
+  [CATALOG_OPERATOR]: ['catalog.operate'],
+};
 
 vi.mock('@oxy.so/core/server', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@oxy.so/core/server')>()),
   getRequiredOxyUserId: () => currentUser,
 }));
-vi.mock('../../middleware/auth.js', () => ({
-  authenticateToken: (
-    _req: express.Request,
-    _res: express.Response,
-    next: express.NextFunction,
-  ) => {
-    next();
-  },
-  oxyClient: {
-    middleware: { auth: () => (_req: unknown, res: express.Response) => res.sendStatus(401) },
-  },
-  optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
-    next();
-  },
-}));
+vi.mock('../../middleware/auth.js', async () => {
+  const { fakeAppPermissions } = await import('../../__tests__/oxy-app-permissions-fake.js');
+  const fake = fakeAppPermissions(
+    () => GRANTS[currentUser] ?? [],
+    () => currentUser,
+  );
+  return {
+    authenticateToken: (
+      _req: express.Request,
+      _res: express.Response,
+      next: express.NextFunction,
+    ) => {
+      next();
+    },
+    oxyClient: {
+      middleware: {
+        requireAppPermission: fake.requireAppPermission,
+        auth: () => (_req: unknown, res: express.Response) => res.sendStatus(401),
+      },
+    },
+    optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
+      next();
+    },
+  };
+});
 vi.mock('../../lib/rate-limit.js', () => ({
   makeRateLimiter:
     () => (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
@@ -126,7 +138,6 @@ interface Deployment {
 
 let leversOn: Deployment;
 let leversOff: Deployment;
-let leversOffNoOperators: Deployment;
 
 /** The `leversOn` graph's database handle, for writing the fixture rows. */
 let writeDb: Awaited<ReturnType<typeof import('../../db/postgres.js').connectPostgres>>;
@@ -143,26 +154,16 @@ function listen(app: express.Express): Promise<{ server: Server; url: string }> 
   });
 }
 
-/**
- * Build one deployment with its own frozen config and its own module graph.
- *
- * `withDatabase` is false for the deployment whose every request 404s at the
- * mount: three module graphs each holding a connection pool against a database
- * every parallel test file shares is a real cost, and this one is avoidable —
- * the `search-rollout.realdb.test.ts` reasoning.
- */
+/** Build one deployment with its own frozen config and its own module graph. */
 async function build(options: {
   readonly levers: boolean;
-  readonly operators: string;
-  readonly withDatabase: boolean;
-}): Promise<Deployment & { readonly graph: typeof import('../../db/postgres.js') | null }> {
+}): Promise<Deployment & { readonly graph: typeof import('../../db/postgres.js') }> {
   vi.resetModules();
   for (const lever of LEVERS) process.env[lever] = options.levers ? 'true' : 'false';
-  process.env.CATALOG_OPERATOR_OXY_USER_IDS = options.operators;
   process.env.STRIPE_ENABLED = 'false';
 
-  const graph = options.withDatabase ? await import('../../db/postgres.js') : null;
-  if (graph) await graph.connectPostgres();
+  const graph = await import('../../db/postgres.js');
+  await graph.connectPostgres();
   const { createApp } = await import('../../app.js');
   const { server, url } = await listen(createApp());
 
@@ -172,31 +173,29 @@ async function build(options: {
     graph,
     close: async () => {
       await new Promise<void>((resolve) => server.close(() => resolve()));
-      if (graph) await graph.closePostgres();
+      await graph.closePostgres();
     },
   };
 }
 
 beforeAll(async () => {
-  const on = await build({ levers: true, operators: CATALOG_OPERATOR, withDatabase: true });
+  const on = await build({ levers: true });
   leversOn = on;
   // The fixture rows are written through the ON graph, which is the deployment
   // that would really have created them.
-  if (on.graph) writeDb = on.graph.getDb();
+  writeDb = on.graph.getDb();
   ({ insertProposal } = await import('../../db/catalogProposals/proposalRepository.js'));
 
-  leversOff = await build({ levers: false, operators: CATALOG_OPERATOR, withDatabase: true });
-  leversOffNoOperators = await build({ levers: false, operators: '', withDatabase: false });
+  leversOff = await build({ levers: false });
 }, 180_000);
 
 afterAll(async () => {
   for (const lever of LEVERS) delete process.env[lever];
-  delete process.env.CATALOG_OPERATOR_OXY_USER_IDS;
   // `build()` sets this too. Vitest isolates files, so leaving it set changes
   // nothing today — but an afterAll that unsets some of what its setup set is a
   // half-cleanup somebody later trusts.
   delete process.env.STRIPE_ENABLED;
-  for (const deployment of [leversOn, leversOff, leversOffNoOperators]) {
+  for (const deployment of [leversOn, leversOff]) {
     if (deployment) await deployment.close();
   }
 });
@@ -287,7 +286,7 @@ const UNCONDITIONAL: readonly Call[] = [
   },
 ];
 
-/** The ten `/internal/*` catalog surfaces gated on the allow-list and no lever. */
+/** The ten `/internal/*` catalog surfaces gated on `catalog.operate` and no lever. */
 const INTERNAL: readonly string[] = [
   '/internal/catalog-proposals',
   '/internal/canonical-catalog',
@@ -407,29 +406,34 @@ describe('no lever gates a durable record', () => {
   });
 });
 
-describe('the ten internal catalog surfaces are gated on the allow-list and on NO lever', () => {
+describe('the ten internal catalog surfaces are gated on catalog.operate and on NO lever', () => {
+  /** The gate's own refusal — what an unmounted prefix (Express's 404 page) is not. */
+  async function gateRefusal(path: string): Promise<boolean> {
+    const response = await fetch(`${leversOff.url}${path}`);
+    if (response.status !== 404) return false;
+    const body = (await response.json().catch(() => null)) as {
+      success?: boolean;
+      error?: string;
+      message?: string;
+    } | null;
+    return body?.success === false && body.error === 'NOT_FOUND' && body.message === 'Not found';
+  }
+
   it.each(INTERNAL)('%s is MOUNTED with every lever off', async (path) => {
-    // A 403 rather than a 404: the surface exists and this caller is not on the
-    // list. That is the discrimination the whole allow-list convention rests on,
-    // and it is only meaningful next to the empty-list case below.
+    // The gate's 404 rather than Express's: the surface exists and this caller
+    // holds no key. Only a mounted router can answer with the gate's envelope.
     currentUser = ORDINARY_USER;
-    const status = await call(leversOff, { method: 'GET', path });
+    const refused = await gateRefusal(path);
     currentUser = CATALOG_OPERATOR;
-    expect(status).toBe(403);
+    expect(refused).toBe(true);
   });
 
-  it.each(INTERNAL)(
-    'THE FAILURE MODE — %s answers 404 when the operator allow-list is EMPTY',
-    async (path) => {
-      // `graphOperatorSurfaceEnabled` is derived from the list's LENGTH, so an
-      // empty list plus every lever off is a rollback in which the catalogue
-      // evidence is reachable through no HTTP surface at all. An operator's own
-      // token gets the same 404, which is why this is a trap rather than a
-      // permission error somebody would recognise.
-      currentUser = CATALOG_OPERATOR;
-      expect(await call(leversOffNoOperators, { method: 'GET', path })).toBe(404);
-    },
-  );
+  it.each(INTERNAL)('%s admits a holder of catalog.operate with every lever off', async (path) => {
+    // The rollback an operator would actually pull: every lever off, and the
+    // catalogue evidence still reachable by whoever holds the key.
+    currentUser = CATALOG_OPERATOR;
+    expect(await gateRefusal(path)).toBe(false);
+  });
 
   it('names all ten surfaces — the vacuity floor on both cases above', () => {
     expect(INTERNAL.length).toBe(10);

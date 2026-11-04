@@ -21,6 +21,9 @@ import { sendError, ErrorCodes } from '../utils/api-response.js';
 import { isMercariaError } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
 
+/** Methods that change nothing, and so may reuse a recent access answer. */
+const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
 // Extend Express Request with the loaded store context. The base augmentation
 // (userId/user/…) lives in `auth.ts`; this only adds the store fields.
 declare global {
@@ -35,10 +38,13 @@ declare global {
 /**
  * Resolve `:storeId`, attach `req.store` + `req.storeAccess`. Responds:
  *   - 400 if the param is missing/malformed,
- *   - 401 if the request carries no verified caller,
+ *   - 401 if the request carries no verified caller, or Oxy no longer accepts it,
  *   - 404 if no store with that id exists,
  *   - 403 if the caller has no role in the account that owns it,
- *   - 503 if Oxy cannot say — authorization fails CLOSED.
+ *   - 503 if Oxy cannot say — authorization fails CLOSED, and is never remembered.
+ *
+ * A read may reuse Oxy's answer for this session for a few seconds; every other
+ * method asks Oxy fresh, so a revoked role cannot keep changing a store.
  *
  * MUST run after `authenticateToken`.
  */
@@ -68,7 +74,9 @@ export async function loadStore(req: Request, res: Response, next: NextFunction)
       return;
     }
 
-    const access = await resolveStoreAccess(caller, store);
+    const access = await resolveStoreAccess(caller, store, {
+      fresh: !READ_METHODS.has(req.method),
+    });
     if (!access) {
       sendError(res, ErrorCodes.FORBIDDEN, 'You cannot act for this store', 403);
       return;

@@ -1,5 +1,5 @@
 /**
- * A fake of Oxy Files at the SDK boundary — what `oxyServiceClient()` returns —
+ * A fake of Oxy Files at the SDK boundary — what `oxyClient` (middleware/auth.ts) is —
  * so `services/catalog-media/oxy-files.ts`, the ONE adapter, runs for real in
  * every test that imports media.
  *
@@ -31,7 +31,7 @@ export interface FakeOxyImport {
 }
 
 export interface FakeOxyFiles {
-  /** What `oxyServiceClient()` should return. */
+  /** What `oxyClient` should be, in a test that mocks `middleware/auth.js`. */
   readonly client: {
     serviceToken: () => Promise<string>;
     readonly baseURL: string;

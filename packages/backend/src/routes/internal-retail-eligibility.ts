@@ -2,22 +2,21 @@
  * `/internal/retail-eligibility/*` — the retail compliance operator surface
  * (#121 operations 1–8).
  *
- * The `/internal/analytics` shape, on its OWN allow-list
- * (`RETAIL_OPERATOR_OXY_USER_IDS`): approving a resale authorization, verifying
+ * The `/internal/analytics` shape, on its OWN key
+ * (`retail.operate`): approving a resale authorization, verifying
  * a product-safety certificate and LIFTING A RECALL is a compliance power, not
  * a payments one, not a catalogue-curation one, not a cart-diagnostic one and
- * not an analytics one. Sharing a list would grant whichever power the operator
+ * not an analytics one. Sharing a key would grant whichever power the operator
  * was not vetted for, and this is the only one whose misuse puts an unsafe
  * product back on sale.
  *
- * Mount gated on the allow-list being non-empty (404 on a deployment with no
- * operators, never a 401 that would advertise the surface); the gate repeated in
- * middleware because mount and gate live in different files.
+ * Mounted on every deployment; anyone without the key is answered 404, never a
+ * 401 that would advertise the surface.
  */
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireRetailOperator } from '../middleware/retail-operator-authz.js';
+import { requireRetailOperator } from '../middleware/operator-authz.js';
 import { validateBody } from '../middleware/validate.js';
 import {
   retailCategoryRuleSchema,
@@ -67,9 +66,8 @@ import {
 
 const router = Router();
 
-// Authentication FIRST, then the allow-list — the gate reads the verified
-// caller, and an allow-list consulted before authentication would compare
-// against whatever a client claimed.
+// Authentication FIRST, then the operator gate — it asks Oxy about the verified
+// caller's own session, which only `authenticateToken` establishes.
 router.use(authenticateToken);
 router.use(requireRetailOperator);
 

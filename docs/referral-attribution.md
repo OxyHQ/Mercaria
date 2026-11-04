@@ -256,10 +256,10 @@ reason.
 
 ## The operator surface
 
-`/internal/referrals/*` on a **SEVENTH** allow-list,
-`REFERRAL_OPERATOR_OXY_USER_IDS`. Empty = not mounted (404, never 401).
+`/internal/referrals/*` on a **SEVENTH** operator key, `referrals.operate` (an
+Oxy application role). Anyone without it gets 404, never 401.
 
-A separate list because the POWER is separate: pausing a program's attribution
+A separate key because the POWER is separate: pausing a program's attribution
 stops partners **earning**, and the trace says which partner was credited for
 which subject. An operator vetted to repair a payment, trace a cart merge or
 read discovery metrics has been vetted for neither. #147's dashboards and #148's
@@ -402,7 +402,6 @@ REFERRALS_ENABLED=false            # gates the MOUNT of /r and /referrals, never
 REFERRAL_LINK_TOKEN_SECRET=        # #142's public link token
 REFERRAL_STATE_SECRET=             # #143's carrier — a SECOND key, required together
 REFERRAL_REDIRECT_BASE_URL=https://mercaria.co   # must be in lib/allowed-origins.ts
-REFERRAL_OPERATOR_OXY_USER_IDS=    # the SEVENTH list; empty = /internal/referrals unmounted
 ```
 
 `REFERRALS_ENABLED=true` requires **both** secrets — the `CROWDSOURCE_ENABLED`
@@ -418,8 +417,8 @@ nobody.
 - [ ] `REFERRAL_STATE_SECRET` provisioned (SSM `/oxy/mercaria/*`), distinct from
       `REFERRAL_LINK_TOKEN_SECRET`.
 - [ ] `REFERRAL_REDIRECT_BASE_URL` set and present in `PRODUCTION_ORIGINS`.
-- [ ] `REFERRAL_OPERATOR_OXY_USER_IDS` populated — until it is, nobody can pause
-      a program or trace an attribution.
+- [ ] `referrals.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`) — until it is, nobody can
+      pause a program or trace an attribution.
 - [ ] `ANALYTICS_INTERNAL_TRAFFIC_TOKEN` set, or staff traffic classifies
       `organic` and enters attribution.
 - [ ] The privacy review ADR 0005 A1–A5 owes, recorded, before

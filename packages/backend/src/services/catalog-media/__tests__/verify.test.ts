@@ -1,11 +1,13 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import { OxyApiError } from '@oxy.so/core';
-const state = vi.hoisted(() => ({ enabled: true, get: vi.fn(), setAccessToken: vi.fn() }));
-vi.mock('@oxy.so/core', async (original) => ({
-  ...(await original<typeof import('@oxy.so/core')>()),
-  OxyServices: class {
-    assets = { get: state.get };
-    session = { setAccessToken: state.setAccessToken };
+const state = vi.hoisted(() => ({ enabled: true, get: vi.fn(), withUser: vi.fn() }));
+// The one `oxyClient`'s user client: every read is made AS the store caller.
+vi.mock('../../../middleware/auth.js', () => ({
+  oxyClient: {
+    withUser: async (bearer: string, fn: (user: unknown) => Promise<unknown>) => {
+      state.withUser(bearer);
+      return fn({ assets: { get: state.get } });
+    },
   },
 }));
 vi.mock('../../../config/index.js', () => ({
@@ -33,7 +35,7 @@ const metadata = (fileId: string, overrides: Record<string, unknown> = {}) => ({
 beforeEach(() => {
   state.enabled = true;
   state.get.mockReset().mockImplementation(async (id) => metadata(id));
-  state.setAccessToken.mockReset();
+  state.withUser.mockReset();
 });
 it('uses the operator bearer but requires ownership by the persisted store, preserving order', async () => {
   state.get.mockImplementation(async (id) =>
@@ -43,7 +45,7 @@ it('uses the operator bearer but requires ownership by the persisted store, pres
     { kind: 'video', fileId: 'clip', position: 0 },
     { kind: 'image', fileId: 'photo', position: 1 },
   ]);
-  expect(state.setAccessToken).toHaveBeenCalledExactlyOnceWith('operator-bearer');
+  expect(state.withUser).toHaveBeenCalledExactlyOnceWith('operator-bearer');
 });
 it.each([
   { ownerUserId: 'operator-account' },

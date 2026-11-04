@@ -2,11 +2,11 @@
  * `/internal/guest-commerce/governance/*` — the retention, monitoring, abuse
  * and rollout surface (#111).
  *
- * On the SAME `GUEST_OPERATOR_OXY_USER_IDS` allow-list #104, #108, #109 and
- * #110 use, and deliberately NOT a seventh. The power is the one that list
+ * On the SAME `guest.operate` key #104, #108, #109 and
+ * #110 use, and deliberately NOT a new one. The power is the one that key
  * already grants — reading what happened to a guest's data and driving a path
- * that is already bounded — and a new list would be a second answer to a
- * question this one answers. It is deliberately not the PAYMENT list either: a
+ * that is already bounded — and a new key would be a second answer to a
+ * question this one answers. It is deliberately not `payments.operate` either: a
  * support engineer checking whether the retention job is running should not
  * thereby be able to see every store's money.
  *

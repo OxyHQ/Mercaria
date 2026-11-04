@@ -1226,6 +1226,6 @@ export async function claimantMayLinkStore(
 ): Promise<boolean> {
   const store = await findStoreById(storeId);
   if (!store) return false;
-  const access = await resolveStoreAccess(claimant, store);
+  const access = await resolveStoreAccess(claimant, store, { fresh: true });
   return access?.permissions.includes(LINKAGE_PERMISSION) ?? false;
 }

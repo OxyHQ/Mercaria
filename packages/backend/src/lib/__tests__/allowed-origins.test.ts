@@ -25,7 +25,9 @@ import {
 describe('ALLOWED_ORIGINS (M8-05, ADR 0003 D10)', () => {
   it('excludes every development origin in production', () => {
     const origins = allowedOriginsFor({ NODE_ENV: 'production' });
-    expect(DEV_ORIGINS.length).toBeGreaterThanOrEqual(10);
+    // Web origins only (the three opaque `exp://` entries were never matchable).
+    expect(DEV_ORIGINS.length).toBeGreaterThanOrEqual(8);
+    for (const origin of DEV_ORIGINS) expect(new URL(origin).origin).toBe(origin);
     for (const origin of DEV_ORIGINS) {
       expect(origins, origin).not.toContain(origin);
     }

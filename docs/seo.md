@@ -307,11 +307,11 @@ withdraws the page.
 
 ## The operator surface
 
-`/internal/seo/*`, on the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list
+`/internal/seo/*`, on the SAME `catalog.operate` key
 #54/#56/#57/#58/#60/#62/#68/#78 use — not a seventh: who may decide what the
 catalogue says and who may read what a crawler is told about it are the same
-power over the same graph. Empty list = the router is not mounted (404, never a
-401 that would advertise it), and it stays mounted while `SEO_ROUTES_ENABLED` is
+power over the same graph. Anyone without it gets 404, never a 401 that would
+advertise it, and it stays mounted while `SEO_ROUTES_ENABLED` is
 off, because "why is this page not indexed" is exactly the question somebody
 asks after pulling the lever.
 
@@ -338,7 +338,7 @@ catalogue are indexable" is a full scan of every collection, which is the one
 thing the paginated design exists to avoid. The collection's total row count is
 exact; the verdict tally is the page's.
 
-Auditing is structured log lines, not a table: the allow-list middleware logs
+Auditing is structured log lines, not a table: the operator gate logs
 every refusal and each handler logs the granted attempt with the caller and what
 was asked. This domain owns no table and adds none.
 

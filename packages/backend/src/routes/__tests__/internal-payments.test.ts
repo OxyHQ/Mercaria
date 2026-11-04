@@ -1,30 +1,26 @@
 /**
  * Who may reach `/internal/payments/*`, and who may not — issue #50, acceptance 4.
  *
- * ## The four properties, each of which would be a security bug
+ * The desk is gated on the `payments.operate` APPLICATION ROLE
+ * (`middleware/operator-authz.ts`): Oxy says who holds it, the real gate asks
+ * through `oxyClient.middleware.requireAppPermission`, and this file stands in
+ * for Oxy with the SDK-boundary fake.
  *
- *  - an allow-listed Oxy operator gets through;
- *  - an authenticated Oxy user who is NOT allow-listed gets 403, not a trace;
- *  - a deployment with an EMPTY allow-list has no such surface at all — 404 on
- *    every path, because a 401 would tell an unauthenticated caller that an
- *    operator surface exists here;
+ * ## The properties, each of which would be a security bug
+ *
+ *  - a holder of `payments.operate` gets through;
+ *  - an authenticated Oxy user holding no key gets 404, not a trace — the
+ *    surface is never revealed, and a 401 would tell a caller it exists;
+ *  - holding EVERY other desk's key opens nothing here;
+ *  - a request with no person in a session (a service token) gets the same 404;
  *  - a store owner holding every store permission Mercaria grants is refused,
  *    since none of them says anything about the platform's own money.
  *
- * The last is the one worth stating twice. Mercaria's only authorization
- * vocabulary is store permissions, and it is scoped to a STORE by construction —
- * so the failure mode this test exists for is somebody "fixing" the gate by
- * reaching for `requireStorePermission('store:manage')`, which would hand every
- * store owner in the marketplace a read across everybody else's finances.
- *
- * ## Two apps, because the mount is the gate
- *
- * The empty-allow-list case cannot be tested on the same app as the others: the
- * router is not mounted at all in that configuration, so what answers is
- * Express's own 404. Building the real `createApp()` twice, against two frozen
- * configs, is the only way to assert a MOUNT rather than a handler — and
- * `app.ts` exists to be built without listening precisely so an invariant like
- * this can be checked against the real middleware chain.
+ * The last is the one worth stating twice. Mercaria's store permissions are
+ * scoped to a STORE by construction — so the failure mode this test exists for
+ * is somebody "fixing" the gate by reaching for
+ * `requireStorePermission('store:manage')`, which would hand every store owner
+ * in the marketplace a read across everybody else's finances.
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
@@ -34,32 +30,57 @@ import type express from 'express';
 
 const OPERATOR = 'oxy-user-operator-1';
 const MERCHANT = 'oxy-user-merchant-1';
+const OTHER_DESKS_OPERATOR = 'oxy-user-other-desks-operator-1';
 
 /** Whichever caller the current request is acting as. */
 let currentUser = OPERATOR;
+const GRANTS: Readonly<Record<string, readonly string[]>> = {
+  [OPERATOR]: ['payments.operate'],
+  // Every OTHER desk's key, and not this one: holding them all opens nothing here.
+  [OTHER_DESKS_OPERATOR]: [
+    'catalog.operate',
+    'guest.operate',
+    'analytics.operate',
+    'retail.operate',
+    'procurement.operate',
+    'referrals.operate',
+  ],
+};
+/** Set to model Oxy giving no answer about the person instead of their keys. */
+let oxyAnswer: 'held' | 'no_session' | 'not_configured' = 'held';
 
 // The Oxy SDK's own user resolution, stubbed to whatever the test is acting as.
-// Everything downstream — the allow-list comparison, the mount check, the zod
-// bodies — is the production chain.
+// Everything downstream — the operator gate, the zod bodies — is the
+// production chain; who holds which key comes from the app-permission fake.
 vi.mock('@oxy.so/core/server', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@oxy.so/core/server')>()),
   getRequiredOxyUserId: () => currentUser,
 }));
-vi.mock('../../middleware/auth.js', () => ({
-  authenticateToken: (
-    _req: express.Request,
-    _res: express.Response,
-    next: express.NextFunction,
-  ) => {
-    next();
-  },
-  oxyClient: {
-    middleware: { auth: () => (_req: unknown, res: express.Response) => res.sendStatus(401) },
-  },
-  optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
-    next();
-  },
-}));
+vi.mock('../../middleware/auth.js', async () => {
+  const { fakeAppPermissions } = await import('../../__tests__/oxy-app-permissions-fake.js');
+  const fake = fakeAppPermissions(
+    () => (oxyAnswer === 'held' ? (GRANTS[currentUser] ?? []) : oxyAnswer),
+    () => currentUser,
+  );
+  return {
+    authenticateToken: (
+      _req: express.Request,
+      _res: express.Response,
+      next: express.NextFunction,
+    ) => {
+      next();
+    },
+    oxyClient: {
+      middleware: {
+        requireAppPermission: fake.requireAppPermission,
+        auth: () => (_req: unknown, res: express.Response) => res.sendStatus(401),
+      },
+    },
+    optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
+      next();
+    },
+  };
+});
 vi.mock('../../lib/rate-limit.js', () => ({
   makeRateLimiter:
     () => (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
@@ -90,58 +111,32 @@ vi.mock('../../db/postgres.js', () => ({
   closePostgres: () => Promise.resolve(),
 }));
 
-let enabledServer: Server;
-let disabledServer: Server;
-let enabledUrl: string;
-let disabledUrl: string;
+let server: Server;
+let url: string;
 
-/** Start one app and return its base URL. */
 async function listen(app: express.Express): Promise<{ server: Server; url: string }> {
-  const server = await new Promise<Server>((resolve) => {
-    const started = app.listen(0, () => {
-      resolve(started);
+  const started = await new Promise<Server>((resolve) => {
+    const listening = app.listen(0, () => {
+      resolve(listening);
     });
   });
-  const { port } = server.address() as AddressInfo;
-  return { server, url: `http://127.0.0.1:${String(port)}` };
-}
-
-/**
- * Build a real app against a FROZEN config for one allow-list.
- *
- * `config/index.ts` reads process.env once at module load and freezes the
- * result, so the two configurations cannot coexist in one module registry —
- * `vi.resetModules()` between them is what gives each app its own frozen view.
- */
-async function buildApp(operatorIds: string): Promise<express.Express> {
-  vi.resetModules();
-  process.env.PAYMENT_OPERATOR_OXY_USER_IDS = operatorIds;
-  process.env.STRIPE_ENABLED = 'false';
-  const { createApp } = await import('../../app.js');
-  return createApp();
+  const { port } = started.address() as AddressInfo;
+  return { server: started, url: `http://127.0.0.1:${String(port)}` };
 }
 
 beforeAll(async () => {
-  ({ server: enabledServer, url: enabledUrl } = await listen(await buildApp(OPERATOR)));
-  ({ server: disabledServer, url: disabledUrl } = await listen(await buildApp('')));
+  process.env.STRIPE_ENABLED = 'false';
+  const { createApp } = await import('../../app.js');
+  ({ server, url } = await listen(createApp()));
 }, 60_000);
 
 afterAll(async () => {
-  // vitest reuses a worker PROCESS across files while giving each its own module
-  // registry, so this variable would otherwise survive into a sibling's frozen
-  // `config` and mount an operator surface in a file that never asked for one.
-  delete process.env.PAYMENT_OPERATOR_OXY_USER_IDS;
-  await Promise.all(
-    [enabledServer, disabledServer].map(
-      (server) =>
-        new Promise<void>((resolve, reject) => {
-          server.close((err) => {
-            if (err) reject(err);
-            else resolve();
-          });
-        }),
-    ),
-  );
+  await new Promise<void>((resolve, reject) => {
+    server.close((err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
 });
 
 /** Every path the surface exposes, with a method and a minimal valid body. */
@@ -185,24 +180,24 @@ async function call(
   });
 }
 
-describe('the operator allow-list', () => {
-  it('lets an allow-listed Oxy account through the gate on every path', async () => {
+describe('the payments.operate application role', () => {
+  it('lets a holder of payments.operate through the gate on every path', async () => {
     // Past the gate is the assertion, not a 200: `STRIPE_ENABLED` is off and
     // the database is stubbed, so the handlers themselves answer 409 or 500.
     // What matters here is that NONE of them answers 403 or 404 — which is
     // exactly what a gate that refused the right caller would produce.
     for (const route of PATHS) {
-      const res = await call(enabledUrl, route, OPERATOR);
+      const res = await call(url, route, OPERATOR);
       expect([403, 404], `${route.method} ${route.path}`).not.toContain(res.status);
     }
   });
 
-  it('refuses an authenticated Oxy account that is not on the list', async () => {
+  it('hides the surface from an authenticated Oxy account holding no key', async () => {
     for (const route of PATHS) {
-      const res = await call(enabledUrl, route, MERCHANT);
-      expect(res.status, `${route.method} ${route.path}`).toBe(403);
+      const res = await call(url, route, MERCHANT);
+      expect(res.status, `${route.method} ${route.path}`).toBe(404);
       const body = (await res.json()) as { error?: string };
-      expect(body.error).toBe('FORBIDDEN');
+      expect(body.error).toBe('NOT_FOUND');
     }
   });
 
@@ -215,27 +210,46 @@ describe('the operator allow-list', () => {
     const { STORE_PERMISSIONS } = await import('@mercaria/shared-types');
     expect(STORE_PERMISSIONS.length).toBeGreaterThan(0);
 
-    const res = await fetch(`${enabledUrl}/internal/payments/exceptions`, {
+    currentUser = MERCHANT;
+    const res = await fetch(`${url}/internal/payments/exceptions`, {
       headers: {
         // The headers a merchant dashboard would carry. None of them is read by
-        // the gate, which is the property — it consults the allow-list and the
+        // the gate, which is the property — it consults Oxy about the
         // authenticated caller and nothing a client can send.
         'x-store-role': 'owner',
         'x-store-permissions': STORE_PERMISSIONS.join(','),
       },
     });
 
-    currentUser = MERCHANT;
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
   });
 
-  it('does not mount the surface at all when the allow-list is empty', async () => {
-    // 404 and not 401: a deployment with no operators has no operator surface,
-    // and answering 401 would confirm to an unauthenticated caller that one
-    // exists here. The router is not registered, so this is Express's own 404.
+  it('does not open for a holder of every OTHER desk key', async () => {
     for (const route of PATHS) {
-      const res = await call(disabledUrl, route, OPERATOR);
+      const res = await call(url, route, OTHER_DESKS_OPERATOR);
       expect(res.status, `${route.method} ${route.path}`).toBe(404);
+    }
+  });
+
+  it('answers a request with no person in a session — a service token — with 404', async () => {
+    oxyAnswer = 'no_session';
+    try {
+      for (const route of PATHS) {
+        const res = await call(url, route, OPERATOR);
+        expect(res.status, `${route.method} ${route.path}`).toBe(404);
+      }
+    } finally {
+      oxyAnswer = 'held';
+    }
+  });
+
+  it('answers 500, not a refusal, when Oxy does not know Mercaria’s application', async () => {
+    oxyAnswer = 'not_configured';
+    try {
+      const res = await call(url, PATHS[0] ?? { method: 'GET', path: '/' }, OPERATOR);
+      expect(res.status).toBe(500);
+    } finally {
+      oxyAnswer = 'held';
     }
   });
 
@@ -245,7 +259,7 @@ describe('the operator allow-list', () => {
     // `x` to satisfy a validator produces an audit trail recording that they
     // typed `x`.
     currentUser = OPERATOR;
-    const res = await fetch(`${enabledUrl}/internal/payments/repairs`, {
+    const res = await fetch(`${url}/internal/payments/repairs`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -263,7 +277,7 @@ describe('the operator allow-list', () => {
     // not know must be REFUSED rather than stripped — silently ignoring
     // `amountMinor` on a retry would let somebody believe they had set one.
     currentUser = OPERATOR;
-    const res = await fetch(`${enabledUrl}/internal/payments/repairs`, {
+    const res = await fetch(`${url}/internal/payments/repairs`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -282,15 +296,15 @@ describe('the operator allow-list', () => {
     // makes an attempt to a 400 rather than a silently-ignored parameter that
     // returns somebody else's payment.
     currentUser = OPERATOR;
-    const byEmail = await fetch(`${enabledUrl}/internal/payments/trace?email=buyer%40example.com`);
+    const byEmail = await fetch(`${url}/internal/payments/trace?email=buyer%40example.com`);
     expect(byEmail.status).toBe(400);
 
     // …and exactly one handle, never two.
-    const byTwo = await fetch(`${enabledUrl}/internal/payments/trace?paymentId=p1&orderId=o1`);
+    const byTwo = await fetch(`${url}/internal/payments/trace?paymentId=p1&orderId=o1`);
     expect(byTwo.status).toBe(400);
 
     // …and never none.
-    const byNone = await fetch(`${enabledUrl}/internal/payments/trace`);
+    const byNone = await fetch(`${url}/internal/payments/trace`);
     expect(byNone.status).toBe(400);
   });
 });

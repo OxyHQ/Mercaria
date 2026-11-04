@@ -90,7 +90,7 @@ import { composeDefinitionDiff } from '../services/catalog-governance/definition
 /**
  * Resolve the caller's capability set and mint the actor.
  *
- * `governanceActor` composes `catalogOperatorId`, which throws when the request
+ * `governanceActor` composes `operatorId`, which throws when the request
  * carries no verified Oxy id — so there is no branch here that could produce an
  * unauthenticated actor.
  */
