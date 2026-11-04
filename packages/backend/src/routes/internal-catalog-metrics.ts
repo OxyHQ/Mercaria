@@ -66,7 +66,8 @@ const router = Router();
 // NO rate limiter, which matches every sibling on this key
 // (`/internal/catalog-governance`, `/internal/matching`, `/internal/search`,
 // `/internal/catalog-attributes` — none of them mounts one). The bound here is
-// the key itself: it is granted to a handful of named people, so a
+// the key itself: it is held by a handful of people (the `oxy` organization's
+// owners and admins), so a
 // per-IP bucket would be one bucket for the whole operator team and the first
 // real incident — when several of them are refreshing these reads at once — is
 // exactly when it would trip. `/internal/payments` does mount one because its

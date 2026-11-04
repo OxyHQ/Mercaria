@@ -327,7 +327,7 @@ The fixture is imported by nothing outside a test — a scanned gate.
 
 ## Production-readiness checklist
 
-1. Grant `referrals.operate` to the operators: with nobody holding it, nobody
+1. `referrals.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`): with nobody holding it, nobody
    can publish bounds — and with no bounds published, nothing attributes.
 2. Publish a cohort version per programme before turning `REFERRALS_ENABLED` on.
    All twelve thresholds and at least one allow-listed partner, or the publish

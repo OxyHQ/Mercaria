@@ -417,7 +417,7 @@ nobody.
 - [ ] `REFERRAL_STATE_SECRET` provisioned (SSM `/oxy/mercaria/*`), distinct from
       `REFERRAL_LINK_TOKEN_SECRET`.
 - [ ] `REFERRAL_REDIRECT_BASE_URL` set and present in `PRODUCTION_ORIGINS`.
-- [ ] `referrals.operate` granted to the operators — until it is, nobody can
+- [ ] `referrals.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`) — until it is, nobody can
       pause a program or trace an attribution.
 - [ ] `ANALYTICS_INTERNAL_TRAFFIC_TOKEN` set, or staff traffic classifies
       `organic` and enters attribution.

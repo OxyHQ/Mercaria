@@ -1925,12 +1925,15 @@ Every line is a thing to CHECK, not a thing to have intended.
 
 **Access**
 
-- [ ] `catalog.operate` is granted to real people, and the grants (Oxy
-      Console → Roles) have been read by somebody other than whoever made them.
+- [ ] `catalog.operate` is seeded on Mercaria and the people meant to operate
+      the catalogue are owners or admins of the `oxy` organization — the seed's
+      dry run lists who holds the key through which role; somebody other than
+      whoever ran it has read it.
 - [ ] `GET /internal/catalog-metrics` answers 200 for an operator and **404** for
       everybody else. A 401 means `authenticateToken` refused first; a 404 with
-      an operator's token means Oxy does not see `catalog.operate` granted to
-      them; a 503 means Oxy could not be asked.
+      an operator's token means Oxy does not see them holding `catalog.operate`
+      (not an owner or admin of the `oxy` organization, or the key not seeded);
+      a 503 means Oxy could not be asked.
 
 **Before trusting a number**
 

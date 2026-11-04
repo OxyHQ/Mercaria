@@ -482,7 +482,7 @@ Each is a NAMED contract that fails closed, never a stub that lies.
 
 ## Production-readiness checklist
 
-1. `procurement.operate` granted to the operators — without it nobody can publish
+1. `procurement.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`) — without it nobody can publish
    a sourcing policy, read a quote trace or stop a failing supplier.
 2. `SUPPLIER_PREFLIGHT_FINGERPRINT_KEY` provisioned (64 hex characters, its own
    key — never shared with the guest PII or email-hash keys).

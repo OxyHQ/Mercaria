@@ -616,7 +616,7 @@ names would not load at all, which is a data question rather than a seller one.
 
 ## Production-readiness checklist
 
-- [ ] `guest.operate` granted to the operators — without it the trace answers
+- [ ] `guest.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`) — without it the trace answers
       404, which also means nobody can reconcile a stuck return.
 - [ ] `BUYER_REQUESTS_ENABLED` reviewed. It defaults ON; guest commerce as a
       whole is still gated by `GUEST_COMMERCE_ENABLED`, which is OFF until the

@@ -138,9 +138,15 @@ seventh mount brings its own file, as the sixth (`/webhooks/oxy-files`) did.
 ## Operator desks (application roles)
 
 Every internal surface is gated on an Oxy APPLICATION ROLE — one permission key
-per desk, declared on Mercaria's Oxy application and granted to people by its
-owning account's owners and admins in the Oxy Console (application → Settings →
-Roles; append-only, audited, never to oneself). The gates are
+per desk. Mercaria is one of Oxy's own applications, so the keys are declared IN
+CODE, in Mercaria's entry of oxy's first-party registry (`operatorPermissions` in
+`~/Oxy/oxy/packages/api/src/scripts/seedOxyApplicationsSpecs.ts`, oxy ADR 0056),
+each held by roles of the organization that owns Mercaria — today the owners and
+admins of the `oxy` organization. oxy's **Seed Oxy applications** workflow applies
+it (`only_apps` Mercaria). There are no per-person grants: Oxy refuses one on a
+first-party application (`409 FIRST_PARTY_ROLES_IN_CODE`) and the Console shows
+the keys read-only. To make someone an operator, give them that role in the
+organization; to remove them, change or remove the role. The gates are
 `middleware/operator-authz.ts`, built on `oxyClient.middleware.requireAppPermission`.
 There is no user-id list in the environment and no local staff table.
 
@@ -154,8 +160,13 @@ There is no user-id list in the environment and no local staff table.
 - **A new surface joins the key whose power it already shares** — a new key is
   justified only by a power none of these grants, and two were refused on
   exactly that test (there is deliberately no `merchant_demand.operate` and no
-  `seo.operate`). Declare a new key on the application BEFORE deploying code that
-  checks it; until then the check denies.
+  `seo.operate`). Add a new key to the registry entry in an oxy PR and run the
+  seed BEFORE deploying code that checks it; until then the check denies. Keep
+  `OPERATOR_PERMISSIONS` identical to the registry — a key renamed in only one
+  place locks everybody out.
+- **All seven keys are held by the same roles today.** A desk that needs a
+  narrower holder set (a compliance reviewer who is not an admin) is a new
+  account role in Oxy, never a per-person grant or a Mercaria list.
 
 | Key | Surface |
 |---|---|

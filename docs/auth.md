@@ -73,10 +73,13 @@ there (its owners and admins) — a permission, never a role name. The model, ro
 ## Operator desks are application roles
 
 `/internal/*` is mounted on every deployment and each desk is gated on its own
-key (`middleware/operator-authz.ts`), declared on Mercaria's Oxy application and
-granted to people by the owning account's owners and admins in the Oxy Console
-(append-only, audited, never to themselves). A non-holder — or a request with
-no person, including any service token — is answered 404; an Oxy outage is 503
-and never remembered; a write asks Oxy fresh. Record `operatorId(req)` (the
-human Oxy resolved) as the actor. There are no `*_OPERATOR_OXY_USER_IDS`
-variables; the deploy strips any an earlier task revision still carries.
+key (`middleware/operator-authz.ts`). Mercaria is one of Oxy's own applications,
+so the keys are declared in code, in Mercaria's entry of oxy's first-party
+registry (`operatorPermissions`, oxy ADR 0056), each held by the owners and
+admins of the `oxy` organization, and oxy's **Seed Oxy applications** workflow
+applies it. Nobody is granted a key per person (`409 FIRST_PARTY_ROLES_IN_CODE`);
+making someone an operator is giving them that organization role
+(`~/Oxy/docs/application-roles.md`). A non-holder — or a request with no person,
+including any service token — is answered 404; an Oxy outage is 503 and never
+remembered; a write asks Oxy fresh. Record `operatorId(req)` (the human Oxy
+resolved) as the actor. No environment variable or local table lists operators.

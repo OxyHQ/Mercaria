@@ -487,16 +487,11 @@ jobs:
                    # Files). oxy-infra retired the bucket and its terraform
                    # value, so a release removes the entry an earlier revision
                    # still carries instead of rendering it forward forever.
-                   # The seven *_OPERATOR_OXY_USER_IDS allow-lists are retired:
-                   # the operator desks are Oxy application roles
-                   # (middleware/operator-authz.ts), so a release drops any user-id
-                   # list an earlier revision still carries, as a value or a secret.
                    | .environment = (
                        ((.environment // []) | map(select(
                          (.name as $n | $pinned_names | index($n) | not) and
                          .name != "AWS_S3_BUCKET" and
-                         .name != "SERVICE_SECRET" and
-                         (.name | endswith("_OPERATOR_OXY_USER_IDS") | not)
+                         .name != "SERVICE_SECRET"
                        )))
                        + $pinned_env
                      )
@@ -513,8 +508,7 @@ jobs:
                          .name != "OXY_APPLICATION_SECRET" and
                          .name != "PEABLE_APP_PUBLIC_KEY" and
                          .name != "PEABLE_APP_SECRET" and
-                         .name != "SERVICE_SECRET" and
-                         (.name | endswith("_OPERATOR_OXY_USER_IDS") | not)
+                         .name != "SERVICE_SECRET"
                        ))
                      )
                  else . end

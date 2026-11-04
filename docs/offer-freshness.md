@@ -555,8 +555,8 @@ Each is a NAMED contract that fails closed, never a stub that lies.
 
 ## Production-readiness checklist
 
-1. `catalog.operate` declared on Mercaria's Oxy application and granted to the
-   operators, or nobody can publish a freshness policy or release a quarantine.
+1. `catalog.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`), or nobody can publish a freshness policy or
+   release a quarantine.
 2. For each source: a freshness version published, reviewed, and its thresholds
    set against that provider's own contract — the `source_configuration`
    fallback is a safe default, not a reviewed decision.

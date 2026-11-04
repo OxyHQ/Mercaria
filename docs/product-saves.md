@@ -376,7 +376,7 @@ person — it needs the subject by definition — and it returns two numbers.
 
 ## Production-readiness checklist
 
-1. Grant `catalog.operate` to the operators — without it there is no way to read
+1. `catalog.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`) — without it there is no way to read
    counter drift, rebuild a counter, run the migration or erase an account's
    saves.
 2. Deploy with `PRODUCT_SAVES_ENABLED=false`. Confirm `/favorites` is unchanged

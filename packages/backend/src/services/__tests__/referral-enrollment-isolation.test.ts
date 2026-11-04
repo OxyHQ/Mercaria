@@ -296,9 +296,9 @@ const GRANT_DETECTORS: Readonly<Record<string, RegExp>> = {
   merchant_claim: /merchant-claims\/|merchantClaimRepository|verifyMerchantClaim|claim_state/,
   payment_onboarding: /providerAccountRepository|insertProviderAccount|createOnboardingLink/,
   oxy_administrative_role: /setOxyRole|grantOxyRole|oxyAdmin|assignRole/,
-  // Operator power is an Oxy application role (`referrals.operate`): granted in
-  // Oxy by the owning account's admins, read by `middleware/operator-authz.ts`.
-  // Enrollment must neither call Oxy's role-grant API nor forge the answer.
+  // Operator power is an Oxy application role (`referrals.operate`): held by
+  // organization role in Oxy (oxy ADR 0056), read by `middleware/operator-authz.ts`.
+  // Enrollment must neither call Oxy's role API nor forge the answer.
   operator_allow_list:
     /\/roles\/(?:grants|permissions)|oxyAppPermissions\s*=|invalidateAppPermissions/,
 };

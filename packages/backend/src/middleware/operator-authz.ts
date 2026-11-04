@@ -1,12 +1,21 @@
 /**
  * The gates on Mercaria's operator desks — `/internal/*` — as APPLICATION ROLES.
  *
- * Who operates Mercaria is decided in Oxy (`~/Oxy/docs/application-roles.md`):
- * Mercaria declares one permission key per desk on its Oxy application, the
- * owning account's owners and admins grant them to people (append-only,
- * audited, never to themselves), and these gates ask Oxy — with the request's
+ * Who operates Mercaria is decided in Oxy (`~/Oxy/docs/application-roles.md`,
+ * oxy ADR 0056). Mercaria is one of Oxy's own applications, so its seven keys
+ * are declared IN CODE, in Mercaria's entry of oxy's first-party registry
+ * (`operatorPermissions` in `packages/api/src/scripts/seedOxyApplicationsSpecs.ts`),
+ * each held by roles of the organization that owns Mercaria — today the owners
+ * and admins of the `oxy` organization — and oxy's "Seed Oxy applications"
+ * workflow applies it. Nobody is granted a key per person (Oxy refuses a grant
+ * on a first-party application with `409 FIRST_PARTY_ROLES_IN_CODE`): to make
+ * someone an operator, give them that role in the organization; to remove
+ * them, change or remove the role. These gates ask Oxy — with the request's
  * own verified bearer — whether the HUMAN behind it holds the desk's key. There
  * is no allow-list of user ids in the environment and no local staff table.
+ *
+ * {@link OPERATOR_PERMISSIONS} must stay identical to the registry entry: a key
+ * renamed in only one place locks everybody out of that desk.
  *
  * ## Seven desks, seven keys, because they are seven powers
  *
@@ -23,6 +32,9 @@
  * A new surface joins the key whose power it already shares; a new key is
  * justified only by a power none of these grants. Holding one key confers none
  * of the others — a payments operator is not thereby a compliance reviewer.
+ * Today all seven are held by the same roles (owners and admins of the `oxy`
+ * organization); a desk that needs a narrower holder set is a new account role
+ * in Oxy (ADR 0056), never a per-person grant or a list here.
  *
  * ## What a caller is answered
  *
@@ -31,8 +43,8 @@
  * as if the route did not exist, so an operator surface is never revealed. An
  * Oxy that cannot answer is 503 (never a "no", never cached); a deployment
  * whose application id Oxy does not know is 500. A read reuses an answer for at
- * most 30 s; every other method asks Oxy fresh, so a revoked operator cannot
- * make another change.
+ * most 30 s; every other method asks Oxy fresh, so someone whose organization
+ * role was removed cannot make another change.
  *
  * Record {@link operatorId} as the actor: it is the PERSON even when they act
  * as their organization (`req.userId` is then the organization).
@@ -44,7 +56,11 @@ import { log } from '../lib/logger.js';
 import { ErrorCodes, sendError } from '../utils/api-response.js';
 import { oxyClient } from './auth.js';
 
-/** The permission key each operator desk is gated on. Declared on Mercaria's Oxy application. */
+/**
+ * The permission key each operator desk is gated on. Declared, with the roles
+ * that hold it, in Mercaria's entry of oxy's first-party registry; keep the two
+ * identical.
+ */
 export const OPERATOR_PERMISSIONS = Object.freeze({
   payments: 'payments.operate',
   catalog: 'catalog.operate',

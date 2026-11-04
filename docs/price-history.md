@@ -439,8 +439,7 @@ Each is a NAMED contract, never a stub that lies.
 
 ## Production-readiness checklist
 
-1. `catalog.operate` declared on Mercaria's Oxy application and granted to the
-   operators, or nobody can read the metrics or trace an offer.
+1. `catalog.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`), or nobody can read the metrics or trace an offer.
 2. Decide `PRICE_HISTORY_SERIES_CURRENCIES`. Empty is a working configuration
    and means no chart is ever built; every code listed multiplies the series
    count by one.

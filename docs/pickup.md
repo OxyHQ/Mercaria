@@ -716,7 +716,7 @@ Stated rather than quietly narrowed.
 - [ ] `STORE_PICKUP_ENABLED=true` only after the collection-desk flow has been
       walked end to end on a real store with real staff permissions.
 - [ ] `GUEST_STORE_PICKUP_ENABLED` stays OFF until #111's rollout review.
-- [ ] `catalog.operate` granted to the operators, or nobody can restrict a
+- [ ] `catalog.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`), or nobody can restrict a
       location or read the probes on `/internal/pickup/*`.
 - [ ] PostGIS present on the target database — no runtime read uses it any
       more, but the migration chain names `geography` (`db/requiredExtensions.ts`).

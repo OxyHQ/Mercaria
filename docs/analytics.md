@@ -521,9 +521,11 @@ coordinated with #111 for the guest-specific gates). What it must cover:
 6. **The redaction pattern set** against a sample of real production queries, in
    both directions: what it missed, and what it destroyed that it should not
    have. The suite covers common shapes; only real data covers the rest.
-7. **The operator keys** and who holds each (Oxy Console → Roles) —
-   specifically that `analytics.operate` is vetted separately from payments,
-   catalog and guest.
+7. **The operator keys** and who holds each (the Seed Oxy applications dry run
+   lists holders by organization role). Today every key is held by the owners and
+   admins of the `oxy` organization, so `analytics.operate` is NOT vetted
+   separately from payments, catalog and guest; if the review needs that, it is a
+   new account role in Oxy (oxy ADR 0056), not a per-person grant.
 8. **The event-class retention windows** against the actual questions the
    product asks, and against any statutory minimum the launch jurisdiction
    imposes on none of these (they are not financial records).

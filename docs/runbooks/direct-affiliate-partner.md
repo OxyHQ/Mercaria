@@ -25,9 +25,10 @@ OFFER_EXPIRY_SWEEP_ENABLED=true
 OUTBOUND_REDIRECT_ENABLED=true
 ```
 
-The operator steps below need `catalog.operate` and `payments.operate` granted
-to you on Mercaria's Oxy application (Oxy Console → Roles), by an owner or
-admin of the owning account other than yourself.
+The operator steps below need `catalog.operate` and `payments.operate`. Both
+are held by the owners and admins of the `oxy` organization (declared in oxy's
+first-party registry, oxy ADR 0056); if you are not one, ask an owner to give
+you that role — there is no per-person grant.
 
 Secret, in BOTH halves — the workflow's `APP_SECRETS` allow-list and the task
 definition's `secrets[]`, in that order, or it never reaches SSM:

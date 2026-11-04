@@ -440,7 +440,8 @@ Everything below is unfinished work, not a suggestion.
 2. **Set `GUEST_MAGIC_LINK_BASE_URL`** to the HTTPS universal-link base, and
    verify the association files so native opens it rather than a browser
    (ADR 0003 T14). Unset, every link-bearing message fails visibly.
-3. **Grant `guest.operate`** before the rail carries live traffic. With nobody
+3. **`guest.operate` seeded and held by the operators** (owners or admins of the
+   `oxy` organization, `docs/auth.md`) before the rail carries live traffic. With nobody
    holding it, nobody can trace portal access or re-send a link for a buyer who
    cannot reach their inbox.
 4. **Confirm the sender domain is authenticated** (SPF/DKIM/DMARC) with the

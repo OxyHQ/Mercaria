@@ -578,10 +578,10 @@ escalation as two rows rather than as an absence.
 
 ## Production-readiness checklist
 
-- [ ] `payments.operate` granted to the operators — without it the
+- [ ] `payments.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`) — without it the
       customer-side operator surface answers 404, which means nobody can decide
       a remedy.
-- [ ] `procurement.operate` granted — same, for the supplier half.
+- [ ] `procurement.operate` seeded and held — same, for the supplier half.
 - [ ] A transport registered for `guest_portal_messages` (#108's seam). **Until
       then no buyer is told anything.** The requests themselves work.
 - [ ] `RETAIL_SERVICE_REQUESTS_ENABLED` reviewed. It defaults ON, because a

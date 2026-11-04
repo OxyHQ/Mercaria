@@ -3,16 +3,16 @@
  * them retired.
  *
  * Who operates a Mercaria desk is an Oxy APPLICATION ROLE
- * (`middleware/operator-authz.ts`, `~/Oxy/docs/application-roles.md`): Mercaria
- * declares the keys, the owning account's admins grant them to people, and the
- * gate asks Oxy. An env list of user ids beside that would be a second answer to
- * who may operate — changed by whoever can deploy, with no grant audit — which
- * is exactly what the roles replaced.
+ * (`middleware/operator-authz.ts`, `~/Oxy/docs/application-roles.md`): the keys
+ * are declared in Mercaria's entry of oxy's first-party registry, held by the
+ * owners and admins of the `oxy` organization (oxy ADR 0056), and the gate asks
+ * Oxy. An env list of user ids beside that would be a second answer to who may
+ * operate — changed by whoever can deploy, outside the organization's roles —
+ * which is exactly what the roles replaced.
  *
- * So nothing may READ such a variable: no non-test source file, no environment
- * template, no workflow. The one sanctioned mention is the release step's jq
- * filter in `deploy-aws.yml`, which STRIPS the retired names from a task
- * definition revision that still carries them.
+ * So nothing may READ such a variable, and no environment template or workflow
+ * may so much as name one (outside a comment). This file is the one place the
+ * pattern is spelled, so it can be detected.
  */
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
@@ -28,8 +28,6 @@ const READS_OPERATOR_LIST =
   /(?:process\.env|strEnv|listEnv|boolEnv|intEnv|env)\s*(?:\.|\[|\()\s*['"`]?[A-Z_]*_OPERATOR_OXY_USER_IDS/u;
 /** Any mention at all — the bar for a template or a workflow. */
 const NAMES_OPERATOR_LIST = /[A-Z_]*_OPERATOR_OXY_USER_IDS/u;
-/** The release filter that removes the retired names from a revision. */
-const STRIP_FILTER = /\(\.name \| endswith\("_OPERATOR_OXY_USER_IDS"\) \| not\)/gu;
 
 function sourceFiles(directory: string): string[] {
   const files: string[] = [];
@@ -79,18 +77,17 @@ describe('the operator allow-lists stay retired', () => {
     }
   });
 
-  it('no workflow sets one; the release only strips them', () => {
+  it('no workflow names one', () => {
     const workflows = join(REPO_ROOT, '.github', 'workflows');
     const names = readdirSync(workflows).filter((entry) => /\.ya?ml$/u.test(entry));
     expect(names).toContain('deploy-aws.yml');
     for (const name of names) {
       const text = readFileSync(join(workflows, name), 'utf8');
-      // Comments and the strip filter are the only sanctioned mentions.
+      // A comment is the only sanctioned mention.
       const residue = text
         .split('\n')
         .filter((line) => !line.trim().startsWith('#'))
-        .join('\n')
-        .replace(STRIP_FILTER, '');
+        .join('\n');
       expect(residue, name).not.toMatch(NAMES_OPERATOR_LIST);
     }
   });
@@ -104,9 +101,7 @@ describe('the operator allow-lists stay retired', () => {
       expect(planted).toMatch(READS_OPERATOR_LIST);
     }
     expect('# PAYMENT_OPERATOR_OXY_USER_IDS=').toMatch(NAMES_OPERATOR_LIST);
-    expect('(.name | endswith("_OPERATOR_OXY_USER_IDS") | not)'.replace(STRIP_FILTER, '')).toBe('');
-    expect('"GUEST_OPERATOR_OXY_USER_IDS": "a,b"'.replace(STRIP_FILTER, '')).toMatch(
-      NAMES_OPERATOR_LIST,
-    );
+    expect('"GUEST_OPERATOR_OXY_USER_IDS": "a,b"').toMatch(NAMES_OPERATOR_LIST);
+    expect('(.name | endswith("_OPERATOR_OXY_USER_IDS") | not)').toMatch(NAMES_OPERATOR_LIST);
   });
 });

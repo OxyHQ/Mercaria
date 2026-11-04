@@ -607,7 +607,7 @@ Each is a NAMED contract that fails closed, never a stub that lies.
 
 ## Production-readiness checklist
 
-1. `catalog.operate` granted to the operators, or nobody can configure a source
+1. `catalog.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`), or nobody can configure a source
    or review a policy.
 2. At least one adapter registered. #63's `product_feed` is registered by
    `FEED_IMPORT_ENABLED=true` (which additionally requires

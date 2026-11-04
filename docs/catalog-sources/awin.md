@@ -800,7 +800,7 @@ Nothing below is green. Each is a gate, in the §9 sense of the #64 decision.
 2. **Secrets.** `AWIN_PUBLISHER_ID`, `AWIN_FEED_API_KEY` and (for #67)
    `AWIN_PUBLISHER_API_TOKEN` in SSM
    `/oxy/mercaria/*` → the task definition. Never a placeholder.
-3. `catalog.operate` granted to the operators, or nobody can register an
+3. `catalog.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`), or nobody can register an
    account on `/internal/awin`.
 4. Per advertiser: a MERCHANT and a STOREFRONT bound on its #62 source (no
    merchant, no offers), a rights policy published and reviewed against the

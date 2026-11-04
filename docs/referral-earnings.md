@@ -333,7 +333,7 @@ their ordinary lifecycle to payout.
 
 ## Production-readiness checklist
 
-1. Grant `referrals.operate` to the operators before any partner earns: with
+1. `referrals.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`) before any partner earns: with
    nobody holding it, nobody can approve, settle, cancel, freeze or trace
    anything on `/internal/referrals`.
 2. Set `STRIPE_ENABLED` and onboard each partner to a payment-ready connected

@@ -378,8 +378,11 @@ exists to make unrepresentable.
 
 Before `mercaria_retail` carries a live order:
 
-1. `retail.operate` granted to vetted compliance operators — distinct from the
-   people holding `payments.operate` and `catalog.operate`.
+1. `retail.operate` seeded on Mercaria and held by the compliance operators.
+   Today it is held by the same roles as `payments.operate` and
+   `catalog.operate` (owners and admins of the `oxy` organization, `docs/auth.md`),
+   so compliance is NOT separated from payments and catalogue; if launch needs
+   that separation, it is a new account role in Oxy (oxy ADR 0056).
 2. A policy version published under `mercaria-retail-eligibility`, with
    `permitted_fulfilment_origin_countries` limited to the EU customs territory
    (ADR 0004 D2.9) and the launch destinations, channels, currencies, methods

@@ -394,8 +394,7 @@ Each is a NAMED contract that fails closed, never a stub that lies.
 
 ## Production-readiness checklist
 
-1. `catalog.operate` declared on Mercaria's Oxy application and granted to the
-   operators, or nobody can publish a policy version — which means every signal
+1. `catalog.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`), or nobody can publish a policy version — which means every signal
    is `unmeasured` forever.
 2. Publish and ACTIVATE a policy version. Empty is a working configuration and
    means no claim is ever made, which is correct and unhelpful.

@@ -71,10 +71,11 @@ const router = Router();
 //
 // NO rate limiter, matching every sibling on this key
 // (`/internal/catalog-governance`, `/internal/catalog-metrics`,
-// `/internal/matching`, `/internal/search`). The bound is the key itself
-// — granted to a handful of named people — so a per-IP bucket would be one bucket for
-// the whole operator team and would trip exactly when several of them are
-// reading the desk at once, which is what a translation push looks like.
+// `/internal/matching`, `/internal/search`). The bound is the key itself —
+// held by a handful of people, the `oxy` organization's owners and admins — so
+// a per-IP bucket would be one bucket for the whole operator team and would
+// trip exactly when several of them are reading the desk at once, which is what
+// a translation push looks like.
 router.use(authenticateToken);
 router.use(requireCatalogOperator);
 

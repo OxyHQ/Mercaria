@@ -1949,11 +1949,12 @@ grant themselves.
 
 Mercaria does not invent its own platform-wide role either — its grant surface,
 audit and recovery path would be a second identity system beside Oxy's. Oxy's
-application roles are that system: `payments.operate` is declared on Mercaria's
-Oxy application, the owning account's owners and admins grant it to people in
-the Oxy Console (append-only, audited, never to themselves), and
+application roles are that system: `payments.operate` is declared in Mercaria's
+entry of oxy's first-party registry (oxy ADR 0056), held by the owners and
+admins of the `oxy` organization that owns Mercaria, and
 `requirePaymentOperator` (`middleware/operator-authz.ts`) asks Oxy with the
-caller's own bearer.
+caller's own bearer. There is no per-person grant: to make someone a payments
+operator, give them that role in the organization.
 
 The router is mounted on every deployment. Anyone without the key — including a
 request with no person in a session, such as a service token — gets 404, so an
@@ -2543,10 +2544,12 @@ no window either, and the cost is bounded: every in-flight hosted-onboarding
 round trip 400s and the seller starts again from the dashboard. Do it out of
 business hours rather than building a rotation window for a 30-minute token.
 
-**`payments.operate` grants** are made and revoked in the Oxy Console
-(application → Settings → Roles), and each is an audit event with who, when and
-why. A revocation reaches every write at once (writes ask Oxy fresh) and a read
-within 30 seconds — no deploy, no task rollout.
+**Who holds `payments.operate`** is whoever is an owner or admin of the `oxy`
+organization (the key's roles, declared in oxy's first-party registry and
+applied by the **Seed Oxy applications** workflow). Adding or removing an
+operator is a role change in that organization, recorded by Oxy; nothing is
+granted per person. A role removal reaches every write at once (writes ask Oxy
+fresh) and a read within 30 seconds — no deploy, no task rollout.
 
 ### 11. Replaying a failed event
 
@@ -2737,8 +2740,10 @@ in ADR 0001 — so this list is also the record of what "live" will require.
       verification, which looks exactly like a compromised endpoint.
 - [ ] `STRIPE_ONBOARDING_STATE_SECRET` is set and is not shared with any other
       environment.
-- [ ] `payments.operate` is granted to real people, and the grants (Oxy
-      Console → Roles) have been read by somebody other than whoever made them.
+- [ ] `payments.operate` is seeded on Mercaria (oxy **Seed Oxy applications**,
+      `only_apps` Mercaria), and the people meant to operate payments are owners
+      or admins of the `oxy` organization — the seed's dry run lists who holds
+      the key through which role; somebody other than whoever ran it has read it.
 - [ ] The boot log carries no
       `[Stripe] STRIPE_ENABLED is set but the integration is incomplete` line.
 

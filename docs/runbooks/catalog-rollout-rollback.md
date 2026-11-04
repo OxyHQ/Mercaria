@@ -37,14 +37,17 @@ rollout lever** —
 `/internal/navigation` (`:992`), `/internal/catalog-governance` (`:1008`) and
 `/internal/catalog-metrics` (`:1014`).
 
-But that gate is a person's grant in Oxy (`middleware/operator-authz.ts`): all
+But that gate is an Oxy application role (`middleware/operator-authz.ts`), held
+by whoever is an owner or admin of the `oxy` organization (oxy ADR 0056): all
 nine answer **404, not 401**, to anyone without the key. So with nobody on call
 holding `catalog.operate` and every rollout lever off, there is no HTTP surface
 that can read a proposal, a navigation tree, a mapping or a metric.
 
 **Check it first**, with your own token, so you can tell the three answers
-apart: **200** is fine; **404** means you do not hold `catalog.operate` — ask an
-owner or admin of Mercaria's Oxy account to grant it (Oxy Console → Roles);
+apart: **200** is fine; **404** means you do not hold `catalog.operate` — you
+are not an owner or admin of the `oxy` organization (ask an owner to give you
+that role; nothing is granted per person), or Mercaria's keys have not been
+seeded (oxy's **Seed Oxy applications** workflow, `only_apps` Mercaria);
 **503** means Oxy could not be asked, which is not a refusal — retry.
 
 ---

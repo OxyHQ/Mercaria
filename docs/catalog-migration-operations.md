@@ -153,7 +153,8 @@ turned the levers off" true.
 > application role (`middleware/operator-authz.ts`). **If nobody on call holds
 > `catalog.operate`, all nine answer them 404** — and then every rollout lever
 > off means the catalogue evidence is reachable through no HTTP surface at all.
-> The readability half of D12 is conditional on the key being granted, and it
+> The readability half of D12 is conditional on somebody on call holding the key
+> (an owner or admin of the `oxy` organization, once the key is seeded), and it
 > is the first line of the rollback runbook for that reason.
 
 ---

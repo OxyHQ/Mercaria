@@ -513,7 +513,7 @@ than defaulted.
 
 ## The production-readiness checklist
 
-1. Grant `guest.operate` to the operators, or none of the above is reachable.
+1. `guest.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`), or none of the above is reachable.
 2. Set `GUEST_ABUSE_SUBJECT_HASH_KEY`. Until it is set no counter is written,
    because no subject can be named safely; once it is, every attempt is
    counted whether or not friction is applied.

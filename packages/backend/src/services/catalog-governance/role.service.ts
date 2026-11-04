@@ -4,7 +4,8 @@
  *
  * ## This is not a second operator key, and it structurally cannot become one
  *
- * `catalog.operate` — an application role granted in Oxy, never by Mercaria —
+ * `catalog.operate` — an application role decided in Oxy (held by organization
+ * role, oxy ADR 0056), never by Mercaria —
  * decides who reaches this surface at all. `requireCatalogOperator` answers 404
  * to anyone who does not hold it, before any row here is read — so nothing in
  * this table can ADMIT anybody. A grant can only ever narrow what a

@@ -78,8 +78,8 @@ every closed value set) · `contracts` (the `/public/v1` zod source; regen
 
 ## PostgreSQL
 
-`DATABASE_URL` is **required to boot**. PostgreSQL is the ONLY store: there is
-no second store, no `src/models/` and no rollback target.
+`DATABASE_URL` is **required to boot**. PostgreSQL is the ONLY store: no
+`src/models/`, no rollback target.
 
 - **`bun run db:generate` writes migrations; `src/db/migrate.ts` is the ONLY
   thing that applies them** — never `drizzle-kit migrate`. Every generated `.sql`
@@ -104,18 +104,18 @@ no second store, no `src/models/` and no rollback target.
 ## Auth and the identity surfaces
 
 - **One `OxyServer` (`oxyClient`); a person's calls use `oxyClient.withUser`.** No
-  local service principal or verifier: Oxy's shared middleware with the canonical audience; public reads use the optional receiver documented in
-  `docs/first-party-authority.md`, never a synthetic user. Provider webhooks
+  local service principal or verifier: Oxy's shared middleware with the canonical audience; public reads use the optional receiver
+  (`docs/first-party-authority.md`), never a synthetic user. Provider webhooks
   verify their own signatures; never add unmounted auth primitives.
-- **Every `/internal/*` desk is an Oxy app role** (`middleware/operator-authz.ts`):
-  always mounted, 404 to non-holders, no env user-id list. A new surface joins the
-  key whose power it shares (`docs/house-invariants.md`).
+- **Every `/internal/*` desk is an Oxy app role** (`middleware/operator-authz.ts`)
+  held by `oxy` org owners/admins via oxy's registry (oxy ADR 0056): always mounted,
+  404 to non-holders, no env id lists or grants. A new surface joins the key whose
+  power it shares (`docs/house-invariants.md`).
 - **A store is owned by an Oxy account; Oxy decides who gets in** (ADR 0012). No
   member list: `oxyClient.accountAccessFor` (THEIR session, fail closed, fresh on
   writes) → `STORE_ROLE_PERMISSIONS` ± overrides.
   `admin` lacks only `store:manage`, which gates payment, fee and identity routes.
-- **Buyer, seller and `oxy_user_id` ids are a foreign SERVICE's keys** (Oxy
-  owns identity) and carry no foreign key.
+- **Buyer, seller and `oxy_user_id` ids are Oxy's keys** and carry no foreign key.
 - **CORS:** `packages/backend/src/lib/allowed-origins.ts` is the ONE origin authority
   (CORS and the bounded referral-cookie migration gate) and must carry `mercaria.co`, `dashboard.mercaria.co`
   and `pos.mercaria.co`. The central Oxy API's `allowedOrigins.ts` must carry
@@ -181,8 +181,8 @@ no second store, no `src/models/` and no rollback target.
   re-measures both). A Bloom `Dialog` side-sheet takes the LOGICAL
   `placement="start"|"end"`, never `left`/`right`; its `inset` keys stay
   physical. Arabic is NOT fully supported — #429 item 2.
-- **The root API Dockerfile pins `node-gyp`**: `ws` has no musl-arm64 prebuild
-  and `bunx node-gyp@latest` flakes on ARM. Keep it.
+- **The root API Dockerfile pins `node-gyp`** (`ws` has no musl-arm64 prebuild;
+  `@latest` flakes on ARM).
 - **`ci.yml`'s `Lint & Test` stays on x86** though `deploy-aws.yml` builds ARM:
   ARM runners have no service containers; `postgis/postgis` is amd64-only.
 - **Web apps deploy to Cloudflare Workers, NOT Pages**, via **`bunx wrangler`,
