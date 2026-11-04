@@ -19,7 +19,7 @@ it('actual browser preflight permits the stable billing intent header on an appr
       'Access-Control-Request-Headers': 'authorization,content-type,idempotency-key',
     },
   });
-  expect(response.status).toBe(200);
+  expect(response.status).toBe(204);
   expect(response.headers.get('access-control-allow-origin')).toBe('https://dashboard.mercaria.co');
   expect(
     response.headers

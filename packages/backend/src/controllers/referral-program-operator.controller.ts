@@ -2,13 +2,12 @@
  * Operator program management (#147 "Operator program management", acceptance
  * 4 and 5).
  *
- * On the SAME `REFERRAL_OPERATOR_OXY_USER_IDS` allow-list #143 and #145 use,
+ * On the SAME `referrals.operate` key #143 and #145 use,
  * NOT an eighth: publishing the terms a partner earns under, pausing the
  * attribution that stops them earning and approving the payout that pays them
  * are one economy, and splitting them would put one half of a partner's fate
- * behind a list the other half's operator is not on. Empty means the router is
- * not mounted at all — 404, never 401 — which is the house convention every one
- * of the eight follows.
+ * behind a key the other half's operator does not hold. Anyone without the key is
+ * answered 404, never 401 — the convention every operator surface follows.
  *
  * ## "No operator can edit an active rule version in place" is not a check here
  *

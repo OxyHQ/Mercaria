@@ -166,7 +166,7 @@ measure this", not as "nothing to do".
 
 Decide the proposals. Every action is an audited operator POST on
 `/internal/catalog-proposals/:proposalId/*`, behind the same
-`CATALOG_OPERATOR_OXY_USER_IDS` allow-list:
+`catalog.operate` key:
 
 | Action | Endpoint | Lands the row in |
 |---|---|---|

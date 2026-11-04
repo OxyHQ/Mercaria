@@ -39,8 +39,7 @@ it, and there is deliberately no code path that widens one.
    variable is a list nobody can review, nobody can attribute a line of, and
    which silently admits everything on a typo.
 
-**This domain therefore adds NO environment variable at all.** What it reads is
-`REFERRAL_OPERATOR_OXY_USER_IDS` (whether the operator surface mounts) and,
+**This domain therefore adds NO environment variable at all.** What it reads is,
 indirectly, `REFERRALS_ENABLED` plus `referral_program_controls`' three row
 levers (#143/#145), all of which are checked before this gate is reached.
 
@@ -254,11 +253,11 @@ today it is not.
 
 ## The operator surface
 
-`/internal/referrals/pilot/*`, behind the SAME `REFERRAL_OPERATOR_OXY_USER_IDS`
-allow-list #143, #145, #146, #147 and #148 use, and deliberately not an eighth:
+`/internal/referrals/pilot/*`, behind the SAME `referrals.operate`
+key #143, #145, #146, #147 and #148 use, and deliberately not an eighth:
 publishing the bounds a partner was recruited under, pausing entry and writing
 the dated review that authorises expansion are the same power as pausing
-attribution and approving a payout. Empty list = not mounted (404, not 401).
+attribution and approving a payout. Anyone without it gets 404, not 401.
 
 Draft a version · allow-list a partner on it · publish a threshold on it ·
 publish the draft · record its expansion review · read the report · evaluate
@@ -328,9 +327,8 @@ The fixture is imported by nothing outside a test — a scanned gate.
 
 ## Production-readiness checklist
 
-1. Populate `REFERRAL_OPERATOR_OXY_USER_IDS`: with it empty `/internal/referrals`
-   is not mounted at all, so nobody can publish bounds — and with no bounds
-   published, nothing attributes.
+1. Grant `referrals.operate` to the operators: with nobody holding it, nobody
+   can publish bounds — and with no bounds published, nothing attributes.
 2. Publish a cohort version per programme before turning `REFERRALS_ENABLED` on.
    All twelve thresholds and at least one allow-listed partner, or the publish
    is refused.

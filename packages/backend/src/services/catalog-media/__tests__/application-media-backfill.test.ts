@@ -8,9 +8,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const sdk = { importAppFiles: vi.fn() };
-vi.mock('../../../capabilities/oxy-service-client.js', () => ({
-  oxyServiceClient: () => ({ assets: { importAppFiles: sdk.importAppFiles } }),
-}));
+vi.mock('../../../middleware/auth.js', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../../../middleware/auth.js')>();
+  const { overOxyClient } = await import('../../../__tests__/over-oxy-client.js');
+  return {
+    ...original,
+    get oxyClient() {
+      return overOxyClient(original.oxyClient, { assets: { importAppFiles: sdk.importAppFiles } });
+    },
+  };
+});
 const repo = { page: vi.fn(), apply: vi.fn() };
 vi.mock('../../../db/oxyFiles/applicationMediaRepository.js', () => ({
   findApplicationMediaPage: repo.page,

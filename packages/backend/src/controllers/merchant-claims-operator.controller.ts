@@ -7,14 +7,14 @@
  * payments are different powers (ADR 0002 D17/D24).
  *
  * The operator is read from the verified credential through
- * `catalogOperatorId`, never from a body field: every decision, revocation and
+ * `operatorId`, never from a body field: every decision, revocation and
  * evidence access stamps that id as the ACTOR, and an audit trail naming the
  * wrong person is worse than one that failed to be written.
  */
 
 import type { Request, Response } from 'express';
 import type { MerchantClaimRevokeReason, MerchantClaimState } from '@mercaria/shared-types';
-import { catalogOperatorId } from '../middleware/catalog-operator-authz.js';
+import { operatorId } from '../middleware/operator-authz.js';
 import {
   decideClaim,
   getClaimForOperator,
@@ -55,7 +55,7 @@ export async function listClaimQueueHandler(req: Request, res: Response): Promis
  */
 export async function getClaimForOperatorHandler(req: Request, res: Response): Promise<void> {
   try {
-    sendSuccess(res, await getClaimForOperator(routeParam(req, 'id'), catalogOperatorId(req)));
+    sendSuccess(res, await getClaimForOperator(routeParam(req, 'id'), operatorId(req)));
   } catch (error) {
     respondWithError(res, error, 'Reading the merchant claim failed');
   }
@@ -69,7 +69,7 @@ export async function decideClaimHandler(req: Request, res: Response): Promise<v
       claimId: routeParam(req, 'id'),
       decision: body.decision,
       reason: body.reason,
-      operatorOxyUserId: catalogOperatorId(req),
+      operatorOxyUserId: operatorId(req),
     });
     sendSuccess(res, toMerchantClaimDTO(claim, await findScopesForClaim(getDb(), claim.id)));
   } catch (error) {
@@ -85,7 +85,7 @@ export async function revokeClaimHandler(req: Request, res: Response): Promise<v
       claimId: routeParam(req, 'id'),
       reason: body.reason,
       note: body.note,
-      operatorOxyUserId: catalogOperatorId(req),
+      operatorOxyUserId: operatorId(req),
     });
     sendSuccess(res, toMerchantClaimDTO(claim, await findScopesForClaim(getDb(), claim.id)));
   } catch (error) {

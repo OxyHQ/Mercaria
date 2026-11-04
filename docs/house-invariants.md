@@ -135,30 +135,40 @@ required to REFUSE the identical delivery — so an accepted delivery is positiv
 evidence the handler read raw bytes rather than a green that cannot fail. A
 seventh mount brings its own file, as the sixth (`/webhooks/oxy-files`) did.
 
-## Operator allow-lists
+## Operator desks (application roles)
 
-Every internal surface is gated by an explicit Oxy-user-id allow-list. **Empty is
-a working configuration and means the router is NOT MOUNTED (404, never 401).**
-There are SEVEN. **A new surface joins the list whose power it already shares** —
-a new list is justified only by a power none of these grants, and the code
-records two that were refused on exactly that test (there is deliberately no
-`MERCHANT_DEMAND_OPERATOR_OXY_USER_IDS` and no `SEO_OPERATOR_OXY_USER_IDS`).
+Every internal surface is gated on an Oxy APPLICATION ROLE — one permission key
+per desk, declared on Mercaria's Oxy application and granted to people by its
+owning account's owners and admins in the Oxy Console (application → Settings →
+Roles; append-only, audited, never to oneself). The gates are
+`middleware/operator-authz.ts`, built on `oxyClient.middleware.requireAppPermission`.
+There is no user-id list in the environment and no local staff table.
 
-| Variable | Surface |
+- **Every surface is mounted on every deployment.** A non-holder — and a
+  request with no person in a session, including any service token — is
+  answered 404, never 401, so a surface is not revealed. An Oxy outage is 503,
+  never a "no", and never remembered. A read reuses an answer for at most 30 s;
+  every write asks Oxy fresh.
+- **The actor is `operatorId(req)`** — the human Oxy resolved, even when they act
+  as their organization.
+- **A new surface joins the key whose power it already shares** — a new key is
+  justified only by a power none of these grants, and two were refused on
+  exactly that test (there is deliberately no `merchant_demand.operate` and no
+  `seo.operate`). Declare a new key on the application BEFORE deploying code that
+  checks it; until then the check denies.
+
+| Key | Surface |
 |---|---|
-| `PAYMENT_OPERATOR_OXY_USER_IDS` | `/internal/payments/*` (incl. fee schedules, retail-pricing policies) |
-| `CATALOG_OPERATOR_OXY_USER_IDS` | every catalogue surface: commerce-graph, offers, matching, ingestion, backfill, attributes, condition, eBay, Awin, feed-imports, offer-freshness, product-saves, price-history, price-alerts, price-signals, search, search-intent, SEO |
-| `GUEST_OPERATOR_OXY_USER_IDS` | `/internal/guest-commerce/*` (cart merge, portal, claims, buyer requests, P2P) |
-| `ANALYTICS_OPERATOR_OXY_USER_IDS` | `/internal/analytics/*`, `/internal/discovery/*`, and the merchant-demand acquisition pipeline |
-| `RETAIL_OPERATOR_OXY_USER_IDS` | `/internal/retail-eligibility/*` |
-| `PROCUREMENT_OPERATOR_OXY_USER_IDS` | `/internal/supplier-preflight/*`, `/internal/procurement/*`, `/internal/retail-pilot/*` |
-| `REFERRAL_OPERATOR_OXY_USER_IDS` | `/internal/referrals/*` — pausing attribution stops partners EARNING, and approving a payout batch is ADR 0005 D14's second pair of eyes (`approved_by <> created_by`, so one populated account cannot approve its own batch) |
+| `payments.operate` | `/internal/payments/*` (incl. fee schedules, retail-pricing policies, customer remedies) and `/internal/affiliate/*` |
+| `catalog.operate` | every catalogue surface: commerce-graph, canonical catalogue, offers, matching, ingestion, backfill, attributes, condition, eBay, Awin, feed-imports, offer-freshness, product-saves, price-history, price-alerts, price-signals, search, search-intent, SEO, taxonomy, navigation, proposals, governance, localization, metrics, pickup |
+| `guest.operate` | `/internal/guest-commerce/*` (cart merge, portal, claims, buyer requests, P2P, governance) |
+| `analytics.operate` | `/internal/analytics/*`, `/internal/discovery/*`, and the merchant-demand acquisition pipeline |
+| `retail.operate` | `/internal/retail-eligibility/*` |
+| `procurement.operate` | `/internal/supplier-preflight/*`, `/internal/procurement/*`, `/internal/retail-pilot/*`, `/internal/retail-reconciliation/*` |
+| `referrals.operate` | `/internal/referrals/*` — pausing attribution stops partners EARNING, and approving a payout batch is ADR 0005 D14's second pair of eyes (`approved_by <> created_by`, so one operator cannot approve their own batch) |
 
-The payment gate is INTERIM: store permissions are scoped to a store by
-construction, so none can express "may see all stores' money" without becoming
-one an owner could grant themselves. `resolvePaymentOperatorIds` and
-`requirePaymentOperator` are the two places that change when Oxy grows a platform
-operator role.
+`catalog.operate` holders are further NARROWED (never widened) by the catalogue
+governance roles (`services/catalog-governance/role.service.ts`).
 
 ## The digital-commerce chokepoints (#1015, ADR 0010)
 

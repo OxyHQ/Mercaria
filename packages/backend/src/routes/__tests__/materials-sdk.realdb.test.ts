@@ -13,27 +13,34 @@ import {
 } from '../../db/schema/materials.js';
 
 const auth = vi.hoisted(() => ({ tokens: new Map<string, string>() }));
-vi.mock('../../middleware/auth.js', () => ({
-  oxyClient: {
-    middleware: {
-      auth: () => (_req: express.Request, _res: express.Response, next: express.NextFunction) =>
-        next(),
+vi.mock('../../middleware/auth.js', async () => {
+  // A real SDK user client, so the caller's own bearer is what reaches Moovo.
+  const { OxyServer } = await import('@oxy.so/core/server');
+  const sdk = new OxyServer({ baseURL: 'https://unused.oxy.test' });
+  return {
+    oxyClient: {
+      middleware: {
+        auth: () => (_req: express.Request, _res: express.Response, next: express.NextFunction) =>
+          next(),
+      },
+      assets: { publicUrl: (id: string) => `https://media.test.invalid/${id}` },
+      withUser: sdk.withUser.bind(sdk),
     },
-    assets: { publicUrl: (id: string) => `https://media.test.invalid/${id}` },
-  },
-  authenticateToken: (_req: express.Request, res: express.Response) => res.sendStatus(401),
-  optionalAuth: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
-    const account = auth.tokens.get(req.headers.authorization ?? '');
-    if (account)
-      Object.assign(req, {
-        userId: account,
-        accessToken: req.headers.authorization?.slice(7),
-        user: { id: account },
-        oxyActor: { actorAccountId: account, effectiveAccountId: account, delegated: false },
-      });
-    next();
-  },
-}));
+    authenticateToken: (_req: express.Request, res: express.Response) => res.sendStatus(401),
+    optionalAuth: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
+      const account = auth.tokens.get(req.headers.authorization ?? '');
+      if (account)
+        Object.assign(req, {
+          userId: account,
+          accessToken: req.headers.authorization?.slice(7),
+          sessionId: `session-of-${account}`,
+          user: { id: account },
+          oxyActor: { actorAccountId: account, effectiveAccountId: account, delegated: false },
+        });
+      next();
+    },
+  };
+});
 
 const RUN = uuidv7();
 const donorId = `${RUN}_donor`;

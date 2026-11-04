@@ -260,8 +260,8 @@ Public:
 | `GET /offers?conditions=` | The comparison read, filtered by key |
 | `POST /seller/listings`, `PATCH /seller/listings/:id` | `itemCondition` (or the v1 `condition`) |
 
-Operator — `/internal/catalog-condition`, behind `CATALOG_OPERATOR_OXY_USER_IDS`
-(empty ⇒ not mounted, 404):
+Operator — `/internal/catalog-condition`, behind `catalog.operate`
+(anyone without it gets 404):
 
 | Route | Does |
 |---|---|

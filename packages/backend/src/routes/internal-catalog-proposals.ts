@@ -2,15 +2,14 @@
  * `/internal/catalog-proposals/*` — the operator review surface (#367 step 6,
  * ADR 0007 D9).
  *
- * On the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54, #55, #56, #57,
+ * On the SAME `catalog.operate` key #54, #55, #56, #57,
  * #58, #59, #60, #62, #68, #70, #78, #79, #80, #83, #90 and #94 use, and NOT a
- * seventh list. A proposal asks for a category, a product type, a brand or a
+ * new key. A proposal asks for a category, a product type, a brand or a
  * controlled value: who may reshape that catalogue and who may decide a request
  * to reshape it are the same power over the same graph.
  *
- * Mount gated on the allow-list being non-empty (404 on a deployment with no
- * operators, never a 401 that would advertise the surface); the gate repeated in
- * middleware because mount and gate live in different files.
+ * Mounted on every deployment; anyone without the key is answered 404, never a
+ * 401 that would advertise the surface.
  *
  * It is deliberately NOT gated on `CATALOG_PROPOSALS_ENABLED`. The
  * `/internal/product-saves` arrangement, for its reason: the evidence has to be
@@ -38,7 +37,7 @@
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireCatalogOperator } from '../middleware/catalog-operator-authz.js';
+import { requireCatalogOperator } from '../middleware/operator-authz.js';
 import { validateBody, validateId, validateQuery } from '../middleware/validate.js';
 import {
   approveCatalogProposalSchema,
@@ -64,9 +63,8 @@ import {
 
 const router = Router();
 
-// Authentication FIRST, then the allow-list — the gate reads the verified
-// caller, and an allow-list consulted before authentication would compare
-// against whatever a client claimed.
+// Authentication FIRST, then the operator gate — it asks Oxy about the verified
+// caller's own session, which only `authenticateToken` establishes.
 router.use(authenticateToken);
 router.use(requireCatalogOperator);
 

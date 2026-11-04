@@ -1,16 +1,17 @@
 /**
  * The operator review surface (#367 step 6, ADR 0007 D9).
  *
- * Behind `requireCatalogOperator` — the SAME `CATALOG_OPERATOR_OXY_USER_IDS`
- * allow-list #54/#55/#56/#57/#58/#59/#60/#62/#68/#70/#78/#79/#80/#83/#90/#94 use
- * and NOT a seventh list. A proposal asks for a category, a brand, a product type
+ * Behind `requireCatalogOperator` — the SAME `catalog.operate`
+ * key #54/#55/#56/#57/#58/#59/#60/#62/#68/#70/#78/#79/#80/#83/#90/#94 use
+ * and NOT a new key. A proposal asks for a category, a brand, a product type
  * or a controlled value: who may reshape that catalogue and who may decide a
  * request to reshape it are the same power over the same graph, and a separate
- * list would grant whichever half the operator was not vetted for.
+ * key would grant whichever half the operator was not vetted for.
  *
  * ## The actor is the VERIFIED caller and never a body field
  *
- * `catalogOperatorId(req)` reads what `authenticateToken` verified. Every
+ * `operatorId(req)` is the person Oxy resolved from the verified session when
+ * the gate admitted them (`req.oxyAppPermissions.operatorId`). Every
  * decision stamps it as `decided_by_oxy_user_id`, and
  * `catalog_proposals_decider_distinct_check` refuses a decision by the account
  * that submitted the request — so the one thing an operator cannot do here is
@@ -25,7 +26,7 @@ import type {
 } from '@mercaria/shared-types';
 import { getDb } from '../db/postgres.js';
 import { respondWithError, validationError } from '../lib/errors/error-codes.js';
-import { catalogOperatorId } from '../middleware/catalog-operator-authz.js';
+import { operatorId } from '../middleware/operator-authz.js';
 import { routeParam } from '../utils/request.js';
 import { sendSuccess } from '../utils/api-response.js';
 import { listProposals } from '../db/catalogProposals/proposalRepository.js';
@@ -96,7 +97,7 @@ export async function approveCatalogProposalHandler(req: Request, res: Response)
     };
     const proposal = await approveProposal(
       getDb(),
-      { proposalId: routeParam(req, 'proposalId'), operatorOxyUserId: catalogOperatorId(req) },
+      { proposalId: routeParam(req, 'proposalId'), operatorOxyUserId: operatorId(req) },
       {
         key: body.key,
         ...(body.label === undefined ? {} : { label: body.label }),
@@ -118,7 +119,7 @@ export async function mergeCatalogProposalHandler(req: Request, res: Response): 
     const body = req.body as { resolvedEntityId: string; reason: string };
     const proposal = await mergeProposalIntoExisting(
       getDb(),
-      { proposalId: routeParam(req, 'proposalId'), operatorOxyUserId: catalogOperatorId(req) },
+      { proposalId: routeParam(req, 'proposalId'), operatorOxyUserId: operatorId(req) },
       { resolvedEntityId: body.resolvedEntityId, reason: body.reason },
     );
     sendSuccess(res, proposal);
@@ -133,7 +134,7 @@ export async function rejectCatalogProposalHandler(req: Request, res: Response):
     const body = req.body as { rejectionReason: CatalogProposalRejectionReason; reason: string };
     const proposal = await rejectProposal(
       getDb(),
-      { proposalId: routeParam(req, 'proposalId'), operatorOxyUserId: catalogOperatorId(req) },
+      { proposalId: routeParam(req, 'proposalId'), operatorOxyUserId: operatorId(req) },
       { rejectionReason: body.rejectionReason, reason: body.reason },
     );
     sendSuccess(res, proposal);
@@ -151,7 +152,7 @@ export async function requestCatalogProposalInformationHandler(
     const body = req.body as { reason: string };
     const proposal = await requestProposalInformation(
       getDb(),
-      { proposalId: routeParam(req, 'proposalId'), operatorOxyUserId: catalogOperatorId(req) },
+      { proposalId: routeParam(req, 'proposalId'), operatorOxyUserId: operatorId(req) },
       { reason: body.reason },
     );
     sendSuccess(res, proposal);
@@ -168,7 +169,7 @@ export async function deferCatalogProposalHandler(req: Request, res: Response): 
     if (Number.isNaN(until.getTime())) throw validationError('`until` is an ISO 8601 instant.');
     const proposal = await deferProposal(
       getDb(),
-      { proposalId: routeParam(req, 'proposalId'), operatorOxyUserId: catalogOperatorId(req) },
+      { proposalId: routeParam(req, 'proposalId'), operatorOxyUserId: operatorId(req) },
       { until, reason: body.reason },
     );
     sendSuccess(res, proposal);
@@ -188,7 +189,7 @@ export async function redirectCatalogProposalHandler(req: Request, res: Response
     };
     const proposal = await redirectProposal(
       getDb(),
-      { proposalId: routeParam(req, 'proposalId'), operatorOxyUserId: catalogOperatorId(req) },
+      { proposalId: routeParam(req, 'proposalId'), operatorOxyUserId: operatorId(req) },
       {
         toType: body.toType,
         ...(body.attributeDefinitionId === undefined
@@ -221,7 +222,7 @@ export async function backfillCatalogProposalHandler(req: Request, res: Response
     const body = req.body as { pageSize?: number };
     const result = await runProposalBackfill(getDb(), {
       proposalId: routeParam(req, 'proposalId'),
-      operatorOxyUserId: catalogOperatorId(req),
+      operatorOxyUserId: operatorId(req),
       ...(body.pageSize === undefined ? {} : { pageSize: body.pageSize }),
     });
     sendSuccess(res, result);

@@ -5,7 +5,7 @@ import { CATALOG_SAFETY_REVIEW_DECISIONS } from '@mercaria/shared-types';
 import { getDb } from '../db/postgres.js';
 import { listings } from '../db/schema/catalog.js';
 import { authenticateToken } from '../middleware/auth.js';
-import { catalogOperatorId, requireCatalogOperator } from '../middleware/catalog-operator-authz.js';
+import { operatorId, requireCatalogOperator } from '../middleware/operator-authz.js';
 import { validateBody, validateId } from '../middleware/validate.js';
 import {
   readCatalogReviewCandidates,
@@ -74,7 +74,7 @@ router.post(
           listingId: routeParam(req, 'listingId'),
           contentDigest: req.body.contentDigest,
           decision: req.body.decision,
-          reviewerOxyUserId: catalogOperatorId(req),
+          reviewerOxyUserId: operatorId(req),
         }),
       );
     } catch (error) {

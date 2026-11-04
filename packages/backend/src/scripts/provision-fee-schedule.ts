@@ -2,8 +2,8 @@
  * Publish `FEE_SCHEDULE_CATALOG` into `fee_schedules`, as DRAFTS.
  *
  * This is what replaced `POST /internal/payments/fee-schedules`. That route was
- * gated on `PAYMENT_OPERATOR_OXY_USER_IDS`, an allow-list of Oxy user ids in an
- * env var, so Mercaria could not charge a commission until a named person with a
+ * gated on the payment operator desk (then an allow-list of Oxy user ids in an
+ * env var), so Mercaria could not charge a commission until a named person with a
  * credential existed. Oxy is deliberately not built to have administrators, and
  * the rate is a policy rather than an act of one — so it is defined in the
  * repository, reviewed as a pull request, and applied by a deployment.

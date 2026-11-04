@@ -36,10 +36,21 @@ vi.mock('../../../db/stores/storeRepository.js', () => ({
   findStorePermissionOverridesForUser: vi.fn(),
   findStoresByOwnerAccounts: vi.fn(),
 }));
-vi.mock('../../oxy-account-graph.js', () => ({
-  readCallerAccountRole: (...args: unknown[]) => readCallerAccountRole(...args),
-  listCallerAccountRoles: vi.fn(),
-}));
+vi.mock('../../../middleware/auth.js', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../../../middleware/auth.js')>();
+  const { overOxyClient } = await import('../../../__tests__/over-oxy-client.js');
+  const { fakeAccountAccess } = await import('../../../__tests__/oxy-account-access-fake.js');
+  return {
+    ...original,
+    oxyClient: overOxyClient(
+      original.oxyClient,
+      fakeAccountAccess(
+        (...args: unknown[]) => readCallerAccountRole(...args),
+        () => new Map(),
+      ),
+    ),
+  };
+});
 vi.mock('../../../db/commerce-graph/nativeStoreLinkRepository.js', () => ({
   findActiveLinkByMerchant: (...args: unknown[]) => findActiveLinkByMerchant(...args),
 }));
@@ -49,7 +60,7 @@ vi.mock('../../../db/commerce-graph/merchantRepository.js', () => ({
 vi.mock('../../../db/postgres.js', () => ({ getDb: () => ({}) }));
 
 import { assertNotSelfPurchase, assertNotSelfTarget } from '../review-self-review.js';
-import { resetStoreAccessCacheForTests, type StoreCaller } from '../../store-access.service.js';
+import type { StoreCaller } from '../../store-access.service.js';
 import { isMercariaError } from '../../../lib/errors/error-codes.js';
 import { ErrorCodes } from '../../../utils/api-response.js';
 
@@ -61,6 +72,7 @@ const ME: StoreCaller = {
   accountId: 'me',
   actorAccountId: 'me',
   delegated: false,
+  sessionId: 'test-session',
   accessToken: 'bearer-me',
 };
 
@@ -75,7 +87,6 @@ beforeEach(() => {
   findActiveLinkByMerchant.mockResolvedValue(undefined);
   findMerchantById.mockResolvedValue(null);
   readCallerAccountRole.mockResolvedValue(null);
-  resetStoreAccessCacheForTests();
 });
 
 describe('layer 1 — the author is the seller on the order', () => {

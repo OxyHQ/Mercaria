@@ -17,22 +17,22 @@
  * `mercaria_retail` order has no store — `orders.store_id` is NULL on a
  * `platform` order by CHECK (#123) — so there is no permission to require and no
  * store membership to check. Mercaria decides, and the authority that decides
- * Mercaria's own money is the payment-operator allow-list #50 already
- * established.
+ * Mercaria's own money is `payments.operate`, the
+ * desk #50 established.
  *
  * So there is a second brand here rather than a `permission?: never` member on
  * #110's table. A table whose column is meaningless for half its rows is a table
  * whose next reader gets it wrong.
  *
- * ## No seventh allow-list
+ * ## No new operator key
  *
- * Two EXISTING lists, split by what each may disclose:
+ * Two EXISTING keys, split by what each may disclose:
  *
- *  - `PAYMENT_OPERATOR_OXY_USER_IDS` decides a customer remedy and releases a
+ *  - `payments.operate` decides a customer remedy and releases a
  *    refund suspension. It moves Mercaria's money, which is exactly what that
- *    list already gates.
- *  - `PROCUREMENT_OPERATOR_OXY_USER_IDS` reads and drives the SUPPLIER half.
- *    That list exists for "reading what Mercaria PAYS its suppliers", and the
+ *    key already gates.
+ *  - `procurement.operate` reads and drives the SUPPLIER half.
+ *    That key exists for "reading what Mercaria PAYS its suppliers", and the
  *    side-by-side trace is the only surface that discloses a wholesale figure.
  *
  * Splitting them is what makes #127's *"side by side without conflating them"*

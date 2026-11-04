@@ -4,7 +4,7 @@ Oxy owns supervision, contacts, content policy and guardian consent. Mercaria ow
 
 ## Supported flow
 
-A platform catalog operator opens **Catalog safety** in the existing dashboard. The server checks the existing `CATALOG_OPERATOR_OXY_USER_IDS` allowlist; store owners cannot approve their own listings. The operator reviews the complete bounded text material and allows or withholds its text-only projection. Publishing a listing is not a safety classification. No production items are automatically reviewed by this migration.
+A platform catalog operator opens **Catalog safety** in the existing dashboard. The server checks the existing `catalog.operate` key; store owners cannot approve their own listings. The operator reviews the complete bounded text material and allows or withholds its text-only projection. Publishing a listing is not a safety classification. No production items are automatically reviewed by this migration.
 
 A supervised personal account sees only the reviewed catalog and basket. Unknown or failed current-session policy hides the ordinary storefront. Account or supervision changes cancel and clear product queries before mounting the next view. Guest cart merging and private currency-preference requests are disabled for supervised or unresolved personal sessions. Images, seller biographies, reviews and unreviewed descriptions never enter the shopping projection.
 

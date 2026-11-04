@@ -179,11 +179,11 @@ and a failed or lost lease costs only a duplicate computation next tick.
 now rather than waiting for the timer; it answers 200 either way and says
 which happened (`{ ran: true, rowsWritten }` or `{ ran: false }`), because
 another task already holding the lease is a normal outcome, not a failure.
-That surface joins `ANALYTICS_OPERATOR_OXY_USER_IDS` rather than creating an
-eighth allow-list: forcing this recomputation is the power that list already
-holds over the merchant-demand acquisition pipeline, and an empty allow-list
-means the surface is NOT MOUNTED (404, never a 401 that would advertise it
-exists) — `docs/house-invariants.md`'s table names it.
+That surface joins `analytics.operate` rather than creating an eighth operator
+key: forcing this recomputation is the power that key already grants over the
+merchant-demand acquisition pipeline, and anyone without it gets 404 (never a
+401 that would advertise it exists) — `docs/house-invariants.md`'s table names
+it.
 
 ## The isolation gate
 

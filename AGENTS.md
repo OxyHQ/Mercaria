@@ -103,16 +103,16 @@ no second store, no `src/models/` and no rollback target.
 
 ## Auth and the identity surfaces
 
-- **No local service principal or verifier.** Use Oxy's shared middleware with
-  the canonical audience; public reads use the optional receiver documented in
+- **One `OxyServer` (`oxyClient`); a person's calls use `oxyClient.withUser`.** No
+  local service principal or verifier: Oxy's shared middleware with the canonical audience; public reads use the optional receiver documented in
   `docs/first-party-authority.md`, never a synthetic user. Provider webhooks
   verify their own signatures; never add unmounted auth primitives.
-- **Every `/internal/*` surface is gated by an Oxy-user-id allow-list, and empty
-  means NOT MOUNTED (404, never 401).** A new surface joins the list whose power it
-  already shares (`docs/house-invariants.md`).
+- **Every `/internal/*` desk is an Oxy app role** (`middleware/operator-authz.ts`):
+  always mounted, 404 to non-holders, no env user-id list. A new surface joins the
+  key whose power it shares (`docs/house-invariants.md`).
 - **A store is owned by an Oxy account; Oxy decides who gets in** (ADR 0012). No
-  member list: access is the caller's Oxy role (THEIR bearer, fail closed; a
-  delegated session is its operator) via `STORE_ROLE_PERMISSIONS` ± overrides.
+  member list: `oxyClient.accountAccessFor` (THEIR session, fail closed, fresh on
+  writes) → `STORE_ROLE_PERMISSIONS` ± overrides.
   `admin` lacks only `store:manage`, which gates payment, fee and identity routes.
 - **Buyer, seller and `oxy_user_id` ids are a foreign SERVICE's keys** (Oxy
   owns identity) and carry no foreign key.

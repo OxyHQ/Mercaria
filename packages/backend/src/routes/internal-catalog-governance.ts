@@ -2,23 +2,22 @@
  * Catalog administration and governance (#367 Workstream 12) — the operator
  * surface over ADR 0007's nine catalog domains.
  *
- * ## The SAME allow-list, and why this is not a seventh
+ * ## The SAME key, and why this is not a new one
  *
- * `CATALOG_OPERATOR_OXY_USER_IDS`, which #54, #55, #56, #57, #58, #60, #62,
+ * `catalog.operate`, which #54, #55, #56, #57, #58, #60, #62,
  * #68, #70, #78, #83, #90, #94 and #367's own proposals surface already use.
  * This domain administers exactly those domains — it holds no power they do not
  * already hold, it just puts an impact measurement, a second pair of eyes and
- * one audit trail in front of them. A separate list would mean an operator who
+ * one audit trail in front of them. A separate key would mean an operator who
  * may deprecate an attribute directly at `/internal/catalog-attributes` but not
  * through the surface that measures what deprecating it would do, which is the
  * wrong way round.
  *
- * Empty list = NOT MOUNTED at all (404, never 401), gated in `app.ts` on
- * `config.catalog.graphOperatorSurfaceEnabled`.
+ * Anyone without the key is answered 404, never 401.
  *
- * WITHIN that list, `catalog_governance_role_grants` narrows: view, propose,
- * review, translate, publish. A grant can never admit anybody the env list
- * excludes, which is what keeps the refinement from becoming a second identity
+ * WITHIN that key, `catalog_governance_role_grants` narrows: view, propose,
+ * review, translate, publish. A grant can never admit anybody who does not hold
+ * `catalog.operate`, which is what keeps the refinement from becoming a second identity
  * system. See `services/catalog-governance/role.service.ts`.
  *
  * ## The route set is CLOSED, and the omissions are the design
@@ -47,7 +46,7 @@
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireCatalogOperator } from '../middleware/catalog-operator-authz.js';
+import { requireCatalogOperator } from '../middleware/operator-authz.js';
 import { validateBody, validateId, validateQuery } from '../middleware/validate.js';
 import {
   auditQuerySchema,
@@ -110,9 +109,8 @@ import {
 
 const router = Router();
 
-// Authentication FIRST, then the allow-list — the gate reads the verified
-// caller, and an allow-list consulted before authentication would compare
-// against whatever a client claimed.
+// Authentication FIRST, then the operator gate — it asks Oxy about the verified
+// caller's own session, which only `authenticateToken` establishes.
 router.use(authenticateToken);
 router.use(requireCatalogOperator);
 
@@ -179,7 +177,7 @@ router.get('/quality/orphans', validateQuery(orphanQuerySchema), orphanHandler);
 /** GET — every role grant, live and revoked. */
 router.get('/roles', validateQuery(roleQuerySchema), roleListHandler);
 
-/** POST — grant a role WITHIN the allow-list. Never admits anybody to it. */
+/** POST — grant a role WITHIN `catalog.operate`. Never admits anybody to it. */
 router.post('/roles', validateBody(grantRoleSchema), grantRoleHandler);
 
 /**

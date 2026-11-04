@@ -3,12 +3,11 @@
  * "Dashboards").
  *
  * The `/internal/payments`, `/internal/commerce-graph` and
- * `/internal/guest-commerce` shape, applied to a FOURTH allow-list: mounted
+ * `/internal/guest-commerce` shape, applied to a FOURTH key (`analytics.operate`): mounted
  * OUTSIDE `/admin` because no store membership could authorize reading what
- * every market searched for; mount gated on the allow-list being non-empty (404
- * on a deployment with no operators, never a 401 that would advertise the
- * surface); the gate repeated in middleware because mount and gate live in
- * different files. Full reasoning: `routes/internal-payments.ts`.
+ * every market searched for; gated on that key (404 to anyone without it, never a
+ * 401 that would advertise the surface). Full reasoning:
+ * `middleware/operator-authz.ts`.
  *
  * Reads, plus the two experiment decisions a person makes. Every other change
  * this domain could want is a recomputation the rollup performs on its own, so
@@ -18,7 +17,7 @@
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireAnalyticsOperator } from '../middleware/analytics-operator-authz.js';
+import { requireAnalyticsOperator } from '../middleware/operator-authz.js';
 import {
   getMetricSeriesHandler,
   getQueryReportHandler,
@@ -33,9 +32,8 @@ import {
 
 const router = Router();
 
-// Authentication FIRST, then the allow-list — the gate reads the verified
-// caller, and an allow-list consulted before authentication would compare
-// against whatever a client claimed.
+// Authentication FIRST, then the operator gate — it asks Oxy about the verified
+// caller's own session, which only `authenticateToken` establishes.
 router.use(authenticateToken);
 router.use(requireAnalyticsOperator);
 

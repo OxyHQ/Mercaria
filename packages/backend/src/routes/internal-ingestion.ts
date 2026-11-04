@@ -2,20 +2,19 @@
  * `/internal/ingestion/*` — the external ingestion framework's operator surface
  * (#62).
  *
- * The `/internal/backfill` shape, on the SAME allow-list
- * (`CATALOG_OPERATOR_OXY_USER_IDS`): who may reshape the canonical catalogue,
+ * The `/internal/backfill` shape, on the SAME key
+ * (`catalog.operate`): who may reshape the canonical catalogue,
  * who may migrate the native one into it and who may decide what an external
- * source is permitted to do are the same power over the same graph. A sixth
- * list beside payments, catalog, guest, analytics and retail would be a sixth
- * thing to keep in step for no separation it does not already have.
+ * source is permitted to do are the same power over the same graph. A separate
+ * key would be another grant to keep in step for no separation it does not
+ * already have.
  *
  * A SEPARATE router rather than routes added to `internal-commerce-graph.ts`,
  * per ADR 0002 D25(a)'s file-ownership protocol — the same reason #56, #57, #58
  * and #60 each created their own behind this identical gate.
  *
- * Mount gated on the allow-list being non-empty (404 on a deployment with no
- * operators, never a 401 that would advertise the surface); the gate repeated in
- * middleware because mount and gate live in different files.
+ * Mounted on every deployment; anyone without the key is answered 404, never a
+ * 401 that would advertise the surface.
  *
  * **It stays mounted while `CATALOG_INGESTION_ENABLED` is off**, deliberately
  * and for `/internal/backfill`'s reason: the evidence has to be readable during
@@ -26,7 +25,7 @@
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireCatalogOperator } from '../middleware/catalog-operator-authz.js';
+import { requireCatalogOperator } from '../middleware/operator-authz.js';
 import {
   changeSourceStatusHandler,
   configureSourceHandler,
@@ -45,9 +44,8 @@ import {
 
 const router = Router();
 
-// Authentication FIRST, then the allow-list — the gate reads the verified
-// caller, and an allow-list consulted before authentication would compare
-// against whatever a client claimed.
+// Authentication FIRST, then the operator gate — it asks Oxy about the verified
+// caller's own session, which only `authenticateToken` establishes.
 router.use(authenticateToken);
 router.use(requireCatalogOperator);
 

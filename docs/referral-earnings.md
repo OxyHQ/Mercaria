@@ -237,7 +237,7 @@ shared test database.
 
 ## The operator surface
 
-`/internal/referrals/*`, on the SAME `REFERRAL_OPERATOR_OXY_USER_IDS` allow-list
+`/internal/referrals/*`, on the SAME `referrals.operate` key
 #143 uses — not an eighth. Approving a payout and pausing attribution are the
 same economy, and splitting them would put one half of a partner's fate behind a
 list the other half's operator is not on.
@@ -333,9 +333,9 @@ their ordinary lifecycle to payout.
 
 ## Production-readiness checklist
 
-1. Populate `REFERRAL_OPERATOR_OXY_USER_IDS` before any partner earns: with it
-   empty `/internal/referrals` is not mounted at all, which also means nobody
-   can approve, settle, cancel, freeze or trace anything.
+1. Grant `referrals.operate` to the operators before any partner earns: with
+   nobody holding it, nobody can approve, settle, cancel, freeze or trace
+   anything on `/internal/referrals`.
 2. Set `STRIPE_ENABLED` and onboard each partner to a payment-ready connected
    account. The rail is registered (#146), but with Stripe off every partner's
    identity and payout readiness derives as `unknown`, which BLOCKS — and a

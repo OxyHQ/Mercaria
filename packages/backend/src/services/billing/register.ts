@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto';
 import { log } from '../../lib/logger.js';
 import { config } from '../../config/index.js';
-import { oxyServiceClient } from '../../capabilities/oxy-service-client.js';
 import { createPeableClient } from '../payments/peable/client.js';
 import { registerBillingProvider } from './provider.js';
 import { StripeBillingProvider } from './stripe/stripe-billing.js';
@@ -23,11 +22,7 @@ export async function registerMerchantBillingProvider(): Promise<void> {
   } catch {
     throw new Error('Invalid merchant billing cohort configuration.');
   }
-  // An explicit cohort must be completely configured before any remote reads.
-  // Peable is reached as Mercaria's own Oxy identity (the task role on ECS).
-  if (!oxyServiceClient()) {
-    throw new Error('Merchant billing requires an Oxy identity for Mercaria.');
-  }
+  // Peable is reached as Mercaria's own Oxy workload identity (the task role on ECS).
   const reader = createBillingCohortStripeReader(cohort);
   const accountId = await reader.platformAccountId();
   if (accountId !== cohort.platformAccountId || legacy.livemode !== cohort.livemode) {

@@ -23,7 +23,7 @@ import {
   type ProductFeedRecordPage,
 } from '@clarity.surf/sdk';
 import { clarityForOxyService } from '@clarity.surf/sdk/server';
-import { requiredOxyServiceClient } from '../../capabilities/oxy-service-client.js';
+import { oxyClient } from '../../middleware/auth.js';
 
 let client: ClarityClient | null = null;
 let testFetch: typeof fetch | null = null;
@@ -31,7 +31,7 @@ let testFetch: typeof fetch | null = null;
 function clarity(): ClarityClient {
   client ??=
     testFetch === null
-      ? clarityForOxyService(requiredOxyServiceClient())
+      ? clarityForOxyService(oxyClient)
       : new ClarityClient({
           accessToken: 'test',
           fetch: testFetch,

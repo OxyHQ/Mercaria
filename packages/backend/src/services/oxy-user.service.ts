@@ -2,9 +2,9 @@
  * Oxy user batch-profile service.
  *
  * Resolves Oxy identities (displayName / username / avatar) for a set of user
- * ids in ONE batch (deduped, parallel) and fail-soft: a user that fails to load
- * is simply OMITTED from the returned map and logged, so a single bad id never
- * fails the whole request.
+ * ids in ONE batch and fail-soft: a user that fails to load is OMITTED from the
+ * returned map and its id logged, so a single bad id never fails the whole
+ * request.
  *
  * ## One coalesce, one place
  *
@@ -55,32 +55,26 @@ export function toOxyProfile(user: User): OxyProfile {
 }
 
 /**
- * Batch-load Oxy profiles for a set of user ids. Ids are deduped; lookups run in
- * parallel; any id that fails to resolve is omitted (and logged). The returned
- * map is keyed by the requested user id.
+ * Batch-load Oxy profiles for a set of user ids — ONE `users.lookupMany`, which
+ * dedupes, chunks by 100 and goes over Mercaria's workload token.
+ *
+ * A user Oxy answered without (deleted, or not visible) and a user whose chunk
+ * FAILED are both absent from the map, because a card renders the same either
+ * way — but they are different facts and are logged as such: the failed ids are
+ * named with the error, so an outage is never mistaken for missing accounts.
+ * The returned map is keyed by the requested user id.
  */
 export async function getProfiles(oxyUserIds: string[]): Promise<Map<string, OxyProfile>> {
-  const uniqueIds = [
-    ...new Set(oxyUserIds.filter((id) => typeof id === 'string' && id.length > 0)),
-  ];
   const map = new Map<string, OxyProfile>();
+  if (!oxyUserIds.some((id) => typeof id === 'string' && id.length > 0)) return map;
 
-  if (uniqueIds.length === 0) {
-    return map;
+  const { found, failed, error } = await oxyClient.users.lookupMany(oxyUserIds);
+  for (const user of found) map.set(user.id, toOxyProfile(user));
+  if (failed.length > 0) {
+    log.general.warn(
+      { err: error, failedOxyUserIds: failed },
+      'Oxy profiles could not be loaded (omitting from batch)',
+    );
   }
-
-  await Promise.all(
-    uniqueIds.map(async (id) => {
-      try {
-        map.set(id, toOxyProfile(await oxyClient.users.get(id)));
-      } catch (err) {
-        log.general.warn(
-          { err, oxyUserId: id },
-          'Failed to load Oxy profile (omitting from batch)',
-        );
-      }
-    }),
-  );
-
   return map;
 }

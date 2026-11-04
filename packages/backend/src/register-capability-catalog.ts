@@ -1,11 +1,11 @@
 import { appCapabilityCatalogSchema } from '@oxy.so/contracts';
 
 import { MERCARIA_CAPABILITY_CATALOG } from './capabilities/mercaria.catalog.js';
-import { requiredOxyServiceClient } from './capabilities/oxy-service-client.js';
+import { oxyClient } from './middleware/auth.js';
 
 async function main(): Promise<void> {
   const catalog = appCapabilityCatalogSchema.parse(MERCARIA_CAPABILITY_CATALOG);
-  const body = await requiredOxyServiceClient().serviceRequest<{
+  const body = await oxyClient.serviceRequest<{
     registration?: { digest?: string };
   }>(
     'POST',

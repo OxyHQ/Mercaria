@@ -2,17 +2,16 @@
  * Who may reach `/internal/retail-eligibility/*` (#121 operations 3), and what a
  * client may put into it (#121 acceptance 8's "client-bypass attempts").
  *
- * The `internal-analytics.test.ts` shape, applied to the FIFTH operator
- * allow-list, with the same four properties:
+ * The `internal-analytics.test.ts` shape, applied to the FIFTH operator key,
+ * `retail.operate`, with the same three properties:
  *
- *  - an allow-listed Oxy operator gets past the gate;
- *  - an authenticated Oxy user who is NOT allow-listed gets 403, not a read;
- *  - a deployment with an EMPTY allow-list has no such surface at all — 404,
- *    from the MOUNT, because a 401 would advertise that the surface exists;
- *  - the PAYMENTS and CATALOG allow-lists do not open it: separate powers, and
- *    the cross-list case is the one a refactor toward "one operator list" would
- *    silently break. This is the list whose misuse puts an unsafe product back
- *    on sale, so it is the one that most needs the case.
+ *  - a holder of `retail.operate` gets past the gate;
+ *  - an authenticated Oxy user holding no key gets 404, not a read — a 401 or
+ *    403 would advertise that a compliance surface exists;
+ *  - holding `payments.operate` or `catalog.operate` does not open it: separate
+ *    powers, and the cross-desk case is the one a refactor toward "one operator
+ *    key" would silently break. This is the key whose misuse puts an unsafe
+ *    product back on sale, so it is the one that most needs the case.
  *
  * Plus the four this issue adds, all about what a caller can WRITE:
  *
@@ -25,9 +24,6 @@
  *  - a policy version cannot REQUIRE evidence that could never authorize a
  *    resale, and the refusal names the prohibition rather than saying
  *    "invalid enum value".
- *
- * Two real apps against two frozen configs, because the empty-list case is a
- * property of the MOUNT, not of any handler.
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
@@ -42,26 +38,41 @@ const ORDINARY_USER = 'oxy-user-merchant-1';
 
 /** Whichever caller the current request is acting as. */
 let currentUser = RETAIL_OPERATOR;
+const GRANTS: Readonly<Record<string, readonly string[]>> = {
+  [RETAIL_OPERATOR]: ['retail.operate'],
+  [PAYMENTS_OPERATOR]: ['payments.operate'],
+  [CATALOG_OPERATOR]: ['catalog.operate'],
+};
 
 vi.mock('@oxy.so/core/server', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@oxy.so/core/server')>()),
   getRequiredOxyUserId: () => currentUser,
 }));
-vi.mock('../../middleware/auth.js', () => ({
-  authenticateToken: (
-    _req: express.Request,
-    _res: express.Response,
-    next: express.NextFunction,
-  ) => {
-    next();
-  },
-  oxyClient: {
-    middleware: { auth: () => (_req: unknown, res: express.Response) => res.sendStatus(401) },
-  },
-  optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
-    next();
-  },
-}));
+vi.mock('../../middleware/auth.js', async () => {
+  const { fakeAppPermissions } = await import('../../__tests__/oxy-app-permissions-fake.js');
+  const fake = fakeAppPermissions(
+    () => GRANTS[currentUser] ?? [],
+    () => currentUser,
+  );
+  return {
+    authenticateToken: (
+      _req: express.Request,
+      _res: express.Response,
+      next: express.NextFunction,
+    ) => {
+      next();
+    },
+    oxyClient: {
+      middleware: {
+        requireAppPermission: fake.requireAppPermission,
+        auth: () => (_req: unknown, res: express.Response) => res.sendStatus(401),
+      },
+    },
+    optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
+      next();
+    },
+  };
+});
 vi.mock('../../lib/rate-limit.js', () => ({
   makeRateLimiter:
     () => (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
@@ -90,110 +101,77 @@ vi.mock('../../db/postgres.js', () => ({
   closePostgres: () => Promise.resolve(),
 }));
 
-let enabledServer: Server;
-let disabledServer: Server;
-let enabledUrl: string;
-let disabledUrl: string;
+let server: Server;
+let url: string;
 
 async function listen(app: express.Express): Promise<{ server: Server; url: string }> {
-  const server = await new Promise<Server>((resolve) => {
-    const started = app.listen(0, () => {
-      resolve(started);
+  const started = await new Promise<Server>((resolve) => {
+    const listening = app.listen(0, () => {
+      resolve(listening);
     });
   });
-  const { port } = server.address() as AddressInfo;
-  return { server, url: `http://127.0.0.1:${String(port)}` };
+  const { port } = started.address() as AddressInfo;
+  return { server: started, url: `http://127.0.0.1:${String(port)}` };
 }
 
-/**
- * Build a real app against a FROZEN config for one allow-list state.
- * `config/index.ts` reads process.env once at module load; `vi.resetModules()`
- * gives each app its own frozen view.
- */
-async function buildApp(retailOperatorIds: string): Promise<express.Express> {
-  vi.resetModules();
-  process.env.RETAIL_OPERATOR_OXY_USER_IDS = retailOperatorIds;
-  process.env.PAYMENT_OPERATOR_OXY_USER_IDS = PAYMENTS_OPERATOR;
-  process.env.CATALOG_OPERATOR_OXY_USER_IDS = CATALOG_OPERATOR;
+beforeAll(async () => {
   process.env.STRIPE_ENABLED = 'false';
   const { createApp } = await import('../../app.js');
-  return createApp();
-}
+  ({ server, url } = await listen(createApp()));
+}, 60_000);
+
+afterAll(async () => {
+  await new Promise<void>((resolve, reject) => {
+    server.close((err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+});
 
 /** POST a JSON body as the current caller. */
-async function post(url: string, path: string, payload: unknown): Promise<Response> {
-  return await fetch(`${url}${path}`, {
+async function post(baseUrl: string, path: string, payload: unknown): Promise<Response> {
+  return await fetch(`${baseUrl}${path}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(payload),
   });
 }
 
-beforeAll(async () => {
-  ({ server: enabledServer, url: enabledUrl } = await listen(await buildApp(RETAIL_OPERATOR)));
-  ({ server: disabledServer, url: disabledUrl } = await listen(await buildApp('')));
-}, 60_000);
-
-afterAll(async () => {
-  delete process.env.RETAIL_OPERATOR_OXY_USER_IDS;
-  delete process.env.PAYMENT_OPERATOR_OXY_USER_IDS;
-  delete process.env.CATALOG_OPERATOR_OXY_USER_IDS;
-  delete process.env.STRIPE_ENABLED;
-  await Promise.all(
-    [enabledServer, disabledServer].map(
-      (server) =>
-        new Promise<void>((resolve, reject) => {
-          server.close((err) => {
-            if (err) reject(err);
-            else resolve();
-          });
-        }),
-    ),
-  );
-});
-
 describe('the /internal/retail-eligibility operator gate', () => {
-  it('lets an allow-listed operator past the gate', async () => {
+  it('lets a holder of retail.operate past the gate', async () => {
     currentUser = RETAIL_OPERATOR;
     // The database stub throws, so a 500 here means the gate PASSED and the
     // handler ran — which is the property under test. A 403 or 404 would mean
     // it did not.
-    const response = await fetch(`${enabledUrl}/internal/retail-eligibility/policies`);
+    const response = await fetch(`${url}/internal/retail-eligibility/policies`);
     expect(response.status).toBe(500);
   });
 
-  it('refuses an authenticated user who is not on the list', async () => {
+  it('hides the surface from an authenticated user holding no key', async () => {
     currentUser = ORDINARY_USER;
-    const response = await fetch(`${enabledUrl}/internal/retail-eligibility/policies`);
-    expect(response.status).toBe(403);
-  });
-
-  it('refuses the PAYMENTS operator — separate lists, separate powers', async () => {
-    currentUser = PAYMENTS_OPERATOR;
-    const response = await fetch(`${enabledUrl}/internal/retail-eligibility/policies`);
-    expect(response.status).toBe(403);
-  });
-
-  it('refuses the CATALOG operator too', async () => {
-    // Lifting a recall is not a catalogue-curation power. The cross-list case a
-    // refactor toward "one operator list" would silently break.
-    currentUser = CATALOG_OPERATOR;
-    const response = await fetch(`${enabledUrl}/internal/retail-eligibility/policies`);
-    expect(response.status).toBe(403);
-  });
-
-  it('does not MOUNT the surface at all on an empty allow-list', async () => {
-    // 404, never 401: a 401 would tell an unauthenticated caller that a
-    // compliance surface exists on this deployment.
-    currentUser = RETAIL_OPERATOR;
     for (const path of [
       '/internal/retail-eligibility/policies',
       '/internal/retail-eligibility/suppressions',
       '/internal/retail-eligibility/metrics',
     ]) {
-      const response = await fetch(`${disabledUrl}${path}`);
+      const response = await fetch(`${url}${path}`);
       expect(response.status, path).toBe(404);
     }
+  });
+
+  it('refuses a holder of payments.operate — separate keys, separate powers', async () => {
+    currentUser = PAYMENTS_OPERATOR;
+    const response = await fetch(`${url}/internal/retail-eligibility/policies`);
+    expect(response.status).toBe(404);
+  });
+
+  it('refuses a holder of catalog.operate too', async () => {
+    // Lifting a recall is not a catalogue-curation power. The cross-desk case a
+    // refactor toward "one operator key" would silently break.
+    currentUser = CATALOG_OPERATOR;
+    const response = await fetch(`${url}/internal/retail-eligibility/policies`);
+    expect(response.status).toBe(404);
   });
 });
 
@@ -207,7 +185,7 @@ describe('acceptance 8: client-bypass attempts', () => {
       { skipChecks: ['product_recalled'] },
       { verdict: 'eligible' },
     ]) {
-      const response = await post(enabledUrl, '/internal/retail-eligibility/trace', {
+      const response = await post(url, '/internal/retail-eligibility/trace', {
         procurementOfferId: 'offer-1',
         channel: 'mercaria_branded_checkout',
         destinationCountry: 'ES',
@@ -225,7 +203,7 @@ describe('acceptance 8: client-bypass attempts', () => {
 
   it('accepts the same body without the smuggled field, so the refusal is not vacuous', async () => {
     currentUser = RETAIL_OPERATOR;
-    const response = await post(enabledUrl, '/internal/retail-eligibility/trace', {
+    const response = await post(url, '/internal/retail-eligibility/trace', {
       procurementOfferId: 'offer-1',
       channel: 'mercaria_branded_checkout',
       destinationCountry: 'ES',
@@ -247,7 +225,7 @@ describe('acceptance 8: client-bypass attempts', () => {
       'resale_evidence_missing',
       'tax_treatment_unknown',
     ]) {
-      const response = await post(enabledUrl, '/internal/retail-eligibility/exceptions', {
+      const response = await post(url, '/internal/retail-eligibility/exceptions', {
         policyId: 'policy-1',
         supplierId: 'supplier-1',
         waivedReasons: [reason],
@@ -264,7 +242,7 @@ describe('acceptance 8: client-bypass attempts', () => {
 
   it('accepts a WAIVABLE reason on the same body', async () => {
     currentUser = RETAIL_OPERATOR;
-    const response = await post(enabledUrl, '/internal/retail-eligibility/exceptions', {
+    const response = await post(url, '/internal/retail-eligibility/exceptions', {
       policyId: 'policy-1',
       supplierId: 'supplier-1',
       waivedReasons: ['category_requires_approval'],
@@ -277,7 +255,7 @@ describe('acceptance 8: client-bypass attempts', () => {
 
   it('refuses a recall filed as ADVISORY — the one combination that changes nothing', async () => {
     currentUser = RETAIL_OPERATOR;
-    const response = await post(enabledUrl, '/internal/retail-eligibility/suppressions', {
+    const response = await post(url, '/internal/retail-eligibility/suppressions', {
       scope: 'canonical_variant',
       scopeRef: 'variant-1',
       kind: 'recall',
@@ -290,7 +268,7 @@ describe('acceptance 8: client-bypass attempts', () => {
 
   it('refuses a policy version requiring evidence that can never authorize a resale', async () => {
     currentUser = RETAIL_OPERATOR;
-    const response = await post(enabledUrl, '/internal/retail-eligibility/policies', {
+    const response = await post(url, '/internal/retail-eligibility/policies', {
       policyKey: 'mercaria-retail-eligibility',
       version: 2,
       name: 'Affiliate-backed',
@@ -318,7 +296,7 @@ describe('acceptance 8: client-bypass attempts', () => {
       ['/internal/retail-eligibility/resale-evidence/evidence-1/verify', {}],
       ['/internal/retail-eligibility/exceptions/exception-1/approve', {}],
     ] as const) {
-      const response = await post(enabledUrl, path, payload);
+      const response = await post(url, path, payload);
       expect(response.status, path).toBe(400);
     }
   });

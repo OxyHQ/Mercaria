@@ -495,6 +495,6 @@ cannot send a pair that disagrees.
   content. Not built; there is no column for one, which is the right starting
   point for whoever does build it.
 - **An operator surface.** The classification job and the split assignment are
-  reachable from the queue and from code, not from an HTTP route. A fourth
-  operator allow-list beside payments, catalog and guest-commerce is a decision
+  reachable from the queue and from code, not from an HTTP route. A new
+  operator key beside payments, catalog and guest-commerce is a decision
   worth making deliberately rather than as a side effect of this issue.

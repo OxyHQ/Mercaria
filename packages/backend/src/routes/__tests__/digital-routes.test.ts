@@ -108,10 +108,6 @@ vi.mock('../../db/stores/storeRepository.js', () => ({
   findStorePermissionOverride: (...args: unknown[]) => findStorePermissionOverride(...args),
 }));
 /** Oxy's answer to "what is the caller's role in the store's owning account?". */
-vi.mock('../../services/oxy-account-graph.js', () => ({
-  readCallerAccountRole: (...args: unknown[]) => readCallerAccountRole(...args),
-  listCallerAccountRoles: vi.fn(),
-}));
 vi.mock('../../db/digital/assetRepository.js', () => ({
   findDigitalAsset: (...a: unknown[]) => findDigitalAsset(...a),
   findAssetVersion: (...a: unknown[]) => findAssetVersion(...a),
@@ -171,14 +167,26 @@ vi.mock('../../services/digital/storage.js', () => ({
   isDigitalStorageError: (error: unknown) =>
     typeof error === 'object' && error !== null && 'reason' in (error as object),
 }));
-vi.mock('../../middleware/auth.js', () => ({
-  authenticateToken: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
-    req.userId = (req.headers['x-test-user'] as string) ?? OWNER_USER;
-    req.accessToken = 'test-bearer';
-    next();
-  },
-  oxyClient: {},
-}));
+vi.mock('../../middleware/auth.js', async () => {
+  const { fakeAccountAccess } = await import('../../__tests__/oxy-account-access-fake.js');
+  const accountAccess = fakeAccountAccess(
+    (...args: unknown[]) => readCallerAccountRole(...args),
+    () => new Map(),
+  );
+  return {
+    authenticateToken: (
+      req: express.Request,
+      _res: express.Response,
+      next: express.NextFunction,
+    ) => {
+      req.userId = (req.headers['x-test-user'] as string) ?? OWNER_USER;
+      req.accessToken = 'test-bearer';
+      req.sessionId = 'test-session';
+      next();
+    },
+    oxyClient: { ...accountAccess },
+  };
+});
 /**
  * Stands in for `resolveCommerceActor`, whose own resolution (Oxy precedence, the
  * guest transports, the CSRF gate) has three suites of its own. What is under

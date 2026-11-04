@@ -285,7 +285,7 @@ services/payments/checkout-payment.service.ts   payment.service.ts
   the transition runs from the outbox handler, a separate transaction — so the
   outbox remains the reconciliation path.
 - **`tracePayment`** is service-level and #50 exposes it over HTTP at
-  `GET /internal/payments/trace`, behind the operator allow-list — everything it
+  `GET /internal/payments/trace`, behind `payments.operate` — everything it
   returns is merchant and operator financial detail.
 - **`services/payments/reconciliation/`** is the only module that WRITES a
   discrepancy or runs a repair, and it reaches the domain through the same public
@@ -1294,7 +1294,8 @@ GUEST_CHECKOUT_BLOCKED_SUPPLIERS=    # the #107 guest axes, extended by a suppli
 ```
 
 `MERCARIA_RETAIL_ENABLED=true` additionally requires `SUPPLIER_PREFLIGHT_ENABLED`
-and a non-empty `RETAIL_OPERATOR_OXY_USER_IDS` — half-configured is OFF (the
+and a named selling entity (`MERCARIA_RETAIL_SELLER_LEGAL_ENTITY` /
+`MERCARIA_RETAIL_SELLER_COUNTRY`) — half-configured is OFF (the
 `CROWDSOURCE_ENABLED` pattern). Without either, every retail line refuses at
 checkout anyway, and a catalogue of items nobody can buy with no message saying
 why is worse than the feature being off.
@@ -1936,28 +1937,30 @@ already covered by the transfer's own comparison.
 | `POST /repairs` | one of the four named repairs |
 | `POST /discrepancies/:id/resolve` | close an investigation with an actor and a reason |
 
-**Authorization is an ALLOW-LIST, `PAYMENT_OPERATOR_OXY_USER_IDS`, and this is
-interim.** Mercaria has exactly one authorization vocabulary — store permissions
-— and it is scoped to a STORE by construction: `requireStorePermission` reads
-`req.storeAccess`, which `loadStore` put there after resolving the caller's role
-in the Oxy account that owns THAT store. This surface reads across every store
+**Authorization is an Oxy APPLICATION ROLE, `payments.operate`, not a store
+permission.** Mercaria's store permissions are scoped to a STORE by
+construction: `requireStorePermission` reads `req.storeAccess`, which
+`loadStore` put there after resolving the caller's role in the Oxy account that
+owns THAT store. This surface reads across every store
 and every P2P seller, so there is no store whose owning account could authorize
 it, and no store permission could
 express "may see all stores' money" without becoming one a store owner could
 grant themselves.
 
-Inventing a platform-wide role would mean inventing its grant surface, its audit
-and its recovery path — a second identity system beside Oxy's, in the repository
-that must not have one. **When Oxy grows a platform-level operator role,
-`resolvePaymentOperatorIds` and `requirePaymentOperator` are the two places that
-change and the variable goes away.** It is a stand-in for a claim on a
-credential, not a design to keep.
+Mercaria does not invent its own platform-wide role either — its grant surface,
+audit and recovery path would be a second identity system beside Oxy's. Oxy's
+application roles are that system: `payments.operate` is declared on Mercaria's
+Oxy application, the owning account's owners and admins grant it to people in
+the Oxy Console (append-only, audited, never to themselves), and
+`requirePaymentOperator` (`middleware/operator-authz.ts`) asks Oxy with the
+caller's own bearer.
 
-An EMPTY allow-list does not mount the router at all, so every path answers 404 —
-`STRIPE_ENABLED`'s rule rather than the outbox's, because a 401 would tell an
-unauthenticated caller that an operator surface exists on this deployment. A
-real, authenticated Oxy user who is not on the list gets 403 and a `warn` line
-naming them.
+The router is mounted on every deployment. Anyone without the key — including a
+request with no person in a session, such as a service token — gets 404, so an
+unauthenticated caller cannot learn that an operator surface exists here; a
+non-holder also leaves a `warn` line naming them. An Oxy that cannot answer is
+503 and is never remembered as a "no". Writes ask Oxy fresh, and the actor
+recorded on a repair is the human operator (`req.oxyAppPermissions.operatorId`).
 
 **A trace can be opened from five handles and no others.** There is no `email`,
 no phone, no card fingerprint and no Stripe Customer — none of them can
@@ -2167,8 +2170,6 @@ PAYMENT_RECONCILIATION_BATCH_SIZE=100
 PAYMENT_RECONCILIATION_OPEN_PAYMENT_MIN_AGE_MS=600000   # 10 minutes
 PAYMENT_RECONCILIATION_LOOKBACK_MS=604800000            # 7 days, first pass only
 
-PAYMENT_OPERATOR_OXY_USER_IDS=                # comma-separated; EMPTY = no surface
-
 STRIPE_PAYMENT_SURFACE_METHODS=card,apple_pay,google_pay,link  # #107; `card` always kept
 STRIPE_CHECKOUT_RETURN_URL=                   # where a 3-D Secure return lands (#107)
 GUEST_CHECKOUT_BLOCKED_PLATFORMS=             # the four guest kill switches (#107);
@@ -2196,16 +2197,6 @@ never completed a pass, and is not read again afterwards — the cursor row carr
 the real boundary. Seven days is past every provider's own redelivery schedule, so
 a discrepancy older than that was never going to be found by a webhook anyway. It
 IS read again after a database restore, which is why §17 says to widen it.
-
-`PAYMENT_OPERATOR_OXY_USER_IDS` is the operator surface's whole authorization,
-and an EMPTY value does not mount the router at all — 404 rather than 401, so an
-unauthenticated caller cannot learn that an operator surface exists on this
-deployment. `operatorSurfaceEnabled` is DERIVED from the list being non-empty
-rather than configured beside it, for the reason `stripe.livemode` is derived
-from the key prefix: a separate flag could only ever disagree, and the
-disagreement that matters is `enabled: true` with nobody on the list — a surface
-reachable by no one, which reads as a permission bug for as long as it takes
-someone to find the empty variable.
 
 `STRIPE_ENABLED=true` requires the key AND BOTH webhook secrets; half-configured
 logs once at boot and stays OFF, the `CROWDSOURCE_ENABLED` rule. There is no
@@ -2503,8 +2494,8 @@ Everything above this line is a rail-by-rail runbook. This section is the
 INCIDENT one: what to do when the rail and Mercaria disagree, who is allowed to
 do it, and what to check before any of it is pointed at live money.
 
-Every action here needs the operator surface, which needs
-`PAYMENT_OPERATOR_OXY_USER_IDS` to name you. Nothing below can be done from the
+Every action here needs the operator surface, which needs you to hold
+`payments.operate` on Mercaria's Oxy application. Nothing below can be done from the
 merchant dashboard, by design.
 
 ### 9. Environment separation: test and live are the SAME code and different keys
@@ -2552,10 +2543,10 @@ no window either, and the cost is bounded: every in-flight hosted-onboarding
 round trip 400s and the seller starts again from the dashboard. Do it out of
 business hours rather than building a rotation window for a 30-minute token.
 
-**`PAYMENT_OPERATOR_OXY_USER_IDS`** is a deploy-time change and an audit event in
-its own right. Removing somebody takes effect on the next task rollout, not
-immediately — so for an urgent revocation, empty the variable entirely (which
-un-mounts the surface) rather than editing one id out of it.
+**`payments.operate` grants** are made and revoked in the Oxy Console
+(application → Settings → Roles), and each is an audit event with who, when and
+why. A revocation reaches every write at once (writes ask Oxy fresh) and a read
+within 30 seconds — no deploy, no task rollout.
 
 ### 11. Replaying a failed event
 
@@ -2746,8 +2737,8 @@ in ADR 0001 — so this list is also the record of what "live" will require.
       verification, which looks exactly like a compromised endpoint.
 - [ ] `STRIPE_ONBOARDING_STATE_SECRET` is set and is not shared with any other
       environment.
-- [ ] `PAYMENT_OPERATOR_OXY_USER_IDS` names real people, and the list has been
-      read by somebody other than whoever wrote it.
+- [ ] `payments.operate` is granted to real people, and the grants (Oxy
+      Console → Roles) have been read by somebody other than whoever made them.
 - [ ] The boot log carries no
       `[Stripe] STRIPE_ENABLED is set but the integration is incomplete` line.
 

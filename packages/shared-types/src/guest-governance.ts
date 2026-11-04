@@ -1919,7 +1919,7 @@ export const GUEST_LAUNCH_GATE_REGISTER: readonly GuestLaunchGateDefinition[] = 
     gate: 'dashboard_metrics_and_alerts_live',
     title: 'Dashboard metrics and alerts live',
     discipline: 'operations',
-    evidenceKind: 'automated_check',
+    evidenceKind: 'operational_verification',
     requiredFromStage: 'stage_2_pilot_merchants',
     criterion:
       'Every guest metric computes a number rather than a seam, and every critical security ' +
@@ -1929,7 +1929,7 @@ export const GUEST_LAUNCH_GATE_REGISTER: readonly GuestLaunchGateDefinition[] = 
     gate: 'feature_flags_and_kill_switches_tested',
     title: 'Feature flags and kill switches tested',
     discipline: 'engineering',
-    evidenceKind: 'automated_check',
+    evidenceKind: 'operational_verification',
     requiredFromStage: 'stage_1_staff_canary',
     criterion:
       'The rollback suite passes: with every guest lever off, a placed guest order is still ' +
@@ -1947,7 +1947,7 @@ export const GUEST_LAUNCH_GATE_REGISTER: readonly GuestLaunchGateDefinition[] = 
     gate: 'payment_to_portal_tested_under_failure',
     title: 'Payment success to portal initialization tested under failure',
     discipline: 'engineering',
-    evidenceKind: 'automated_check',
+    evidenceKind: 'operational_verification',
     requiredFromStage: 'stage_1_staff_canary',
     criterion:
       'End-to-end tests cover session expiry between paying and returning, an app restart, and a ' +

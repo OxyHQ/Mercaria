@@ -1,15 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { findStoreById, oxyServiceClient, importUserMedia, importAppFile, importAppFiles } =
-  vi.hoisted(() => ({
-    findStoreById: vi.fn(),
-    oxyServiceClient: vi.fn(),
-    importUserMedia: vi.fn(),
-    importAppFile: vi.fn(),
-    importAppFiles: vi.fn(),
-  }));
+const { findStoreById, importUserMedia, importAppFile, importAppFiles } = vi.hoisted(() => ({
+  findStoreById: vi.fn(),
+  importUserMedia: vi.fn(),
+  importAppFile: vi.fn(),
+  importAppFiles: vi.fn(),
+}));
 vi.mock('../../db/stores/storeRepository.js', () => ({ findStoreById }));
-vi.mock('../../capabilities/oxy-service-client.js', () => ({ oxyServiceClient }));
+vi.mock('../../middleware/auth.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../middleware/auth.js')>()),
+  oxyClient: {
+    assets: {
+      importUserMedia: (...args: unknown[]) => importUserMedia(...args),
+      importAppFile: (...args: unknown[]) => importAppFile(...args),
+      importAppFiles: (...args: unknown[]) => importAppFiles(...args),
+    },
+  },
+}));
 import {
   synchronizeAccountImages,
   synchronizeApplicationImages,
@@ -31,7 +38,6 @@ function refused(status: number, message = `HTTP ${status}`) {
 beforeEach(() => {
   vi.resetAllMocks();
   findStoreById.mockResolvedValue({ oxyAccountId: 'persisted-owner' });
-  oxyServiceClient.mockReturnValue({ assets: { importUserMedia, importAppFile, importAppFiles } });
   importUserMedia.mockImplementation(async () => imported());
   importAppFile.mockImplementation(async () => imported('oxy-app-file'));
   importAppFiles.mockImplementation(async (items: unknown[]) =>
@@ -79,13 +85,15 @@ describe('catalog image synchronization', () => {
     expect(importUserMedia).not.toHaveBeenCalled();
   });
 
-  it('passes internal IDs without requesting credentials or touching a network', async () => {
+  it('passes internal IDs without touching a network', async () => {
     expect(await synchronizeStoreImages('store', ['file-1', 'file_2'])).toEqual([
       'file-1',
       'file_2',
     ]);
     expect(findStoreById).not.toHaveBeenCalled();
-    expect(oxyServiceClient).not.toHaveBeenCalled();
+    expect(importUserMedia).not.toHaveBeenCalled();
+    expect(importAppFile).not.toHaveBeenCalled();
+    expect(importAppFiles).not.toHaveBeenCalled();
   });
 
   it('imports under the persisted store owner, preserves gallery order and asks once per source', async () => {
@@ -112,13 +120,6 @@ describe('catalog image synchronization', () => {
       synchronizeStoreImages('store', ['https://supplier.example/ok.png', bad]),
     ).rejects.toThrow(/HTTPS|file ID/);
     expect(importUserMedia).not.toHaveBeenCalled();
-  });
-
-  it('fails closed without a configured Oxy application', async () => {
-    oxyServiceClient.mockReturnValue(null);
-    await expect(
-      synchronizeStoreImages('store', ['https://supplier.example/a.png']),
-    ).rejects.toThrow(/credentials/);
   });
 
   it.each([401, 403, 500])(

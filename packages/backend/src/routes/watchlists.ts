@@ -7,9 +7,9 @@
  * that hid a person's own data would make the rollback lever cost them their
  * lists — which is the lever nobody would then pull.
  *
- * There is deliberately NO operator surface and no internal router. Six
- * allow-lists already exist and none of them should be able to read somebody's
- * private list or their private notes; a seventh would be a new power rather
+ * There is deliberately NO operator surface and no internal router. Seven operator
+ * keys already exist and none of them should be able to read somebody's
+ * private list or their private notes; an eighth would be a new power rather
  * than a new scope for an existing one, and every repair this domain could need
  * is an idempotent path the OWNER already drives. #81 privacy rule 2 bounds what
  * a merchant may receive, and the enforcement is that there is no surface to

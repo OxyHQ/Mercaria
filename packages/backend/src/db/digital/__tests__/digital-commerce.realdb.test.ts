@@ -39,9 +39,16 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 // Oxy is replaced at the SDK boundary for the storage-move backfill case only;
 // every other case here makes no Oxy call (`oxy.client` stays null).
 const oxy = vi.hoisted(() => ({ client: null as unknown }));
-vi.mock('../../../capabilities/oxy-service-client.js', () => ({
-  oxyServiceClient: () => oxy.client,
-}));
+vi.mock('../../../middleware/auth.js', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../../../middleware/auth.js')>();
+  const { overOxyClient } = await import('../../../__tests__/over-oxy-client.js');
+  return {
+    ...original,
+    get oxyClient() {
+      return overOxyClient(original.oxyClient, oxy.client);
+    },
+  };
+});
 import { eq, inArray, sql } from 'drizzle-orm';
 import { isCheckViolation, uuidv7 } from '@oxy.so/db';
 import { connectPostgres, type Database } from '../../postgres.js';

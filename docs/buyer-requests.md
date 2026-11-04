@@ -575,10 +575,10 @@ and retrying later is the client's correct response.
 ### The operator surface
 
 `/internal/guest-commerce/buyer-requests/*`, on the SAME
-`GUEST_OPERATOR_OXY_USER_IDS` allow-list #104 and #108 use rather than a seventh
+`guest.operate` key #104 and #108 use rather than a seventh
 one — the power is the same (reading what a guest did with their purchase and
-driving a path they can drive themselves). It is deliberately NOT the payment
-operator list: a support agent tracing a stuck return should not thereby be able
+driving a path they can drive themselves). It is deliberately NOT the
+`payments.operate` key: a support agent tracing a stuck return should not thereby be able
 to see every store's money.
 
 A trace opens from an ORDER and nothing else. The ONE write drives
@@ -616,8 +616,8 @@ names would not load at all, which is a data question rather than a seller one.
 
 ## Production-readiness checklist
 
-- [ ] `GUEST_OPERATOR_OXY_USER_IDS` populated — without it the trace is not
-      mounted (404), which also means nobody can reconcile a stuck return.
+- [ ] `guest.operate` granted to the operators — without it the trace answers
+      404, which also means nobody can reconcile a stuck return.
 - [ ] `BUYER_REQUESTS_ENABLED` reviewed. It defaults ON; guest commerce as a
       whole is still gated by `GUEST_COMMERCE_ENABLED`, which is OFF until the
       ADR 0003 M8 review clears.

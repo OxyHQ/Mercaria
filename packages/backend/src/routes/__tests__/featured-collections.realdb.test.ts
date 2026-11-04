@@ -6,15 +6,25 @@ import { uuidv7 } from '@oxy.so/db';
 import { connectPostgres, closePostgres, getDb } from '../../db/postgres.js';
 import { insertStore } from '../../db/stores/storeRepository.js';
 import { insertCollection } from '../../db/merchandising/collectionRepository.js';
-import { resetStoreAccessCacheForTests } from '../../services/store-access.service.js';
 import { loadStore } from '../../middleware/store-authz.js';
 import collectionRoutes from '../admin/collections.js';
 
 const authority = vi.hoisted(() => ({ role: 'owner' as 'owner' | 'viewer' | null }));
-vi.mock('../../services/oxy-account-graph.js', () => ({
-  readCallerAccountRole: async () => authority.role,
-  listCallerAccountRoles: async () => [],
-}));
+vi.mock('../../middleware/auth.js', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../../middleware/auth.js')>();
+  const { overOxyClient } = await import('../../__tests__/over-oxy-client.js');
+  const { fakeAccountAccess } = await import('../../__tests__/oxy-account-access-fake.js');
+  return {
+    ...original,
+    oxyClient: overOxyClient(
+      original.oxyClient,
+      fakeAccountAccess(
+        async () => authority.role,
+        async () => new Map(),
+      ),
+    ),
+  };
+});
 
 const app = express();
 app.use(express.json());
@@ -24,6 +34,7 @@ app.use((req, _res, next) => {
   if (req.headers.authorization === 'Bearer foreground-fixture') {
     req.userId = 'featured-fixture-operator';
     req.accessToken = 'foreground-fixture';
+    req.sessionId = 'test-session';
   }
   next();
 });
@@ -70,7 +81,6 @@ beforeAll(async () => {
 });
 beforeEach(() => {
   authority.role = 'owner';
-  resetStoreAccessCacheForTests();
 });
 afterAll(async () => {
   if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -93,7 +103,6 @@ describe('featured collection authoring HTTP authority', () => {
     authority.role = null;
     expect((await call('PUT', { collectionIds: [] })).status).toBe(403);
     authority.role = 'viewer';
-    resetStoreAccessCacheForTests();
     expect((await call('PUT', { collectionIds: [] })).status).toBe(403);
   });
   it('rejects duplicate, oversized and unknown body fields instead of accepting a partial selection', async () => {

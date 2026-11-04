@@ -145,7 +145,7 @@ export function cacheTtlSeconds(
  * A refusal that names the right, in words an operator can act on.
  *
  * 403 rather than 404: the source exists and the caller may know it does — this
- * surface is behind an operator allow-list, so there is no enumeration oracle
+ * surface is behind an operator key, so there is no enumeration oracle
  * to protect, and telling somebody "your feed cannot be refreshed because the
  * policy does not permit automated refresh" is the whole point of naming the
  * nine rights separately.

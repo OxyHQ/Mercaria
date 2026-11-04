@@ -349,7 +349,7 @@ Buyer (`authenticateToken`, `rl:listings:`):
 | `GET /product-saves/listings/:listingId` | the two-button context |
 | `POST /favorites/:listingId` | save a listing; optional `{intent}` |
 
-Operator (`CATALOG_OPERATOR_OXY_USER_IDS`, empty = not mounted, 404):
+Operator (`catalog.operate`; anyone without it gets 404):
 
 | Route | Does |
 |---|---|
@@ -376,7 +376,7 @@ person — it needs the subject by definition — and it returns two numbers.
 
 ## Production-readiness checklist
 
-1. Set `CATALOG_OPERATOR_OXY_USER_IDS` — without it there is no way to read
+1. Grant `catalog.operate` to the operators — without it there is no way to read
    counter drift, rebuild a counter, run the migration or erase an account's
    saves.
 2. Deploy with `PRODUCT_SAVES_ENABLED=false`. Confirm `/favorites` is unchanged

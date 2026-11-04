@@ -60,7 +60,7 @@ import {
 import { drainMatchQueue } from '../services/matching/match-queue-dispatcher.js';
 import { runMatchSweepPage } from '../services/matching/match-sweep.service.js';
 import { runMatch } from '../services/matching/match.service.js';
-import { catalogOperatorId } from '../middleware/catalog-operator-authz.js';
+import { operatorId } from '../middleware/operator-authz.js';
 import { sendError, sendSuccess, ErrorCodes } from '../utils/api-response.js';
 import { routeParam } from '../utils/request.js';
 import { respondWithError } from '../lib/errors/error-codes.js';
@@ -227,7 +227,7 @@ export async function reviewMatchDecisionHandler(req: Request, res: Response): P
     const updated = await recordMatchReview(getDb(), {
       id: routeParam(req, 'id'),
       state: body.verdict,
-      reviewedByOxyUserId: catalogOperatorId(req),
+      reviewedByOxyUserId: operatorId(req),
       note: body.note,
       now: new Date(),
     });
@@ -283,7 +283,7 @@ export async function createMatchPolicyHandler(req: Request, res: Response): Pro
       semanticEnabled: body.semanticEnabled === true,
       minBenchmarkPrecision: Number(body.minBenchmarkPrecision),
       minBenchmarkSamples: Number(body.minBenchmarkSamples),
-      createdByOxyUserId: catalogOperatorId(req),
+      createdByOxyUserId: operatorId(req),
     });
     sendSuccess(res, { policy }, 201);
   } catch (error: unknown) {
@@ -313,7 +313,7 @@ export async function openCategoryGateHandler(req: Request, res: Response): Prom
       policyVersionId: body.policyVersionId,
       categoryKey: body.categoryKey,
       benchmarkCategoryId: body.benchmarkCategoryId,
-      enabledByOxyUserId: catalogOperatorId(req),
+      enabledByOxyUserId: operatorId(req),
       reason: body.reason,
     });
     sendSuccess(res, { gate }, 201);
@@ -328,7 +328,7 @@ export async function closeCategoryGateHandler(req: Request, res: Response): Pro
     const body = req.body as { reason: string };
     await closeGate({
       gateId: routeParam(req, 'id'),
-      disabledByOxyUserId: catalogOperatorId(req),
+      disabledByOxyUserId: operatorId(req),
       reason: body.reason,
     });
     sendSuccess(res, { closed: true });
@@ -354,7 +354,7 @@ export async function rejectMatchPairHandler(req: Request, res: Response): Promi
       targetCanonicalProductId: body.targetCanonicalProductId ?? null,
       targetCanonicalVariantId: body.targetCanonicalVariantId ?? null,
       decisionId: body.decisionId,
-      blockedByOxyUserId: catalogOperatorId(req),
+      blockedByOxyUserId: operatorId(req),
       reason: body.reason,
     });
     sendSuccess(res, { blockedPair: blocked }, 201);
@@ -369,7 +369,7 @@ export async function clearBlockedPairHandler(req: Request, res: Response): Prom
     const body = req.body as { reason: string };
     const cleared = await clearRejectedPair({
       blockedPairId: routeParam(req, 'id'),
-      clearedByOxyUserId: catalogOperatorId(req),
+      clearedByOxyUserId: operatorId(req),
       reason: body.reason,
     });
     sendSuccess(res, { blockedPair: cleared });

@@ -8,8 +8,8 @@
  */
 
 import { type Peable, peableForOxyService } from '@peable.to/sdk';
-import { requiredOxyServiceClient } from '../../../capabilities/oxy-service-client.js';
 import { config } from '../../../config/index.js';
+import { oxyClient } from '../../../middleware/auth.js';
 
 /**
  * How every Mercaria call to Peable is made.
@@ -29,7 +29,7 @@ export const PEABLE_TRANSPORT = { timeout: 20_000, maxNetworkRetries: 0 } as con
 
 export function createPeableClient(): Peable {
   return peableForOxyService({
-    oxy: requiredOxyServiceClient(),
+    oxy: oxyClient,
     baseURL: config.payments.peable.baseUrl,
     ...PEABLE_TRANSPORT,
   });

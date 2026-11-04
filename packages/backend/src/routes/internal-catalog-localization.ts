@@ -2,16 +2,16 @@
  * `/internal/catalog-localization` — the translation desk (#367 merge-order
  * step 10).
  *
- * ## The same allow-list, not a seventh
+ * ## The same key, not a new one
  *
- * `CATALOG_OPERATOR_OXY_USER_IDS`, which every ADR 0007 catalog surface already
+ * `catalog.operate`, which every ADR 0007 catalog surface already
  * uses. Reading how much of the catalogue is translated is not a different power
  * from publishing a taxonomy change or reviewing a translation — and the review
- * decision this desk feeds already lives behind exactly this list at
- * `/internal/catalog-governance/reviews/localization`. A separate list would
+ * decision this desk feeds already lives behind exactly this key at
+ * `/internal/catalog-governance/reviews/localization`. A separate key would
  * have to be granted to the same people, drift from it, and become the one
- * somebody forgets when an operator leaves. Empty list ⇒ **not mounted** (404,
- * never 401), gated in `app.ts` on `config.catalog.graphOperatorSurfaceEnabled`.
+ * somebody forgets when an operator leaves. Anyone without the key is
+ * answered 404, never 401.
  *
  * ## Why a separate router from `/internal/catalog-metrics`
  *
@@ -53,7 +53,7 @@
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireCatalogOperator } from '../middleware/catalog-operator-authz.js';
+import { requireCatalogOperator } from '../middleware/operator-authz.js';
 import { validateId, validateQuery } from '../middleware/validate.js';
 import {
   localizationCompletenessQuerySchema,
@@ -69,10 +69,10 @@ const router = Router();
 
 // Order is load-bearing: the operator gate needs a verified caller.
 //
-// NO rate limiter, matching every sibling on this allow-list
+// NO rate limiter, matching every sibling on this key
 // (`/internal/catalog-governance`, `/internal/catalog-metrics`,
-// `/internal/matching`, `/internal/search`). The bound is the allow-list itself
-// — a handful of named Oxy accounts — so a per-IP bucket would be one bucket for
+// `/internal/matching`, `/internal/search`). The bound is the key itself
+// — granted to a handful of named people — so a per-IP bucket would be one bucket for
 // the whole operator team and would trip exactly when several of them are
 // reading the desk at once, which is what a translation push looks like.
 router.use(authenticateToken);

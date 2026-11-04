@@ -2,20 +2,19 @@
  * `/internal/supplier-preflight/*` — the supply-operations surface (#122
  * operations 1–8).
  *
- * The `/internal/retail-eligibility` shape, on its OWN allow-list
- * (`PROCUREMENT_OPERATOR_OXY_USER_IDS`): reading Mercaria's wholesale cost base
- * and flipping a market kill switch are supply-operations powers, not
- * compliance, payments, catalogue, cart-diagnostic or analytics ones. Sharing a
- * list would grant whichever power the operator was not vetted for.
+ * The `/internal/retail-eligibility` shape, on its OWN key
+ * (`procurement.operate`): reading Mercaria's wholesale cost base and flipping
+ * a market kill switch are supply-operations powers, not compliance, payments,
+ * catalogue, cart-diagnostic or analytics ones. Sharing a key would grant
+ * whichever power the operator was not vetted for.
  *
- * Mount gated on the allow-list being non-empty (404 on a deployment with no
- * operators, never a 401 that would advertise the surface); the gate repeated
- * in middleware because mount and gate live in different files.
+ * Mounted on every deployment; anyone without the key is answered 404, never a
+ * 401 that would advertise the surface.
  */
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireProcurementOperator } from '../middleware/procurement-operator-authz.js';
+import { requireProcurementOperator } from '../middleware/operator-authz.js';
 import { validateBody } from '../middleware/validate.js';
 import {
   supplierPreflightSweepSchema,
@@ -42,9 +41,8 @@ import {
 
 const router = Router();
 
-// Authentication FIRST, then the allow-list — the gate reads the verified
-// caller, and an allow-list consulted before authentication would compare
-// against whatever a client claimed.
+// Authentication FIRST, then the operator gate — it asks Oxy about the verified
+// caller's own session, which only `authenticateToken` establishes.
 router.use(authenticateToken);
 router.use(requireProcurementOperator);
 

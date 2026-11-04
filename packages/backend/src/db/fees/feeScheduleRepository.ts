@@ -62,7 +62,7 @@ export interface NewFeeSchedule {
  * reviewed change in the repository is `deployment` plus the commit that
  * introduced it, and a rate a jury sets will be `crowdsource_decision` plus the
  * decision id. A single `oxyUserId` column forced a person to exist and is what
- * `PAYMENT_OPERATOR_OXY_USER_IDS` was invented to supply.
+ * the payment operator desk was invented to supply.
  */
 export interface FeeDecisionRef {
   authority: FeeDecisionAuthority;

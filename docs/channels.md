@@ -736,10 +736,10 @@ this listing's fields the merchant's own edits pinned against a later sync
 
 ## What is deliberately NOT here
 
-- **No operator surface, and no seventh allow-list.** Every route is a store's
+- **No operator surface, and no new operator key.** Every route is a store's
   own; there is no cross-store channel view. When one is needed it belongs on
   `/internal/ingestion` or `/internal/commerce-graph`, behind
-  `CATALOG_OPERATOR_OXY_USER_IDS`, which already reads sources and merchants.
+  `catalog.operate`, which already reads sources and merchants.
 - **No environment flag of its own.** Nothing here gates a durable record, and
   the levers that matter already exist: `FEED_IMPORT_ENABLED` decides whether the
   feed channel is available, the connector OAuth configuration decides whether

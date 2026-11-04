@@ -3,7 +3,10 @@
 
 `middleware/auth.ts` is three exports — `oxyClient`, `authenticateToken`,
 `optionalAuth` — all composed from `@oxy.so/core/server`, with nothing locally
-implemented. #164 deleted the whole legacy surface as a clean cut:
+implemented. `oxyClient` is the ONE `OxyServer` in the process: Mercaria's own
+workload identity, its `applicationId`, `serviceIdentity: 'when-anonymous'` and
+the service-token `expectedAudience` every auth mount accepts, named once.
+`OXY_API_URL` is read once, in `config/oxy-identity.ts`. #164 deleted the whole legacy surface as a clean cut:
 `SERVICE_SECRET` and its `authenticateTokenOrApiKey` (a shared-secret bearer
 compare that set `req.userId = 'system'` and an `appId: 'internal'` no Oxy
 Console grant describes), `authenticateTelegramBot` (a second shared secret that
@@ -13,20 +16,19 @@ nothing populated, and the `apiKey`/`serviceApp`/`workspace` Express
 augmentations.
 
 - **All of it was UNMOUNTED, and that is the point rather than a reprieve.**
-  Every `/internal/*` router runs `authenticateToken` plus one of the
-  `*_OPERATOR_OXY_USER_IDS` allow-lists (measured 2026-08-16: SEVEN — payment,
-  catalog, guest, analytics, retail, procurement, referral. This said EIGHT
-  until 2026-08-16, from a `require[A-Za-z]*Operator` grep that also matched
-  `requireResponsibleOperator`, a BOOLEAN FIELD on a retail-eligibility policy
-  row and not a gate at all. The enumeration is in `AGENTS.md`; count them from
-  `config/index.ts`, never quote a remembered number — including this one),
-  so no route reached any of it — which is exactly why no
+  Every `/internal/*` router runs `authenticateToken` plus one of the seven
+  operator gates in `middleware/operator-authz.ts` — Oxy APPLICATION ROLES
+  (`payments.operate`, `catalog.operate`, `guest.operate`, `analytics.operate`,
+  `retail.operate`, `procurement.operate`, `referrals.operate`) read with
+  `oxyClient.middleware.requireAppPermission`; the enumeration is
+  `OPERATOR_PERMISSIONS` there, so count from the code, never a remembered
+  number — so no route reached any of it — which is exactly why no
   behavioural test could defend the removal and why it had to go: each was one
   `router.use(...)` from authorizing everything, outside grant audit, with
   rotation and revocation local to a deployment.
-- **A real Oxy-to-Oxy caller (#156/#158) mounts `oxyClient.serviceAuth(...)` on
-  the route that needs it**, against a credential issued to a registered
-  Application, reading the principal off the SDK's own `OxyAuthRequest`. There
+- **A real Oxy-to-Oxy caller (#156/#158) mounts `oxyClient.middleware.service()`
+  on the route that needs it** (the audience is the client's own
+  `expectedAudience`), reading the principal off the SDK's own `OxyAuthRequest`. There
   is deliberately NO pre-exported unmounted service-auth middleware to reach
   for. Never build a second verifier.
 - **A provider webhook is a different principal.** Stripe, Shopify, WooCommerce,
@@ -53,13 +55,28 @@ augmentations.
 ## Store access is Oxy's answer, asked with the caller's bearer (ADR 0012)
 
 Who may act for a store is a role on the Oxy account that owns it, never a
-Mercaria list. `services/oxy-account-graph.ts` asks `GET /accounts/:id` (and
-`GET /accounts` for the store list) with the CALLER's bearer through a
-short-lived client — never by setting a token on the shared `oxyClient`, whose
-state is process-wide. There is no service-token membership endpoint to use
-instead, and a service token could not prove the person asked. A delegated
-session (a person operating an organization) is authorized as its human
-operator, which is also how Oxy answers it; only an undelegated session that IS
-the owning account skips the round trip. Failure is closed: an Oxy outage is
-`503 SERVICE_UNAVAILABLE`. The model, routes and runbook are
+Mercaria list. `services/store-access.service.ts` asks with the CALLER's own
+session through the SDK: `oxyClient.accountAccessFor(caller, accountId, { fresh })`
+for one account and `oxyClient.withUser(bearer, (user) => user.accounts.list())`
+for the store list — never by setting a token on the shared `oxyClient`. A
+delegated session (a person operating an organization) is authorized as its
+human operator, which is also how Oxy answers it; only an undelegated session
+that IS the owning account skips the round trip. Outcomes are the SDK's one
+mapping (`lib/errors/oxy-access.ts`): 401 → sign in again, 403/404 → no access,
+anything else → `503 SERVICE_UNAVAILABLE`. Only positive answers are cached
+(per session, 30 s, in the SDK); a refusal or outage is never remembered, and
+every write asks fresh. Giving an account a store needs Oxy's `account:update`
+there (its owners and admins) — a permission, never a role name. The model, routes and runbook are
 [stores.md](stores.md).
+
+
+## Operator desks are application roles
+
+`/internal/*` is mounted on every deployment and each desk is gated on its own
+key (`middleware/operator-authz.ts`), declared on Mercaria's Oxy application and
+granted to people by the owning account's owners and admins in the Oxy Console
+(append-only, audited, never to themselves). A non-holder — or a request with
+no person, including any service token — is answered 404; an Oxy outage is 503
+and never remembered; a write asks Oxy fresh. Record `operatorId(req)` (the
+human Oxy resolved) as the actor. There are no `*_OPERATOR_OXY_USER_IDS`
+variables; the deploy strips any an earlier task revision still carries.

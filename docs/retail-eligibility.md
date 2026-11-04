@@ -323,20 +323,20 @@ is asked long after the exception row has scrolled out of anybody's view.
 
 ## The operator surface
 
-`/internal/retail-eligibility/*`, behind `RETAIL_OPERATOR_OXY_USER_IDS` — a
-**FIFTH** allow-list beside payments, catalog, guest and analytics.
+`/internal/retail-eligibility/*`, behind `retail.operate` — a **FIFTH**
+operator key beside payments, catalog, guest and analytics.
 
 Approving a resale authorization, verifying a product-safety certificate and
 **lifting a recall** is a compliance power. It is not a payments one, not a
 catalogue-curation one, not a cart-diagnostic one and not an analytics one, and
 it is the only one of the five whose misuse puts an unsafe product back on sale.
-Sharing a list would grant whichever power the operator was not vetted for.
+Sharing a key would grant whichever power the operator was not vetted for.
 
-**Empty = the router is not mounted at all** (404, never 401 — a 401 would tell
-an unauthenticated caller that a compliance surface exists on this deployment).
-That is a working configuration, and it means nobody can record a policy
-version, verify a document or raise a recall — so it must be populated before
-`mercaria_retail` carries a live order.
+**Anyone without the key gets 404** (never 401 — a 401 would tell an
+unauthenticated caller that a compliance surface exists on this deployment).
+With nobody holding it, nobody can record a policy version, verify a document
+or raise a recall — so it must be granted before `mercaria_retail` carries a
+live order.
 
 | Method | Path | What it does |
 |---|---|---|
@@ -358,7 +358,6 @@ version, verify a document or raise a recall — so it must be populated before
 ## Environment
 
 ```
-RETAIL_OPERATOR_OXY_USER_IDS=          # empty = the surface is not mounted (404)
 RETAIL_EVIDENCE_EXPIRY_HORIZON_DAYS=30 # how far ahead the expiry dashboard looks
 ```
 
@@ -379,8 +378,8 @@ exists to make unrepresentable.
 
 Before `mercaria_retail` carries a live order:
 
-1. `RETAIL_OPERATOR_OXY_USER_IDS` populated with vetted compliance operators —
-   distinct from the payments and catalog lists.
+1. `retail.operate` granted to vetted compliance operators — distinct from the
+   people holding `payments.operate` and `catalog.operate`.
 2. A policy version published under `mercaria-retail-eligibility`, with
    `permitted_fulfilment_origin_countries` limited to the EU customs territory
    (ADR 0004 D2.9) and the launch destinations, channels, currencies, methods

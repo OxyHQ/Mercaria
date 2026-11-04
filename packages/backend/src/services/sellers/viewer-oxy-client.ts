@@ -8,8 +8,9 @@
  * visible to *this* caller is a fact about Oxy's account graph that only the
  * caller's own credential can be asked.
  *
- * So a signed-in read builds a SHORT-LIVED client bound to the request's own
- * bearer. Never `oxyClient.setTokens(...)`: the shared instance is a
+ * So a signed-in read goes through `oxyClient.withUser` — an isolated client
+ * bound to the request's own bearer, caching nothing, disposed when the read
+ * settles. Never `oxyClient.setTokens(...)`: the shared instance is a
  * module-level singleton and mutating its token per request would leak one
  * caller's session into another's concurrent read — the classic shared-mutable
  * bug, and here it would be an authentication one.
@@ -20,34 +21,14 @@
  * user asked.
  */
 
-import { OxyServices } from '@oxy.so/core';
 import type { User } from '@oxy.so/core';
 import { oxyClient } from '../../middleware/auth.js';
 import { log } from '../../lib/logger.js';
-
-/** Where the shared client points. Kept in one place so the two agree. */
-const OXY_API_URL = process.env.OXY_API_URL || 'https://api.oxy.so';
 
 /** The signed-in caller of a public read, when there is one. */
 export interface SellerProfileViewer {
   oxyUserId: string;
   accessToken: string;
-}
-
-/**
- * Build the viewer's own Oxy client, or reuse the shared anonymous one.
- *
- * A new `OxyServices` per signed-in request is deliberate and its cost is
- * stated: no SDK response cache is shared between requests, so a seller page
- * costs one identity read and one viewer-graph read. That is the price of
- * asking a viewer-scoped question with the viewer's own credential, and this
- * surface is metered on its own rate-limit bucket for it.
- */
-function clientFor(viewer: SellerProfileViewer | null): OxyServices {
-  if (!viewer) return oxyClient;
-  const client = new OxyServices({ baseURL: OXY_API_URL });
-  client.session.setAccessToken(viewer.accessToken);
-  return client;
 }
 
 /**
@@ -70,10 +51,12 @@ export async function readSellerOxyUser(
   viewer: SellerProfileViewer | null,
 ): Promise<User | null> {
   try {
-    // `cache: false` on the viewer path: a block taken thirty seconds ago must
-    // take effect on the next page load, and a five-minute TTL is long enough
-    // for the person who blocked to see the page again and believe it failed.
-    return await clientFor(viewer).users.get(oxyUserId, viewer ? { cache: false } : undefined);
+    // The viewer's read caches nothing (a user client never does): a block
+    // taken thirty seconds ago must take effect on the next page load. A
+    // signed-out read is everyone's answer and uses the shared client.
+    return viewer
+      ? await oxyClient.withUser(viewer.accessToken, (user) => user.users.get(oxyUserId))
+      : await oxyClient.users.get(oxyUserId);
   } catch (err) {
     log.general.warn({ err, oxyUserId }, '[Sellers] Oxy profile unresolvable — treated as absent');
     return null;
@@ -104,7 +87,9 @@ export async function viewerHasBlocked(
   if (!viewer) return false;
   if (viewer.oxyUserId === oxyUserId) return false;
   try {
-    const graph = await clientFor(viewer).follows.viewerGraph();
+    const graph = await oxyClient.withUser(viewer.accessToken, (user) =>
+      user.follows.viewerGraph(),
+    );
     return graph.blockedIds.includes(oxyUserId);
   } catch (err) {
     log.general.warn({ err }, '[Sellers] viewer graph unavailable — block check skipped');

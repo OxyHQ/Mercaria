@@ -176,7 +176,7 @@ count and the same `stale` count per locale.
 ## The route set is closed and read-only
 
 Three GETs on `/internal/catalog-localization`, behind
-`CATALOG_OPERATOR_OXY_USER_IDS` (empty ⇒ not mounted, 404 never 401). The
+`catalog.operate` (anyone without it gets 404, never 401). The
 omissions are the design — there is no route that settles a translation
 (governance owns that decision), requests a machine translation, recomputes a
 report (nothing is stored), or marks something stale (that would be a fourth

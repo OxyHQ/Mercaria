@@ -25,7 +25,7 @@
  * 3. **A resolution names a DECIDER, and the decider is not the submitter**
  *    (`catalog_proposals_decision_audit_check`,
  *    `catalog_proposals_decider_distinct_check`). The second is the one worth
- *    reading: a merchant who is also on the operator allow-list must not approve
+ *    reading: a merchant who also holds `catalog.operate` must not approve
  *    their own request, and the CHECK costs an operator nothing because an
  *    operator wanting to create catalogue data has the surface that owns it.
  * 4. **`catalog_review_events` is append-only against UPDATE *and* DELETE**, and

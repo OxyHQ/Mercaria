@@ -26,7 +26,7 @@ reported as clean.
 ## The alert
 
 `GET /internal/catalog-metrics/integrity`, behind
-`CATALOG_OPERATOR_OXY_USER_IDS`. There is no sweep loop in this repository: this
+`catalog.operate`. There is no sweep loop in this repository: this
 is the route a scheduled probe calls, and the cadence is `oxy-infra`'s
 configuration.
 

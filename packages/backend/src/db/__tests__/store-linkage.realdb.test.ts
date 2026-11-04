@@ -78,11 +78,21 @@ import type { StoreCaller } from '../../services/store-access.service.js';
  * undelegated session is its owner without asking (ADR 0012).
  */
 const oxyRoles = vi.hoisted(() => new Map<string, string>());
-vi.mock('../../services/oxy-account-graph.js', () => ({
-  readCallerAccountRole: async (_bearer: string, accountId: string) =>
-    oxyRoles.get(accountId) ?? null,
-  listCallerAccountRoles: async () => new Map(oxyRoles),
-}));
+vi.mock('../../middleware/auth.js', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../../middleware/auth.js')>();
+  const { overOxyClient } = await import('../../__tests__/over-oxy-client.js');
+  const { fakeAccountAccess } = await import('../../__tests__/oxy-account-access-fake.js');
+  return {
+    ...original,
+    oxyClient: overOxyClient(
+      original.oxyClient,
+      fakeAccountAccess(
+        async (_bearer: string, accountId: string) => oxyRoles.get(accountId) ?? null,
+        async () => new Map(oxyRoles),
+      ),
+    ),
+  };
+});
 
 /** A claimant in their own, undelegated session. */
 function claimantSession(oxyUserId: string): StoreCaller {
@@ -90,6 +100,7 @@ function claimantSession(oxyUserId: string): StoreCaller {
     accountId: oxyUserId,
     actorAccountId: oxyUserId,
     delegated: false,
+    sessionId: 'test-session',
     accessToken: `bearer-${oxyUserId}`,
   };
 }

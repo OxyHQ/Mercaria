@@ -12,23 +12,33 @@ import { deleteTestStores } from '../../db/__tests__/store-teardown.js';
 
 const RUN = uuidv7().slice(-12);
 const OWNER = `product-filters-${RUN}`;
-vi.mock('../../middleware/auth.js', () => ({
-  authenticateToken: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
-    req.userId = OWNER;
-    req.accessToken = 'fixture-bearer';
-    next();
-  },
-  optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) =>
-    next(),
-  oxyClient: {
-    middleware: { auth: () => (_req: unknown, res: express.Response) => res.sendStatus(401) },
-  },
-}));
-vi.mock('../../services/oxy-account-graph.js', () => ({
-  readCallerAccountRole: async (_bearer: string, account: string) =>
-    account === OWNER ? 'admin' : null,
-  listCallerAccountRoles: async () => new Map([[OWNER, 'admin']]),
-}));
+vi.mock('../../middleware/auth.js', async () => {
+  const { fakeAccountAccess } = await import('../../__tests__/oxy-account-access-fake.js');
+  const accountAccess = fakeAccountAccess(
+    async (_bearer: string, account: string) => (account === OWNER ? 'admin' : null),
+    async () => new Map([[OWNER, 'admin']]),
+  );
+  return {
+    authenticateToken: (
+      req: express.Request,
+      _res: express.Response,
+      next: express.NextFunction,
+    ) => {
+      req.userId = OWNER;
+      req.accessToken = 'fixture-bearer';
+      req.sessionId = 'test-session';
+      next();
+    },
+    optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) =>
+      next(),
+    oxyClient: {
+      ...accountAccess,
+      // No Oxy directory in this file: every profile lookup answers "not found".
+      users: { lookupMany: async (ids: string[]) => ({ found: [], missing: ids, failed: [] }) },
+      middleware: { auth: () => (_req: unknown, res: express.Response) => res.sendStatus(401) },
+    },
+  };
+});
 vi.mock('../../lib/rate-limit.js', () => ({
   makeRateLimiter:
     () => (_req: express.Request, _res: express.Response, next: express.NextFunction) =>

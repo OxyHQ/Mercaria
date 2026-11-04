@@ -287,7 +287,7 @@ that forgets to say which segment it used is the one nobody is looking at.
 because one request costs a comparison read per subject examined.
 
 **Operator:** `/internal/price-signals/*` on the SAME
-`CATALOG_OPERATOR_OXY_USER_IDS` allow-list every other catalogue surface uses —
+`catalog.operate` key every other catalogue surface uses —
 deciding what "good price" MEANS is the same power over the same graph as deciding
 which offers exist and in what order they appear. Mounted while the sweep is off
 and while nothing is published, because a deployment with no active version is
@@ -394,9 +394,9 @@ Each is a NAMED contract that fails closed, never a stub that lies.
 
 ## Production-readiness checklist
 
-1. `CATALOG_OPERATOR_OXY_USER_IDS` populated, or the operator surface is not
-   mounted and nobody can publish a policy version — which means every signal is
-   `unmeasured` forever.
+1. `catalog.operate` declared on Mercaria's Oxy application and granted to the
+   operators, or nobody can publish a policy version — which means every signal
+   is `unmeasured` forever.
 2. Publish and ACTIVATE a policy version. Empty is a working configuration and
    means no claim is ever made, which is correct and unhelpful.
 3. `PRICE_SIGNALS_PUBLIC_READS_ENABLED=true` last, and only once a policy is

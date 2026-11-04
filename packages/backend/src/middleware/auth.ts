@@ -8,7 +8,7 @@
  * that, on a match, set `req.userId = 'system'` and a `serviceApp` naming an
  * application id (`internal`) no Oxy Console grant could describe. It had ZERO
  * mounted routes — every `/internal/*` router runs `authenticateToken` plus one
- * of the `*_OPERATOR_OXY_USER_IDS` allow-lists — so it authorized nothing that
+ * of the operator application roles (`middleware/operator-authz.ts`) — so it authorized nothing that
  * anybody could reach; it was one `router.use(...)` away from authorizing
  * everything, outside grant audit, with rotation and revocation local to a
  * deployment.
@@ -35,19 +35,41 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
-import { MERCARIA_SERVICE_AUDIENCE } from '../config/oxy-identity.js';
+import {
+  MERCARIA_OXY_APP,
+  MERCARIA_SERVICE_AUDIENCE,
+  OXY_API_URL,
+} from '../config/oxy-identity.js';
 import { createAwsWorkloadCredentialProvider } from '@oxy.so/core/server/aws';
 import {
   createOptionalOxyAuth,
   createOxyAuthMiddleware,
   OxyServer,
+  type OxyAppPermissions,
   type OxyRequestUser,
 } from '@oxy.so/core/server';
 
-// Initialize Oxy client
-const OXY_API_URL = process.env.OXY_API_URL || 'https://api.oxy.so';
+/**
+ * The ONE Oxy client in this process, authenticated as Mercaria's own workload
+ * (ADR 0026/0049 — no application key, no client secret).
+ *
+ * - `applicationId` is what `requireAppPermission` asks Oxy about (the operator
+ *   desks are application roles, `middleware/operator-authz.ts`).
+ * - `serviceIdentity: 'when-anonymous'` sends session-less reads (a seller's
+ *   public profile, a batch of authors) with the workload token instead of
+ *   anonymously, so they are not charged to the shared NAT address.
+ * - `expectedAudience` is the service-token audience EVERY auth mount accepts —
+ *   `authenticateToken`, `optionalAuth`, the rate limiter and any
+ *   `middleware.auth()` — named once here rather than at each mount.
+ *
+ * Calls made AS the person behind a request go through `oxyClient.withUser`
+ * (or `asUser` + `dispose()`), never through a token set on this instance.
+ */
 export const oxyClient = new OxyServer({
   baseURL: OXY_API_URL,
+  applicationId: MERCARIA_OXY_APP,
+  serviceIdentity: 'when-anonymous',
+  expectedAudience: MERCARIA_SERVICE_AUDIENCE,
   workloadCredentials: createAwsWorkloadCredentialProvider(),
 });
 
@@ -75,8 +97,11 @@ declare global {
   namespace Express {
     interface Request {
       userId?: string;
+      sessionId?: string;
       accessToken?: string;
       user?: OxyRequestUser | null;
+      /** Set by `requireAppPermission` (`middleware/operator-authz.ts`). */
+      oxyAppPermissions?: OxyAppPermissions;
     }
   }
 }
@@ -86,7 +111,7 @@ declare global {
  * Validates JWT tokens (including service tokens) and sets req.userId, req.user, req.accessToken
  */
 export const authenticateToken = createOxyAuthMiddleware(oxyClient, {
-  auth: { debug: AUTH_DEBUG, expectedAudience: MERCARIA_SERVICE_AUDIENCE },
+  auth: { debug: AUTH_DEBUG },
 });
 
 /** Anonymous public reads stay available. A supplied bearer must verify:
@@ -94,11 +119,7 @@ export const authenticateToken = createOxyAuthMiddleware(oxyClient, {
  * authority outage is 503. All of those decisions remain inside the Oxy SDK.
  */
 const oxyOptionalAuth = createOptionalOxyAuth(oxyClient, {
-  auth: {
-    debug: AUTH_DEBUG,
-    strictOptionalBearer: true,
-    expectedAudience: MERCARIA_SERVICE_AUDIENCE,
-  },
+  auth: { debug: AUTH_DEBUG, strictOptionalBearer: true },
 });
 
 export function optionalAuth(req: Request, res: Response, next: NextFunction): void {

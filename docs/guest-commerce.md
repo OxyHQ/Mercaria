@@ -119,10 +119,10 @@ there is nothing guest-shaped to fork, and no `GuestCart` model.
   credential own commerce state). With the cart lever off, reads answer empty
   and writes get `GUEST_CART_DISABLED` (403) — but the MERGE stays available,
   because gating it would strand every cart created while it was on.
-- **`GUEST_OPERATOR_OXY_USER_IDS`** gates `/internal/guest-commerce/*`
-  (cart-merge trace by correlation id + a consistency check), a THIRD
-  allow-list beside payments and catalog for the reason those two are separate.
-  Empty = not mounted (404). Read-only: every repair is already an idempotent
+- **`guest.operate`** (an Oxy application role) gates `/internal/guest-commerce/*`
+  (cart-merge trace by correlation id + a consistency check), a THIRD operator
+  key beside payments and catalog for the reason those two are separate. Anyone
+  without it gets 404. Read-only: every repair is already an idempotent
   path a buyer drives.
 - **Frontend:** `lib/stores/guest-credential-store.ts` persists the credential
   in native SecureStore or web localStorage with server expiry and generation.

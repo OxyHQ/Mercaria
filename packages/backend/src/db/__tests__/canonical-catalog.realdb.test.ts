@@ -101,29 +101,40 @@ const { importAppFile, importUserMedia } = vi.hoisted(() => ({
   importAppFile: vi.fn(),
   importUserMedia: vi.fn(),
 }));
-vi.mock('../../capabilities/oxy-service-client.js', () => ({
-  oxyServiceClient: () => ({
-    assets: {
-      importAppFile: (...args: unknown[]) => importAppFile(...args),
-      // The application imports a gallery as ONE batch request; each item is
-      // answered by `importAppFile` above, in order, so the cases below drive both.
-      importAppFiles: async (items: { sourceUrl: string; visibility: string }[]) => {
-        const results: unknown[] = [];
-        for (const [index, item] of items.entries()) {
-          try {
-            const answer = await importAppFile(item.sourceUrl, { visibility: item.visibility });
-            results.push({ index, ok: true, ...(answer as object) });
-          } catch (error) {
-            const status = (error as { status?: number }).status ?? 500;
-            results.push({ index, ok: false, error: { status, code: 'X', message: 'refused' } });
-          }
-        }
-        return results;
-      },
-      importUserMedia: (...args: unknown[]) => importUserMedia(...args),
+vi.mock('../../middleware/auth.js', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../../middleware/auth.js')>();
+  const { overOxyClient } = await import('../../__tests__/over-oxy-client.js');
+  return {
+    ...original,
+    get oxyClient() {
+      return overOxyClient(original.oxyClient, {
+        assets: {
+          importAppFile: (...args: unknown[]) => importAppFile(...args),
+          // The application imports a gallery as ONE batch request; each item is
+          // answered by `importAppFile` above, in order, so the cases below drive both.
+          importAppFiles: async (items: { sourceUrl: string; visibility: string }[]) => {
+            const results: unknown[] = [];
+            for (const [index, item] of items.entries()) {
+              try {
+                const answer = await importAppFile(item.sourceUrl, { visibility: item.visibility });
+                results.push({ index, ok: true, ...(answer as object) });
+              } catch (error) {
+                const status = (error as { status?: number }).status ?? 500;
+                results.push({
+                  index,
+                  ok: false,
+                  error: { status, code: 'X', message: 'refused' },
+                });
+              }
+            }
+            return results;
+          },
+          importUserMedia: (...args: unknown[]) => importUserMedia(...args),
+        },
+      });
     },
-  }),
-}));
+  };
+});
 let imports = 0;
 /** The id the n-th import of this file answers (1-based). */
 function importedFileId(n: number): string {

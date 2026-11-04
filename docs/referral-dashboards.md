@@ -247,8 +247,8 @@ partner earns" figure could go in.
 ## Operator program management
 
 `/internal/referrals/programs*` and `/internal/referrals/program-versions/*`, on
-the **SAME `REFERRAL_OPERATOR_OXY_USER_IDS` allow-list** #143 and #145 use, not
-an eighth. Empty means the router is not mounted — 404, never 401.
+the **SAME `referrals.operate` key** #143 and #145 use, not
+an eighth. Anyone without it gets 404, never 401.
 
 - **"No operator can edit an active rule version in place" (#147 acceptance 4)
   is enforced by #142's repository, not by a controller check**:

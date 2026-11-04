@@ -8,7 +8,7 @@
  * final wholesale cost, so a serializer that handed it to a public surface would
  * be handing over the cost of goods. It is a distinct type rather than a
  * filtered one — the `MerchantOrder` device — and it is only reachable behind
- * the procurement operator allow-list.
+ * `procurement.operate`.
  *
  * ## Finality is DERIVED here, and has no column
  *
