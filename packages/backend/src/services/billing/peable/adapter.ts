@@ -1,5 +1,11 @@
 /** Peable executes the same Stripe billing rail; Mercaria owns its plan semantics. */
-import { type Peable, PeableError } from '@peable.to/sdk';
+import {
+  type Peable,
+  PeableAPIError,
+  PeableConnectionError,
+  PeableError,
+  PeableRateLimitError,
+} from '@peable.to/sdk';
 import { z } from 'zod';
 import { getDb } from '../../../db/postgres.js';
 import {
@@ -138,9 +144,14 @@ export class CohortBillingProvider implements BillingProvider {
           code: 'billing_result_expired',
         });
       }
+      // The outcome is UNKNOWN — the caller retries its own intent key — when no
+      // answer arrived (a lost or timed-out response), the gateway failed, it
+      // throttled, or the same key is still in flight.
       const retryable =
-        error instanceof PeableError &&
-        (error.type === 'api_error' || error.statusCode === 429 || error.code === 'in_progress');
+        error instanceof PeableConnectionError ||
+        error instanceof PeableAPIError ||
+        error instanceof PeableRateLimitError ||
+        (error instanceof PeableError && error.code === 'in_progress');
       // Never propagate an upstream message/cause: hosted URLs and secrets must not enter route logs.
       throw new BillingProviderError({
         provider: 'stripe',
