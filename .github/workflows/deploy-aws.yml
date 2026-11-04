@@ -488,7 +488,7 @@ jobs:
                    # value, so a release removes the entry an earlier revision
                    # still carries instead of rendering it forward forever.
                    # MERCHANT_BILLING_PEABLE_COHORT routed merchant billing
-                   # through Peable's retired Stripe-Billing proxy; billing is
+                   # through the retired Peable Stripe-Billing proxy; billing is
                    # native Peable now and nothing reads it.
                    | .environment = (
                        ((.environment // []) | map(select(
