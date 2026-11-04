@@ -76,12 +76,15 @@ ADR 0001 already insists has exactly one.
 
 ### D15. Mercaria keeps its Stripe platform account — it is registered inside Peable
 
-**2026-10-03 amendment for the approved I08 billing cohort:** Peable uses the
-same existing platform Stripe account/mode as Mercaria, configured server-side.
-No `provider_connections` row or merchant-supplied credential is introduced:
-that earlier proposed mechanism conflicts with Peable ADR 0009. This amendment
-preserves the existing Mercaria flow/MoR and does not decide other merchants'
-commercial model. [Cohort contract and activation gates](../integrations/i08-billing-cohort.md).
+**2026-11-04: the I08 billing cohort (2026-10-03 amendment) is retired.** It
+routed merchant subscriptions through Peable's Stripe-Billing proxy on
+Mercaria's own Stripe platform account, with Mercaria still holding that
+account's secret key to verify the cohort. It never carried a subscription:
+read-only checks of that account found no subscription, customer, invoice,
+charge or connected account, and Peable retired the proxy. Merchant
+subscriptions are now native Orbit subscriptions (see D17) and Mercaria holds
+no Stripe credential for them. No `provider_connections` row or
+merchant-supplied credential was ever introduced.
 
 The former `provider_connections` description is historical, not an implemented
 or approved credential model.
@@ -94,9 +97,8 @@ application` that separate charges and transfers forces. Nothing about
 Mercaria's legal position changes, which is why this ADR does not reopen D1 and
 does not need a legal review to ship.
 
-Full removal of direct Stripe access remains a later verified transition. The
-I08 cohort still needs the existing webhook and read paths; no credential or
-financial history is deleted as a side effect of installing the adapter.
+Full removal of direct Stripe access remains a later verified transition for the
+marketplace rail (D13); merchant billing no longer uses it.
 
 ### D16. `getStatus` becomes real, because the read path stops bypassing the port
 
@@ -121,11 +123,12 @@ Recorded so the other two are decisions rather than oversights.
 |---|---|---|
 | Marketplace payments | `services/payments/**` | **This ADR.** |
 | Referral payouts | `services/referral-payouts/rail.ts` → `createStripeTransfer` | **Moves with the settlement work.** It transfers to connected accounts that become Peable's; leaving it behind does not keep it working, it breaks it. |
-| Merchant subscriptions | `services/billing/stripe/**` (#89) | **Transitions by an explicit I08 cohort** through Peable SDK billing, preserving the same Stripe platform account. Outside the cohort, the legacy adapter remains. Stripe webhook projection, invoice settlement reads and first-subscription customer classification remain transitional here; they are not a second mutator for the cohort. It books `subscription_revenue`, which ADR 0001 D3's commission residual deliberately does not touch, so the ledger is unaffected either way. |
+| Merchant subscriptions | `services/billing/peable/**` (#89) | **Moved (2026-11-04).** Native subscriptions of Peable's billing engine (Peable ADR 0018) on Mercaria's own Peable merchant: a Checkout Session in `mode: 'subscription'`, Peable's customer portal, `cancel_at_period_end`, and `customer.subscription.*` / `invoice.*` events on `/webhooks/peable`. The Stripe Billing adapter, the I08 cohort and its Stripe reader are deleted; Mercaria holds no credential for billing. It books `subscription_revenue`, which ADR 0001 D3's commission residual deliberately does not touch. |
 
-The exception has a cost and it is named: until billing moves, this repository
-still holds a Stripe secret key and a Stripe SDK for one purpose. "Everything
-goes through Peable" is not true of Mercaria until that is closed.
+Billing has moved, so no deployed Mercaria task needs a Stripe credential: the
+Stripe marketplace rail is off in production (`STRIPE_ENABLED` unset) and its
+code stays only until D13 removes it once the Peable rail is verified end to
+end.
 
 ### D18. What a new rail has to prove before it carries money
 

@@ -9,14 +9,13 @@
  * transaction an operator decided on, and a function that derived one from what
  * is stored would make the correction a function of the mistake.
  *
- * ## Booked in the currency the money LANDED in
+ * ## What the rail tells it, and what it does not
  *
- * #47's rule, and it applies unchanged: the platform balance moves in Stripe's
- * settlement currency, which is not always the invoice's. Reading `net` and
- * `fee` off the balance transaction is what makes `provider_clearing` a real
- * account balance rather than a running total of amounts that were charged
- * somewhere. `gross = net + fee` by construction, so the transaction cannot fail
- * to balance for an arithmetic reason.
+ * The caller supplies `net` and `fee` in one currency, and `gross = net + fee`
+ * by construction, so the transaction cannot fail to balance for an arithmetic
+ * reason. On Peable's native engine the caller has the invoice's paid amount
+ * and no settlement detail, so it books that amount as `net` with a zero fee —
+ * the stated fee gap in `peable/events.ts` — rather than inventing a figure.
  *
  * ## The fee leg is OMITTED when there is no fee
  *

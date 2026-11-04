@@ -55,8 +55,9 @@ open for final CI and deployment/adoption acceptance.
 Production credentials cannot impersonate a test merchant. SDK publication and
 readiness do not establish a usable commercial or test cohort. Keep config absent
 until namespace/binding gates are satisfied; no automatic legacy fallback for a
-configured cohort. A flag-off rollback preserves its durable ownership/routing
-configuration as described in `i08-billing-cohort.md`.
+configured cohort. **Superseded 2026-11-04:** the billing cohort was retired before it carried a
+subscription — merchant billing runs on Peable's native engine with no Stripe
+credential in Mercaria (`docs/merchant-plans.md`, ADR 0009 D17).
 
 ## Review regressions
 

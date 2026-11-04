@@ -29,8 +29,6 @@
  * endpoint Stripe keeps retrying into a 400 and eventually disables.
  */
 
-import { STRIPE_BILLING_EVENT_TYPES } from '../../billing/stripe/subscription-events.js';
-
 /** Which of the two endpoints a delivery arrived at. */
 export type StripeWebhookScope = 'platform' | 'connect';
 
@@ -75,18 +73,15 @@ export const STRIPE_CONNECT_EVENT_TYPES: readonly string[] = [
 /**
  * Everything the PLATFORM endpoint is subscribed to on this deployment.
  *
- * ADR 0001's list plus #89's merchant-billing types, and the union rather than a
- * widened `STRIPE_PLATFORM_EVENT_TYPES` on purpose: the ADR's list is
- * transcribed by hand in a test and its value is that it can be checked against
- * the ADR, which a list somebody has since appended to cannot be. #89's four are
- * a later decision recorded in their own tuple, in the domain that consumes
- * them.
+ * ADR 0001's list, exactly. Merchant subscription billing (#89) is not a Stripe
+ * concern: it runs on Peable's native engine and its events arrive at
+ * `/webhooks/peable`.
  *
  * This is also what gets typed into the Stripe dashboard when the platform
  * endpoint is registered.
  */
 export function platformScopeEventTypes(): readonly string[] {
-  return [...STRIPE_PLATFORM_EVENT_TYPES, ...STRIPE_BILLING_EVENT_TYPES];
+  return [...STRIPE_PLATFORM_EVENT_TYPES];
 }
 
 /**

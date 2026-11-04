@@ -128,7 +128,7 @@ export async function createMerchantPlanPriceHandler(req: Request, res: Response
     const body = req.body as MerchantPlanPriceCreateBody;
     const row = await insertMerchantPlanPrice(getDb(), {
       planId: routeParam(req, 'id'),
-      provider: 'stripe',
+      provider: 'peable',
       livemode: body.livemode,
       interval: body.interval,
       unitPrice: { amount: body.amount, currency: body.currency },

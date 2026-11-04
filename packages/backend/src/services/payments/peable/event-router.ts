@@ -50,6 +50,7 @@ import { log } from '../../../lib/logger.js';
 import { PaymentProviderError } from '../provider.js';
 import { applyPaymentStatus, canTransitionPaymentStatus } from '../payment.service.js';
 import { resolvePaymentProvider } from '../registry.js';
+import { PEABLE_BILLING_EVENT_HANDLERS } from '../../billing/peable/events.js';
 import { isPeablePaymentEvent, PAYMENT_STATUS_FOR_EVENT } from './verify.js';
 
 /** What a handler is given, built from the stored row. */
@@ -210,10 +211,13 @@ export type PeableEventHandler = (context: PeableEventContext) => Promise<Peable
  * Derived from `PAYMENT_STATUS_FOR_EVENT` rather than restated, so the map the
  * VERIFIER uses to annotate an envelope and the map the ROUTER acts on cannot
  * disagree — the same class of drift that made the ledger audit stop covering
- * this rail. A type absent from that table has no handler here, and the drain
- * stores it as evidence.
+ * this rail. Merchant billing's subscription and invoice types (#89) come from
+ * `billing/peable/events.ts`. A type in neither has no handler here, and the
+ * drain stores it as evidence.
  */
 export function routePeableEvent(type: string): PeableEventHandler | undefined {
+  if (Object.hasOwn(PEABLE_BILLING_EVENT_HANDLERS, type))
+    return PEABLE_BILLING_EVENT_HANDLERS[type];
   if (!isPeablePaymentEvent(type)) return undefined;
   const asserted = PAYMENT_STATUS_FOR_EVENT[type];
   return async (context) => await applyIntentEvent(context, asserted);

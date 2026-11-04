@@ -40,7 +40,6 @@ import { parseThreeDSecureThresholds } from '../services/payments/stripe/three-d
 import { parseHighValueHoldThresholds } from '../services/payments/high-value-hold.js';
 import { join } from 'node:path';
 import { log } from '../lib/logger.js';
-import { parseBillingCohort } from '../services/billing/cohort-config.js';
 
 /**
  * Parse an integer environment variable, falling back to `fallback` when the
@@ -450,18 +449,14 @@ function resolveMercariaRetailEnabled(): boolean {
   return false;
 }
 
-/** Explicit billing-only namespace, independent of marketplace/Connect activation. */
-function resolveBillingCohortConfigured(): boolean {
-  const cohort = parseBillingCohort(strEnv('MERCHANT_BILLING_PEABLE_COHORT', ''));
-  if (!cohort) return false;
-  const key = strEnv('STRIPE_SECRET_KEY', '');
-  return (
-    /^sk_(?:live|test)_[A-Za-z0-9]+$/.test(key) &&
-    key.startsWith('sk_live_') === cohort.livemode &&
-    // Peable is reached as Mercaria's own Oxy workload identity, never a key
-    // pair of its own, so there is no credential of its own to require here.
-    strEnv('STRIPE_WEBHOOK_SECRET', '') !== ''
-  );
+/**
+ * Whether this deployment can hear Peable at all: a webhook secret to verify its
+ * deliveries with. The payment rail (`PEABLE_ENABLED`) requires it, and merchant
+ * billing needs nothing else — Mercaria reaches the gateway as its own Oxy
+ * workload identity, with no credential of its own (Peable ADR 0018).
+ */
+function resolvePeableWebhooksConfigured(): boolean {
+  return strEnv('PEABLE_WEBHOOK_SECRET', '') !== '';
 }
 
 /**
@@ -487,12 +482,10 @@ function resolveBillingCohortConfigured(): boolean {
 function resolveMerchantBillingEnabled(): boolean {
   if (!boolEnv('MERCHANT_BILLING_ENABLED', false)) return false;
 
-  if (resolveStripeEnabled() || resolveBillingCohortConfigured()) return true;
+  if (resolvePeableWebhooksConfigured()) return true;
 
   log.general.error(
-    {
-      missing: ['STRIPE_ENABLED or a complete MERCHANT_BILLING_PEABLE_COHORT'],
-    },
+    { missing: ['PEABLE_WEBHOOK_SECRET'] },
     '[MerchantBilling] MERCHANT_BILLING_ENABLED is set but no billing rail is configured; ' +
       'staying OFF. Entitlements, existing subscriptions and provider events are unaffected — ' +
       'this flag gates starting or managing a paid plan only.',
@@ -1359,6 +1352,13 @@ export interface PeableConfig {
    * forgery.
    */
   readonly webhookSecretPrevious?: string;
+  /**
+   * Whether `/webhooks/peable` is mounted and its drain runs: a webhook secret
+   * is configured. True whenever `enabled` is, and also on a deployment that
+   * uses Peable only for merchant billing (#89), whose subscription and invoice
+   * events arrive on the same endpoint.
+   */
+  readonly webhooksEnabled: boolean;
   /** Derived from the environment, never configured. */
   readonly livemode: boolean;
   /**
@@ -3942,8 +3942,6 @@ export interface ConnectorsConfig {
  * and their invoices book to the ledger whatever both say.
  */
 export interface MerchantBillingConfig {
-  /** Durable routing cohort; independent of the new-action enabled flag. Validated at billing registration. */
-  readonly peableCohortJson: string;
   /** May a merchant start or manage a PAID plan — see `resolveMerchantBillingEnabled`. */
   readonly enabled: boolean;
   /**
@@ -4391,6 +4389,7 @@ export const config: AppConfig = Object.freeze({
       /** The gateway's origin, no trailing slash. */
       baseUrl: strEnv('PEABLE_BASE_URL', 'https://api.peable.to').replace(/\/+$/, ''),
       webhookSecret: strEnv('PEABLE_WEBHOOK_SECRET', ''),
+      webhooksEnabled: resolvePeableWebhooksConfigured(),
       // Spread-when-present, like Stripe's rotation secrets: absent rather than
       // `''`, so the verifier iterates the secrets it actually has instead of
       // computing an HMAC against an empty key that can never match.
@@ -4691,11 +4690,6 @@ export const config: AppConfig = Object.freeze({
     pollIntervalMs: intEnv('RETAIL_RECONCILIATION_POLL_INTERVAL_MS', 60_000),
   }),
   merchantBilling: Object.freeze({
-    peableCohortJson: (() => {
-      const raw = strEnv('MERCHANT_BILLING_PEABLE_COHORT', '');
-      parseBillingCohort(raw);
-      return raw;
-    })(),
     enabled: resolveMerchantBillingEnabled(),
     reconciliationEnabled: boolEnv('MERCHANT_SUBSCRIPTION_RECONCILIATION_ENABLED', true),
     reconciliationIntervalMs: intEnv(

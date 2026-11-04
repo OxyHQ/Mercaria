@@ -18,11 +18,11 @@
  *
  * ## The gate is the RAIL
  *
- * It simply does not run when Peable is off, because in that state no route is
- * mounted, no event can have been stored, and there is nothing to park. The
- * gating decision lives in one place, `config.payments.peable.enabled`, which is
- * itself a conjunction of the flag and every secret the rail cannot work
- * without.
+ * It simply does not run when no Peable webhook secret is configured, because
+ * in that state no route is mounted, no event can have been stored, and there
+ * is nothing to park. The gating decision lives in one place,
+ * `config.payments.peable.webhooksEnabled` — the same one the mount reads —
+ * which covers both the payment rail and merchant billing (#89).
  */
 
 import { config } from '../../../config/index.js';
@@ -57,7 +57,7 @@ async function tick(): Promise<void> {
 /** Begin draining. Idempotent — a second call is a no-op. */
 export function startPeableEventDispatcher(): void {
   if (timer !== undefined) return;
-  if (!config.payments.peable.enabled) return;
+  if (!config.payments.peable.webhooksEnabled) return;
 
   timer = setInterval(() => {
     void tick();

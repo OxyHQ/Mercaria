@@ -20,7 +20,7 @@
  * still propagates instead of being read as a duplicate.
  */
 
-import { and, asc, desc, eq, inArray, isNotNull, lte, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, isNotNull, lte, sql } from 'drizzle-orm';
 import type {
   BillingInterval,
   BillingProviderId,
@@ -430,7 +430,6 @@ export async function listReconcilableSubscriptions(
     afterId?: string;
     provider: BillingProviderId;
     livemode: boolean;
-    storeIds?: readonly string[];
   },
 ): Promise<MerchantSubscriptionRow[]> {
   return await db
@@ -441,7 +440,6 @@ export async function listReconcilableSubscriptions(
         sql`${merchantSubscriptions.status} <> 'expired'`,
         eq(merchantSubscriptions.provider, input.provider),
         eq(merchantSubscriptions.livemode, input.livemode),
-        ...(input.storeIds ? [inArray(merchantSubscriptions.storeId, [...input.storeIds])] : []),
         ...(input.afterId ? [sql`${merchantSubscriptions.id} > ${input.afterId}`] : []),
       ),
     )

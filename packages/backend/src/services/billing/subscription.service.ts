@@ -53,7 +53,7 @@ import {
 } from '../../db/schema/merchantPlans.js';
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
 import { log } from '../../lib/logger.js';
-import { merchantBillingAvailableForStore, registeredBillingCohort } from './cohort-access.js';
+import { merchantBillingAvailable } from './availability.js';
 import { config } from '../../config/index.js';
 import { getDb } from '../../db/postgres.js';
 import {
@@ -87,13 +87,10 @@ import {
 } from './provider.js';
 import { subscriptionInvoicePaidEntries, type SubscriptionSettlement } from './ledger-postings.js';
 
-/** Reject before acceptance/customer effects; replay belongs to a user intent. */
-function requireIntent(provider: BillingProvider, storeId: string, key?: string): void {
+/** Reject a malformed intent key before acceptance/customer effects. */
+function requireIntent(key?: string): void {
   if (key !== undefined && !/^[A-Za-z0-9:_-]{8,200}$/.test(key))
     throw validationError('Invalid Idempotency-Key.');
-  if (provider.requiresExplicitIntent?.(storeId) && !key) {
-    throw validationError('A stable Idempotency-Key is required for this billing action.');
-  }
 }
 
 /** A day, for the grace arithmetic. */
@@ -109,7 +106,7 @@ class SubscriptionInvoiceAlreadyBooked extends Error {}
 
 /** The rail this deployment charges subscriptions on, or a refusal. */
 function requireBillingProvider(): BillingProvider {
-  const provider = getBillingProvider('stripe');
+  const provider = getBillingProvider('peable');
   if (!provider) {
     throw conflict('Subscription billing is not configured on this deployment.');
   }
@@ -148,11 +145,11 @@ export interface StartMerchantPlanCheckoutInput {
 export async function startMerchantPlanCheckout(
   input: StartMerchantPlanCheckoutInput,
 ): Promise<MerchantBillingSessionView> {
-  if (!merchantBillingAvailableForStore(input.storeId)) {
+  if (!merchantBillingAvailable()) {
     throw conflict('Paid plans are not available on this deployment.');
   }
   const provider = requireBillingProvider();
-  requireIntent(provider, input.storeId, input.idempotencyKey);
+  requireIntent(input.idempotencyKey);
   const returnUrl = requireReturnUrl();
   const db = getDb();
 
@@ -226,11 +223,11 @@ export async function openMerchantBillingPortal(input: {
   storeId: string;
   idempotencyKey?: string;
 }): Promise<MerchantBillingSessionView> {
-  if (!merchantBillingAvailableForStore(input.storeId)) {
+  if (!merchantBillingAvailable()) {
     throw conflict('Paid plans are not available on this deployment.');
   }
   const provider = requireBillingProvider();
-  requireIntent(provider, input.storeId, input.idempotencyKey);
+  requireIntent(input.idempotencyKey);
   const returnUrl = requireReturnUrl();
   const customer = await findBillingCustomer(getDb(), {
     storeId: input.storeId,
@@ -261,11 +258,11 @@ export async function scheduleMerchantSubscriptionCancellation(input: {
   idempotencyKey?: string;
   actorOxyUserId: string;
 }): Promise<MerchantSubscriptionRow> {
-  if (!merchantBillingAvailableForStore(input.storeId)) {
+  if (!merchantBillingAvailable()) {
     throw conflict('Paid plans are not available on this deployment.');
   }
   const provider = requireBillingProvider();
-  requireIntent(provider, input.storeId, input.idempotencyKey);
+  requireIntent(input.idempotencyKey);
   const subscription = await findSubscriptionByStore(getDb(), input.storeId);
   if (!subscription) throw notFound('This store has no subscription to cancel.');
   if (subscription.status === 'expired') {
@@ -333,21 +330,21 @@ export async function applyProviderSubscriptionState(input: {
   const snapshot = input.snapshot;
 
   const customer = await findBillingCustomerByProviderId(db, {
-    provider: 'stripe',
+    provider: 'peable',
     livemode: snapshot.livemode,
     providerCustomerId: snapshot.providerCustomerId,
   });
   if (!customer) return { outcome: 'unknown_customer' };
 
   const plan = await findMerchantPlanByProviderPrice(db, {
-    provider: 'stripe',
+    provider: 'peable',
     livemode: snapshot.livemode,
     providerPriceId: snapshot.providerPriceId,
   });
   if (!plan) return { outcome: 'unknown_price' };
 
   const existing = await findSubscriptionByProviderId(db, {
-    provider: 'stripe',
+    provider: 'peable',
     livemode: snapshot.livemode,
     providerSubscriptionId: snapshot.providerSubscriptionId,
   });
@@ -364,7 +361,7 @@ export async function applyProviderSubscriptionState(input: {
       storeId: customer.storeId,
       planId: plan.id,
       billingCustomerId: customer.id,
-      provider: 'stripe',
+      provider: 'peable',
       livemode: snapshot.livemode,
       providerSubscriptionId: snapshot.providerSubscriptionId,
       status: snapshot.status,
@@ -636,11 +633,9 @@ export async function reconcileMerchantSubscriptions(input?: {
   limit?: number;
   afterId?: string;
 }): Promise<{ examined: number; applied: number; failed: number; nextAfterId: string | null }> {
-  const provider = getBillingProvider('stripe');
+  const provider = getBillingProvider('peable');
   const empty = { examined: 0, applied: 0, failed: 0, nextAfterId: null };
   if (!provider) return empty;
-  const cohort = config.payments.stripe.enabled ? undefined : registeredBillingCohort();
-  if (!config.payments.stripe.enabled && !cohort) return empty;
 
   const limit = input?.limit ?? config.merchantBilling.reconciliationBatchSize;
   const page = await listReconcilableSubscriptions(getDb(), {
@@ -648,7 +643,6 @@ export async function reconcileMerchantSubscriptions(input?: {
     afterId: input?.afterId,
     provider: provider.id,
     livemode: provider.livemode,
-    ...(cohort ? { storeIds: cohort.storeIds } : {}),
   });
 
   let applied = 0;

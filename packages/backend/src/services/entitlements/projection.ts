@@ -36,7 +36,7 @@ import type {
   MerchantPlanStatusView,
   MerchantSubscriptionView,
 } from '@mercaria/shared-types';
-import { merchantBillingAvailableForStore } from '../billing/cohort-access.js';
+import { merchantBillingAvailable } from '../billing/availability.js';
 import { config } from '../../config/index.js';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import {
@@ -58,7 +58,7 @@ import { resolveMerchantEntitlements } from './resolve.js';
 
 /** Which billing MODE this deployment's prices are published in. */
 function billingLivemode(): boolean {
-  return config.payments.stripe.livemode;
+  return config.payments.peable.livemode;
 }
 
 /**
@@ -145,7 +145,7 @@ export async function buildMerchantPlanStatus(input: {
   const resolved = await resolveMerchantEntitlements(input.storeId, { at, fresh: true, db });
   const subscription = await findSubscriptionByStore(db, input.storeId);
 
-  const provider = getBillingProvider('stripe');
+  const provider = getBillingProvider('peable');
   const customer = provider
     ? await findBillingCustomer(db, {
         storeId: input.storeId,
@@ -197,8 +197,8 @@ export async function buildMerchantPlanStatus(input: {
     effectivePlanKey: resolved.planKey,
     effectivePlanVersion: resolved.planVersion,
     entitlements,
-    billingAvailable: merchantBillingAvailableForStore(input.storeId),
-    portalAvailable: merchantBillingAvailableForStore(input.storeId) && customer !== undefined,
+    billingAvailable: merchantBillingAvailable(),
+    portalAvailable: merchantBillingAvailable() && customer !== undefined,
   };
 }
 

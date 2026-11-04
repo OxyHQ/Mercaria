@@ -197,7 +197,7 @@ describe('plan versions are immutable once active', () => {
     await expectPgRejection(
       insertMerchantPlanPrice(db, {
         planId: plan.id,
-        provider: 'stripe',
+        provider: 'peable',
         livemode: false,
         interval: 'monthly',
         unitPrice: { amount: 1_000, currency: 'EUR' },
@@ -347,7 +347,7 @@ describe('a subscription cannot be past due without a deadline', () => {
     const plan = await draftPlan({ label: 'grace-check', gracePeriodDays: 7 });
     const customer = await ensureBillingCustomer(db, {
       storeId,
-      provider: 'stripe',
+      provider: 'peable',
       livemode: false,
       providerCustomerId: `cus_${RUN}_grace`,
     });
@@ -356,7 +356,7 @@ describe('a subscription cannot be past due without a deadline', () => {
         storeId,
         planId: plan.id,
         billingCustomerId: customer.row.id,
-        provider: 'stripe',
+        provider: 'peable',
         livemode: false,
         providerSubscriptionId: `sub_${RUN}_grace`,
         status: 'past_due',
@@ -376,7 +376,7 @@ describe('a provider event is applied exactly once', () => {
     const plan = await draftPlan({ label: 'dedupe' });
     const customer = await ensureBillingCustomer(db, {
       storeId,
-      provider: 'stripe',
+      provider: 'peable',
       livemode: false,
       providerCustomerId: `cus_${RUN}_dedupe`,
     });
@@ -384,7 +384,7 @@ describe('a provider event is applied exactly once', () => {
       storeId,
       planId: plan.id,
       billingCustomerId: customer.row.id,
-      provider: 'stripe',
+      provider: 'peable',
       livemode: false,
       providerSubscriptionId: `sub_${RUN}_dedupe`,
       status: 'active',
@@ -423,7 +423,7 @@ describe('a provider event is applied exactly once', () => {
     const plan = await draftPlan({ label: 'append-only' });
     const customer = await ensureBillingCustomer(db, {
       storeId,
-      provider: 'stripe',
+      provider: 'peable',
       livemode: false,
       providerCustomerId: `cus_${RUN}_append`,
     });
@@ -431,7 +431,7 @@ describe('a provider event is applied exactly once', () => {
       storeId,
       planId: plan.id,
       billingCustomerId: customer.row.id,
-      provider: 'stripe',
+      provider: 'peable',
       livemode: false,
       providerSubscriptionId: `sub_${RUN}_append`,
       status: 'active',
@@ -580,7 +580,7 @@ describe('resolution: what a store is actually entitled to', () => {
 
     const customer = await ensureBillingCustomer(db, {
       storeId,
-      provider: 'stripe',
+      provider: 'peable',
       livemode: false,
       providerCustomerId: `cus_${RUN}_window`,
     });
@@ -588,7 +588,7 @@ describe('resolution: what a store is actually entitled to', () => {
       storeId,
       planId: paid.id,
       billingCustomerId: customer.row.id,
-      provider: 'stripe',
+      provider: 'peable',
       livemode: false,
       providerSubscriptionId: `sub_${RUN}_window`,
       status: 'active',
@@ -634,7 +634,7 @@ describe('resolution: what a store is actually entitled to', () => {
     await activateMerchantPlan(db, { id: paid.id, approvedByOxyUserId: `oxy-${RUN}` });
     const customer = await ensureBillingCustomer(db, {
       storeId,
-      provider: 'stripe',
+      provider: 'peable',
       livemode: false,
       providerCustomerId: `cus_${RUN}_generous`,
     });
@@ -642,7 +642,7 @@ describe('resolution: what a store is actually entitled to', () => {
       storeId,
       planId: paid.id,
       billingCustomerId: customer.row.id,
-      provider: 'stripe',
+      provider: 'peable',
       livemode: false,
       providerSubscriptionId: `sub_${RUN}_generous`,
       status: 'active',
@@ -717,7 +717,7 @@ describe('a provider price maps back to exactly one plan version', () => {
     const priceId = `price_${RUN}_map`;
     await insertMerchantPlanPrice(db, {
       planId: plan.id,
-      provider: 'stripe',
+      provider: 'peable',
       livemode: false,
       interval: 'monthly',
       unitPrice: { amount: 2_900, currency: 'EUR' },
@@ -725,7 +725,7 @@ describe('a provider price maps back to exactly one plan version', () => {
     });
 
     const found = await findMerchantPlanByProviderPrice(db, {
-      provider: 'stripe',
+      provider: 'peable',
       livemode: false,
       providerPriceId: priceId,
     });
@@ -735,7 +735,7 @@ describe('a provider price maps back to exactly one plan version', () => {
     // nothing — which is what stops a test-mode subscription being recorded
     // against a live plan.
     const wrongMode = await findMerchantPlanByProviderPrice(db, {
-      provider: 'stripe',
+      provider: 'peable',
       livemode: true,
       providerPriceId: priceId,
     });
@@ -755,7 +755,7 @@ describe('the grace announcement is idempotent', () => {
     const plan = await draftPlan({ label: 'grace-announce', gracePeriodDays: 3 });
     const customer = await ensureBillingCustomer(db, {
       storeId,
-      provider: 'stripe',
+      provider: 'peable',
       livemode: false,
       providerCustomerId: `cus_${RUN}_announce`,
     });
@@ -763,7 +763,7 @@ describe('the grace announcement is idempotent', () => {
       storeId,
       planId: plan.id,
       billingCustomerId: customer.row.id,
-      provider: 'stripe',
+      provider: 'peable',
       livemode: false,
       providerSubscriptionId: `sub_${RUN}_announce`,
       status: 'active',
