@@ -48,6 +48,7 @@
     "validate:no-content-revert": "bun ./scripts/validate-no-content-revert.mjs",
     "validate:no-content-revert-controls": "bun ./scripts/test-validate-no-content-revert.mjs",
     "doctor:oxy": "oxy-doctor --ci",
+    "i18n:check": "oxy-doctor-i18n --ci",
     "android": "bun run --filter @mercaria/frontend android",
     "ios": "bun run --filter @mercaria/frontend ios",
     "web": "bun run --filter @mercaria/frontend web",
@@ -68,7 +69,7 @@
   "author": "",
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
-    "@oxy.so/doctor": "1.5.0",
+    "@oxy.so/doctor": "1.6.1",
     "@playwright/test": "1.64.0",
     "typescript": "^5.9.3"
   },
