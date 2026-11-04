@@ -44,13 +44,6 @@
       "expo-secure-store",
       "expo-web-browser",
       "expo-asset",
-      "@oxy.so/services/plugins/withOxySharedPermissions",
-      [
-        "expo-build-properties",
-        {
-          "android": { "gifEnabled": false, "webpEnabled": false }
-        }
-      ],
       "expo-notifications",
       [
         "@stripe/stripe-react-native",
@@ -74,6 +67,12 @@
           "iosBackgroundMode": false,
           "androidForegroundService": false,
           "androidPermissions": ["android.permission.RECORD_AUDIO"]
+        }
+      ],
+      [
+        "@oxy.so/app-preset",
+        {
+          "android": { "gifEnabled": false, "webpEnabled": false }
         }
       ]
     ],

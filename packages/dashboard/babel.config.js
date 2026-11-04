@@ -1,26 +1,6 @@
-module.exports = (api) => {
-  api.cache(true);
-  return {
-    presets: [
-      [
-        'babel-preset-expo',
-        {
-          unstable_transformImportMeta: true,
-        },
-      ],
-    ],
-    plugins: [
-      [
-        'module-resolver',
-        {
-          root: ['./'],
-          alias: { '@': './' },
-          extensions: ['.ts', '.tsx', '.js', '.jsx', '.json', '.svg'],
-        },
-      ],
-      '@babel/plugin-syntax-dynamic-import',
-      '@babel/plugin-transform-export-namespace-from',
-      'react-native-worklets/plugin',
-    ],
-  };
-};
+// The Oxy Babel config (@oxy.so/app-preset/babel): bare `babel-preset-expo` in
+// development, so Expo's oxc transformer runs, and the build-id inliner that
+// busts @oxy.so/services' persisted caches in production. `@/` resolves from
+// tsconfig.json `paths`; babel-preset-expo adds the worklets plugin and the
+// `import.meta` transform itself.
+module.exports = require('@oxy.so/app-preset/babel');

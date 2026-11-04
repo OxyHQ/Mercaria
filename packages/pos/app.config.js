@@ -38,11 +38,13 @@ module.exports = {
       'expo-secure-store',
       'expo-web-browser',
       'expo-asset',
-      '@oxy.so/services/plugins/withOxySharedPermissions',
-      // Drops React Native's GIF/WebP decoders from the Android build (Expo SDK 58+):
-      // nothing here renders an image through react-native's own Image — app
-      // images, @mercaria/ui, Bloom and @oxy.so/services all draw with expo-image.
-      ['expo-build-properties', { android: { gifEnabled: false, webpEnabled: false } }],
+      // The Oxy config plugin: the shared keychain group, the Oxy build
+      // properties, withOxySharedPermissions (and its ecosystem release
+      // signing). `gifEnabled`/`webpEnabled: false` drop React Native's GIF/WebP
+      // decoders from the Android build: nothing here renders an image through
+      // react-native's own Image — app images, @mercaria/ui, Bloom and
+      // @oxy.so/services all draw with expo-image.
+      ['@oxy.so/app-preset', { android: { gifEnabled: false, webpEnabled: false } }],
       // Native OS splash (Oxy family "Instagram, from Meta" pattern): Mercaria's
       // own logo (white on transparent) centered on the dark brand background,
       // with the shared Oxy symbol pinned to the bottom. `oxySplashScreenPlugin`
