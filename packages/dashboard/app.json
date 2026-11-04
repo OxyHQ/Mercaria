@@ -41,9 +41,8 @@
       "expo-secure-store",
       "expo-web-browser",
       "expo-asset",
-      "@oxy.so/services/plugins/withOxySharedPermissions",
       [
-        "expo-build-properties",
+        "@oxy.so/app-preset",
         {
           "android": { "gifEnabled": false, "webpEnabled": false }
         }
