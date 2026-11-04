@@ -27,7 +27,7 @@
   },
   "dependencies": {
     "@aws-sdk/credential-provider-node": "^3.972.84",
-    "@clarity.surf/sdk": "0.10.0",
+    "@clarity.surf/sdk": "0.11.0",
     "@crowdsource.you/contracts": "1.1.1",
     "@crowdsource.you/core": "3.1.0",
     "@goway.to/sdk": "0.3.0",
