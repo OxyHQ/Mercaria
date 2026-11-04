@@ -10,7 +10,6 @@ import Animated, {
   useAnimatedReaction,
   useAnimatedStyle,
   useFrameCallback,
-  useReducedMotion,
   useSharedValue,
   withTiming,
   type SharedValue,
@@ -19,6 +18,7 @@ import { PriceDisplay, Text, type ProductSummary } from '@mercaria/ui';
 import type { StoreSummary } from '@mercaria/shared-types';
 import { MercariaWordmark } from '@/components/ui/mercaria-wordmark';
 import { ShoppingComposer } from './ShoppingComposer';
+import { usePrefersReducedMotion } from '@oxy.so/bloom/hooks';
 
 const CYCLE_MS = 7000;
 
@@ -129,7 +129,7 @@ export function HeroSearch({
   const [cycle, setCycle] = useState(0);
   const stage = useRef<ComponentRef<typeof View>>(null);
   const search = useRef<ComponentRef<typeof View>>(null);
-  const reduced = useReducedMotion();
+  const reduced = usePrefersReducedMotion();
   const clock = useSharedValue(CYCLE_MS / 2);
   const active = useSharedValue(true);
   const paused = useSharedValue(false);
