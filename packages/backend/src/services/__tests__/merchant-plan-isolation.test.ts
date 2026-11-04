@@ -14,8 +14,8 @@
  *  2. No plan or billing module may reach ranking, search or the relationship
  *     and review layers.
  *  3. No plan or billing module may reach the CONNECTED-ACCOUNT half of the
- *     payment domain (acceptance 2) — the ONE permitted import is the shared
- *     Stripe client, named explicitly.
+ *     payment domain (acceptance 2) — the shared Peable client is a permitted
+ *     import, named explicitly.
  *  4. The entitlement RESOLUTION reads no feature flag (entitlement rule 8).
  *  5. The two capability tuples are disjoint, and so are the forbidden benefits.
  *  6. `merchant_subscription_plan` is already a forbidden ranking and relevance
@@ -152,9 +152,9 @@ const DISCOVERY_REFERENCE =
 /**
  * Reaching the CONNECTED-ACCOUNT half of the payment domain.
  *
- * Narrow on purpose: the shared Stripe CLIENT is a legitimate and deliberate
- * import (one configured SDK instance, one pinned API version, one retry
- * policy), and so are the ledger repository and the provider error class. What
+ * Narrow on purpose: the shared Peable CLIENT is a legitimate and deliberate
+ * import (one transport, one workload identity), and so are the ledger
+ * repository and the provider error class. What
  * must never be reachable is a seller's Connect account, which is the object
  * acceptance 2 says can never be cross-linked with a billing customer.
  */
@@ -298,7 +298,7 @@ describe('a billing customer cannot be confused with a Connect account', () => {
     expect(CONNECTED_ACCOUNT_REFERENCE.test('select * from provider_accounts')).toBe(true);
     expect(
       CONNECTED_ACCOUNT_REFERENCE.test(
-        "import { getStripeClient } from '../../payments/stripe/client.js';",
+        "import { createPeableClient } from '../payments/peable/client.js';",
       ),
     ).toBe(false);
   });

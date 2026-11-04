@@ -294,17 +294,19 @@ export const BILLING_INTERVALS: readonly BillingInterval[] = ['monthly', 'annual
  * The billing rails a merchant subscription can be charged on.
  *
  * A closed set with ONE member, added together with the adapter that can produce
- * a row for it — `PAYMENT_PROVIDER_IDS`' rule, one domain over. It is
- * deliberately a SEPARATE tuple from `PaymentProviderId`: a subscription is
- * charged on Mercaria's own platform account through Stripe Billing, and a
- * marketplace payment is a Connect charge. Sharing a tuple would invite sharing
- * a customer, an account or an id space, which is exactly what acceptance 2
- * forbids.
+ * a row for it — `PAYMENT_PROVIDER_IDS`' rule, one domain over. The member is
+ * `peable`: a subscription is a native subscription of Orbit's billing engine on
+ * Mercaria's own Peable merchant (Peable ADR 0018), and Mercaria holds no
+ * provider credential for it. It is deliberately a SEPARATE tuple from
+ * `PaymentProviderId` even though both now name Peable: a subscription charges a
+ * merchant, a marketplace payment moves a buyer's money to a seller, and sharing
+ * a tuple would invite sharing a customer, an account or an id space, which is
+ * exactly what acceptance 2 forbids.
  */
-export type BillingProviderId = 'stripe';
+export type BillingProviderId = 'peable';
 
 /** {@link BillingProviderId} as the tuple the CHECKs read. */
-export const BILLING_PROVIDER_IDS: readonly BillingProviderId[] = ['stripe'];
+export const BILLING_PROVIDER_IDS: readonly BillingProviderId[] = ['peable'];
 
 /* -------------------------------------------------------------------------- */
 /*  Subscriptions                                                              */

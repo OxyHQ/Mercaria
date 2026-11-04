@@ -22,9 +22,9 @@
  * ## The snapshot is Mercaria's vocabulary, never a provider's
  *
  * {@link BillingSubscriptionSnapshot} carries `MerchantSubscriptionStatus`, which
- * spells cancellation the way the order domain does. Mapping Stripe's `canceled`
- * onto it is the ADAPTER's job, stated in one function, so no service ever
- * branches on a provider's spelling.
+ * spells cancellation the way the order domain does. Mapping the gateway's
+ * `canceled` onto it is the ADAPTER's job, stated in one function
+ * (`peable/status.ts`), so no service ever branches on a provider's spelling.
  */
 
 import type {
@@ -39,6 +39,7 @@ export type BillingProviderStage =
   | 'createCheckoutSession'
   | 'createPortalSession'
   | 'retrieveSubscription'
+  | 'retrieveInvoice'
   | 'cancelSubscription';
 
 /**
@@ -93,6 +94,24 @@ export interface BillingSubscriptionSnapshot {
   readonly cancelledAt?: Date;
 }
 
+/**
+ * What the rail says about one invoice — read when it reports the invoice paid
+ * or failed, never taken from the event's payload.
+ */
+export interface BillingInvoiceSnapshot {
+  readonly providerInvoiceId: string;
+  readonly providerCustomerId: string;
+  /** The subscription it bills, or `undefined` for a one-off invoice. */
+  readonly providerSubscriptionId?: string;
+  readonly livemode: boolean;
+  /** `paid` is the only status that books anything. */
+  readonly status: string;
+  /** What the payer paid, in `currency`'s minor units. */
+  readonly amountPaidMinor: number;
+  /** ISO 4217, upper case, exactly as the rail answered. */
+  readonly currency: string;
+}
+
 /** A provider-hosted page for the merchant's browser. */
 export interface BillingHostedSession {
   readonly url: string;
@@ -102,10 +121,8 @@ export interface BillingHostedSession {
 /** The billing rail's operations. Every one of them is idempotent or a read. */
 export interface BillingProvider {
   readonly id: BillingProviderId;
-  /** Whether this deployment's key is the rail's LIVE key space. */
+  /** Whether this deployment's merchant is the rail's LIVE mode. */
   readonly livemode: boolean;
-  /** Selected cohorts require a caller intent, stable across unknown outcomes. */
-  requiresExplicitIntent?(storeId: string): boolean;
 
   /**
    * Find or create the platform customer for one store.
@@ -143,6 +160,9 @@ export interface BillingProvider {
   /** Re-read one subscription — the reconciliation sweep's single-item path. */
   retrieveSubscription(providerSubscriptionId: string): Promise<BillingSubscriptionSnapshot>;
 
+  /** Re-read one invoice — what an `invoice.*` event is about. */
+  retrieveInvoice(providerInvoiceId: string): Promise<BillingInvoiceSnapshot>;
+
   /**
    * Schedule a cancellation for the end of the paid period.
    *
@@ -162,8 +182,8 @@ const providers = new Map<BillingProviderId, BillingProvider>();
 /**
  * Register the adapter for one rail.
  *
- * Called at boot from `services/billing/stripe/stripe-billing.ts` when the rail
- * is configured. The registry is EMPTY by default, so a deployment with no
+ * Called at boot from `services/billing/register.ts` when the rail is
+ * configured. The registry is EMPTY by default, so a deployment with no
  * billing rail answers "no provider" rather than throwing halfway through a
  * merchant's upgrade — the `catalog_sources` adapter registry's posture, and the
  * reason a missing provider is an ordinary answer here.

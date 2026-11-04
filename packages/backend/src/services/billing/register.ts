@@ -1,66 +1,21 @@
-import { createHash } from 'node:crypto';
-import { log } from '../../lib/logger.js';
 import { config } from '../../config/index.js';
 import { createPeableClient } from '../payments/peable/client.js';
+import { PeableBillingProvider } from './peable/native-billing.js';
 import { registerBillingProvider } from './provider.js';
-import { StripeBillingProvider } from './stripe/stripe-billing.js';
-import { billingCohortSchema, CohortBillingProvider } from './peable/adapter.js';
-import { createBillingCohortStripeReader } from './stripe/cohort-reader.js';
 
-/** No action flag here: disabling upgrades must not strand existing subscriptions. */
-export async function registerMerchantBillingProvider(): Promise<void> {
-  const legacy = new StripeBillingProvider();
-  const raw = config.merchantBilling.peableCohortJson;
-  if (!raw) {
-    if (config.payments.stripe.enabled) registerBillingProvider(legacy);
-    return;
-  }
-  // Parse errors never include the raw configuration; do not register a legacy fallback.
-  let cohort: ReturnType<typeof billingCohortSchema.parse>;
-  try {
-    cohort = billingCohortSchema.parse(JSON.parse(raw));
-  } catch {
-    throw new Error('Invalid merchant billing cohort configuration.');
-  }
-  // Peable is reached as Mercaria's own Oxy workload identity (the task role on ECS).
-  const reader = createBillingCohortStripeReader(cohort);
-  const accountId = await reader.platformAccountId();
-  if (accountId !== cohort.platformAccountId || legacy.livemode !== cohort.livemode) {
-    throw new Error('Merchant billing platform account or mode differs from the cohort.');
-  }
-  const client = createPeableClient();
-  // Namespace must resolve through Mercaria's identity; never register a merchant here.
-  const merchant = await client.merchants.retrieve();
-  if (
-    merchant.id !== cohort.merchantId ||
-    merchant.oxy_app_id !== cohort.applicationId ||
-    merchant.environment !== cohort.environment
-  ) {
-    throw new Error('Merchant billing credential resolves to a different namespace.');
-  }
+/**
+ * Register merchant billing's one rail: Peable's native engine.
+ *
+ * Gated on the Peable webhook secret — a deployment that cannot hear the
+ * gateway's subscription and invoice events must not open a subscription it
+ * would never learn the outcome of — and deliberately NOT on
+ * `MERCHANT_BILLING_ENABLED`: that flag gates a merchant's actions, while the
+ * adapter is what applies events and reconciles subscriptions that already
+ * exist. No call is made here; the adapter is cheap and the SDK client lazy.
+ */
+export function registerMerchantBillingProvider(): void {
+  if (!config.payments.peable.webhooksEnabled) return;
   registerBillingProvider(
-    new CohortBillingProvider(legacy, client, cohort, async (ref) => {
-      const subscription = await reader.subscription(ref);
-      return {
-        id: subscription.id,
-        customerId:
-          typeof subscription.customer === 'string'
-            ? subscription.customer
-            : subscription.customer.id,
-        livemode: subscription.livemode,
-      };
-    }),
-  );
-  // Positive serving-task evidence only after both remote namespace checks and
-  // provider installation. Parsed schema fixes object-key order; no credentials
-  // or raw deployment configuration enter logs.
-  log.general.info(
-    {
-      cohortSha256: createHash('sha256').update(JSON.stringify(cohort)).digest('hex'),
-      mode: cohort.livemode ? 'live' : 'test',
-      environment: cohort.environment,
-      storeCount: cohort.storeIds.length,
-    },
-    'Merchant billing cohort registered',
+    new PeableBillingProvider(createPeableClient(), config.payments.peable.livemode),
   );
 }

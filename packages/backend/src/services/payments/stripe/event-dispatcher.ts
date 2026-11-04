@@ -15,12 +15,14 @@
  * the durable half of "a 200 means stored, never processed", and without a
  * poller that promise would be a comment rather than a mechanism.
  *
- * A configured cohort starts the timer even before asynchronous registration.
- * Each drain requires its registered namespace and restricts claims in SQL;
- * turning off new actions never strands existing cohort obligations.
+ * ## The gate is the RAIL, not the loop
+ *
+ * Unlike the outbox dispatcher — which is gated separately from its record so an
+ * incident can park work — this simply does not run when Stripe is off, because
+ * in that state no route is mounted, no event can have been stored, and there is
+ * nothing to park. The gating decision lives in one place, `STRIPE_ENABLED`.
  */
 
-import { parseBillingCohort } from '../../billing/cohort-config.js';
 import { config } from '../../../config/index.js';
 import { log } from '../../../lib/logger.js';
 import { drainStripeEvents } from './event-processor.js';
@@ -54,11 +56,7 @@ async function tick(): Promise<void> {
 /** Begin draining. Idempotent — a second call is a no-op. */
 export function startStripeEventDispatcher(): void {
   if (timer !== undefined) return;
-  if (
-    !config.payments.stripe.enabled &&
-    !parseBillingCohort(config.merchantBilling.peableCohortJson)
-  )
-    return;
+  if (!config.payments.stripe.enabled) return;
   abortController = new AbortController();
 
   timer = setInterval(() => {

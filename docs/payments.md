@@ -897,9 +897,9 @@ Issue #47's acceptance criterion 8 asks for enabling Stripe "by environment,
 country and seller cohort". Two of those three already exist and the third is
 deliberately not built:
 
-- **Environment** — `STRIPE_ENABLED`. Off disables the general Stripe marketplace rail and Connect webhook. An
-  explicit merchant-billing cohort can still mount platform billing ingress and
-  register its bounded reader; that separate cohort cannot charge marketplace carts.
+- **Environment** — `STRIPE_ENABLED`. Off disables the Stripe marketplace rail and both
+  Stripe webhook endpoints. Merchant subscription billing (#89) is not a Stripe concern:
+  it runs on Peable's native engine (`docs/merchant-plans.md`).
 - **Country and cohort** — the seller-side readiness gate IS the cohort. A seller
   can only be sold through once their connected account reaches `ready`, and
   `STRIPE_SELLER_COUNTRIES` bounds which countries may onboard at all. Buyer-side,
@@ -2143,7 +2143,7 @@ PAYMENT_OUTBOX_BATCH_SIZE=50
 PAYMENT_OUTBOX_POLL_INTERVAL_MS=5000
 PAYMENT_OUTBOX_LEASE_MS=60000
 
-STRIPE_ENABLED=false                   # general rail/Connect off; explicit billing cohort may mount platform ingress
+STRIPE_ENABLED=false                   # Stripe marketplace rail and Connect off
 STRIPE_SECRET_KEY=                     # sk_test_… or sk_live_…; its prefix decides livemode
 STRIPE_WEBHOOK_SECRET=                 # platform-scope endpoint
 STRIPE_WEBHOOK_SECRET_PREVIOUS=        # rotation window
@@ -2298,8 +2298,7 @@ the live key must not be issued before it is settled.
    them and no seller will be able to onboard.
 4. Confirm the mount: `GET /` lists `/stripe/onboarding`, and
    `POST /webhooks/stripe` answers 400 (bad signature) rather than 404. A 404
-   means neither general Stripe nor the explicit billing-cohort ingress is mounted —
-   for a general-rail deployment, check the boot log for the
+   means the Stripe rail is not mounted — check the boot log for the
    `[Stripe] STRIPE_ENABLED is set but the integration is incomplete` line, which
    names the missing variables.
 
@@ -2757,7 +2756,7 @@ in ADR 0001 — so this list is also the record of what "live" will require.
       to `account.*` and `payout.*`. `event-scopes.test.ts` transcribes both from
       the ADR by hand — compare against it, not against memory.
 - [ ] `POST /webhooks/stripe` answers 400 (bad signature), not 404. A 404 means
-      neither general Stripe nor the explicit billing cohort mounted platform ingress.
+      the Stripe rail is not mounted.
 
 **Monitoring**
 

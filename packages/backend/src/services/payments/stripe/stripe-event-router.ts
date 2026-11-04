@@ -91,7 +91,6 @@ import {
 } from './client.js';
 import { readStripeSettlement } from './settlement-read.js';
 import { mapDisputeStatus, mapPaymentIntentStatus, mapRefundStatus } from './verify.js';
-import { STRIPE_BILLING_EVENT_HANDLERS } from '../../billing/stripe/subscription-events.js';
 
 /** What a handler is given. Everything else it needs, it reads from Stripe. */
 export interface StripeEventContext {
@@ -1051,7 +1050,7 @@ function mapPayoutStatus(status: string): PayoutStatus {
 /**
  * Every event type this version routes.
  *
- * The ADR's two subscription lists, #89's four merchant-billing types, plus
+ * The ADR's two subscription lists, plus
  * `payment_intent.requires_action`: it is
  * in neither list because Mercaria does not subscribe to it (the buyer's own
  * client already knows an SCA challenge is pending — that is what a client
@@ -1080,12 +1079,6 @@ const HANDLERS: Readonly<Record<string, StripeEventHandler>> = {
   'account.external_account.updated': handleAccount,
   'payout.paid': handlePayout,
   'payout.failed': handlePayout,
-  // Merchant subscription billing (#89). Platform-scope events on Mercaria's own
-  // account, riding this ingress rather than a second one — see
-  // `services/billing/stripe/subscription-events.ts`. They are spread in from
-  // there so this table stays the ONE place a reader can see every routed type,
-  // and the handlers stay in the domain that owns what they mean.
-  ...STRIPE_BILLING_EVENT_HANDLERS,
 };
 
 /** The handler for an event type, or `undefined` when there is none. */

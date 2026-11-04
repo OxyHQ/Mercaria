@@ -327,19 +327,19 @@ export function createApp(): express.Express {
   // that has no secret and therefore could never tell a real delivery from a
   // forged one. There is nothing to park, unlike the outbox dispatchers, because
   // without a secret nothing could be verified to park in the first place.
-  if (config.payments.stripe.enabled || config.merchantBilling.peableCohortJson) {
+  if (config.payments.stripe.enabled) {
     app.use('/webhooks/stripe', stripeWebhookRouter);
   }
 
   // Inbound PEABLE webhooks (ADR 0009). The FIFTH raw-body mount, gated on its
-  // own rail for the same reasons the Stripe one is: a deployment with no
-  // gateway configuration answers 404, which is truthful and stops an endpoint
-  // being registered against a deployment that has no secret and could never
-  // tell a real delivery from a forged one.
+  // secret for the same reasons the Stripe one is: a deployment with no secret
+  // answers 404, which is truthful and stops an endpoint being registered
+  // against a deployment that could never tell a real delivery from a forged
+  // one. The payment rail's events and merchant billing's (#89) share it.
   //
   // ONE path where Stripe has two — the gateway signs everything with a single
   // secret, so there is no scope to get wrong. See `routes/peable-webhook.ts`.
-  if (config.payments.peable.enabled) {
+  if (config.payments.peable.webhooksEnabled) {
     app.use('/webhooks/peable', peableWebhookRouter);
   }
 

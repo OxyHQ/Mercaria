@@ -102,6 +102,40 @@ function paymentIntentIdOf(event: WebhookEvent): string | undefined {
   }
 }
 
+/** A reference that is either an id or the expanded object. */
+function refId(value: string | { id: string } | null | undefined): string | undefined {
+  if (value === null || value === undefined) return undefined;
+  return typeof value === 'string' ? value : value.id;
+}
+
+/**
+ * The ids a merchant-billing event names (#89): the subscription, and the
+ * customer it belongs to — through which a subscription resolves to a store —
+ * plus the invoice for an `invoice.*` event. Stored unredacted beside the
+ * payload, like the intent id, so correlation never reads the redacted summary.
+ */
+function billingIdsOf(event: WebhookEvent): Record<string, string> {
+  const object = event.data.object;
+  const ids: Record<string, string> = {};
+  const put = (key: string, value: string | undefined) => {
+    if (value !== undefined) ids[key] = value;
+  };
+  switch (object.object) {
+    case 'subscription':
+      put('subscription', object.id);
+      put('customer', refId(object.customer));
+      break;
+    case 'invoice':
+      put('invoice', object.id);
+      put('subscription', refId(object.subscription));
+      put('customer', refId(object.customer));
+      break;
+    default:
+      break;
+  }
+  return ids;
+}
+
 /**
  * Verify a delivery and normalize it.
  *
@@ -138,7 +172,10 @@ export function verifyPeableSignature(input: ProviderEventInput): ProviderEventE
     // whose mode is not this deployment's, as the Stripe ingress does.
     livemode: event.livemode,
     apiVersion: event.api_version,
-    objectIds: intentId === undefined ? {} : { payment_intent: intentId },
+    objectIds: {
+      ...billingIdsOf(event),
+      ...(intentId === undefined ? {} : { payment_intent: intentId }),
+    },
     ...(asserted === undefined || asserted === 'reread' ? {} : { paymentStatus: asserted }),
     payload: event,
   };

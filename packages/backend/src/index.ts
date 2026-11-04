@@ -593,8 +593,7 @@ connectPostgres()
       // task, same lease shape. The webhook ingress processes inline after
       // storing, so on a healthy path this loop finds nothing — it exists so
       // that "a 200 means stored, never processed" is a mechanism rather than a
-      // comment. A configured billing cohort also polls, but cannot claim until
-      // asynchronous namespace registration succeeds.
+      // comment.
       import('./services/payments/stripe/event-dispatcher.js')
         .then(({ startStripeEventDispatcher }) => startStripeEventDispatcher())
         .catch((err) => log.general.error({ err }, 'Stripe event dispatcher import failed'));
@@ -603,8 +602,9 @@ connectPostgres()
       // than a widened first one, because each claims only the rail its router
       // can interpret — an unscoped claim would hand this drain a Stripe event,
       // find no handler for it, and mark a real charge processed. The two poll
-      // the same table and never collide. No-ops entirely when Peable is not
-      // configured.
+      // the same table and never collide. It also drains merchant billing's
+      // subscription and invoice events (#89). No-ops entirely when no Peable
+      // webhook secret is configured.
       import('./services/payments/peable/event-dispatcher.js')
         .then(({ startPeableEventDispatcher }) => startPeableEventDispatcher())
         .catch((err) => log.general.error({ err }, 'Peable event dispatcher import failed'));
@@ -641,8 +641,9 @@ connectPostgres()
         .then(({ startPaymentReconciler }) => startPaymentReconciler())
         .catch((err) => log.general.error({ err }, 'Payment reconciler import failed'));
 
-      // Merchant subscription billing (#89). Registering the rail is gated on
-      // `STRIPE_ENABLED` and deliberately NOT on `MERCHANT_BILLING_ENABLED`:
+      // Merchant subscription billing (#89) on Peable's native engine.
+      // Registering the rail is gated on the Peable webhook secret and
+      // deliberately NOT on `MERCHANT_BILLING_ENABLED`:
       // that flag gates a merchant's ACTIONS, while the adapter is what applies
       // provider events and reconciles subscriptions that already exist — so
       // registering it only when merchants may upgrade would strand every live

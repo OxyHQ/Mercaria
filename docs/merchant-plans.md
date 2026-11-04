@@ -284,39 +284,54 @@ confused or cross-linked accidentally" — is held four ways:
 2. **A scanned isolation gate.** No module under `services/entitlements/`,
    `services/billing/` or `db/merchantPlans/` may reach
    `provider-account.service`, `providerAccountRepository`, `provider_accounts`
-   or `createStripeConnectedAccount`. The ONE permitted import from the payment
-   domain is the shared Stripe CLIENT — one configured SDK instance, one pinned
-   API version, one retry policy.
-3. **A shape check at the adapter.** `assertBillingObjectId` refuses an `acct_`
-   id BY NAME on every billing call, so a mis-wired caller gets a sentence rather
-   than a provider 404 three frames later.
+   or `createStripeConnectedAccount`. The permitted imports from the payment
+   domain are the shared Peable CLIENT (one transport, one workload identity),
+   the Peable event router's types, the ledger repository and the provider
+   error class.
+3. **A shape check at the adapter.** Every id the Peable adapter sends or reads
+   must match its own prefix (`cus_`, `sub_`, `price_`, `in_`), so a connected
+   account's id is refused before any call, with a sentence rather than a
+   gateway 404 three frames later.
 4. **A separate provider interface.** `BillingProvider` is not a widened
    `PaymentProvider`. One moves a buyer's money to a seller; the other charges a
    merchant on Mercaria's own account. A single interface would eventually make
    the two objects interchangeable in some caller's mind.
 
-The rail is Stripe Billing, hosted throughout: a Checkout Session to start and
-the Billing Portal to manage. **No method anywhere in the boundary takes a card,
-a token or a payment-method id**, so "Mercaria does not collect card details" is
-a property of the interface.
+The rail is **Peable's native billing engine** (Peable ADR 0018), hosted
+throughout: a Peable Checkout Session in `mode: 'subscription'` over the plan's
+Orbit price to start, Peable's customer portal to manage, and
+`cancel_at_period_end` on the native subscription to cancel
+(`services/billing/peable/native-billing.ts`). Mercaria reaches the gateway as
+its own Oxy workload identity and holds **no provider credential** for billing.
+**No method anywhere in the boundary takes a card, a token or a payment-method
+id**, so "Mercaria does not collect card details" is a property of the
+interface. A native subscription checkout cannot start a trial, so a plan
+version with `trial_days > 0` is refused by name (`trial_not_supported`) rather
+than sold without the trial its terms promise.
+
+The ids are Peable's (`cus_…`, `sub_…`, `price_…`, `in_…`) and
+`BILLING_PROVIDER_IDS` is `['peable']`. Until 2026-11-04 the rail was Stripe
+Billing on Mercaria's own Stripe account, briefly fronted by an I08 "cohort"
+through Peable's Stripe-Billing proxy; neither ever carried a subscription, and
+both are deleted (migration 0182 narrows the three `provider` CHECKs).
 
 ### The events
 
-The four subscription and invoice types ride the EXISTING payment-event
-infrastructure — the same signature check, the same `payment_provider_events`
-dedupe key, the same lease, the same backoff, the same operator replay. What they
-do NOT share is `payments`: a subscription invoice has no checkout group, no
-orders, no seller and no transfer, so `payment_provider_events.payment_id` stays
-NULL for every one and the correlation lives on `merchant_subscription_events`.
-
-`STRIPE_BILLING_EVENT_TYPES` is a SEPARATE tuple from
-`STRIPE_PLATFORM_EVENT_TYPES`, which is ADR 0001's own list reproduced verbatim
-and is worth keeping auditable against the ADR. `platformScopeEventTypes()` is
-the union both the scope check and the dashboard configuration read.
+`customer.subscription.created|updated|deleted|paused|resumed`, `invoice.paid`
+and `invoice.payment_failed` arrive on `/webhooks/peable` and ride the Peable
+event infrastructure — the same signature check, the same
+`payment_provider_events` dedupe key, lease, backoff and operator replay — which
+is mounted and drained whenever `PEABLE_WEBHOOK_SECRET` is set, independently of
+the Peable payment rail (`PEABLE_ENABLED`). What they do NOT share is
+`payments`: a subscription invoice has no checkout group, orders, seller or
+transfer, so `payment_provider_events.payment_id` stays NULL and the correlation
+lives on `merchant_subscription_events`. The handlers are
+`services/billing/peable/events.ts`.
 
 - No handler applies a PAYLOAD — #46's rule. Deliveries are unordered, so every
-  handler re-reads through the registered billing provider. The transitional
-  invoice settlement reader remains bounded to the verified Stripe namespace.
+  handler re-reads the subscription or invoice through the registered billing
+  provider, and a subscription read for another customer than the event named
+  is refused.
 - **Idempotency has two layers and they answer different questions.**
   `payment_provider_events` dedupes RECEIPT (a redelivery); the partial unique on
   `merchant_subscription_events.provider_event_id` dedupes APPLICATION (an
@@ -325,13 +340,12 @@ the union both the scope check and the dashboard configuration read.
   claim before posting.** The current provider/mode/subscription/customer binding
   must match under that lock. Different event IDs for the same invoice converge
   on one posting. The append-only event claim follows the ledger insert in the
-  same transaction; a duplicate event ID still rolls both back. Historical invoice
-  collisions are conservatively retained as claimed because old event rows do
-  not attest a complete provider namespace.
-- **The amount comes from the CHARGE's balance transaction**, not from the
-  invoice: #47's rule that a charge is booked in the currency the money LANDED in
-  applies unchanged. An unavailable balance transaction is RETRYABLE and never
-  guessed. A settlement currency Mercaria does not model is REFUSED by name.
+  same transaction; a duplicate event ID still rolls both back.
+- **The amount is what the invoice says was paid** (`amount_paid`, in the
+  invoice's currency), read live. The gateway's invoice carries no settlement
+  detail, so **no processor-fee leg is booked** — the same stated gap the
+  Peable payment rail has (`payments/peable/event-router.ts`), recorded on every
+  such event row. A currency Mercaria does not model is REFUSED by name.
 
 ### The ledger
 
@@ -340,7 +354,7 @@ its one new transaction kind. A settled invoice books:
 
 ```
 provider_clearing     +net    (debit — funds arrived on the platform balance)
-processor_expense     +fee    (debit — omitted entirely when there is no fee)
+processor_expense     +fee    (debit — omitted when there is no fee; on Peable, always, until the fee decision)
 subscription_revenue  −gross  (credit — revenue recognised)
 ```
 
@@ -394,7 +408,7 @@ be able to ask.
 ## Environment
 
 ```
-MERCHANT_BILLING_ENABLED=false                        # actions; requires configured Stripe or registered Peable cohort
+MERCHANT_BILLING_ENABLED=false                        # actions; requires PEABLE_WEBHOOK_SECRET (the rail's events)
 MERCHANT_BILLING_RETURN_URL=                          # where a hosted session returns to
 MERCHANT_SUBSCRIPTION_RECONCILIATION_ENABLED=true     # the LOOP only
 MERCHANT_SUBSCRIPTION_RECONCILIATION_INTERVAL_MS=21600000
@@ -412,9 +426,9 @@ capability for every merchant at once with nothing in any audit trail saying so.
 
 ## Production-readiness checklist
 
-The billing transport and explicit Peable cohort have been verified separately.
-A new paid offer still requires the following commercial readiness checks;
-transport registration alone does not prove an offer exists.
+The billing transport is Peable's native engine. A new paid offer still
+requires the following commercial readiness checks; transport registration
+alone does not prove an offer exists.
 
 1. A paid capability is actually implemented, and its
    `MERCHANT_CAPABILITY_CATALOG` entry moves to `available` in the same change.
@@ -422,16 +436,17 @@ transport registration alone does not prove an offer exists.
    database's `entitlement_definitions` reflect the code.
 3. A free plan version is drafted and activated (its entitlement set is empty,
    which is correct).
-4. A paid plan version is drafted, priced in both modes for every market it is
-   sold in, and activated — which will now succeed, because its capability is no
-   longer postponed.
-5. `MERCHANT_BILLING_RETURN_URL` is set and either general Stripe is configured
-   or the exact Peable cohort is registered. General Stripe remains off for a
-   cohort-only deployment; see [the availability contract](integrations/i08-billing-cohort.md#merchant-action-availability-and-reconciliation).
-6. The Stripe platform webhook endpoint is subscribed to the four
-   `STRIPE_BILLING_EVENT_TYPES` in addition to ADR 0001's list.
-7. A terms document exists at the version the plan names.
-8. `MERCHANT_BILLING_ENABLED` is turned on.
+4. The paid plan's product and recurring prices exist in Orbit on Mercaria's
+   Peable merchant, in both modes for every market it is sold in; the version is
+   drafted, its prices published with those `price_…` ids, and activated — which
+   will now succeed, because its capability is no longer postponed. Who receives
+   the money (Peable ADR 0015's charge routing for Mercaria's merchant) is
+   confirmed before this step.
+5. `PEABLE_WEBHOOK_SECRET` and `MERCHANT_BILLING_RETURN_URL` are set, and a
+   Peable webhook endpoint for Mercaria's merchant points at
+   `/webhooks/peable` with the seven billing event types above.
+6. A terms document exists at the version the plan names.
+7. `MERCHANT_BILLING_ENABLED` is turned on.
 
 ---
 
@@ -441,10 +456,9 @@ transport registration alone does not prove an offer exists.
   are complete, tested against a real server, and called by NOTHING — because
   nothing is gated. The day a paid feature ships, the only new code is the
   feature itself.
-- **Another financial rail.** `BillingProvider` remains the boundary. The approved
-  Peable cohort adapter carries the existing Stripe namespace, with no general
-  Stripe mutator fallback for its stores. A deployment without a configured
-  general rail or explicit cohort registers no provider.
+- **Another financial rail.** `BillingProvider` remains the boundary, with one
+  implementation (Peable). A deployment without `PEABLE_WEBHOOK_SECRET`
+  registers no provider.
 - **A downgrade between two paid plans.** Not built, because there is no second
   paid plan to downgrade to, and designing the proration for one that does not
   exist would be designing it twice.
