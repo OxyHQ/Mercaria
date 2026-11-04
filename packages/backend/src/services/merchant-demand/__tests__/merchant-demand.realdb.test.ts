@@ -79,6 +79,7 @@ function callerOf(oxyUserId: string): StoreCaller {
     accountId: oxyUserId,
     actorAccountId: oxyUserId,
     delegated: false,
+    sessionId: 'test-session',
     accessToken: 'unused',
   };
 }

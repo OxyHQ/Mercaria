@@ -24,7 +24,12 @@ import { validateQuery } from '../middleware/validate.js';
 import { searchQuerySchema } from '../middleware/search-schemas.js';
 import { canonicalSearchHandler } from '../controllers/search.controller.js';
 
+import { optionalAuth } from '../middleware/auth.js';
+
 const router = Router();
+
+// A presented supervised session cannot bypass policy through an anonymous catalog route.
+router.use(optionalAuth);
 
 router.use(makeRateLimiter('listings'));
 

@@ -5,8 +5,8 @@
  *
  * What Mercaria charges its sellers is a POLICY, and a policy wants an author on
  * the record. It does not want an administrator. The previous shape —
- * `POST /internal/payments/fee-schedules` gated on `PAYMENT_OPERATOR_OXY_USER_IDS`
- * — required a named person with a credential to exist before the marketplace
+ * `POST /internal/payments/fee-schedules` gated on the payment operator desk —
+ * required a named person with a credential to exist before the marketplace
  * could charge anything, and Oxy is deliberately not built to have those.
  *
  * Defined here, a rate change is a pull request: proposed, reviewed, and applied

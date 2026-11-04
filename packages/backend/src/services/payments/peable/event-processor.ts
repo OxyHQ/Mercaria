@@ -13,9 +13,10 @@
  * same `for update skip locked` claim the Stripe drain and the payment outbox
  * use. The scope is what makes two drains safe over one table: without it this
  * loop would claim the oldest due row of EITHER rail and hand a Stripe event to
- * `routePeableEvent`, which — the two rails not sharing type names — would find
- * no handler and mark it processed. See `ClaimProviderEventOptions.providers`
- * and `providerEventClaim.realdb.test.ts`.
+ * `routePeableEvent` — which, both rails speaking Stripe's type names, would
+ * apply it to whatever Mercaria payment a Stripe `pi_…` happened to resolve to,
+ * or mark a type it does not know processed. See
+ * `ClaimProviderEventOptions.providers` and `providerEventClaim.realdb.test.ts`.
  *
  * ## No settlement re-read, unlike Stripe
  *

@@ -124,8 +124,12 @@ order. The backend reads each file using the author's bearer on a fresh Oxy clie
 and requires the exact ID, owner, active status and public visibility. It accepts
 JPEG, PNG, WebP, GIF and AVIF images up to 20 MiB, or MP4/WebM videos up to 100 MiB.
 MIME and size come from Oxy; the caller supplies neither a URL nor a media kind.
-The entire selection is checked before durable Mercaria asset links are created.
-This path never promotes a private file to public. Private transaction reviews
+The entire selection is checked before the review is written; the use is then
+registered with Oxy as a `review_media` reference by the reference outbox, with
+Mercaria's service token, after the review commits (Oxy ADR 0043 D4 —
+`docs/catalog-media.md`). No link is made from the author's session any more, and
+nothing changes the file's visibility. This path never promotes a private file to
+public. Private transaction reviews
 cannot accept these public attachments.
 
 The product/listing review form uses Bloom FileUpload with controlled file and
@@ -491,6 +495,6 @@ cannot send a pair that disagrees.
   content. Not built; there is no column for one, which is the right starting
   point for whoever does build it.
 - **An operator surface.** The classification job and the split assignment are
-  reachable from the queue and from code, not from an HTTP route. A fourth
-  operator allow-list beside payments, catalog and guest-commerce is a decision
+  reachable from the queue and from code, not from an HTTP route. A new
+  operator key beside payments, catalog and guest-commerce is a decision
   worth making deliberately rather than as a side effect of this issue.

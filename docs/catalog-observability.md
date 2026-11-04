@@ -99,7 +99,7 @@ drives:
 | `metrics.realdb.test.ts` | the collector against a real server: one reading per definition in registry order, the shape biconditionals, breakdowns summing to their reading, BOTH branches of every flag-gated surface, and two positive controls (in-process and Postgres) with nothing in common |
 | `proposal-queue.realdb.test.ts` | the proposal queue read: exact per-state and per-band deltas over a thirty-row fixture, the conserved partition, a row dated in the FUTURE landing in `unbandedOpenCount`, percentiles proven to be OBSERVED ages, and — through the pure derivation, because a shared database cannot be driven BELOW a floor — the below-floor refusal and both health flags |
 | `middleware-wiring.integration.test.ts` | that the middleware is actually MOUNTED — real `createApp()`, a real listening server, real HTTP. Every other suite here passes with `app.use(catalogObservability)` deleted, which is the "a mechanism can be GREEN AND INERT" trap in its exact form |
-| `routes/__tests__/internal-catalog-metrics.test.ts` | the operator gate and the read-only closure from OUTSIDE, over HTTP: allow-listed 200, non-operator 403, empty list 404 from the mount, the payments list refused, no write method anywhere under the prefix, and the trace's two-member handle set |
+| `routes/__tests__/internal-catalog-metrics.test.ts` | the operator gate and the read-only closure from OUTSIDE, over HTTP: key holder 200, non-holder 404, the payments key refused, no write method anywhere under the prefix, and the trace's two-member handle set |
 | `route-observations.test.ts` | the store: `undefined` never a zeroed bucket, 304 as its own dimension, exact counts against windowed percentiles, nearest-rank figures, the ring buffer's eviction, and unusable durations |
 | `integrity.realdb.test.ts` | a positive control per check, plus one case that seeds a row into all six populations |
 | `facet-scope-sweep.realdb.test.ts` | a fixture where every counter has a non-zero expected value, and the eligibility predicate has a signature in the numbers |
@@ -1775,19 +1775,18 @@ list is a 404 from the MOUNT, and the PAYMENTS allow-list does not open it (a
 payment operator tracing money has no business reading which of a merchant's
 drafts were abandoned).
 
-### The SAME allow-list, not a seventh
+### The SAME operator key, not a new one
 
-`CATALOG_OPERATOR_OXY_USER_IDS`, which #54/#55/#56/#57/#58/#60/#62/#68/#70/#78
+`catalog.operate`, which #54/#55/#56/#57/#58/#60/#62/#68/#70/#78
 and the eleven #367 domains already use. Reading how much of the catalogue is
 translated is not a different power from publishing a taxonomy change, and a new
-list would have to be granted to the same people, drift from it, and become the
+key would have to be granted to the same people, drift from it, and become the
 one somebody forgets when an operator leaves.
 
-**Empty list ⇒ NOT MOUNTED (404, never 401).** The mount is inside
-`if (config.catalog.graphOperatorSurfaceEnabled)`, which is
-`resolveCatalogOperatorIds().length > 0`, and `requireCatalogOperator` re-checks
-the same flag as defence in depth because the mount and the gate live in
-different files — exactly the pair that drifts.
+**Mounted on every deployment; a non-holder gets 404, never 401.**
+`requireCatalogOperator` (`middleware/operator-authz.ts`) asks Oxy whether the
+person behind the request holds `catalog.operate`; an Oxy that cannot answer is
+503, never a "no".
 
 **No rate limiter**, matching every sibling on this allow-list
 (`/internal/catalog-governance`, `/internal/matching`, `/internal/search`,
@@ -1921,12 +1920,15 @@ Every line is a thing to CHECK, not a thing to have intended.
 
 **Access**
 
-- [ ] `CATALOG_OPERATOR_OXY_USER_IDS` names real people, and the list has been
-      read by somebody other than whoever wrote it.
+- [ ] `catalog.operate` is seeded on Mercaria and the people meant to operate
+      the catalogue are owners or admins of the `oxy` organization — the seed's
+      dry run lists who holds the key through which role; somebody other than
+      whoever ran it has read it.
 - [ ] `GET /internal/catalog-metrics` answers 200 for an operator and **404** for
-      everybody else. A 401 means `authenticateToken` refused first; a 403 means
-      the caller is authenticated and not on the list; a 404 with an operator's
-      token means the list is empty.
+      everybody else. A 401 means `authenticateToken` refused first; a 404 with
+      an operator's token means Oxy does not see them holding `catalog.operate`
+      (not an owner or admin of the `oxy` organization, or the key not seeded);
+      a 503 means Oxy could not be asked.
 
 **Before trusting a number**
 

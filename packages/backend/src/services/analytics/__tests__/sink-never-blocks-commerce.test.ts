@@ -44,8 +44,6 @@ vi.mock('../../../config/index.js', () => ({
     analytics: {
       enabled: true,
       collectionMode: 'full',
-      operatorOxyUserIds: [],
-      operatorSurfaceEnabled: false,
       queueMaxEvents: 100,
       flushIntervalMs: 1_000,
       flushBatchSize: 10,

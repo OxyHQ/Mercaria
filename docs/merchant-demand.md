@@ -307,13 +307,13 @@ explicitly, which is what the grant union is for.
 
 ## The operator acquisition pipeline
 
-`/internal/merchant-demand/*`, behind **`ANALYTICS_OPERATOR_OXY_USER_IDS`** —
-the fourth allow-list, not a seventh. That list already grants the broadest
+`/internal/merchant-demand/*`, behind **`analytics.operate`** —
+the fourth operator key, not a new one. That key already grants the broadest
 reading power in the codebase ("what is demand doing across the marketplace"),
 and this surface is that power applied one merchant at a time plus a workflow
-for acting on it; a seventh list would be a second answer to who holds it. Empty
-means the router is NOT MOUNTED (404, never 401), and it stays mounted while
-the merchant-facing surfaces are off.
+for acting on it; a new operator key would be a second answer to who holds it. Anyone
+without it gets 404, never 401, and it stays mounted while the merchant-facing
+surfaces are off.
 
 ### The claim verdict is not duplicated, and the funnel is DERIVED
 
@@ -430,8 +430,8 @@ MERCHANT_DEMAND_MAX_PRODUCT_ROWS=200
 
 There is no mount lever: the dashboard and the preview follow analytics
 collection (`ANALYTICS_COLLECTION_MODE`), nothing gates a durable record, and
-the operator surface does not depend on collection. There is no
-`MERCHANT_DEMAND_OPERATOR_OXY_USER_IDS`.
+the operator surface does not depend on collection. There is deliberately no
+`merchant_demand.operate` key.
 
 ---
 

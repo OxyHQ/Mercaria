@@ -13,7 +13,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { GuestClaimPreview, GuestClaimResult } from '@mercaria/shared-types';
 import { claimGuestOrders, getClaimPreview } from '../api/guest-claim';
-import { discardPortalToken } from '../stores/portal-credential-store';
 import { queryKeys } from './query-keys';
 
 /**
@@ -52,7 +51,6 @@ export function useGuestClaim() {
     mutationFn: (checkoutGroupId) => claimGuestOrders(checkoutGroupId),
     retry: false,
     onSuccess: () => {
-      discardPortalToken();
       // The orders are the account's now, so its history is stale — and the
       // portal session this device held is gone.
       queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });

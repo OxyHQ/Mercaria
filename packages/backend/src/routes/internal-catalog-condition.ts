@@ -2,23 +2,23 @@
  * `/internal/catalog-condition/*` — the condition domain's operator surface
  * (#90).
  *
- * On the SAME allow-list (`CATALOG_OPERATOR_OXY_USER_IDS`) that #54, #55, #56,
+ * On the SAME key (`catalog.operate`) that #54, #55, #56,
  * #57, #58, #83 and #94 use, and for the same reason those share it: deciding
  * what an external source's wording MEANS, and deciding which conditions a
  * category refuses, are the same power over the same graph as reshaping it. A
- * fifth allow-list would be a fifth thing to keep in step for no separation it
+ * separate key would be another grant to keep in step for no separation it
  * does not already have.
  *
  * A SEPARATE router rather than routes added to `internal-commerce-graph.ts`,
  * per ADR 0002 D25(a)'s file-ownership protocol.
  *
- * Mount gated on the allow-list being non-empty, so a deployment with no
- * operators 404s rather than 401s — a 401 advertises the surface.
+ * Mounted on every deployment; anyone without the key 404s rather than 401s — a
+ * 401 advertises the surface.
  */
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireCatalogOperator } from '../middleware/catalog-operator-authz.js';
+import { requireCatalogOperator } from '../middleware/operator-authz.js';
 import { validateBody } from '../middleware/validate.js';
 import {
   conditionCategoryPolicySchema,
@@ -40,9 +40,8 @@ import {
 
 const router = Router();
 
-// Authentication FIRST, then the allow-list: the gate reads the VERIFIED
-// caller, and an allow-list consulted before authentication would compare
-// against whatever a client claimed.
+// Authentication FIRST, then the operator gate — it asks Oxy about the verified
+// caller's own session, which only `authenticateToken` establishes.
 router.use(authenticateToken);
 router.use(requireCatalogOperator);
 

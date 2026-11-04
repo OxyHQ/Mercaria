@@ -663,6 +663,31 @@ The canonical browser gallery test also supplies deliberately external source
 URLs and asserts zero requests to that origin while rendering Oxy images; its
 real-media seed precondition must pass before that case can establish this.
 
+## Oxy Files ownership and usage registration — open (Oxy ADR 0043, 2026-10-16)
+
+Mercaria's side of Oxy ADR 0043 is in code (`docs/catalog-media.md`): imports go
+through Oxy's import by URL (`services/catalog-media/oxy-files.ts`, the one
+adapter); canonical media, category art, brand logos, copied external imagery and
+digital deliverables are owned by the Mercaria APPLICATION; every file use is
+registered by trigger + outbox; a nightly reconciliation runs per entity type;
+`/webhooks/oxy-files` handles takedowns. The section above is superseded where it
+says the importer downloads through `safeFetch` and that canonical images import
+under the operator's account. What is NOT done:
+
+- **Nothing has run against a live Oxy.** Every Oxy call is faked at the SDK
+  boundary in tests, against the released ADR 0043 SDK's types (`@oxy.so/core`
+  4.18.0, `@oxy.so/contracts` 4.22.0, `@oxy.so/services` 11.9.0 — one core
+  across the backend and the apps).
+- **Scopes:** Mercaria's application needs `files:references:write`,
+  `files:app:write`, `files:app:delete` and `files:user-media:write`.
+- **Release order** (`docs/catalog-media.md`, "Levers and the release order"),
+  then `CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED`.
+- **Backfills not run** (preview by default): `backfill-listing-media`,
+  `backfill-store-artwork`, `backfill-application-media` (`canonical_image`,
+  `category_image`, `brand_logo`, `canonical_description_image`,
+  `canonical_image_duplicates`, `source_media`) and
+  `backfill-digital-asset-storage`.
+
 ## Storefront product parity — review media upload/acceptance remaining (2026-10-10)
 
 The public Shop [rhode product](https://shop.app/products/8117398765806/peptide-lip-tint-ribbon)
@@ -1621,3 +1646,30 @@ runtime/library changes for either issue. Public Oxy classification succeeded on
 two measured native cold starts but approached its deadline; see
 `docs/native-animation-runtime.mdx` for measured JS pressure and the remaining
 profiling task. All temporary boot instrumentation was removed.
+
+## Guest commerce M8 review — Highs closed, what is left — 2026-10-16
+
+The four High findings of `docs/reviews/2026-08-16-guest-commerce-m8-review.md`
+(M8-01 erasure that erased nothing, M8-02 no retention loop, M8-03 abuse
+counters never written, M8-04 no gate that could have caught them) are closed,
+with M8-05 (dev origins in production CORS/CSRF), M8-09 (registries) and M8-11
+(query-string portal token). §9 of the review lists each fix and its test.
+
+Operational consequence: the guest retention loop now runs on every task, and
+retention is turned ON by publishing a policy (`POST
+/internal/guest-commerce/governance/retention-policy`), not by an environment
+variable. Until `GUEST_RETENTION_DRY_RUN` is removed (a separate change), a
+pass predicts rather than erases. Set `GUEST_ABUSE_SUBJECT_HASH_KEY` in SSM or
+no abuse counter is written.
+
+Still open, deliberately:
+- **Erasure, the other halves.** `requestGuestData` supports a
+  `completed_oxy_claim` requester but no route files one; the storefront portal
+  has no button calling `POST /guest/orders/:groupId/data-requests`; and EXPORT
+  stays unrouted because its receipt records exportable classes as `deleted`
+  (`GUEST_DATA_DISPOSITIONS` has no `exported` value — adding one is a CHECK
+  widening).
+- **M8-13 (Low):** four of six abuse policies have no caller, `recovery_spraying`
+  included.
+- **M8-06/07/08/10** are owner decisions (hash-key versioning, PII key rotation,
+  suppression hash surviving erasure, `purchase_orders.destination_*`).

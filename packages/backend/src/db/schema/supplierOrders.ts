@@ -610,6 +610,10 @@ export const purchaseOrderTrackingEvents = pgTable(
       t.occurredAt,
     ),
     index('purchase_order_tracking_events_po_occurred_idx').on(t.purchaseOrderId, t.occurredAt),
+    // `supplier_provider_events` is swept (`db/expiryTargets.ts`); each deleted row checks this foreign key.
+    index('purchase_order_tracking_events_provider_event_id_idx')
+      .on(t.providerEventId)
+      .where(sql`${t.providerEventId} is not null`),
   ],
 );
 
@@ -761,5 +765,9 @@ export const procurementExceptions = pgTable(
                  and ${t.supplierAccountId} is not null`),
     index('procurement_exceptions_open_idx').on(t.detectedAt).where(sql`${t.resolvedAt} is null`),
     index('procurement_exceptions_po_idx').on(t.purchaseOrderId, t.detectedAt),
+    // `supplier_provider_events` is swept (`db/expiryTargets.ts`); each deleted row checks this foreign key.
+    index('procurement_exceptions_provider_event_id_idx')
+      .on(t.providerEventId)
+      .where(sql`${t.providerEventId} is not null`),
   ],
 );

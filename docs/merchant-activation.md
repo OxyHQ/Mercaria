@@ -24,7 +24,7 @@ Code:
 Surfaces: `/admin/stores/:storeId/activation*` (merchant, `store:manage`),
 `/seller/activation/policies` (individual seller),
 `/internal/commerce-graph/activation/*` (operator, the SAME
-`CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54/#55/#83/#84 use).
+`catalog.operate` key #54/#55/#83/#84 use).
 
 ---
 
@@ -257,7 +257,7 @@ next read is already correct and the next observation records the transition as
 
 ## The operator surface adds no way to change anything
 
-Four routes on the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list, not a
+Four routes on the SAME `catalog.operate` key, not a
 seventh: the power is the one that gate already carries — #83 verifies the claim,
 #84 joins the merchant to a store, and holding that store's checkout is the same
 decision one step later, over the same graph, by the same people.

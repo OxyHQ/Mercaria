@@ -14,7 +14,12 @@
  * into Mercaria's domain. It creates no client credentials or service token.
  */
 
-import { WebhooksResource, PeableSignatureVerificationError } from '@peable.to/sdk';
+import {
+  PeableSignatureVerificationError,
+  type WebhookEvent,
+  type WebhookEventType,
+  WebhooksResource,
+} from '@peable.to/sdk';
 import { config } from '../../../config/index.js';
 import { PaymentProviderError } from '../provider.js';
 import type { ProviderEventEnvelope, ProviderEventInput } from '../provider.js';
@@ -38,21 +43,31 @@ const TOLERANCE_SECONDS = 300;
  * worse than silent: a type this verifier annotates with a status but the router
  * has no handler for is stored, found unhandled, and marked processed. A real
  * settlement, filed as understood.
+ *
+ * A `payment_intent.*` type IS the assertion: the status the intent reached
+ * (ADR 0019). `charge.refunded` is not — refunds are not intent statuses, and
+ * whether the payment is now `refunded` or `partially_refunded` is the intent's
+ * cumulative `amount_refunded`, which the router re-reads (`'reread'`).
  */
-export const PAYMENT_STATUS_FOR_EVENT: Readonly<Record<string, PaymentStatus>> = {
-  'payment_intent.settled': 'succeeded',
-  'payment_intent.failed': 'failed',
-  'payment_intent.rejected': 'canceled',
-  'payment_intent.expired': 'canceled',
-  'payment_intent.refunded': 'refunded',
-  'payment_intent.partially_refunded': 'partially_refunded',
-  // `confirming` is the FairCoin rail's "the payer broadcast and the network is
-  // working on it", which is what Mercaria's `processing` means: money in
-  // flight, not yet final. Mapped rather than dropped — leaving it unmapped
-  // would make a chain payment look untouched between broadcast and settlement,
-  // which is precisely the window a buyer asks about.
-  'payment_intent.confirming': 'processing',
-};
+export const PAYMENT_STATUS_FOR_EVENT = {
+  // A card payment's SCA challenge: the checkout has a screen for it.
+  'payment_intent.requires_action': 'requires_action',
+  'payment_intent.processing': 'processing',
+  'payment_intent.succeeded': 'succeeded',
+  // An attempt failed. A card returns to `requires_payment_method` and the
+  // buyer can try again, which Mercaria's `failed` allows.
+  'payment_intent.payment_failed': 'failed',
+  // By Mercaria, by the gateway's expiry (`abandoned`), or underpaid.
+  'payment_intent.canceled': 'canceled',
+  'charge.refunded': 'reread',
+} as const satisfies Partial<Record<WebhookEventType, PaymentStatus | 'reread'>>;
+
+/** An event type this rail acts on. */
+export type PeablePaymentEventType = keyof typeof PAYMENT_STATUS_FOR_EVENT;
+
+export function isPeablePaymentEvent(type: string): type is PeablePaymentEventType {
+  return Object.hasOwn(PAYMENT_STATUS_FOR_EVENT, type);
+}
 
 const webhooks = new WebhooksResource();
 
@@ -68,12 +83,31 @@ function refuse(message: string): never {
 }
 
 /**
+ * The payment an event is about: the PaymentIntent itself, or the one a charge,
+ * refund or dispute names (an expandable reference, `string | PaymentIntent`).
+ */
+function paymentIntentIdOf(event: WebhookEvent): string | undefined {
+  const object = event.data.object;
+  switch (object.object) {
+    case 'payment_intent':
+      return object.id;
+    case 'charge':
+    case 'refund':
+    case 'dispute': {
+      const reference = object.payment_intent;
+      return typeof reference === 'string' ? reference : reference.id;
+    }
+    default:
+      return undefined;
+  }
+}
+
+/**
  * Verify a delivery and normalize it.
  *
- * Tries every configured secret, so a rotation does not reject the deliveries
- * signed with the outgoing one. The gateway cannot atomically swap a secret,
- * and without this window every in-flight delivery during a rotation is
- * rejected as a forgery.
+ * Every configured secret is offered at once, so a rotation does not reject the
+ * deliveries signed with the outgoing one: the SDK accepts the event when any
+ * `v1=` signature matches any secret.
  */
 export function verifyPeableSignature(input: ProviderEventInput): ProviderEventEnvelope {
   const secrets = [
@@ -83,36 +117,29 @@ export function verifyPeableSignature(input: ProviderEventInput): ProviderEventE
 
   if (secrets.length === 0) refuse('no Peable webhook secret is configured');
 
-  let event: ReturnType<WebhooksResource['constructEvent']> | undefined;
-  for (const secret of secrets) {
-    try {
-      event = webhooks.constructEvent(input.payload, input.signature, secret, {
-        toleranceSec: TOLERANCE_SECONDS,
-      });
-      break;
-    } catch (error) {
-      if (!(error instanceof PeableSignatureVerificationError)) throw error;
-    }
+  let event: WebhookEvent;
+  try {
+    event = webhooks.constructEvent(input.payload, input.signature, secrets, TOLERANCE_SECONDS);
+  } catch (error) {
+    if (!(error instanceof PeableSignatureVerificationError)) throw error;
+    refuse('the Peable delivery could not be verified');
   }
-  if (!event) refuse('the Peable delivery could not be verified');
 
-  // A `billing.observation.updated` object names a `resourceId`, never an `id`,
-  // so it stores no object ids — and, with no handler, is kept as evidence.
-  const object = event.data?.object;
-  const intentId = object && 'id' in object ? object.id : undefined;
-  const paymentStatus = PAYMENT_STATUS_FOR_EVENT[event.type];
+  const intentId = paymentIntentIdOf(event);
+  const asserted = isPeablePaymentEvent(event.type)
+    ? PAYMENT_STATUS_FOR_EVENT[event.type]
+    : undefined;
 
   return {
     provider: 'peable',
     providerEventId: event.id,
     type: event.type,
-    // The gateway is single-mode per deployment: it serves the environment its
-    // credentials belong to, so there is no `livemode` on the envelope to read.
-    // Mercaria's own environment is the mode, and the test/live firewall is the
-    // service credential rather than a field in the body.
-    livemode: config.payments.peable.livemode,
-    objectIds: typeof intentId === 'string' ? { payment_intent: intentId } : {},
-    ...(paymentStatus === undefined ? {} : { paymentStatus }),
+    // The mode of the event's merchant (ADR 0017). The ingress drops a delivery
+    // whose mode is not this deployment's, as the Stripe ingress does.
+    livemode: event.livemode,
+    apiVersion: event.api_version,
+    objectIds: intentId === undefined ? {} : { payment_intent: intentId },
+    ...(asserted === undefined || asserted === 'reread' ? {} : { paymentStatus: asserted }),
     payload: event,
   };
 }

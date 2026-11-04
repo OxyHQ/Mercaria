@@ -1,9 +1,4 @@
-import {
-  CURRENCY_PRECISION,
-  CURRENCY_SYMBOLS,
-  type Money,
-  type OfferMoney,
-} from '@mercaria/shared-types';
+import { CURRENCY_PRECISION, type Money, type OfferMoney } from '@mercaria/shared-types';
 import { isolateBidi } from './bidi';
 
 /**
@@ -142,21 +137,7 @@ function formatNumber(
  * deliberate part of the change rather than a side effect — it is what `en`
  * grouping is — and it is the one way existing English rendering moves.
  */
-export function formatMoney(money: Money, locale: string): string {
-  const symbol = CURRENCY_SYMBOLS[money.currency];
-  const major = money.amount / DECIMAL_RADIX ** CURRENCY_PRECISION[money.currency];
-  const figure = formatNumber(
-    major,
-    locale,
-    'money',
-    {
-      minimumFractionDigits: DISPLAY_FRACTION_DIGITS,
-      maximumFractionDigits: DISPLAY_FRACTION_DIGITS,
-    },
-    () => major.toFixed(DISPLAY_FRACTION_DIGITS),
-  );
-  return isolateBidi(`${symbol}${figure}`);
-}
+export { formatMoney } from '@mercaria/shared-types';
 
 /**
  * Format an OFFER's own money — the price in the currency its SOURCE published

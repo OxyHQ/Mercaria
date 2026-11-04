@@ -33,7 +33,7 @@ no fleet aggregate in this repository and there is deliberately no prometheus.
 ## The alert
 
 `GET /internal/catalog-metrics/latency`, behind
-`CATALOG_OPERATOR_OXY_USER_IDS`. It reads no database — every input is in module
+`catalog.operate`. It reads no database — every input is in module
 scope — so it is cheap and it answers about the ONE task that served the request.
 
 ```bash

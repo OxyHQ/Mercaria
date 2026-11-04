@@ -215,9 +215,13 @@ describe('the generic open-data adapter', () => {
       }),
       { http },
     );
-    const page = await adapter.fetchPage(request({ cursor: 'not-base64-json' }));
+    const page = await adapter.fetchPage(
+      request({ cursor: 'not-base64-json', mode: 'full_snapshot' }),
+    );
     expect(seen).toEqual([null]);
     expect(page.complete).toBe(true);
+    // Only a full snapshot may claim a complete enumeration.
+    expect((await adapter.fetchPage(request())).complete).toBe(false);
   });
 
   it('refuses a source that does not name the required sub-feed', async () => {

@@ -83,7 +83,7 @@ function eventColumnSqlNames(): readonly string[] {
 describe('#77 identity rule 1 — a pseudonymous session is not an Oxy user', () => {
   it('the two identity fields are separate and an actor kind maps one-to-one', () => {
     expect(analyticsActorKind({ kind: 'oxy', oxyUserId: 'u1' })).toBe('oxy');
-    expect(analyticsActorKind({ kind: 'guest', guestSessionId: 'g1', transport: 'cookie' })).toBe(
+    expect(analyticsActorKind({ kind: 'guest', guestSessionId: 'g1', clientClass: 'web' })).toBe(
       'guest',
     );
     expect(analyticsActorKind({ kind: 'anonymous' })).toBe('anonymous');

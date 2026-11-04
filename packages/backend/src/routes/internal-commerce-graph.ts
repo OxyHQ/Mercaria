@@ -1,13 +1,11 @@
 /**
  * `/internal/commerce-graph/*` — the canonical-graph operator surface (#54).
  *
- * The `/internal/payments` shape, applied to a different power: mounted
- * OUTSIDE `/admin` because no store membership could authorize a write that
- * joins ANY merchant to ANY store; mount gated on the allow-list being
- * non-empty (404 on a deployment with no operators, never a 401 that would
- * advertise the surface); the gate repeated in middleware because mount and
- * gate live in different files. Full reasoning: `routes/internal-payments.ts`
- * and `middleware/catalog-operator-authz.ts`.
+ * The `/internal/payments` shape, applied to a different power: mounted OUTSIDE
+ * `/admin` because no store membership could authorize a write that joins ANY
+ * merchant to ANY store; gated on `catalog.operate` (404 to anyone without it,
+ * never a 401 that would advertise the surface). Full reasoning:
+ * `middleware/operator-authz.ts`.
  *
  * LINKAGE (#54), the RELATIONSHIP review workflow (#55), merchant-claim REVIEW
  * (#83) and the CURATION half — the review queue, merge and split jobs,
@@ -20,13 +18,13 @@
  * The claim-review routes are here and not on a surface of their own for the
  * reason this gate exists: deciding who operates a merchant is the same power
  * as linking one to a native store, exercised over the same graph, and a
- * second allow-list for it would be a second thing to keep in step with this
+ * second key for it would be a second grant to keep in step with this
  * one.
  */
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireCatalogOperator } from '../middleware/catalog-operator-authz.js';
+import { requireCatalogOperator } from '../middleware/operator-authz.js';
 import { validateBody, validateId, validateQuery } from '../middleware/validate.js';
 import { holdStoreActivationSchema } from '../middleware/merchant-activation-schemas.js';
 import {
@@ -141,9 +139,8 @@ import {
 
 const router = Router();
 
-// Authentication FIRST, then the allow-list — the gate reads the verified
-// caller, and an allow-list consulted before authentication would compare
-// against whatever a client claimed.
+// Authentication FIRST, then the operator gate — it asks Oxy about the verified
+// caller's own session, which only `authenticateToken` establishes.
 router.use(authenticateToken);
 router.use(requireCatalogOperator);
 
@@ -425,13 +422,13 @@ router.post(
 );
 
 /**
- * Merchant activation (#85), on this SAME allow-list rather than a seventh.
+ * Merchant activation (#85), on this SAME key rather than a new one.
  *
  * The power is the one this gate already carries: deciding whether a merchant
  * may operate. #83 verifies the claim, #84 joins the merchant to a store, and
  * holding that store's checkout while a risk or moderation question is open is
  * the same decision one step later, over the same graph, by the same people. A
- * seventh list would be a seventh thing to keep in step with this one.
+ * new key would be another grant to keep in step with this one.
  *
  * The route set is CLOSED and there is deliberately no "activate this store",
  * no "set this capability" and no "mark this requirement satisfied" — every one

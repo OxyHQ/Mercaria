@@ -24,27 +24,31 @@ rather than a lever — see §4.
 
 ## 0. Before you turn anything off: the precondition nobody would guess
 
-**`CATALOG_OPERATOR_OXY_USER_IDS` must be non-empty, or the rollback makes the
+**Somebody on call must hold `catalog.operate`, or the rollback makes the
 catalogue evidence unreachable over HTTP.**
 
 D12 promises that "the evidence has to be readable during the incident that
 turned the levers off", and the code delivers it: nine `/internal/*` catalog
-surfaces are gated on the operator allow-list and on **no rollout lever** —
+surfaces are gated on the `catalog.operate` application role and on **no
+rollout lever** —
 `/internal/catalog-proposals` (`app.ts:286`), `/internal/canonical-catalog`
 (`:519`), `/internal/offers` (`:745`), `/internal/catalog-attributes` (`:755`),
 `/internal/catalog-condition` (`:760`), `/internal/matching` (`:782`),
 `/internal/navigation` (`:992`), `/internal/catalog-governance` (`:1008`) and
 `/internal/catalog-metrics` (`:1014`).
 
-But that gate is **derived**: `config.catalog.graphOperatorSurfaceEnabled` is
-`resolveCatalogOperatorIds().length > 0` (`config/index.ts:3716`). An empty list
-makes all nine **404, not 401**. So with an empty allow-list and every rollout
-lever off, there is no HTTP surface that can read a proposal, a navigation tree,
-a mapping or a metric.
+But that gate is an Oxy application role (`middleware/operator-authz.ts`), held
+by whoever is an owner or admin of the `oxy` organization (oxy ADR 0056): all
+nine answer **404, not 401**, to anyone without the key. So with nobody on call
+holding `catalog.operate` and every rollout lever off, there is no HTTP surface
+that can read a proposal, a navigation tree, a mapping or a metric.
 
-**Check it first**, and check it with a real operator token so you can tell the
-three answers apart: **200** is fine; **403** means you are authenticated and not
-on the list; **404 with an operator's token means the list is empty.**
+**Check it first**, with your own token, so you can tell the three answers
+apart: **200** is fine; **404** means you do not hold `catalog.operate` — you
+are not an owner or admin of the `oxy` organization (ask an owner to give you
+that role; nothing is granted per person), or Mercaria's keys have not been
+seeded (oxy's **Seed Oxy applications** workflow, `only_apps` Mercaria);
+**503** means Oxy could not be asked, which is not a refusal — retry.
 
 ---
 
@@ -292,8 +296,8 @@ change.
   their enclosing `if`; the completeness control is that the 11 residual
   `app.use(` calls are body parsers, rate limiters, the error handler and four
   multi-line canonical mounts belonging to #60.
-- The nine `/internal/*` surfaces are gated on the operator list and no rollout
-  lever, and that gate is derived from the list's length.
+- The nine `/internal/*` surfaces are gated on the `catalog.operate`
+  application role and no rollout lever.
 - The storefront navigation fallback and the facet-rail absence exist as code and
   handle 404, empty and network failure.
 - No #367 migration touches a commerce table, and all ten are `pre`.
@@ -308,15 +312,14 @@ change.
   a not-404 floor so two 404s cannot satisfy sameness; that a proposal stored with
   the lever on is still readable over HTTP through `/internal/catalog-proposals`
   with it off while the merchant surface that created it is gone; that all nine
-  internal surfaces are mounted with every lever off; and that an EMPTY
-  `CATALOG_OPERATOR_OXY_USER_IDS` 404s all nine.
+  internal surfaces are mounted with every lever off; and that a caller without
+  `catalog.operate` gets 404 on all nine.
   **Mutation-tested, one clause at a time** — ungating each of the four levers in
   `app.ts` turns only that lever's paths red (authoring 2, proposals 2 including
   the durable-record case, facets 1, navigation 1); making `/cart` lever-gated
   turns the sameness case red; making `/internal/catalog-governance` follow a
-  lever turns the mounted case red; and replacing
-  `graphOperatorSurfaceEnabled: resolveCatalogOperatorIds().length > 0` with
-  `true` turns all nine failure-mode cases red.
+  lever turns the mounted case red; and the nine failure-mode cases assert
+  that a caller without `catalog.operate` gets 404.
 - **`packages/frontend/lib/catalog/__tests__/navigation-fallback.test.ts`**
   executes the storefront fallback (§3), including the entrypoint assertions.
   Mutation-tested per clause: removing the rejection branch turns 3 red, removing
@@ -372,8 +375,8 @@ this document says they will.
    menu renders from the v1 tree and reports
    `source: 'category_tree_fallback'`, with no menu-shaped error.
    *Settles §3, which is currently the least defended claim here.*
-4. **Empty `CATALOG_OPERATOR_OXY_USER_IDS` deliberately and confirm the nine
-   surfaces 404 with a real operator token.** *Settles §0, and is the one step
+4. **Call the nine surfaces with a real token that does NOT hold
+   `catalog.operate` and confirm they 404.** *Settles §0, and is the one step
    that shows the failure mode rather than the success.*
 5. **Mark a category `selectable = false`, then turn every lever off and attempt a
    legacy listing write against it.** Confirm `restrict_violation`, then mark it

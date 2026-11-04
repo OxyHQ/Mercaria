@@ -38,6 +38,7 @@
     // by hand derives from the contract's (`Pick<…>`, `MercariaPage<T>`) rather
     // than restating a required key. No production module imports it.
     "paths": {
+      "@mercaria.co/sdk/server": ["../sdk/src/server.ts"],
       "@mercaria.co/sdk": ["../sdk/src/index.ts"]
     },
     "declaration": false,

@@ -14,7 +14,7 @@
 
 import type { Request, Response } from 'express';
 import type { NativeStoreLinkMethod } from '@mercaria/shared-types';
-import { catalogOperatorId } from '../middleware/catalog-operator-authz.js';
+import { operatorId } from '../middleware/operator-authz.js';
 import {
   linkNativeStore,
   revokeLink,
@@ -40,7 +40,7 @@ export async function createNativeStoreLinkHandler(req: Request, res: Response):
       method: body.method,
       note: body.note,
       reason: body.reason,
-      actorOxyUserId: catalogOperatorId(req),
+      actorOxyUserId: operatorId(req),
     });
     sendSuccess(res, toNativeStoreLinkDTO(link), 201);
   } catch (error) {
@@ -55,7 +55,7 @@ export async function revokeNativeStoreLinkHandler(req: Request, res: Response):
     const link = await revokeLink({
       linkId: routeParam(req, 'id'),
       reason: body.reason,
-      actorOxyUserId: catalogOperatorId(req),
+      actorOxyUserId: operatorId(req),
     });
     sendSuccess(res, toNativeStoreLinkDTO(link));
   } catch (error) {

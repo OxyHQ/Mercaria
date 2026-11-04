@@ -142,7 +142,7 @@ one fact come to disagree.
 
 `POST /internal/catalog-attributes/definitions` drafts one;
 `POST /internal/catalog-attributes/definitions/:key/versions/:version/publish`
-publishes it. Both are behind `CATALOG_OPERATOR_OXY_USER_IDS`. In a vertical
+publishes it. Both are behind `catalog.operate`. In a vertical
 package the same two calls are `apply.ts:471`.
 
 Decide four things at draft time, because after publication they are frozen:

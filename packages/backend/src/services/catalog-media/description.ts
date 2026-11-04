@@ -1,6 +1,11 @@
 import { parseFragment, serialize, type DefaultTreeAdapterMap } from 'parse5';
-import { CatalogMediaSyncError, synchronizeAccountImages, synchronizeStoreImages } from './sync.js';
-import { resolveMedia, resolveStoredMediaUrl } from './urls.js';
+import {
+  CatalogMediaSyncError,
+  synchronizeAccountImages,
+  synchronizeApplicationImages,
+  synchronizeStoreImages,
+} from './sync.js';
+import { resolveMedia, resolveStoredMediaUrl, storedMediaFileId } from './urls.js';
 import { validationError } from '../../lib/errors/error-codes.js';
 
 type Element = DefaultTreeAdapterMap['element'];
@@ -147,6 +152,11 @@ export function synchronizeStoreDescription(storeId: string, description: string
   return synchronizeDescription(description, (sources) => synchronizeStoreImages(storeId, sources));
 }
 
+/** A canonical description's images belong to the Mercaria application (ADR 0043). */
+export function synchronizeApplicationDescription(description: string): Promise<string> {
+  return synchronizeDescription(description, (sources) => synchronizeApplicationImages(sources));
+}
+
 export function synchronizeAccountDescription(
   ownerOxyUserId: string | undefined,
   description: string,
@@ -164,4 +174,84 @@ export function assertDescriptionImagesStored(description: string | undefined): 
       'Description images must be synchronized with Oxy before catalog writes.',
     );
   }
+}
+
+/**
+ * The Oxy files a stored description USES: every content `<img src>` naming the
+ * SDK-configured public namespace, in document order, without repeats. What the
+ * reference registry registers for a description entity. A `src` anywhere else
+ * (a script, a template, a supplier URL a legacy row still carries) uses no Oxy
+ * file and is not counted.
+ */
+export function descriptionImageFileIds(description: string | null | undefined): string[] {
+  if (!description || !/<img/i.test(description)) return [];
+  const ids = new Set<string>();
+  for (const node of contentElements(parseFragment(description).childNodes)) {
+    if (node.tagName !== 'img') continue;
+    const fileId = storedMediaFileId(
+      node.attrs.find((attribute) => attribute.name === 'src')?.value,
+    );
+    if (fileId) ids.add(fileId);
+  }
+  return [...ids];
+}
+
+/**
+ * The description without the `<img>` elements that show `fileId` — what a
+ * takedown (`file.blocked`) or a deleted file leaves of it — or `undefined` when
+ * no element shows it. The rest of the author's markup is kept as it is.
+ */
+export function withoutDescriptionImage(
+  description: string | null | undefined,
+  fileId: string,
+): string | undefined {
+  if (!description?.includes(fileId)) return undefined;
+  const document = parseFragment(description);
+  let removed = false;
+  const prune = (nodes: Node[]): Node[] =>
+    nodes.filter((node) => {
+      if (!('tagName' in node)) return true;
+      if (
+        node.tagName === 'img' &&
+        storedMediaFileId(node.attrs.find((attribute) => attribute.name === 'src')?.value) ===
+          fileId
+      ) {
+        removed = true;
+        return false;
+      }
+      if (!discarded.has(node.tagName)) node.childNodes = prune(node.childNodes);
+      return true;
+    });
+  document.childNodes = prune(document.childNodes);
+  return removed ? serialize(document) : undefined;
+}
+
+/**
+ * The description with every content `<img>` showing a file in `replacements`
+ * pointed at its replacement — the same image, now a file another owner holds
+ * (an operator's upload adopted by the Mercaria application). `undefined` when
+ * nothing changed. Other markup is kept as it is.
+ */
+export function withDescriptionImagesReplaced(
+  description: string,
+  replacements: ReadonlyMap<string, string>,
+): string | undefined {
+  if (replacements.size === 0) return undefined;
+  const document = parseFragment(description);
+  let changed = false;
+  for (const node of contentElements(document.childNodes)) {
+    if (node.tagName !== 'img') continue;
+    const fileId = storedMediaFileId(
+      node.attrs.find((attribute) => attribute.name === 'src')?.value,
+    );
+    const next = fileId === undefined ? undefined : replacements.get(fileId);
+    if (next === undefined || next === fileId) continue;
+    const url = resolveMedia(next);
+    if (!url) continue;
+    node.attrs = node.attrs.map((attribute) =>
+      attribute.name === 'src' ? { ...attribute, value: url } : attribute,
+    );
+    changed = true;
+  }
+  return changed ? serialize(document) : undefined;
 }

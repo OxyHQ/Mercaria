@@ -323,9 +323,16 @@ rights version survive. That is #62's acceptance 6 (`no UPDATE could delete the
 history and no DELETE anywhere in this domain`) applied to a membership change,
 and it is why revocation is a status transition rather than a cleanup.
 
-**Images are hotlinked, not re-hosted.** Nothing in this domain uploads a
-provider image to Oxy's file service; `NormalizedSourceRecord.media` carries the
-advertiser's own absolute URLs, which is what `may_display_media` licenses.
+**Images are copied, never hotlinked.** `NormalizedSourceRecord.media` carries
+the advertiser's own absolute URLs into the source record's stored projection;
+when the observation is attached to a canonical product they are imported through
+Oxy as files the Mercaria application owns and shown as canonical images (Oxy ADR
+0043; the owner's decision is to copy images from every source) —
+`docs/catalog-media.md`, "External imagery is copied". An earlier version of this
+section said they were hotlinked; nothing ever did. **Caching terms:** an advertiser's feed
+licence covers promoting its products and may restrict copying or caching their
+images; check the programme terms before an import path for this source is
+switched on, and honour `may_display_media`.
 
 ---
 
@@ -704,10 +711,11 @@ in a fetch failure. `rights_suspended` earns no grace, and neither does
 
 ### Operator — `/internal/awin/*`
 
-On the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54/#55/#56/#57/#58/#60/
-#62/#63/#68 use. Empty list = not mounted (404, never a 401 that would advertise
-the surface). Bringing a network up by hand, before any of its sources is
-activated, is the supported path — `/internal/ingestion`'s reason.
+On the SAME `catalog.operate` key #54/#55/#56/#57/#58/#60/
+#62/#63/#68 use. Anyone without it gets 404, never a 401 that would advertise
+the surface. It is always mounted, for `/internal/ingestion`'s reason: bringing a
+network up by hand, before any of its sources is activated, is the supported
+path, and the evidence has to be readable during any incident.
 
 | Route | What it does |
 |---|---|
@@ -789,8 +797,8 @@ Nothing below is green. Each is a gate, in the §9 sense of the #64 decision.
 2. **Secrets.** `AWIN_PUBLISHER_ID`, `AWIN_FEED_API_KEY` and (for #67)
    `AWIN_PUBLISHER_API_TOKEN` in SSM
    `/oxy/mercaria/*` → the task definition. Never a placeholder.
-3. `CATALOG_OPERATOR_OXY_USER_IDS` populated, or `/internal/awin` is not mounted
-   and nobody can register an account.
+3. `catalog.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`), or nobody can register an
+   account on `/internal/awin`.
 4. Per advertiser: a MERCHANT and a STOREFRONT bound on its #62 source (no
    merchant, no offers), a rights policy published and reviewed against the
    signed programme terms (§6), a #68 freshness version if its cache term

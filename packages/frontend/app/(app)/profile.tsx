@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 import Head from 'expo-router/head';
 import { useRouter } from 'expo-router';
-import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { Avatar } from '@oxy.so/bloom/avatar';
 import { Button } from '@oxy.so/bloom/button';
 import { Card } from '@oxy.so/bloom/card';
@@ -23,7 +23,7 @@ export default function ProfileScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const settings = useSettingsDialog();
-  const { user, isAuthenticated, canUsePrivateApi, oxyServices } = useOxy();
+  const { user, isAuthenticated, canUsePrivateApi, oxyServices, openAccountDialog } = useOxy();
   const savedItems = useSavedItems();
   const savedImages = (isAuthenticated && canUsePrivateApi ? (savedItems.data?.pages ?? []) : [])
     .flatMap((page) => page.items)
@@ -139,6 +139,14 @@ export default function ProfileScreen() {
           </Card>
         </View>
         <View className="gap-3">
+          <Button
+            appearance="plain"
+            tone="neutral"
+            style={rowStyle}
+            onPress={() => router.push('/materials')}
+          >
+            {t('materials.heading')}
+          </Button>
           {isAuthenticated ? (
             <Button
               appearance="plain"

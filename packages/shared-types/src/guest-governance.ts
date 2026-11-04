@@ -108,20 +108,21 @@ export const GUEST_DATA_DISPOSITIONS = [
 export type GuestDataDisposition = (typeof GUEST_DATA_DISPOSITIONS)[number];
 
 /**
- * Who may read a class. These are the SIX operator allow-lists plus the two
- * non-operator readers, named so the inventory can state access without
- * inventing a seventh vocabulary for it.
+ * Who may read a class: the operator desks that can reach guest data (Oxy
+ * application roles, `middleware/operator-authz.ts`) plus the non-operator
+ * readers, named so the inventory can state access without inventing a second
+ * vocabulary for it.
  */
 export const GUEST_DATA_ACCESS_ROLES = [
   /** The person the data is about, through their own credential. */
   'data_subject',
   /** The seller of an order, through store permissions. */
   'merchant',
-  /** `GUEST_OPERATOR_OXY_USER_IDS`. */
+  /** Holders of the `guest.operate` application role. */
   'guest_operator',
-  /** `PAYMENT_OPERATOR_OXY_USER_IDS`. */
+  /** Holders of the `payments.operate` application role. */
   'payment_operator',
-  /** `ANALYTICS_OPERATOR_OXY_USER_IDS`. */
+  /** Holders of the `analytics.operate` application role. */
   'analytics_operator',
   /** Nobody: the value exists only as a digest or ciphertext nothing projects. */
   'none',
@@ -303,6 +304,16 @@ export type GuestDataRequestState = (typeof GUEST_DATA_REQUEST_STATES)[number];
  * maintains. `provider_record` is the ADR 0006 / #111 retention rule 12 case:
  * Stripe holds its own financial records and deleting a Mercaria session does
  * not and must not attempt to destroy them.
+ *
+ * `expires_on_schedule` (M8-01) is the honest answer for a class an erasure
+ * request cannot reach any sooner than its own published expiry — a pseudonymous
+ * analytics event, a cohort aggregate, a queued message that holds no recipient.
+ * None of them carries the contact the request erases, and each leaves on the
+ * schedule `GUEST_RETENTION_SCHEDULE` states. Before it existed the receipt
+ * reported those classes as `deleted` with one affected row while nothing had
+ * touched them, which is the false receipt M8-01 is about. It is a reason a
+ * RECEIPT gives and never one a legal hold may carry: a hold pauses a deletion,
+ * and this names one that has not been asked of anything.
  */
 export const GUEST_DATA_RETENTION_REASONS = [
   'financial_record',
@@ -312,6 +323,7 @@ export const GUEST_DATA_RETENTION_REASONS = [
   'merchant_fulfilment_copy',
   'security_audit',
   'provider_record',
+  'expires_on_schedule',
 ] as const;
 
 /** One of {@link GUEST_DATA_RETENTION_REASONS}. */
@@ -948,7 +960,11 @@ export const GUEST_DATA_INVENTORY: readonly GuestDataClassRecord[] = [
     encryptedAtRest: true,
     accessRoles: ['data_subject', 'guest_operator'],
     retentionClass: 'unpaid_pending_checkout',
-    disposition: 'deleted',
+    // MINIMIZED, not deleted (M8-09): a sibling order or a payment attempt may
+    // still reference the row, so both the retention job and an erasure request
+    // overwrite its contact in place — the one UPDATE ADR 0003 D4's trigger
+    // permits — and leave the row standing.
+    disposition: 'minimized',
     exportable: true,
     downstreamProcessors: [],
     tables: ['guest_checkouts'],
@@ -992,13 +1008,20 @@ export const GUEST_DATA_INVENTORY: readonly GuestDataClassRecord[] = [
     title: 'The shipping or pickup destination',
     owner: '#105',
     purpose:
-      'Where the goods go. Snapshotted onto the order so a later address edit cannot move a parcel.',
-    basis: 'contract_performance',
+      'Where the goods go. Snapshotted onto the order so a later address edit cannot move a ' +
+      'parcel, and part of the invoice-grade record: ADR 0003 D15 retains it with the order ' +
+      'and only a post-statutory operator job may clear it.',
+    basis: 'legal_obligation',
     sensitivity: 'identifying',
     encryptedAtRest: false,
     accessRoles: ['data_subject', 'merchant'],
-    retentionClass: 'plaintext_equivalent_contact',
-    disposition: 'minimized',
+    // RETAINED, not minimized (M8-09/M8-01). It was declared `minimized` under
+    // the contact class, and nothing minimizes it: the retention job touches
+    // `guest_checkouts` only, and D15 says the shipping snapshot stays with the
+    // order. An erasure receipt read from the old record would have claimed an
+    // address was erased while it sat unchanged on the order.
+    retentionClass: 'transaction_record',
+    disposition: 'retained_under_obligation',
     exportable: true,
     downstreamProcessors: [],
     tables: [],
@@ -1035,7 +1058,10 @@ export const GUEST_DATA_INVENTORY: readonly GuestDataClassRecord[] = [
     disposition: 'deleted',
     exportable: false,
     downstreamProcessors: [],
-    tables: ['guest_recovery_attempts', 'guest_contact_suppressions', 'guest_contact_routing'],
+    // `guest_contact_routing` was listed here and no such table exists (M8-09):
+    // routing is a QUERY over `guest_checkouts`, not a table. The census now
+    // checks every name here against the drizzle schema, so a phantom fails.
+    tables: ['guest_recovery_attempts', 'guest_contact_suppressions'],
   },
   {
     dataClass: 'claim_operations',
@@ -1840,7 +1866,7 @@ export const GUEST_LAUNCH_GATE_REGISTER: readonly GuestLaunchGateDefinition[] = 
     requiredFromStage: 'stage_1_staff_canary',
     criterion:
       'Both webhook endpoints receive verified deliveries, the four reconciliation sweeps run, ' +
-      'and PAYMENT_OPERATOR_OXY_USER_IDS is non-empty so a person can drive a repair.',
+      'and payments.operate is seeded and held by at least one person so a repair can be driven.',
   },
   {
     gate: 'transactional_sender_authenticated',
@@ -1894,7 +1920,7 @@ export const GUEST_LAUNCH_GATE_REGISTER: readonly GuestLaunchGateDefinition[] = 
     gate: 'dashboard_metrics_and_alerts_live',
     title: 'Dashboard metrics and alerts live',
     discipline: 'operations',
-    evidenceKind: 'automated_check',
+    evidenceKind: 'operational_verification',
     requiredFromStage: 'stage_2_pilot_merchants',
     criterion:
       'Every guest metric computes a number rather than a seam, and every critical security ' +
@@ -1904,7 +1930,7 @@ export const GUEST_LAUNCH_GATE_REGISTER: readonly GuestLaunchGateDefinition[] = 
     gate: 'feature_flags_and_kill_switches_tested',
     title: 'Feature flags and kill switches tested',
     discipline: 'engineering',
-    evidenceKind: 'automated_check',
+    evidenceKind: 'operational_verification',
     requiredFromStage: 'stage_1_staff_canary',
     criterion:
       'The rollback suite passes: with every guest lever off, a placed guest order is still ' +
@@ -1922,7 +1948,7 @@ export const GUEST_LAUNCH_GATE_REGISTER: readonly GuestLaunchGateDefinition[] = 
     gate: 'payment_to_portal_tested_under_failure',
     title: 'Payment success to portal initialization tested under failure',
     discipline: 'engineering',
-    evidenceKind: 'automated_check',
+    evidenceKind: 'operational_verification',
     requiredFromStage: 'stage_1_staff_canary',
     criterion:
       'End-to-end tests cover session expiry between paying and returning, an app restart, and a ' +

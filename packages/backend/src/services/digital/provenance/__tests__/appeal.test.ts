@@ -31,10 +31,21 @@ vi.mock('../../../../db/stores/storeRepository.js', () => ({
   findStoresByOwnerAccounts: vi.fn(),
 }));
 /** Whether an appellant can act for the store is a role on its owning Oxy account. */
-vi.mock('../../../oxy-account-graph.js', () => ({
-  readCallerAccountRole: (...args: unknown[]) => readCallerAccountRole(...args),
-  listCallerAccountRoles: vi.fn(),
-}));
+vi.mock('../../../../middleware/auth.js', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../../../../middleware/auth.js')>();
+  const { overOxyClient } = await import('../../../../__tests__/over-oxy-client.js');
+  const { fakeAccountAccess } = await import('../../../../__tests__/oxy-account-access-fake.js');
+  return {
+    ...original,
+    oxyClient: overOxyClient(
+      original.oxyClient,
+      fakeAccountAccess(
+        (...args: unknown[]) => readCallerAccountRole(...args),
+        () => new Map(),
+      ),
+    ),
+  };
+});
 
 import {
   PROVENANCE_APPEAL_SIGNAL_KINDS,
@@ -51,6 +62,7 @@ function caller(oxyUserId: string): StoreCaller {
     accountId: oxyUserId,
     actorAccountId: oxyUserId,
     delegated: false,
+    sessionId: 'test-session',
     accessToken: `bearer-${oxyUserId}`,
   };
 }

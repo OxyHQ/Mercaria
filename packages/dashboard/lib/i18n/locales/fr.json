@@ -591,6 +591,16 @@
         "lte": "Inférieur ou égal à"
       },
       "categoryIdentifier": "Identifiant de catégorie"
+    },
+    "featured": {
+      "title": "Collections mises en avant",
+      "help": "Choisissez jusqu’à %{count} collections manuelles publiées et organisez leur ordre d’affichage.",
+      "empty": "Aucune collection mise en avant.",
+      "unavailable": "Collection indisponible",
+      "hidden": "Cette collection n’est actuellement pas visible par les acheteurs.",
+      "add": "Ajouter une collection manuelle publiée",
+      "failed": "Impossible d’enregistrer les collections mises en avant. Vos modifications sont conservées.",
+      "saved": "Collections mises en avant enregistrées."
     }
   },
   "common": {
@@ -1721,18 +1731,39 @@
         "displayNameLabel": "Nom de l'organisation",
         "done": "La boutique appartient désormais à l'organisation",
         "failed": "Impossible de convertir la boutique",
-        "inviteLabel": "Nom d'utilisateur ou e-mail",
-        "invitePlaceholder": "nom ou email@exemple.com",
+        "inviteLabel": "E-mail",
+        "invitePlaceholder": "email@exemple.com",
         "inviteesTitle": "Personnes à inviter",
         "nameRequired": "Saisissez le nom et le nom d'utilisateur de l'organisation",
         "open": "Convertir en organisation",
-        "someInvitesFailed": "La boutique a été déplacée, mais ces invitations ont échoué : %{names}",
+        "someInvitesFailed": "La boutique a été déplacée, mais ces invitations n'ont pas pu être envoyées : %{names}",
         "submit": "Créer l'organisation et déplacer la boutique",
         "title": "Convertir en organisation",
         "usernameLabel": "Nom d'utilisateur de l'organisation",
         "warning": "Les personnes qui pouvaient agir pour cette boutique et qui ne font pas partie de l'organisation n'y ont plus accès."
       },
       "documentTitle": "Membres | Wholesale by Mercaria",
+      "invitations": {
+        "body": "Les personnes ne rejoignent l'organisation qu'après avoir accepté l'invitation envoyée à leur adresse e-mail.",
+        "dialogTitle": "Inviter quelqu'un",
+        "emailLabel": "E-mail",
+        "empty": "Aucune invitation en attente",
+        "expired": "Expirée",
+        "invalidEmail": "Saisissez une adresse e-mail valide",
+        "invite": "Inviter",
+        "loadFailed": "Impossible de charger les invitations",
+        "pending": "En attente",
+        "resend": "Renvoyer",
+        "resendFailed": "Impossible de renvoyer l'invitation",
+        "resent": "Invitation renvoyée",
+        "revoke": "Révoquer",
+        "revokeFailed": "Impossible de révoquer l'invitation",
+        "revoked": "Invitation révoquée",
+        "send": "Envoyer l'invitation",
+        "sendFailed": "Impossible d'envoyer l'invitation",
+        "sent": "Invitation envoyée à %{email}",
+        "title": "Invitations en attente"
+      },
       "loadFailed": "Impossible de charger les personnes de cette boutique",
       "noAccess": "Aucun accès",
       "organizationBody": "Qui peut agir pour cette boutique dépend des membres de l'organisation dans Oxy. Mercaria ne conserve que des exceptions aux autorisations de chaque rôle.",
@@ -2056,5 +2087,23 @@
   "brand": {
     "name": "Wholesale",
     "byline": "by Mercaria"
+  },
+  "catalogSafety": {
+    "title": "Vérification du contenu des achats",
+    "intro": "Les opérateurs de la plateforme vérifient le texte source complet avant de rendre une fiche sans images disponible.",
+    "accessDenied": "Accès plateforme requis",
+    "accessBody": "Cet espace est réservé aux personnes autorisées à vérifier le catalogue.",
+    "unavailable": "Cet article ne peut pas être vérifié",
+    "empty": "Aucun article à vérifier",
+    "next": "Articles suivants",
+    "select": "Sélectionnez un article à vérifier",
+    "limitBody": "Cet article dépasse les limites de vérification et reste indisponible pour les achats supervisés.",
+    "allowed": "Le texte actuel est approuvé",
+    "pending": "Le texte actuel n’est pas approuvé",
+    "textOnly": "Seuls le titre, les variantes, les options et le prix seront affichés. Photos, descriptions et avis sont exclus.",
+    "saveError": "La vérification n’a pas pu être enregistrée. Rechargez l’article et vérifiez son contenu actuel.",
+    "saved": "Vérification enregistrée",
+    "allow": "Autoriser le texte vérifié",
+    "withhold": "Ne pas afficher"
   }
 }

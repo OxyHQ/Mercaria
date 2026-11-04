@@ -462,7 +462,7 @@ async function buildRequestedScope(params: {
  */
 async function assertClaimantMayNameStore(storeId: string, claimant: StoreCaller): Promise<void> {
   const store = await findStoreById(storeId);
-  if (!store || (await resolveStoreAccess(claimant, store)) === null) {
+  if (!store || (await resolveStoreAccess(claimant, store, { fresh: true })) === null) {
     throw notFound('Store not found');
   }
 }

@@ -33,15 +33,18 @@ import { TEST_POOL_SIZE } from './vitest.connection-budget.js';
  * pointed at.
  *
  * Every realdb file that creates its own throwaway database migrates it with
- * the real migrator, which applies the whole chain in ONE transaction and so
- * holds every object lock it takes until commit. PostgreSQL sizes ONE shared
+ * the real migrator. Since @oxy.so/db 1.2.0 that commits EACH migration in its
+ * own transaction, so a database holds one migration's locks at a time rather
+ * than the whole chain's until a single commit. PostgreSQL sizes ONE shared
  * lock table from `max_locks_per_transaction * (max_connections +
  * max_prepared_transactions)`, so those migrations contend for a single pool
  * rather than each getting their own budget.
  *
- * Re-measured on postgis/postgis:17-3.5 (PostgreSQL 17.5), 2026-10-15,
- * commit 096013fc: the 168-entry full chain held 6,545 locks alone; at 512,
- * 28 simultaneous migrations completed and 29 exhausted the shared table.
+ * Re-measured on postgis/postgis:17-3.5 (PostgreSQL 17.5), 2026-10-17, at
+ * 6c344f98 with @oxy.so/db 1.2.0 and the 176-entry chain: at 512, 48
+ * simultaneous migrations completed (peak 18,054 locks) and 64 ran out of
+ * CONNECTIONS (max_connections=100) before the lock table. Under the old
+ * whole-chain transaction the same ceiling carried 28.
  * `scripts/validate-lock-capacity.mjs` records the measurement and derives the
  * suite requirement from its private-database files plus globalSetup. It
  * projects capacity as the migration chain grows instead of trusting a stale

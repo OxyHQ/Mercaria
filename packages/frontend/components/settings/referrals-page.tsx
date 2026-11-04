@@ -1,11 +1,17 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Button } from '@oxy.so/bloom/button';
 import { Loading } from '@oxy.so/bloom/loading';
-import { SettingsCard, SettingsRow, SettingsSection } from '@oxy.so/bloom/settings-modal';
+import {
+  SettingsCard,
+  SettingsRow,
+  SettingsSection,
+  SettingsSelect,
+} from '@oxy.so/bloom/settings-modal';
+import { TextFieldInput } from '@oxy.so/bloom/text-field';
 import { toast } from '@oxy.so/bloom/toast';
-import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import {
   REFERRAL_OUTSTANDING_KEYS,
   REFERRAL_PAYOUT_STATUS_KEYS,
@@ -19,7 +25,6 @@ import {
   useSettingsDialog,
   useSharedUiLocale,
 } from '@mercaria/ui';
-import { SettingsSelect } from '@mercaria/ui/settings';
 import {
   REFERRAL_PERFORMANCE_DIMENSIONS,
   type CurrencyCode,
@@ -38,6 +43,7 @@ import {
   useReferralDashboard,
   useReferralPerformance,
 } from '@/lib/hooks/use-referral-partner';
+import { useEnterReferralCode } from '@/lib/hooks/use-referral-binding';
 import { useTranslation } from '@/lib/i18n';
 
 /**
@@ -80,13 +86,18 @@ const DIMENSION_KEYS: Readonly<Record<ReferralPerformanceDimension, string>> = {
 };
 
 /**
- * What a partner pastes: `GET /r/:token` on the API origin, the only host that
- * serves it today. ADR 0005 D3 names `mercaria.co/r/<token>`, which needs the
- * storefront worker to forward `/r/*` — it does not yet, and a link that lands
- * on the app instead of the redirect attributes nobody (docs/referral-dashboards.md).
+ * What a partner pastes: `mercaria.co/r/<token>`, ADR 0005 D3's shape. The
+ * storefront worker hands `/r/*` to the API's `GET /r/:token` with a redirect,
+ * so the click's carrier is set on the API host that later binds it. A dev
+ * server runs no worker, so a dev build points straight at its API.
  */
 function shareUrl(link: ReferralLinkPartnerView): string {
-  return `${config.apiUrl}/r/${link.token}`;
+  const origin = __DEV__
+    ? config.apiUrl
+    : Platform.OS === 'web' && typeof window !== 'undefined'
+      ? window.location.origin
+      : 'https://mercaria.co';
+  return `${origin}/r/${link.token}`;
 }
 
 /** The URL as a person reads it, without the scheme. */
@@ -120,7 +131,7 @@ function money(amountMinor: number, currency: CurrencyCode, locale: string): str
  */
 export function ReferralsSettingsPage() {
   const { t } = useTranslation();
-  const { isAuthenticated } = useOxy();
+  const { isAuthenticated, openAccountDialog } = useOxy();
   const { afterClose } = useSettingsDialog();
   const dashboard = useReferralDashboard();
 
@@ -165,6 +176,7 @@ export function ReferralsSettingsPage() {
   return (
     <Page>
       <LinksSection data={data} />
+      <CodeEntrySection />
       <StandingSection
         earningStarted={data.enrollment.earningStarted}
         outstanding={data.enrollment.outstanding as ReferralPartnerOutstandingItem[]}
@@ -185,6 +197,68 @@ export function ReferralsSettingsPage() {
 
 function Page({ children }: { children: ReactNode }) {
   return <View className="gap-6">{children}</View>;
+}
+
+/**
+ * A code somebody was given, typed here — ADR 0005 D4's `in_app` code entry.
+ * Checkout stays referral-free on purpose (`commercial-presentation-isolation`):
+ * a referral is acquisition history, and the purchase must never depend on it.
+ *
+ * Every refusal reads the same, so a stranger cannot learn which codes exist
+ * (#143 code rule 6).
+ */
+function CodeEntrySection() {
+  const { t } = useTranslation();
+  const [code, setCode] = useState('');
+  const enter = useEnterReferralCode();
+  const trimmed = code.trim();
+  const terms = enter.data?.publicTermsSummary;
+
+  const onApply = async () => {
+    try {
+      const result = await enter.mutateAsync(trimmed);
+      if (result.state === 'attributed' || result.state === 'recorded_not_attributed') {
+        setCode('');
+        toast.success(t('referral.code.applied'));
+      } else {
+        toast.error(t('referral.code.invalid'));
+      }
+    } catch {
+      toast.error(t('referral.code.failed'));
+    }
+  };
+
+  return (
+    <SettingsSection label={t('referral.code.title')} description={t('referral.code.description')}>
+      <SettingsCard>
+        <View className="flex-row items-center gap-3 p-3">
+          <View className="flex-1">
+            <TextFieldInput
+              label={t('referral.code.label')}
+              value={code}
+              onValueChange={setCode}
+              placeholder={t('referral.code.placeholder')}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              onSubmitEditing={trimmed ? () => void onApply() : undefined}
+            />
+          </View>
+          <Button
+            size="sm"
+            appearance="subtle"
+            tone="neutral"
+            loading={enter.isPending}
+            disabled={!trimmed || enter.isPending}
+            onPress={() => void onApply()}
+          >
+            {t('referral.code.apply')}
+          </Button>
+        </View>
+        {/* The program's own buyer-facing terms, verbatim, once they apply. */}
+        {terms ? <SettingsRow label={terms} /> : null}
+      </SettingsCard>
+    </SettingsSection>
+  );
 }
 
 /** The page's reason to exist: a link to share, copied in one press. */
@@ -402,6 +476,7 @@ function PayoutsSection({ payouts }: { payouts: ReferralPartnerDashboard['payout
         ) : (
           payouts.recentPayouts.map((batch, index) => (
             <SettingsRow
+              // biome-ignore lint/suspicious/noArrayIndexKey: a batch carries no id by design (A5), and two can settle on one day; the list is never reordered.
               key={`${batch.date}:${index}`}
               label={batch.date}
               description={t(REFERRAL_PAYOUT_STATUS_KEYS[batch.status])}

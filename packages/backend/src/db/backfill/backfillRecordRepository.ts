@@ -57,21 +57,58 @@ export async function recordBackfillOutcome(
   input: RecordBackfillOutcomeInput,
   db: DatabaseOrTransaction = getDb(),
 ): Promise<void> {
+  await recordBackfillOutcomes([input], db);
+}
+
+/** The identity key, spelled once so the dedupe and the upsert target agree. */
+function identityOf(input: RecordBackfillOutcomeInput): string {
+  return JSON.stringify([input.mappingVersion, input.mode, input.stage, input.subjectKey]);
+}
+
+/**
+ * Record a whole page's verdicts in ONE statement — the write path of
+ * `examineAll`.
+ *
+ * One row per subject per statement was one COMMIT per subject: the
+ * `rebuild_projections` stage re-examines the whole catalogue every autopilot
+ * cycle, and on 2026-10-21 that was ~13 single-row upserts a second, all
+ * waiting on `IO:WalSync`, the second-heaviest statement Mercaria ran on the
+ * shared database. A page of N subjects is now one statement and one commit.
+ *
+ * Postgres refuses an `ON CONFLICT DO UPDATE` that touches one row twice in a
+ * statement, so a subject named more than once collapses to its LAST verdict —
+ * the one sequential writes would have left — and carries every examination
+ * in `attempts`.
+ */
+export async function recordBackfillOutcomes(
+  inputs: readonly RecordBackfillOutcomeInput[],
+  db: DatabaseOrTransaction = getDb(),
+): Promise<void> {
+  const bySubject = new Map<string, { input: RecordBackfillOutcomeInput; examinations: number }>();
+  for (const input of inputs) {
+    const key = identityOf(input);
+    bySubject.set(key, { input, examinations: (bySubject.get(key)?.examinations ?? 0) + 1 });
+  }
+  if (bySubject.size === 0) return;
+
   await db
     .insert(catalogBackfillRecords)
-    .values({
-      runId: input.runId,
-      stage: input.stage,
-      mode: input.mode,
-      mappingVersion: input.mappingVersion,
-      subjectKind: input.subjectKind,
-      subjectKey: input.subjectKey,
-      outcome: input.outcome,
-      reasonCode: input.reasonCode,
-      detail: input.detail?.slice(0, CATALOG_BACKFILL_MAX_TEXT_LENGTH) ?? null,
-      canonicalProductId: input.canonicalProductId ?? null,
-      canonicalVariantId: input.canonicalVariantId ?? null,
-    })
+    .values(
+      [...bySubject.values()].map(({ input, examinations }) => ({
+        runId: input.runId,
+        stage: input.stage,
+        mode: input.mode,
+        mappingVersion: input.mappingVersion,
+        subjectKind: input.subjectKind,
+        subjectKey: input.subjectKey,
+        outcome: input.outcome,
+        reasonCode: input.reasonCode,
+        detail: input.detail?.slice(0, CATALOG_BACKFILL_MAX_TEXT_LENGTH) ?? null,
+        canonicalProductId: input.canonicalProductId ?? null,
+        canonicalVariantId: input.canonicalVariantId ?? null,
+        attempts: examinations,
+      })),
+    )
     .onConflictDoUpdate({
       target: [
         catalogBackfillRecords.mappingVersion,
@@ -80,16 +117,19 @@ export async function recordBackfillOutcome(
         catalogBackfillRecords.subjectKey,
       ],
       set: {
-        runId: input.runId,
-        outcome: input.outcome,
-        reasonCode: input.reasonCode,
-        detail: input.detail?.slice(0, CATALOG_BACKFILL_MAX_TEXT_LENGTH) ?? null,
-        canonicalProductId: input.canonicalProductId ?? null,
-        canonicalVariantId: input.canonicalVariantId ?? null,
-        // Off the EXISTING row, never `excluded` — CONVENTIONS.md's third
-        // concurrency shape. `excluded.attempts` is always the literal 1 this
-        // insert supplies, so the count would never leave 1.
-        attempts: sql`${catalogBackfillRecords.attempts} + 1`,
+        // Each row's own values, so `excluded` — spelled out, because an
+        // interpolated column renders its TypeScript name (`docs/` drizzle
+        // binding traps).
+        runId: sql.raw('excluded.run_id'),
+        outcome: sql.raw('excluded.outcome'),
+        reasonCode: sql.raw('excluded.reason_code'),
+        detail: sql.raw('excluded.detail'),
+        canonicalProductId: sql.raw('excluded.canonical_product_id'),
+        canonicalVariantId: sql.raw('excluded.canonical_variant_id'),
+        // Off the EXISTING row — CONVENTIONS.md's third concurrency shape —
+        // plus this statement's examinations of the subject, which is what
+        // `excluded.attempts` carries here (never a constant 1).
+        attempts: sql`${catalogBackfillRecords.attempts} + excluded.attempts`,
       },
     });
 }

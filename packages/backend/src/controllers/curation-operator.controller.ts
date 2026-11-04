@@ -2,10 +2,10 @@
  * The catalogue-curation operator surface (#59).
  *
  * The review queue, the merge and split jobs, the corrections and the timeline,
- * behind the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54, #55, #56, #57
- * and #83 use — deciding that two things are one thing is the same power over
- * the same graph as linking a merchant to a store, and a sixth list would be a
- * sixth thing to keep in step for a separation it does not have.
+ * behind the SAME `catalog.operate` key #54, #55, #56, #57 and #83 use —
+ * deciding that two things are one thing is the same power over the same graph
+ * as linking a merchant to a store, and a separate key would be another grant
+ * to keep in step for a separation it does not have.
  *
  * What is deliberately absent, and why each absence is load-bearing:
  *
@@ -22,7 +22,7 @@
 
 import type { Request, Response } from 'express';
 import { estimateMergeImpact, impactFromColumns } from '../services/curation/impact.js';
-import { catalogOperatorId } from '../middleware/catalog-operator-authz.js';
+import { operatorId } from '../middleware/operator-authz.js';
 import { sendSuccess } from '../utils/api-response.js';
 import { routeParam } from '../utils/request.js';
 import { respondWithError } from '../lib/errors/error-codes.js';
@@ -180,11 +180,7 @@ export async function raiseReviewItemHandler(req: Request, res: Response): Promi
       counterpartId?: string;
       note: string;
     }>(req);
-    sendSuccess(
-      res,
-      await raiseReviewItem({ ...input, actorOxyUserId: catalogOperatorId(req) }),
-      201,
-    );
+    sendSuccess(res, await raiseReviewItem({ ...input, actorOxyUserId: operatorId(req) }), 201);
   } catch (err) {
     respondWithError(res, err, 'Failed to raise the review item');
   }
@@ -192,7 +188,7 @@ export async function raiseReviewItemHandler(req: Request, res: Response): Promi
 
 export async function claimReviewItemHandler(req: Request, res: Response): Promise<void> {
   try {
-    sendSuccess(res, await claimItem(routeParam(req, 'id'), catalogOperatorId(req)));
+    sendSuccess(res, await claimItem(routeParam(req, 'id'), operatorId(req)));
   } catch (err) {
     respondWithError(res, err, 'Failed to claim the review item');
   }
@@ -200,7 +196,7 @@ export async function claimReviewItemHandler(req: Request, res: Response): Promi
 
 export async function releaseReviewItemHandler(req: Request, res: Response): Promise<void> {
   try {
-    sendSuccess(res, await releaseItem(routeParam(req, 'id'), catalogOperatorId(req)));
+    sendSuccess(res, await releaseItem(routeParam(req, 'id'), operatorId(req)));
   } catch (err) {
     respondWithError(res, err, 'Failed to release the review item');
   }
@@ -215,7 +211,7 @@ export async function resolveReviewItemHandler(req: Request, res: Response): Pro
         id: routeParam(req, 'id'),
         resolution: input.resolution,
         reason: input.reason,
-        actorOxyUserId: catalogOperatorId(req),
+        actorOxyUserId: operatorId(req),
       }),
     );
   } catch (err) {
@@ -269,7 +265,7 @@ export async function requestMergeHandler(req: Request, res: Response): Promise<
       winnerId: input.winnerId,
       reason: input.reason,
       reviewItemId: input.reviewItemId ?? null,
-      actorOxyUserId: catalogOperatorId(req),
+      actorOxyUserId: operatorId(req),
     });
     sendSuccess(res, toMergeJobView(job), 201);
   } catch (err) {
@@ -337,9 +333,7 @@ export async function cancelMergeHandler(req: Request, res: Response): Promise<v
     const input = body<{ reason: string }>(req);
     sendSuccess(
       res,
-      toMergeJobView(
-        await cancelMerge(routeParam(req, 'id'), catalogOperatorId(req), input.reason),
-      ),
+      toMergeJobView(await cancelMerge(routeParam(req, 'id'), operatorId(req), input.reason)),
     );
   } catch (err) {
     respondWithError(res, err, 'Failed to cancel the merge job');
@@ -351,9 +345,7 @@ export async function approveMergeHandler(req: Request, res: Response): Promise<
     const input = body<{ reason: string }>(req);
     sendSuccess(
       res,
-      toMergeJobView(
-        await approveMerge(routeParam(req, 'id'), catalogOperatorId(req), input.reason),
-      ),
+      toMergeJobView(await approveMerge(routeParam(req, 'id'), operatorId(req), input.reason)),
     );
   } catch (err) {
     respondWithError(res, err, 'Failed to approve the merge job');
@@ -371,7 +363,7 @@ export async function resolveConflictHandler(req: Request, res: Response): Promi
         conflictId: routeParam(req, 'conflictId'),
         resolution: input.resolution,
         reason: input.reason,
-        actorOxyUserId: catalogOperatorId(req),
+        actorOxyUserId: operatorId(req),
       }),
     );
   } catch (err) {
@@ -406,7 +398,7 @@ export async function requestSplitHandler(req: Request, res: Response): Promise<
       reversesMergeJobId: input.reversesMergeJobId ?? null,
       reviewItemId: input.reviewItemId ?? null,
       items: input.items,
-      actorOxyUserId: catalogOperatorId(req),
+      actorOxyUserId: operatorId(req),
     });
     sendSuccess(res, toSplitJobView(job), 201);
   } catch (err) {
@@ -462,9 +454,7 @@ export async function cancelSplitHandler(req: Request, res: Response): Promise<v
     const input = body<{ reason: string }>(req);
     sendSuccess(
       res,
-      toSplitJobView(
-        await cancelSplit(routeParam(req, 'id'), catalogOperatorId(req), input.reason),
-      ),
+      toSplitJobView(await cancelSplit(routeParam(req, 'id'), operatorId(req), input.reason)),
     );
   } catch (err) {
     respondWithError(res, err, 'Failed to cancel the split job');
@@ -476,9 +466,7 @@ export async function approveSplitHandler(req: Request, res: Response): Promise<
     const input = body<{ reason: string }>(req);
     sendSuccess(
       res,
-      toSplitJobView(
-        await approveSplit(routeParam(req, 'id'), catalogOperatorId(req), input.reason),
-      ),
+      toSplitJobView(await approveSplit(routeParam(req, 'id'), operatorId(req), input.reason)),
     );
   } catch (err) {
     respondWithError(res, err, 'Failed to approve the split job');
@@ -505,7 +493,7 @@ export async function reassignIdentifierHandler(req: Request, res: Response): Pr
       targetProductId: input.targetProductId ?? null,
       targetVariantId: input.targetVariantId ?? null,
       reason: input.reason,
-      actorOxyUserId: catalogOperatorId(req),
+      actorOxyUserId: operatorId(req),
     });
     sendSuccess(res, { reassigned: true });
   } catch (err) {
@@ -519,7 +507,7 @@ export async function selectAttributeValueHandler(req: Request, res: Response): 
     await selectAttributeValue({
       valueId: routeParam(req, 'id'),
       reason: input.reason,
-      actorOxyUserId: catalogOperatorId(req),
+      actorOxyUserId: operatorId(req),
     });
     sendSuccess(res, { selected: true });
   } catch (err) {
@@ -540,7 +528,7 @@ export async function suppressEntityHandler(req: Request, res: Response): Promis
       entityId: input.entityId,
       reason: input.reason,
       note: input.note ?? null,
-      actorOxyUserId: catalogOperatorId(req),
+      actorOxyUserId: operatorId(req),
     });
     sendSuccess(res, { suppressed: true }, 201);
   } catch (err) {
@@ -553,7 +541,7 @@ export async function liftSuppressionHandler(req: Request, res: Response): Promi
     const input = body<{ entityType: CatalogSuppressibleType; entityId: string; reason: string }>(
       req,
     );
-    await liftEntitySuppression({ ...input, actorOxyUserId: catalogOperatorId(req) });
+    await liftEntitySuppression({ ...input, actorOxyUserId: operatorId(req) });
     sendSuccess(res, { lifted: true });
   } catch (err) {
     respondWithError(res, err, 'Failed to lift the suppression');
@@ -605,7 +593,7 @@ export async function compensateRevisionHandler(req: Request, res: Response): Pr
         revisionId: routeParam(req, 'id'),
         reason: input.reason,
         ...(input.note === undefined ? {} : { note: input.note }),
-        actorOxyUserId: catalogOperatorId(req),
+        actorOxyUserId: operatorId(req),
       }),
       201,
     );

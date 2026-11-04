@@ -20,7 +20,7 @@ path, the variance feedback, the projection, the sweep),
 `db/schema/retailReconciliation.ts` (ten tables), plus six posting builders in
 `services/payments/ledger-postings.ts`. Operator surface:
 `/internal/retail-reconciliation/*`, behind
-`PROCUREMENT_OPERATOR_OXY_USER_IDS`. Schema decisions:
+`procurement.operate`. Schema decisions:
 `db/schema/CONVENTIONS.md` §"Zero-profit cost reconciliation (#128)".
 
 ---
@@ -452,19 +452,18 @@ finality would be read as a promise.
 ## The operator surface
 
 `/internal/retail-reconciliation/*`, behind
-`PROCUREMENT_OPERATOR_OXY_USER_IDS` — the SIXTH allow-list, the one
-`procurement-operator-authz.ts` says exists for "reading what Mercaria PAYS its
-suppliers", and the one #122, #124 and #125 use.
+`procurement.operate` — the SIXTH operator key, the one
+`middleware/operator-authz.ts` says exists for what Mercaria PAYS its
+suppliers, and the one #122, #124 and #125 use.
 
-Deliberately **not** `RETAIL_OPERATOR_OXY_USER_IDS`, which is the fifth,
-COMPLIANCE list (#121: recalls, eligibility policy versions, document
+Deliberately **not** `retail.operate`, which is the fifth,
+COMPLIANCE key (#121: recalls, eligibility policy versions, document
 verification). This surface shows the supplier invoice by component and the final
-supplier item cost, and the sixth list's own docblock is explicit that "a
+supplier item cost, and the sixth key's own rationale is explicit that "a
 compliance reviewer vetted to verify a product-safety certificate is not thereby
 vetted to see Mercaria's cost base".
 
-EMPTY means the router is NOT MOUNTED — 404, never a 401 that would advertise the
-surface. It stays mounted while `RETAIL_RECONCILIATION_ENABLED` is off: the
+Anyone without the key gets 404, never a 401 that would advertise the surface. It stays mounted while `RETAIL_RECONCILIATION_ENABLED` is off: the
 evidence has to be readable during the incident that turned the sweep off.
 
 **READ, plus a CLOSED set of three writes**, each driving a path the sweep

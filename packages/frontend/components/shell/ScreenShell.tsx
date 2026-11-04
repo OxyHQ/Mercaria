@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { Platform, View } from 'react-native';
 import { usePathname } from 'expo-router';
 import { PageFooterProvider, usePageFooterInset } from '@oxy.so/bloom/page-footer';
@@ -19,18 +18,13 @@ function ComposerClearance() {
 /** Bloom owns the document footer's geometry and its measured clearance. */
 export function ScreenShell({
   children,
-  composer,
   hideComposer = false,
   ...props
-}: ScreenShellProps & {
-  composer?: ReactElement<Parameters<typeof ShoppingComposer>[0]>;
-  hideComposer?: boolean;
-}) {
+}: ScreenShellProps & { hideComposer?: boolean }) {
   const pathname = usePathname();
   const shopping =
     !hideComposer &&
-    (Boolean(composer) ||
-      pathname === '/' ||
+    (pathname === '/' ||
       pathname === '/explore' ||
       pathname === '/search' ||
       pathname === '/deals' ||
@@ -51,7 +45,7 @@ export function ScreenShell({
             </Animated.View>
             {shopping ? <ComposerClearance /> : null}
           </SharedScreenShell>
-          {shopping ? (composer ?? <ShoppingComposer />) : null}
+          {shopping ? <ShoppingComposer /> : null}
         </View>
       </PageFooterProvider>
     </ShoppingComposerProvider>

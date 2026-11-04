@@ -1036,7 +1036,8 @@
         "system": "跟随系统",
         "light": "浅色",
         "dark": "深色",
-        "color": "应用主题色"
+        "color": "应用主题色",
+        "colorFailed": "无法保存应用主题色，请重试。"
       },
       "language": {
         "title": "语言",

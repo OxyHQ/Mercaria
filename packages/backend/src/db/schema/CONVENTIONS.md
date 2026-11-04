@@ -3353,10 +3353,11 @@ provenance: the older copies are retired with the reason #57 already defines as
 "a newer offer took this one's active source mapping".
 ## The universal feed importer (#63)
 
-Seven tables — `feed_configurations`, `feed_configuration_versions`,
+Nine tables — `feed_configurations`, `feed_configuration_versions`,
 `feed_field_mappings`, `feed_value_mappings`, `feed_uploads`,
-`feed_import_reports`, `feed_import_report_entries` — and no change to any
-existing one. Full reference: `docs/feed-importer.md`.
+`feed_upload_sessions`, `feed_import_reports`, `feed_import_report_entries`,
+`feed_validation_jobs` — and no change to any existing one. Full reference:
+`docs/feed-importer.md`.
 
 **A 1:1 extension of the #62 source, one layer further down.**
 `feed_configurations.source_id` is `UNIQUE`, so there is still exactly one source
@@ -3429,9 +3430,31 @@ would make retention fail silently (the `analytics_events` posture).
 class, no `..`, no leading dot, bounded — written that way rather than as a list
 of forbidden sequences, because a denylist over path syntax is what every
 traversal bug has walked around. The stored artefact is never named after it:
-`storage_key` is CSPRNG and shape-CHECKed. Only a plain file and a single-member
-gzip are accepted (`FEED_COMPRESSIONS`), so an accepted artefact has no entry
-paths at all.
+`storage_key` is the Oxy `file_id` of a PRIVATE application file the client
+uploaded straight to storage (as `asset_files.storage_key` is), shape-CHECKed,
+and registered as a `feed_upload` reference by the `0172` trigger function so Oxy
+keeps it exactly as long as the row. Only a plain file and a single-member gzip
+are accepted (`FEED_COMPRESSIONS`), so an accepted artefact has no entry paths at
+all.
+
+**A direct upload is a SESSION row, and its CHECKs are biconditionals.**
+`feed_upload_sessions`: `completed` exactly when it names its `feed_uploads` row,
+`failed` exactly when it carries a failure from `FEED_UPLOAD_SESSION_FAILURES`,
+a part-sending or verifying session always names storage's upload, and a
+`proof_required` one always names a range inside the file. Storage keys an OPEN
+upload by its bytes, so `feed_upload_sessions_open_upload_key` (partial, open
+statuses only) is what stops two configurations completing one set of parts.
+
+**A cited upload has no deadline.** `feed_uploads.expires_at` is NULL exactly
+when `consumed_at` is set (`feed_uploads_retention_shape_check`): drafting a
+version that cites an upload consumes it in the draft's own transaction, because
+an active version re-reads it on every pass and a revert cites it again. So the
+sweep never meets the `restrict` key from `feed_configuration_versions.upload_id`.
+
+**`feed_validation_jobs` is an outbox**: one OPEN job per version (partial
+unique), a lease whose owner and deadline are present exactly while
+`processing`, `completed` exactly when it cites its report, `failed` exactly when
+it carries a `FEED_REFUSAL_REASONS` member.
 
 **Two PROTECTED columns**, both on `feed_configuration_versions`:
 `auth_ciphertext` (an AES-256-GCM envelope, the `connections` situation) and
@@ -3444,8 +3467,9 @@ four already exist on the #62 source or on `source_records`, and a second copy
 would be two answers to one question with the loser being whichever the
 dispatcher does not read. Stated here because their ABSENCE is the decision.
 
-**Three retention targets**, all in `expiryTargets.ts`: uploads at 7 days (the
-bytes live on one task's disk and do not survive a deployment), reports at 90
+**Five retention targets**, all in `expiryTargets.ts`: uploads no version cites
+at 7 days (a cited one has none), upload sessions and validation jobs at 7 days
+(records that something ran, swept before what they produced), reports at 90
 days (an active version cites one), entries at 30 days — deliberately SHORTER
 than the report that counts them, because the counts are what is read months
 later and the per-record detail is what a merchant downloads this week. Entries
@@ -3925,7 +3949,7 @@ add a row when a gate lands, and do not list one that does not run yet.
 | A product merge tombstones the loser, records the merge AND the flatten hop, keeps resolution one hop, and leaves a `procurement_offers` reference to a merged variant still resolvable | `src/db/__tests__/canonical-catalog.realdb.test.ts` | yes |
 | `UNIQUE(product_id, signature)`, the one-default-variant partial unique, the one-value-per-axis unique, the signature shape CHECK, the half-filled canonical-pair CHECK, the "not normalized ⇒ no magnitude" CHECK and the two-selected-values unique all fire | `src/db/__tests__/canonical-catalog.realdb.test.ts` | yes |
 | GTIN/UPC/EAN/GTIN-14 and ISBN-10/13 check digits accept a valid value and refuse one wrong by ONE digit; a UPC and the EAN padding to it collapse to one canonical value; unit conversion round-trips every unit in the table; an ambiguous unit spelling (`MW` vs `mW`) resolves to nothing rather than to the wrong one | `src/services/canonical/__tests__/{identifiers,units,variant-signature}.test.ts` | no |
-| `/internal/canonical-catalog/*` is operator-gated, unmounted on an empty allow-list, closed to the payments allow-list — and its source-fact endpoints REFUSE a canonical field (`name`, `slug`, `status`, `pinnedFields`) while accepting the same request without it | `src/routes/__tests__/internal-canonical-catalog.test.ts` | no |
+| `/internal/canonical-catalog/*` is operator-gated (`catalog.operate`), 404 to a non-holder, closed to a `payments.operate` holder — and its source-fact endpoints REFUSE a canonical field (`name`, `slug`, `status`, `pinnedFields`) while accepting the same request without it | `src/routes/__tests__/internal-canonical-catalog.test.ts` | no |
 | A published attribute definition version refuses every semantic edit and any DELETE, while a label correction and a draft edit both succeed; a second ACTIVE version is refused by the index even from a writer that skipped the service; the enum vocabulary of a published version is frozen | `src/db/__tests__/attribute-registry.realdb.test.ts` | yes |
 | Category scope INHERITS to descendants only where the scope row says so, and an UNSCOPED definition applies everywhere | `src/db/__tests__/attribute-registry.realdb.test.ts` | yes |
 | One structured observation writes three axis-named rows and a repeat writes nothing; a second SELECTED value in one slot is refused; a selected value that is not normalized is refused | `src/db/__tests__/attribute-registry.realdb.test.ts` | yes |
@@ -3939,7 +3963,7 @@ add a row when a gate lands, and do not list one that does not run yet.
 | A hard constraint excludes, a preference never does, missing data is `unknown` under a NAMED policy and is never reported satisfied, and a variant-scoped fact cannot satisfy another variant's constraint (#94 acceptance 4) | `src/services/attributes/__tests__/constraint-evaluation.test.ts` | no |
 | Every operator in the #94 list, including inclusive/exclusive range ends, negative set membership over a multi-valued attribute, range facts read through the satisfying bound, and structured axes | `src/services/attributes/__tests__/constraint-evaluation.test.ts` | no |
 | A constraint set is refused before search for an unknown attribute, one outside the category, an unsupported operator, a cross-dimension unit, a mismatched currency, an inadmissible enum value, an inverted range or a missing axis — and reports EVERY issue, not the first | `src/services/attributes/__tests__/constraint-validation.test.ts` | no |
-| `/internal/catalog-attributes/*` is operator-gated, unmounted on an empty allow-list, closed to the payments allow-list; the observation endpoint refuses a canonical value; the PUBLIC surface stays mounted without operators and has no wire representation of a hard text requirement | `src/routes/__tests__/internal-catalog-attributes.test.ts` | no |
+| `/internal/catalog-attributes/*` is operator-gated (`catalog.operate`), 404 to a non-holder, closed to a `payments.operate` holder; the observation endpoint refuses a canonical value; the PUBLIC surface stays mounted without operators and has no wire representation of a hard text requirement | `src/routes/__tests__/internal-catalog-attributes.test.ts` | no |
 | At most ONE verified merchant claim per merchant, refused by the index rather than by a read-then-write; a contest DISPUTES instead of replacing the incumbent; a challenge is single-use and an expired one consumes nothing; one claim's token verifies no other claim; revocation returns the merchant to `unclaimed` while every public field survives; the state CHECKs refuse an undated verification, an unattributable revocation, an anonymous rejection and an empty dispute | `src/db/__tests__/merchant-claims.realdb.test.ts` | yes |
 | No merchant-claim module can reach the relationship/brand layer or grant operational access — claiming "Apple Store" creates no Apple relationship (#83 acceptance 6) | `src/services/merchant-claims/__tests__/relationship-isolation.test.ts` | no |
 | Every verification method's assurance and auto-verify verdict, including that no `low` method may auto-verify (#83 acceptance 2) | `src/services/merchant-claims/__tests__/claim-methods.test.ts` | no |
@@ -3961,13 +3985,13 @@ add a row when a gate lands, and do not list one that does not run yet.
 | Each of #77's ten identity and correlation rules, one test each: the two identity fields are exclusive, the pseudonym is salted and unlinkable across epochs, the event repository has no update path, buyer origin has no `claimed` value, no event type asserts a payment, and no client-emittable type can | `src/services/analytics/__tests__/identity-rules.test.ts` | no |
 | Organic ranking cannot read analytics (a discovery module may import the emitter seam and nothing else) and analytics cannot read commercial standing (no measurement module references the fee or referral domain); the ONE payment import is the named verified-conversion seam, and it reads COUNTS rather than money | `src/services/analytics/__tests__/analytics-ranking-isolation.test.ts` | no |
 | The analytics identity CHECKs refuse both-identities, a cross-kind identity, an epoch-less pseudonym and a consent-denied account id while ACCEPTING each legitimate shape; the commerce correlation and buyer origin are refused on a pre-checkout event; events refuse UPDATE and permit DELETE; the query floor suppresses a rare query and serves a popular one; rollup and aggregate upserts CONVERGE rather than doubling; the rollup lease admits one claimant and refuses a stale owner's write; one CURRENT salt epoch survives a rotation; an active experiment freezes its salt and allocation while a draft does not | `src/db/analytics/__tests__/analytics.realdb.test.ts` | yes |
-| `/internal/analytics/*` is operator-gated on its OWN fourth allow-list, unmounted on an empty one (404, not 401), closed to the payments allow-list — and `POST /analytics/events` refuses every server-owned event type while accepting the good entries beside them (#77 acceptance 3) | `src/routes/__tests__/internal-analytics.test.ts` | no |
+| `/internal/analytics/*` is operator-gated on its OWN fourth key (`analytics.operate`), 404 to a non-holder (not 401), closed to a `payments.operate` holder — and `POST /analytics/events` refuses every server-owned event type while accepting the good entries beside them (#77 acceptance 3) | `src/routes/__tests__/internal-analytics.test.ts` | no |
 | Acceptance 8's whole list — territory, brand exclusion, document expiry, recall, tax unknown, restricted category — plus the affiliate-only case; `ineligible` beats `unknown` beats `eligible`; every reason has a verdict AND an action; a waiver removes only what it names and never a recall | `src/services/retail-eligibility/__tests__/eligibility.test.ts` | no |
 | Every forbidden evidence kind is detected by the shape somebody actually types (free text included), and every ALLOWED resale and compliance kind survives — the vacuity floor a refuse-everything detector would fail | `src/services/retail-eligibility/__tests__/forbidden-evidence.test.ts` | no |
 | The retail eligibility domain cannot reach the fee domain, ranking cannot reach IT, the derivation reads no stored verdict and no repository at all, no module converts a currency or names a forbidden rail, and no body accepts an override-shaped field — each detector mutation-tested against a positive AND a near miss | `src/services/retail-eligibility/__tests__/retail-eligibility-isolation.test.ts` | no |
 | The emergency path END TO END and in BOTH directions: an eligible combination, ONE insert, the next derivation refuses, the lift restores it — with the refusal recorded and the content hash stable across two identical answers (#121 acceptance 5) | `src/services/retail-eligibility/__tests__/emergency-path.realdb.test.ts` | yes |
 | An ACTIVE eligibility policy refuses every scope edit and any DELETE while a draft accepts both; one active version per key even from a writer that skips the service; a decision citing another version is refused by the composite foreign key; decisions and audits refuse UPDATE and DELETE; a recall cannot be advisory; two operators converge on ONE live suppression; the evidence CHECKs refuse a reviewerless verification, an unexplained rejection and an unattributable revocation; an unwaivable reason cannot be stored and the requester cannot approve their own waiver | `src/db/retailEligibility/__tests__/retail-eligibility.realdb.test.ts` | yes |
-| `/internal/retail-eligibility/*` is operator-gated on its OWN fifth allow-list, unmounted on an empty one (404, not 401), closed to BOTH the payments and the catalog allow-lists — and every client-bypass attempt is refused: an override-shaped field, an unwaivable reason, an advisory recall, a policy requiring affiliate evidence (answered by NAME), and a mutating body with no reason | `src/routes/__tests__/internal-retail-eligibility.test.ts` | no |
+| `/internal/retail-eligibility/*` is operator-gated on its OWN fifth key (`retail.operate`), 404 to a non-holder (not 401), closed to holders of `payments.operate` and `catalog.operate` — and every client-bypass attempt is refused: an override-shaped field, an unwaivable reason, an advisory recall, a policy requiring affiliate evidence (answered by NAME), and a mutating body with no reason | `src/routes/__tests__/internal-retail-eligibility.test.ts` | no |
 
 ### The three concurrency shapes a mocked test cannot see
 
@@ -6645,8 +6669,8 @@ membership of `CATALOG_PROPOSAL_RESOLVED_STATES`, rendered from that tuple. A
 through the column can pick up an undecided request whatever a service does.
 
 `catalog_proposals_decider_distinct_check` is the one worth reading beside it:
-nobody approves their own request. It exists for the merchant who is also on the
-operator allow-list, and it costs a real operator nothing, because creating
+nobody approves their own request. It exists for the merchant who also holds
+`catalog.operate`, and it costs a real operator nothing, because creating
 catalogue data directly is what the owning surface is for.
 
 ### `resolved_entity_id` carries NO foreign key, and it is TWO reasons at once
@@ -6793,11 +6817,11 @@ a governance audit exists for and the shape differs per subject kind.
 digests cleanly, restores cleanly and reports "nothing to do" — the one failure
 mode a restore cannot recover from. #60's `catalog_backfill_runs` device.
 
-### `catalog_governance_role_grants` narrows the allow-list and can never extend it
+### `catalog_governance_role_grants` narrows the operator key and can never extend it
 
-`CATALOG_OPERATOR_OXY_USER_IDS` decides who reaches the surface at all, so no
-row here can ADMIT anybody — which is what keeps it from being a seventh
-allow-list. The partial unique is `(subject, role) WHERE revoked_at is null`, so
+`catalog.operate` (an Oxy application role) decides who reaches the surface at
+all, so no row here can ADMIT anybody — which is what keeps it from being a
+second way in. The partial unique is `(subject, role) WHERE revoked_at is null`, so
 a re-grant after a revocation is permitted and the history of who held what
 survives. A grant is revoked, never deleted; the trigger refuses DELETE and
 freezes everything except the revocation pair, once.
@@ -7242,3 +7266,85 @@ last, because rounding down is the only direction that can cross the floor — s
 price computed at exactly the ceiling can realize a basis point above it. The
 band bounds the REQUESTED margin; a sub-minor-unit overshoot is arithmetic, and
 `pricing.ts` says so rather than leaving it to be discovered.
+
+## Donated materials
+
+`material_offers`, `material_reservations`, and `material_reservation_events` are
+Postgres-born. The owner, requester and audit actor IDs are Oxy account references
+without local foreign keys. Material donation is independent of commerce orders:
+there are no money or payment columns. A reservation has a real restrictive
+foreign key to its offer, and audit events to their reservation.
+
+Quantity is an integer bounded at one million units. Committed and received
+quantities are derived from accepted and delivered reservations; no second stored
+counter needs reconciliation. All writers lock the offer before reading stock or
+changing a reservation. The acceptance transaction holds that lock until its
+state and audit event commit. Row locks, rather than process mutexes, serialize
+competing reservations across server instances. Deterministic realdb tests wait
+for both contenders behind a named fixture lock before releasing the race.
+
+Closed value sets live in shared-types and render both contract enums and SQL
+CHECKs. Idempotency uniqueness is account-scoped on offer/request creation and
+reservation/account-scoped on actions. Only the recipient can move committed units
+to received. Pickup instructions are protected columns and are explicitly selected
+inside the authorization service; public DTOs omit them entirely. See
+`docs/materials.md` for API and lifecycle semantics.
+## Supervised shopping: operator reviews bind an exact projection
+
+`catalog_safety_reviews` is append-only platform-operator evidence, not a seller
+classification or a second Oxy policy. `allow` establishes that the reviewed
+text-only listing projection may be submitted to Oxy as general content.
+Oxy still decides whether the authenticated requester may receive it. The latest
+review wins, and a digest mismatch immediately makes a projection unavailable.
+The digest covers full descriptions, condition disclosures, option and variant
+text, price, owner, category, and media references; no truncated text is hashed.
+The child-facing projection exposes only the reviewed title, variant/options and
+numeric price. Media, arbitrary descriptions, reviews, and seller biographies
+are absent. Inventory changes do not change content. No existing listing is
+automatically approved, and publication status is never classification evidence.
+
+Reviews restrict listing deletion to preserve operator evidence; catalog
+withdrawal remains an ordinary archive. The reviewer belongs to Oxy and has no
+local FK. The review decision is a closed shared-types tuple with a SQL CHECK.
+
+Review precedence is the database identity `revision`, allocated under the
+listing lock. Neither a wall clock nor UUID order can resurrect an earlier allow
+when a reviewer withdraws it. Revisions are globally unique but only compared
+within the same listing; skipped sequence values are harmless.
+
+`supervised_checkout_requests` freezes the buyer, idempotency key and request /
+selection digests before any cart consumption. It contains no second cart or
+price authority. The existing checkout writes a supervised group in one
+transaction; recovery matches the buyer and exact seller-derived request keys,
+checks the complete immutable selection, and never infers a purchase by amount
+or recency. Requests cannot be edited or deleted.
+
+`supervised_purchase_operations` coordinates the existing payment with its Oxy
+approval. Oxy alone owns approval state; the local row holds immutable effect
+fingerprints and monotonic timestamps for a payment attempt and confirmed
+cancellation. `supervised_purchase_lines` freezes the reviewed digest and Oxy
+merchant for each immutable order item. Existing order money / FX / ledger
+records remain authoritative. An uncertain PSP response keeps the operation and
+its idempotency key; it never releases a guardian approval for reuse.
+
+The existing durable payment outbox confirms approval on a verified successful
+payment and cancels it only after a locally stopped payment whose provider
+cancellation is known (or whose PSP attempt never started). Late approval
+attachment and cancellation serialize on the same operation row, so no event
+can be lost between them. These tables retain financial authorization evidence;
+all foreign Oxy identifiers are registered in the external-key ledger.
+
+
+### Seller-selected collection shelves (Mention #951)
+
+`store_featured_collections` is an ordered selection, not another catalogue or
+another product-membership table. Its composite foreign key to
+`collections(id, store_id)` prevents cross-store selection even in raw SQL;
+collection deletion cascades the selection. Unique `(store_id, position)` plus
+positions 0..5 bounds each store to six shelves. No default selection is created.
+A store-row lock serializes complete replacements; collection row locks validate
+current manual/public eligibility before the replacement commits. Public reads
+re-evaluate that eligibility, while admin reads preserve withdrawn selections so
+the seller can remove them. Existing collection product ordering and visibility
+remain canonical. Migration 0181 places the referenced unique constraint before
+the generated foreign key, so a clean migration applies in dependency order.

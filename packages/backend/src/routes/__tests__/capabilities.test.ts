@@ -1,20 +1,23 @@
 import type { AddressInfo } from 'node:net';
 import express from 'express';
 import type { CapabilityTicketClaims } from '@oxy.so/contracts';
+import { CapabilityTicketError } from '@oxy.so/core/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   audit: vi.fn(),
   authorizeDomain: vi.fn(),
   execute: vi.fn(),
-  introspect: vi.fn(),
   verify: vi.fn(),
   logError: vi.fn(),
+}));
+const { RevokedError } = vi.hoisted(() => ({
+  RevokedError: class CapabilityTicketRevokedError extends Error {},
 }));
 
 vi.mock('../../capabilities/capability-authority.js', () => ({
   auditMercariaCapabilityTicket: mocks.audit,
-  introspectMercariaCapabilityTicket: mocks.introspect,
+  CapabilityTicketRevokedError: RevokedError,
   verifyMercariaCapabilityTicket: mocks.verify,
 }));
 vi.mock('../../capabilities/mercaria-domain-authority.js', () => ({
@@ -91,7 +94,6 @@ async function request(
 beforeEach(() => {
   for (const mock of Object.values(mocks)) mock.mockReset();
   mocks.verify.mockResolvedValue(claims());
-  mocks.introspect.mockResolvedValue(true);
   mocks.authorizeDomain.mockResolvedValue({ allowed: true });
   mocks.execute.mockResolvedValue({ orders: [], pagination: { page: 1, limit: 20 } });
   mocks.audit.mockResolvedValue(undefined);
@@ -110,16 +112,12 @@ describe('Mercaria internal capability routes', () => {
     expect(mocks.verify).not.toHaveBeenCalled();
   });
 
-  it('rechecks live authority, executes as the delegated account and audits the real agent', async () => {
+  it('verifies live authority, executes as the delegated account and audits the real agent', async () => {
     const response = await request('listBuyerOrders', { page: 1, limit: 20 });
 
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(mocks.verify).toHaveBeenCalledWith(TOKEN);
-    expect(mocks.introspect).toHaveBeenCalledWith(
-      TOKEN,
-      expect.objectContaining({ jti: 'ticket-1' }),
-    );
     expect(mocks.authorizeDomain).toHaveBeenCalledWith(
       'listBuyerOrders',
       { page: 1, limit: 20 },
@@ -162,8 +160,32 @@ describe('Mercaria internal capability routes', () => {
     },
   );
 
+  it('refuses a ticket that is not Oxy-signed for this audience with 401', async () => {
+    mocks.verify.mockRejectedValueOnce(new CapabilityTicketError('invalid_signature', 'bad'));
+
+    const response = await request('listBuyerOrders', {});
+
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({
+      error: 'invalid_capability_ticket',
+      code: 'invalid_signature',
+    });
+    expect(mocks.execute).not.toHaveBeenCalled();
+  });
+
+  it('answers 503, never a refusal, when Oxy cannot be asked', async () => {
+    mocks.verify.mockRejectedValueOnce(new Error('connect ECONNREFUSED'));
+
+    const response = await request('listBuyerOrders', {});
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: 'capability_authority_unavailable' });
+    expect(mocks.execute).not.toHaveBeenCalled();
+    expect(mocks.audit).not.toHaveBeenCalled();
+  });
+
   it('blocks a ticket revoked between planning and execution', async () => {
-    mocks.introspect.mockResolvedValueOnce(false);
+    mocks.verify.mockRejectedValueOnce(new RevokedError());
 
     const response = await request('listBuyerOrders', {});
 
@@ -177,7 +199,7 @@ describe('Mercaria internal capability routes', () => {
     );
   });
 
-  it('enforces signed financial limits before introspection or domain effects', async () => {
+  it('enforces signed financial limits before any domain effect', async () => {
     mocks.verify.mockResolvedValueOnce(
       claims({
         tool: 'refundStoreOrder',
@@ -202,7 +224,6 @@ describe('Mercaria internal capability routes', () => {
 
     expect(response.status).toBe(403);
     expect(await response.json()).toEqual({ error: 'capability_limit_exceeded' });
-    expect(mocks.introspect).not.toHaveBeenCalled();
     expect(mocks.execute).not.toHaveBeenCalled();
   });
 
@@ -226,7 +247,6 @@ describe('Mercaria internal capability routes', () => {
 
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: 'capability_input_schema_mismatch' });
-    expect(mocks.introspect).not.toHaveBeenCalled();
     expect(mocks.execute).not.toHaveBeenCalled();
     expect(mocks.audit).toHaveBeenCalledWith(
       expect.objectContaining({

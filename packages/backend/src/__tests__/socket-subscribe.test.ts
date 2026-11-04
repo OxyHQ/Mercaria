@@ -13,9 +13,19 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('../middleware/auth.js', () => ({
-  oxyClient: { middleware: { socket: () => (_socket: unknown, next: () => void) => next() } },
-}));
+vi.mock('../middleware/auth.js', async () => {
+  const { fakeAccountAccess } = await import('./oxy-account-access-fake.js');
+  const accountAccess = fakeAccountAccess(
+    (...args: unknown[]) => readCallerAccountRole(...args),
+    () => new Map(),
+  );
+  return {
+    oxyClient: {
+      ...accountAccess,
+      middleware: { socket: () => (_socket: unknown, next: () => void) => next() },
+    },
+  };
+});
 vi.mock('../lib/redis.js', () => ({
   getSocketAdapterClients: () => null,
 }));
@@ -31,10 +41,6 @@ vi.mock('../db/stores/storeRepository.js', () => ({
   findStorePermissionOverridesForUser: vi.fn(),
   findStoresByOwnerAccounts: vi.fn(),
 }));
-vi.mock('../services/oxy-account-graph.js', () => ({
-  readCallerAccountRole: (...args: unknown[]) => readCallerAccountRole(...args),
-  listCallerAccountRoles: vi.fn(),
-}));
 
 import { authorizeAndJoinStore } from '../socket.js';
 import { serviceUnavailable } from '../lib/errors/error-codes.js';
@@ -42,7 +48,7 @@ import { serviceUnavailable } from '../lib/errors/error-codes.js';
 /** A syntactically valid legacy store id (24 hex chars). */
 const VALID_STORE_ID = '0'.repeat(24);
 const OWNING_ORG = 'org-socket';
-const MEMBER = { userId: 'user-1', accessToken: 'bearer-user-1' };
+const MEMBER = { userId: 'user-1', sessionId: 'session-user-1', token: 'bearer-user-1' };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -67,7 +73,7 @@ describe('authorizeAndJoinStore', () => {
 
     const joined = await authorizeAndJoinStore(
       { join },
-      { userId: 'intruder', accessToken: 'bearer-intruder' },
+      { userId: 'intruder', sessionId: 'session-intruder', token: 'bearer-intruder' },
       VALID_STORE_ID,
     );
 
@@ -81,20 +87,6 @@ describe('authorizeAndJoinStore', () => {
 
     await expect(authorizeAndJoinStore({ join }, MEMBER, VALID_STORE_ID)).rejects.toThrow();
     expect(join).not.toHaveBeenCalled();
-  });
-
-  it('rejects a handshake with no bearer without asking anyone', async () => {
-    const join = vi.fn();
-
-    const joined = await authorizeAndJoinStore(
-      { join },
-      { userId: 'user-1', accessToken: undefined },
-      VALID_STORE_ID,
-    );
-
-    expect(joined).toBe(false);
-    expect(findStoreById).not.toHaveBeenCalled();
-    expect(readCallerAccountRole).not.toHaveBeenCalled();
   });
 
   it('rejects a malformed store id without querying anything', async () => {

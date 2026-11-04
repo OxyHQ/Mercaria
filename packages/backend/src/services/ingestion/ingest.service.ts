@@ -126,9 +126,9 @@ import {
 } from './adapter.js';
 import {
   classifyRunOutcome,
-  isDegraded,
   mayRetireUnseen,
   nextRunDelayMs,
+  passSucceeded,
   statusAfterRun,
 } from './health.js';
 import { NORMALIZATION_VERSION, canonicalizeNormalizedRecord } from './normalization.js';
@@ -159,6 +159,13 @@ export interface IngestPageResult {
   readonly offersUpserted: number;
   /** `null` while more pages remain. */
   readonly outcome: CatalogSourceHealthState | null;
+  /**
+   * True only when this page was recorded, the run is still leased to the
+   * caller and another page is waiting — the dispatcher's licence to drive the
+   * next one straight away. A retryable fetch failure also returns no outcome,
+   * but it has RELEASED the run to its backoff, so it is false there.
+   */
+  readonly hasMore: boolean;
   /** Why nothing happened, when nothing did. */
   readonly skipped: 'run_gone' | 'source_gone' | 'adapter_missing' | 'lease_lost' | null;
 }
@@ -609,6 +616,7 @@ export async function runIngestionPage(input: {
       rejected: intake.rejected,
       offersUpserted: pipeline.offersUpserted,
       outcome: null,
+      hasMore: true,
       skipped: null,
     };
   }
@@ -1360,11 +1368,12 @@ async function closeRun(args: {
     now: args.now,
   });
 
+  // The health state records COVERAGE (`partial_feed` stays `partial_feed`);
+  // whether the pass succeeded is the scheduling question. See `passSucceeded`.
+  const succeeded = passSucceeded({ outcome: args.outcome, refreshMode: args.run.refreshMode });
   const delayMs = nextRunDelayMs({
     cadenceSeconds: args.resolved.source.config.fetchCadenceSeconds,
-    consecutiveFailures: isDegraded(args.outcome)
-      ? args.resolved.source.config.consecutiveFailures + 1
-      : 0,
+    consecutiveFailures: succeeded ? 0 : args.resolved.source.config.consecutiveFailures + 1,
     retryAfterMs: args.retryAfterMs,
     maxBackoffMs: config.catalogIngestion.maxBackoffMs,
   });
@@ -1373,7 +1382,7 @@ async function closeRun(args: {
     sourceId: args.run.sourceId,
     healthState: args.outcome,
     status: statusAfterRun(args.resolved.source.config.status, args.outcome),
-    succeeded: !isDegraded(args.outcome),
+    succeeded,
     fetchDurationMs: args.run.fetchDurationMs,
     rateLimitHits: args.run.rateLimitHits,
     error: args.error,
@@ -1389,6 +1398,7 @@ async function closeRun(args: {
     rejected: args.pageStats?.intake.rejected ?? 0,
     offersUpserted: args.pageStats?.pipeline.offersUpserted ?? 0,
     outcome: args.outcome,
+    hasMore: false,
     skipped: null,
   };
 }
@@ -1438,6 +1448,7 @@ function emptyResult(
     rejected: 0,
     offersUpserted: 0,
     outcome: null,
+    hasMore: false,
     skipped,
   };
 }

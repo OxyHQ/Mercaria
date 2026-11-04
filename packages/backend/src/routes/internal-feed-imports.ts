@@ -1,12 +1,11 @@
 /**
  * `/internal/feed-imports/*` — the feed importer's operator surface (#63).
  *
- * On the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54/#56/#57/#58/#60/#62
+ * On the SAME `catalog.operate` key #54/#56/#57/#58/#60/#62
  * use, and for #62's own reason: who may decide what an external source is
  * permitted to do and who may read how a feed is being mapped into the canonical
- * catalogue are the same power over the same graph. A seventh list beside
- * payments, catalog, guest, analytics, retail and procurement would be a seventh
- * thing to keep in step for no separation it does not already have.
+ * catalogue are the same power over the same graph. A separate key would be another grant
+ * to keep in step for no separation it does not already have.
  *
  * A SEPARATE router rather than routes added to `internal-ingestion.ts`, per
  * ADR 0002 D25(a)'s file-ownership protocol — the same reason #56, #57, #58, #60
@@ -56,17 +55,26 @@
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireCatalogOperator } from '../middleware/catalog-operator-authz.js';
+import { requireCatalogOperator } from '../middleware/operator-authz.js';
 import { makeRateLimiter } from '../lib/rate-limit.js';
 import { validateBody } from '../middleware/validate.js';
 import {
   activateFeedVersionSchema,
   createOperatorFeedConfigurationSchema,
   draftFeedVersionSchema,
+  feedUploadPartsSchema,
+  feedUploadProofSchema,
+  openFeedUploadSessionSchema,
 } from '../middleware/feed-import-schemas.js';
 import {
   activateFeedVersionHandler,
+  completeFeedUploadSessionHandler,
   createFeedHandler,
+  feedUploadPartsHandler,
+  getFeedUploadSessionHandler,
+  getFeedValidationHandler,
+  openFeedUploadSessionHandler,
+  proveFeedUploadSessionHandler,
   declareFeedOwnerScope,
   downloadFeedReportHandler,
   draftFeedVersionHandler,
@@ -81,7 +89,6 @@ import {
   revertFeedVersionHandler,
   syncFeedHandler,
   traceFeedHandler,
-  uploadFeedHandler,
   validateFeedVersionHandler,
 } from '../controllers/feed-import.controller.js';
 
@@ -91,15 +98,14 @@ const router = Router();
  * The merchant surface's own buckets, reused rather than a third pair.
  *
  * A preview, a validate, an upload and a sync each cause an outbound request to
- * a host somebody chose or a write of up to `FEED_IMPORT_MAX_DOWNLOAD_BYTES`;
+ * a host somebody chose or make storage hold up to `FEED_IMPORT_MAX_DOWNLOAD_BYTES`;
  * that cost does not change because the caller is an operator, and a separate
  * unmetered budget here would be the way to make Mercaria hammer a partner.
  */
 const fetchLimiter = makeRateLimiter('feed-import-fetch', { authenticatedMax: 30 });
 
-// Authentication FIRST, then the allow-list — the gate reads the verified
-// caller, and an allow-list consulted before authentication would compare
-// against whatever a client claimed.
+// Authentication FIRST, then the operator gate — it asks Oxy about the verified
+// caller's own session, which only `authenticateToken` establishes.
 router.use(authenticateToken);
 router.use(requireCatalogOperator);
 
@@ -133,6 +139,10 @@ platform.post(
   fetchLimiter,
   validateFeedVersionHandler,
 );
+platform.get(
+  '/:configurationId/versions/:versionId/validations/:validationId',
+  getFeedValidationHandler,
+);
 platform.post(
   '/:configurationId/versions/:versionId/activate',
   validateBody(activateFeedVersionSchema),
@@ -140,9 +150,31 @@ platform.post(
 );
 platform.post('/:configurationId/versions/:versionId/revert', revertFeedVersionHandler);
 platform.get('/:configurationId/uploads', listFeedUploadsHandler);
-// No body parser, exactly as on the merchant surface: `express.raw` would
-// BUFFER a feed, which is gigabytes in memory. The handler iterates the stream.
-platform.post('/:configurationId/uploads', fetchLimiter, uploadFeedHandler);
+// Direct uploads, exactly as on the merchant surface: the client PUTs the parts
+// to storage itself, so no request here carries a feed.
+platform.post(
+  '/:configurationId/upload-sessions',
+  fetchLimiter,
+  validateBody(openFeedUploadSessionSchema),
+  openFeedUploadSessionHandler,
+);
+platform.get('/:configurationId/upload-sessions/:sessionId', getFeedUploadSessionHandler);
+platform.post(
+  '/:configurationId/upload-sessions/:sessionId/parts',
+  validateBody(feedUploadPartsSchema),
+  feedUploadPartsHandler,
+);
+platform.post(
+  '/:configurationId/upload-sessions/:sessionId/complete',
+  fetchLimiter,
+  completeFeedUploadSessionHandler,
+);
+platform.post(
+  '/:configurationId/upload-sessions/:sessionId/proof',
+  fetchLimiter,
+  validateBody(feedUploadProofSchema),
+  proveFeedUploadSessionHandler,
+);
 platform.get('/:configurationId/reports', listFeedReportsHandler);
 platform.get('/:configurationId/reports/:reportId', getFeedReportHandler);
 platform.get('/:configurationId/reports/:reportId/download', downloadFeedReportHandler);

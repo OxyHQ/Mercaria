@@ -62,8 +62,7 @@ import {
   findActiveCategories,
   findActiveCategoryByIdOrSlug,
 } from '../../db/catalog/categoryRepository.js';
-import { findListingsBySignal } from '../../db/discovery/discoveryReadRepository.js';
-import { toProductSummaries } from '../catalog-hydration.service.js';
+import { findShelfProducts, type ShelfScope } from './shelf-products.service.js';
 import { notFound } from '../../lib/errors/error-codes.js';
 import { activeSubtreeIds, pageDepthFor } from './feed.service.js';
 
@@ -90,12 +89,12 @@ export async function getDiscoverySignalPage(
 ): Promise<DiscoverySignalPage> {
   const allCategories = await findActiveCategories();
 
-  let categoryIds: string[];
+  let scope: ShelfScope;
   let categoryHandle: string | undefined;
   let categoryName: string | undefined;
 
   if (input.scope.kind === 'root') {
-    categoryIds = allCategories.map((category) => category.id);
+    scope = { kind: 'root', activeCategoryIds: allCategories.map((category) => category.id) };
   } else {
     // Id OR slug, matching `feed.service.ts`'s own category scope — the
     // shared resolution lives in `findActiveCategoryByIdOrSlug`, not
@@ -104,19 +103,20 @@ export async function getDiscoverySignalPage(
     if (!category) {
       throw notFound('Category not found');
     }
-    categoryIds = activeSubtreeIds(allCategories, category.id);
+    scope = { kind: 'categories', categoryIds: activeSubtreeIds(allCategories, category.id) };
     categoryHandle = category.slug;
     categoryName = category.name;
   }
 
-  const rows = await findListingsBySignal({
+  // A Mercaria store's listings first, then the catalogue's products.
+  const rows = await findShelfProducts({
     signal: input.signal,
-    categoryIds,
+    scope,
     limit: input.limit + 1,
     offset: input.offset,
   });
   const hasMore = rows.length > input.limit;
-  const products = await toProductSummaries(hasMore ? rows.slice(0, input.limit) : rows);
+  const products = hasMore ? rows.slice(0, input.limit) : rows;
 
   const page: DiscoverySignalPage = {
     signal: input.signal,

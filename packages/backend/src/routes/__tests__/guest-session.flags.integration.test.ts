@@ -47,7 +47,7 @@ describe('GUEST_SESSION_ISSUANCE_ENABLED=false', () => {
   it('refuses NEW issuance with 503 GUEST_ISSUANCE_DISABLED and sets no credential', async () => {
     const res = await fetch(`${baseUrl}/guest/session`, {
       method: 'POST',
-      headers: { origin: 'https://mercaria.co' },
+      headers: { origin: 'https://mercaria.co', 'x-mercaria-guest-transport': 'header' },
     });
 
     expect(res.status).toBe(503);
@@ -73,7 +73,7 @@ describe('GUEST_SESSION_ISSUANCE_ENABLED=false', () => {
 
     const revoke = await fetch(`${baseUrl}/guest/session`, {
       method: 'DELETE',
-      headers: { origin: 'https://mercaria.co' },
+      headers: { origin: 'https://mercaria.co', 'x-mercaria-guest-transport': 'header' },
     });
     expect(revoke.status).toBe(204);
   });

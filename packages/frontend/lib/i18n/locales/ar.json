@@ -738,6 +738,8 @@
       "a11yLabel": "حالة التاجر: %{status}",
       "claim": "المطالبة بهذا التاجر",
       "claimHint": "أثبت أنك تُشغّل هذا التاجر لإدارة صفحته",
+      "contest": "الاعتراض على هذه المطالبة",
+      "contestHint": "أبلِغ Mercaria بأن المُشغّل المُتحقَّق منه لهذا التاجر غير صحيح",
       "label": {
         "unclaimed": "غير مُطالَب به",
         "claimInProgress": "مطالبة قيد التنفيذ",
@@ -790,6 +792,117 @@
         "staleSources": "لم تتلقَّ Mercaria تحديثات من مصادر هذا التاجر مؤخرًا بما يكفي لعرض الأسعار الحالية.",
         "filteredOut": "لا توجد منتجات تطابق هذه المرشّحات."
       }
+    }
+  },
+  "merchantClaim": {
+    "title": "المطالبة بـ %{merchant}",
+    "intro": "أثبت أنك تُشغّل هذا التاجر لتدير طريقة ظهوره على Mercaria. لا تُنشئ المطالبة متجرًا على Mercaria ولا تجعلك بائعًا رسميًا لأي علامة تجارية.",
+    "signInPrompt": "سجّل الدخول بحساب Oxy للمطالبة بهذا التاجر.",
+    "signIn": "تسجيل الدخول",
+    "loadFailed": "تعذّر تحميل مطالباتك.",
+    "noMethods": "المطالبة غير متاحة هنا حاليًا.",
+    "start": "متابعة",
+    "starting": "جارٍ البدء…",
+    "close": "إغلاق",
+    "copy": "نسخ %{label}",
+    "copied": "تم النسخ",
+    "copyFailed": "تعذّر النسخ. حدّد النص وانسخه بنفسك.",
+    "method": {
+      "title": "كيف تريد أن تُثبت ذلك؟",
+      "checkedAutomatically": "يُتحقَّق منه تلقائيًا.",
+      "reviewedByPerson": "يراجعه شخص.",
+      "dnsTxt": {
+        "label": "سجل DNS",
+        "description": "أضِف سجل TXT إلى DNS نطاقك."
+      },
+      "wellKnownFile": {
+        "label": "ملف على موقعك",
+        "description": "ارفع ملفًا نصيًا صغيرًا إلى موقعك الإلكتروني."
+      },
+      "metaTag": {
+        "label": "وسم على صفحتك الرئيسية",
+        "description": "أضِف وسم meta إلى الصفحة الرئيسية لموقعك الإلكتروني."
+      },
+      "businessDocument": {
+        "label": "مستندات النشاط التجاري",
+        "description": "شارك روابط لمستندات تُبيّن أنك تدير هذا النشاط التجاري."
+      }
+    },
+    "domain": {
+      "label": "نطاق موقعك الإلكتروني",
+      "help": "النطاق الذي يبيع منه هذا التاجر. يشمل إثباتك هذا النطاق فقط.",
+      "placeholder": "example.com"
+    },
+    "previous": {
+      "rejected": "لم تتم الموافقة على مطالبتك الأخيرة بهذا التاجر.",
+      "reason": "ملاحظة المراجِع: %{reason}",
+      "expired": "انتهت صلاحية مطالبتك الأخيرة بهذا التاجر قبل إثباتها. يمكنك البدء من جديد.",
+      "revoked": "سُحب التحقق الخاص بك لهذا التاجر. يمكنك تقديم مطالبة جديدة."
+    },
+    "errors": {
+      "tooMany": "محاولات كثيرة مؤخرًا. حاول مرة أخرى لاحقًا.",
+      "notFoundYet": "لم نعثر على قيمة التحقق بعد. قد تستغرق تغييرات DNS والموقع بعض الوقت لتظهر، لذا حاول مرة أخرى بعد قليل.",
+      "codeUnusable": "لم يعد بالإمكان استخدام هذا الرمز. احصل على رمز جديد وانشره بدلًا منه.",
+      "cannotOpen": "لا يمكنك تقديم مطالبة بهذا التاجر حاليًا.",
+      "cannotContest": "لا يمكن الاعتراض على هذه المطالبة حاليًا.",
+      "invalid": "تحقّق مما أدخلته وحاول مرة أخرى.",
+      "generic": "حدث خطأ ما. حاول مرة أخرى."
+    },
+    "challenge": {
+      "draftIntro": "مطالبتك بـ %{domain} جاهزة. احصل على رمز تحقق للمتابعة.",
+      "lost": "تُعرض رموز التحقق مرة واحدة فقط. احصل على رمز جديد للمتابعة؛ وسيحلّ محل الرمز السابق.",
+      "getCode": "الحصول على رمز التحقق",
+      "gettingCode": "جارٍ الحصول على الرمز…",
+      "verify": "التحقق الآن",
+      "verifying": "جارٍ التحقق…",
+      "newCode": "الحصول على رمز جديد",
+      "expires": "يعمل هذا الرمز حتى %{time}.",
+      "dnsTxt": {
+        "step": "أضِف سجل TXT هذا إلى DNS الخاص بـ %{domain}:",
+        "nameLabel": "الاسم",
+        "valueLabel": "القيمة",
+        "note": "قد تستغرق تغييرات DNS بضع دقائق، وأحيانًا ساعات، لتظهر."
+      },
+      "wellKnownFile": {
+        "step": "انشر ملفًا على هذا العنوان يحتوي على هذا النص بالضبط:",
+        "urlLabel": "العنوان",
+        "contentsLabel": "محتوى الملف"
+      },
+      "metaTag": {
+        "step": "أضِف هذا الوسم داخل <head> في %{url}:",
+        "tagLabel": "الوسم"
+      }
+    },
+    "status": {
+      "verified": {
+        "title": "أنت المُشغّل المُتحقَّق منه",
+        "body": "تم التحقق من مطالبتك بـ %{merchant}."
+      },
+      "reviewPending": {
+        "title": "مطالبتك قيد المراجعة",
+        "body": "يراجع شخصٌ مطالبتك. عُد إلى هنا لمعرفة القرار."
+      },
+      "disputed": {
+        "title": "مطالبتك محل نزاع",
+        "body": "يملك حساب آخر بالفعل مطالبة مُتحقَّقًا منها بهذا التاجر. سيراجع شخصٌ المطالبتين ويتخذ القرار."
+      }
+    },
+    "evidence": {
+      "intro": "أضِف رابطًا لمستندات تُبيّن أنك تدير هذا النشاط التجاري، مثل السجل التجاري أو مستند ضريبي، وملاحظة للمراجِع. لن يراها سوى المراجِع.",
+      "urlLabel": "رابط المستند",
+      "urlPlaceholder": "https://",
+      "noteLabel": "ملاحظة للمراجِع",
+      "submit": "إرسال للمراجعة",
+      "submitting": "جارٍ الإرسال…"
+    },
+    "contest": {
+      "title": "الاعتراض على المطالبة بـ %{merchant}",
+      "intro": "لهذا التاجر مُشغّل مُتحقَّق منه بالفعل. إن كان ذلك خطأ، فأخبرنا بالسبب. يراجع شخصٌ كل اعتراض، ويُبلَّغ المُشغّل الحالي بوجود اعتراض، دون أن يُعرَّف بصاحبه أبدًا.",
+      "reasonLabel": "لماذا المطالبة الحالية غير صحيحة؟",
+      "reasonHelp": "20 حرفًا على الأقل.",
+      "urlLabel": "رابط داعم (اختياري)",
+      "submit": "إرسال الاعتراض",
+      "submitting": "جارٍ الإرسال…"
     }
   },
   "families": {
@@ -1383,6 +1496,21 @@
       "createFailed": "تعذّر إنشاء الرابط. حاول مرة أخرى.",
       "empty": "أنشئ رابطًا لمشاركة Mercaria. تُنسب إليك الإحالات التي يجلبها.",
       "notPartner": "سيظهر رابطك هنا بعد تسجيلك في برنامج."
+    },
+    "code": {
+      "title": "رمز الإحالة",
+      "description": "هل أعطاك أحدهم رمزًا؟ أدخله هنا.",
+      "label": "رمز الإحالة",
+      "placeholder": "الرمز",
+      "apply": "تطبيق",
+      "applied": "تم تطبيق الرمز",
+      "invalid": "لا يمكن استخدام هذا الرمز.",
+      "failed": "تعذّر تطبيق الرمز. حاول مرة أخرى."
+    },
+    "disclosure": {
+      "title": "وصلت عبر رابط إحالة",
+      "body": "قد يحصل من شارك الرابط على مكافأة من Mercaria إذا اشتريت. لا يغيّر ذلك السعر الذي تدفعه.",
+      "dismiss": "حسنًا"
     }
   },
   "brand": {
@@ -1677,19 +1805,6 @@
       "notForSale": "ليس للبيع"
     }
   },
-  "thread": {
-    "title": "مساعد التسوق",
-    "thinking": "جارٍ البحث عن أفكار…",
-    "stop": "إيقاف",
-    "unavailable": "مساعد التسوق غير متاح بعد. يمكنك البحث في الكتالوج.",
-    "signIn": "سجّل الدخول للدردشة",
-    "retry": "المحاولة مجددًا",
-    "viewResults": "عرض نتائج البحث",
-    "newConversation": "محادثة جديدة",
-    "previewAction": "تجربة بيانات نموذجية",
-    "previewLabel": "معاينة · ردود نموذجية دون اتصال بالذكاء الاصطناعي",
-    "previewReply": "هذه أمثلة من الكتالوج المحلي لتجربة تصميم المحادثة. افتح منتجًا لعرض تفاصيله أو أرسل رسالة أخرى."
-  },
   "profile": {
     "title": "الملف الشخصي",
     "subtitle": "محفوظاتك وطلباتك وحسابك في مكان واحد."
@@ -1707,5 +1822,149 @@
     "quoteComfort": "الراحة والشخصية والتفاصيل الصغيرة التي تجعل القطعة خاصة بك.",
     "quoteTexture": "يمكن لملمس تحبه أن يغيّر إحساسك بالإطلالة بأكملها.",
     "quoteEveryday": "احتفظ بالأشياء التي تستخدمها كثيرًا في متناول يدك."
+  },
+  "materials": {
+    "heading": "Donated materials",
+    "intro": "Offer and request materials as a person or organization. The items are free. Arrange personal pickup after the donor accepts.",
+    "switchAccount": "Change account",
+    "signIn": "Sign in",
+    "actingAs": "Acting as %{account}",
+    "offers": "Available materials",
+    "reservations": "My requests and reservations",
+    "refresh": "Refresh",
+    "empty": "No materials are available yet.",
+    "emptyReservations": "You have no requests or reservations.",
+    "more": "Load more",
+    "offer": "Offer materials",
+    "title": "Material name",
+    "description": "Description",
+    "area": "Approximate public area",
+    "quantity": "Quantity",
+    "unit": "Unit (pieces, boxes…)",
+    "pickup": "Personal pickup instructions",
+    "pickupPrivacy": "Keep the public area approximate. Pickup details are shared only with accepted recipients. No payment for the materials is required.",
+    "publish": "Publish free offer",
+    "counts": "%{available} %{unit} available · %{committed} committed · %{received} received",
+    "close": "Close offer to new requests",
+    "request": "Request materials",
+    "requestSent": "Request sent. The donor must accept before units are reserved.",
+    "reservation": "Material reservation",
+    "reservationQuantity": "%{quantity} %{unit}",
+    "requester": "Recipient account: %{account}",
+    "donor": "Donor account: %{account}",
+    "accept": "Accept and reserve",
+    "confirm": "I have received these materials",
+    "cancel": "Cancel request or reservation",
+    "requested": "Awaiting donor acceptance",
+    "accepted": "Reserved — awaiting pickup",
+    "cancelled": "Cancelled",
+    "delivered": "Receipt confirmed",
+    "conflict": "This action no longer matches the available quantity or reservation state. Refresh to see the current details.",
+    "forbidden": "This account is not authorized for this action.",
+    "error": "Could not complete the request. Check your connection and retry; the same request will not be duplicated."
+  },
+  "transport": {
+    "heading": "Transport with Moovo",
+    "pickupAlways": "Personal pickup is always available. Donated materials remain free.",
+    "pickup": "Pickup",
+    "dropoff": "Delivery",
+    "line1": "Street address",
+    "city": "City",
+    "postalCode": "Postal code",
+    "country": "Country (two-letter code)",
+    "contactName": "Contact name",
+    "contactPhone": "Contact phone",
+    "pickupPlace": "عنوان الاستلام",
+    "dropoffPlace": "عنوان التسليم",
+    "placeSearch": "ابحث عن الشارع والرقم والمدينة",
+    "notes": "Instructions",
+    "weight": "Total weight (kg)",
+    "pieces": "Number of packages",
+    "small": "Small",
+    "medium": "Medium",
+    "large": "Large",
+    "payer": "Who pays for transport?",
+    "donor": "Donor",
+    "recipient": "Recipient",
+    "sponsor": "Sponsoring organization",
+    "organization": "Oxy organization account ID",
+    "selectedPayer": "Transport payer: %{account}",
+    "payerMustConfirm": "Choosing a payer does not authorize payment. That account must review the route and price and confirm. Organization owners and admins can authorize.",
+    "getQuote": "Get a transport quote",
+    "request": "Request transport",
+    "keepPickup": "Keep personal pickup",
+    "missingFacts": "Complete the actual pickup and delivery addresses, coordinates, contacts and package details. Collection instructions are suggestions to review, not a structured address.",
+    "unavailable": "Moovo is unavailable or this account cannot access the request. Refresh to read current information.",
+    "unknown": "The result could not be confirmed. Refresh this request before trying again; an existing booking will not be repeated.",
+    "attach": "Save transport reference",
+    "newRequest": "Start a new transport request",
+    "route": "From %{pickup} to %{dropoff}",
+    "price": "Transport: %{price}. Quote expires %{expiry}.",
+    "pendingPayment": "Transport payment is pending. Payment collection is not available here; this action does not mark transport paid. The donation itself costs nothing.",
+    "cancellationWarning": "Cancelling a donation does not cancel its transport. Manage a requested or uncertain delivery separately in Moovo.",
+    "confirmPayer": "I am acting for %{account} and agree to this route and transport price",
+    "unconfirm": "Remove my confirmation",
+    "authorize": "Authorize this transport price",
+    "book": "Request the authorized transport",
+    "participantBooks": "Authorization saved. A donation participant can now request the transport before the quote expires.",
+    "shareApproval": "Share with the selected payer for approval",
+    "retryQuote": "Retry or renew quote",
+    "cancelProposal": "Cancel transport proposal; keep personal pickup",
+    "openMoovo": "Open delivery in Moovo",
+    "forbidden": "Your current account cannot authorize this payer. Switch to the selected payer account; organizations require owner or admin access.",
+    "signIn": "Sign in with the selected payer account to review this transport.",
+    "status": {
+      "quoting": "Preparing a quote. You can retry after a short wait.",
+      "quoted": "Waiting for the selected payer to authorize.",
+      "authorized": "Price authorized. Transport has not been requested yet.",
+      "booking": "Requesting transport. Refresh to check the result.",
+      "booking_unknown": "Transport result is uncertain. Do not create another request; check this operation in Moovo.",
+      "booked": "Transport requested.",
+      "cancelled": "Transport proposal cancelled."
+    },
+    "retryBooking": "Recover existing transport request",
+    "jobStatus": {
+      "requested": "Transport requested",
+      "offered": "Finding a courier",
+      "accepted": "Courier assigned",
+      "picked_up": "Materials picked up",
+      "in_transit": "In transit",
+      "delivered": "Delivered",
+      "cancelled": "Transport cancelled"
+    }
+  },
+  "supervisedShopping": {
+    "title": "التسوق بإشراف",
+    "intro": "تصفح المنتجات التي تمت مراجعتها. يوافق ولي أمرك على تفاصيل الشراء قبل الدفع.",
+    "unavailable": "التسوق غير متاح",
+    "unavailableBody": "ربما تغيرت صلاحية وصولك أو أحد المنتجات. حاول مجددًا لتحميل التفاصيل الحالية.",
+    "empty": "لا توجد منتجات تمت مراجعتها بعد",
+    "emptyBody": "تظهر المنتجات بعد مراجعة المنصة. عد لاحقًا.",
+    "add": "إضافة",
+    "remove": "إزالة",
+    "itemUnavailable": "المنتج غير متاح",
+    "reviewPurchase": "مراجعة الشراء",
+    "changeError": "تعذر تحديث السلة. راجع المنتجات وحاول مجددًا.",
+    "approvalIntro": "أدخل عنوان التسليم. سيرى ولي أمرك تفاصيل الشراء كاملة قبل الموافقة على الدفع.",
+    "prepareError": "تعذر تجهيز الشراء. حاول مجددًا لاستعادة عملية الشراء نفسها.",
+    "requestApproval": "طلب موافقة ولي الأمر",
+    "pending": "بانتظار موافقة ولي الأمر",
+    "approved": "تمت الموافقة على الدفع",
+    "paid": "تم تأكيد الدفع",
+    "closed": "أُغلقت هذه الموافقة",
+    "shipping": "الشحن",
+    "tax": "الضريبة",
+    "discount": "الخصم",
+    "rounding": "تقريب تحويل العملة",
+    "total": "الإجمالي",
+    "viewApproval": "عرض الموافقة في Oxy",
+    "continuePayment": "متابعة الدفع",
+    "paymentError": "لم يتم تأكيد الدفع. أعد محاولة الدفع نفسه أو حدّث حالته.",
+    "pendingBody": "يمكن لولي أمرك مراجعة المنتجات والإجمالي الدقيق في Oxy. يصبح الدفع متاحًا بعد الموافقة.",
+    "refresh": "تحديث الحالة",
+    "account": "الإشراف والحساب"
+  },
+  "alia": {
+    "viewResults": "عرض نتائج البحث"
   }
 }

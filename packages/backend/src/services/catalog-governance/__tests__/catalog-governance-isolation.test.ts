@@ -115,12 +115,12 @@ const WALLS: readonly Wall[] = [
     why: "This domain writes NOTHING in the catalogue. Every apply calls the owning domain's own writer — taxonomyRepository, publishProductTypeVersion, publishAttributeDefinition, publishNavigationTree.",
   },
   {
-    name: 'no second operator allow-list',
-    // The roles refine `CATALOG_OPERATOR_OXY_USER_IDS`; they never extend it.
-    // A module here writing that config would be one that could admit somebody
-    // the deployment excluded, which is what makes this not a seventh list.
-    pattern: /graphOperatorOxyUserIds\s*[.=[]|OPERATOR_OXY_USER_IDS\s*=/u,
-    why: 'Role grants narrow WITHIN the env allow-list and may never extend it. `grant_operator_membership` is named in CATALOG_GOVERNANCE_FORBIDDEN_CAPABILITIES.',
+    name: 'no grant of operator membership',
+    // The roles refine who holds `catalog.operate`; they never extend it. A
+    // module here granting that key in Oxy, or forging the gate's answer, would
+    // be one that could admit somebody Oxy excluded.
+    pattern: /\/roles\/(?:grants|permissions)|oxyAppPermissions\s*=|invalidateAppPermissions/u,
+    why: 'Role grants narrow WITHIN the holders of `catalog.operate` and may never extend it. `grant_operator_membership` is named in CATALOG_GOVERNANCE_FORBIDDEN_CAPABILITIES.',
   },
   {
     name: 'no order, payment or buyer data in an export',
@@ -280,8 +280,8 @@ function plantedViolation(wallName: string): string {
   switch (wallName) {
     case 'no catalogue write':
       return 'await tx.insert(categories).values({ key: "x" });';
-    case 'no second operator allow-list':
-      return 'const ids = config.catalog.graphOperatorOxyUserIds.concat(extra);';
+    case 'no grant of operator membership':
+      return "await oxyClient.serviceRequest('POST', '/applications/app-1/roles/grants', grant);";
     case 'no order, payment or buyer data in an export':
       return 'const rows = await db.execute(sql`select id from orders`);';
     case 'no ranking, fee or referral reference':

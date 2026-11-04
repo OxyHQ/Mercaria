@@ -1,5 +1,55 @@
 # Changelog
 
+## 0.8.0
+
+- Add `stores.featuredCollections` for explicitly seller-selected, published manual collection shelves in seller order. Product membership, availability and paginated ordering remain owned by the existing collections API. No selection affects marketplace or social ranking.
+
+## 0.7.3
+
+- Add `@mercaria.co/sdk/money` for canonical price formatting without response validators; lazy catalog cards no longer make bundlers share Zod with other deferred validators.
+
+- Add `@mercaria.co/sdk/refs` for portable reference helpers without loading Zod or the HTTP client. Schemas and helpers share the same canonical fields and ID rules; existing root exports remain compatible.
+
+## 0.7.2
+
+- Export the canonical locale-aware `formatMoney` formatter for catalog cards, including FAIR precision, JPY and bidi isolation. Mercaria UI and SDK use the same implementation.
+
+## 0.7.1
+
+Require Zod 4.6.7 or newer in major 4, including the oversized-array validation
+fix (GHSA-mrhx-c7xc-m3w5). The public SDK and workload factory APIs are unchanged.
+
+## 0.7.0
+
+- Add `@mercaria.co/sdk/server` public-read workload factory, using the shared Oxy transport and explicit disposal. External credentials and public payloads remain unchanged. Deploy the compatible receiver before caller cutover.
+
+
+## 0.6.0
+
+- Add `catalog`: `search`, `get` and `resolveRef` over the comparison catalogue
+  (`/public/v1/catalog/products`) — canonical products, their configurations
+  with GTINs, and every current offer in Mercaria's ranked order, prices native.
+- Add the `catalog_product` ref kind (`catalogProductRef`, and
+  `mercaria:catalog_product:<id>` in the string form), `links.offer`, and the
+  `MercariaCatalog*`/`MercariaOffer*` types with `MERCARIA_OFFER_KINDS` and
+  `MERCARIA_OFFER_AVAILABILITIES`.
+- Document that an Oxy service may pass its service token through
+  `getAccessToken` to be metered as that service.
+
+## 0.4.0
+
+- Add `materials.linkTransport` and the opaque `moovoTransportId` reservation reference.
+- Transport facts remain owned by Moovo and are resolved through its SDK.
+
+## 0.3.0
+
+- Add `materials` for donated offers, requests, reservations, recipient receipt,
+  cancellation, and account-scoped pending-pickup iteration.
+- Validate write bodies and parse responses with the shared contract; forward a
+  fresh Oxy bearer per call. Explicit idempotency keys make uncertain writes safe
+  to retry without automatic mutation retries.
+
+
 All notable changes to `@mercaria.co/sdk`. The package follows semantic
 versioning with the 0.x rule: while the major version is 0, a MINOR release may
 break the API or the contract, and a PATCH release never does.

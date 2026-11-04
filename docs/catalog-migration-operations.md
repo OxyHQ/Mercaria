@@ -140,24 +140,23 @@ or a buyer used before the epic is behind any of them: `/listings`
 `/search` (`:589`), `/catalog-attributes` (`:729`), `/compatibility` (`:1028`)
 and `/product-types` (`:1040`) are all unconditional.
 
-**Nine `/internal/*` catalog surfaces are gated on the operator allow-list and on
-no rollout lever** — `/internal/catalog-proposals` (`app.ts:286`),
+**Nine `/internal/*` catalog surfaces are gated on the `catalog.operate`
+application role and on no rollout lever** — `/internal/catalog-proposals` (`app.ts:286`),
 `/internal/canonical-catalog` (`:519`), `/internal/offers` (`:745`),
 `/internal/catalog-attributes` (`:755`), `/internal/catalog-condition` (`:760`),
 `/internal/matching` (`:782`), `/internal/navigation` (`:992`),
 `/internal/catalog-governance` (`:1008`) and `/internal/catalog-metrics`
-(`:1014`), each behind `config.catalog.graphOperatorSurfaceEnabled`. That is
-what makes D12's "the evidence has to be readable during the incident that
+(`:1014`), each mounted on every deployment. That is what makes D12's "the evidence has to be readable during the incident that
 turned the levers off" true.
 
-> **The precondition nobody has written down until now.**
-> `graphOperatorSurfaceEnabled` is **derived**:
-> `config/index.ts:3716` is `resolveCatalogOperatorIds().length > 0`. So an
-> **empty `CATALOG_OPERATOR_OXY_USER_IDS` makes all nine surfaces 404** — and
-> then every rollout lever off means the catalogue evidence is reachable through
-> no HTTP surface at all. The readability half of D12 is conditional on that list
-> being populated, and it is the first line of the rollback runbook for that
-> reason.
+> **The precondition nobody has written down until now.** The nine surfaces
+> are mounted on every deployment and gated on the `catalog.operate`
+> application role (`middleware/operator-authz.ts`). **If nobody on call holds
+> `catalog.operate`, all nine answer them 404** — and then every rollout lever
+> off means the catalogue evidence is reachable through no HTTP surface at all.
+> The readability half of D12 is conditional on somebody on call holding the key
+> (an owner or admin of the `oxy` organization, once the key is seeded), and it
+> is the first line of the rollback runbook for that reason.
 
 ---
 
@@ -693,7 +692,7 @@ definitions — it maps box 5's four named signals onto them, names the runbook,
 and says which of the four is not actually answerable.
 
 Everything below is read from `GET /internal/catalog-metrics`
-(`app.ts:1014`), behind `CATALOG_OPERATOR_OXY_USER_IDS`.
+(`app.ts:1014`), behind `catalog.operate`.
 
 ### 1. Failures
 
@@ -991,7 +990,7 @@ than an empty panel (`lib/catalog/use-facets.ts:18-22,73,75`).
 
 **Tested: the levers are, the rehearsal is not.** Two gates landed.
 `routes/__tests__/catalog-rollout.realdb.test.ts` builds three deployments —
-levers on, levers off, and levers off with an EMPTY operator allow-list — in the
+levers on, levers off, and levers off for a caller without `catalog.operate` — in the
 `search-rollout.realdb.test.ts` shape, and
 `packages/frontend/lib/catalog/__tests__/navigation-fallback.test.ts` executes the
 storefront fallback after the decision was extracted out of the hook's closure so
@@ -1010,9 +1009,8 @@ So of box 6's two halves:
   strongest available evidence, and it is structural rather than behavioural: the
   four levers are read in six places, four of them the mount, none in a
   repository, a loop, an outbox or checkout. Reproducible in one grep.
-  **Conditional on `CATALOG_OPERATOR_OXY_USER_IDS` being non-empty**, because
-  `graphOperatorSurfaceEnabled` is derived from its length
-  (`config/index.ts:3716`) and an empty list 404s all nine internal surfaces.
+  **Conditional on somebody holding `catalog.operate`**, because all nine
+  internal surfaces answer 404 to anyone without it.
 - **"turning a read lever off must restore the previous behaviour"** — true by
   reading, defended by nothing. This is the half to be careful about, because the
   mechanism that carries it lives in the FRONTEND, where the epic has no

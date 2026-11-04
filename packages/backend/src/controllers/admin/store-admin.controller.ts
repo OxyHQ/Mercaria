@@ -189,9 +189,9 @@ export async function transferStoreOwnerAccountHandler(req: Request, res: Respon
 
 /**
  * The caller's access to a store they just created or moved. The write proved
- * they own or administer its account, so this resolves (from the role cache,
- * as a rule); the fallback is the narrowest true statement, never a guess at
- * more.
+ * they own or administer its account (asked fresh, which refreshed the SDK's
+ * answer), so this resolves; the fallback is the narrowest true statement,
+ * never a guess at more.
  */
 async function accessAfterWrite(caller: StoreCaller, store: StoreRow): Promise<StoreAccess> {
   return (await resolveStoreAccess(caller, store)) ?? { role: 'viewer', permissions: [] };

@@ -1,25 +1,20 @@
 /**
  * Who may reach `/internal/canonical-catalog/*` — issue #56, the operator-only
  * product surface. The `internal-commerce-graph.test.ts` shape, applied to the
- * second router that reads the SAME catalog allow-list, and the same four
+ * second router that reads the SAME `catalog.operate` key, and the same three
  * properties plus one this issue adds:
  *
- *  - an allow-listed Oxy operator gets past the gate;
- *  - an authenticated Oxy user who is NOT allow-listed gets 403, not a write;
- *  - a deployment with an EMPTY allow-list has no such surface at all — 404,
- *    from the MOUNT, because a 401 would advertise that the surface exists;
- *  - the PAYMENTS allow-list does not open it: separate powers, and the
- *    cross-list case is the one a refactor toward "one operator list" would
+ *  - a holder of the desk's key gets past the gate;
+ *  - an authenticated Oxy user holding no key gets 404 — never revealed;
+ *  - holding `payments.operate` does not open it: separate powers, and the
+ *    cross-desk case is the one a refactor toward "one operator key" would
  *    silently break;
  *  - **the source-fact endpoints REFUSE a canonical field.** `.strict()` means
  *    a body carrying `name`, `slug`, `status` or `pinnedFields` is rejected at
  *    the schema, so #56 API rule 4 ("accept source facts rather than arbitrary
  *    canonical overwrite") is a property of the request boundary rather than a
- *    habit in a handler. That check runs as the ALLOW-LISTED operator, so a 400
- *    can only be the schema — a 403 would prove nothing.
- *
- * Two real apps against two frozen configs, because the empty-list case is a
- * property of the MOUNT, not of any handler.
+ *    habit in a handler. That check runs as the key HOLDER, so a 400
+ *    can only be the schema — a 404 would prove nothing.
  */
 
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
@@ -33,24 +28,46 @@ const MERCHANT_USER = 'oxy-user-merchant-1';
 
 /** Whichever caller the current request is acting as. */
 let currentUser = CATALOG_OPERATOR;
+const GRANTS: Readonly<Record<string, readonly string[]>> = {
+  [CATALOG_OPERATOR]: ['catalog.operate'],
+  [PAYMENTS_OPERATOR]: ['payments.operate'],
+};
+const appPermissions = vi.hoisted(() => ({
+  current: undefined as
+    | undefined
+    | import('../../__tests__/oxy-app-permissions-fake.js').FakeAppPermissions,
+}));
 
 vi.mock('@oxy.so/core/server', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@oxy.so/core/server')>()),
   getRequiredOxyUserId: () => currentUser,
 }));
-vi.mock('../../middleware/auth.js', () => ({
-  authenticateToken: (
-    _req: express.Request,
-    _res: express.Response,
-    next: express.NextFunction,
-  ) => {
-    next();
-  },
-  oxyClient: {},
-  optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
-    next();
-  },
-}));
+vi.mock('../../middleware/auth.js', async () => {
+  const { fakeAppPermissions } = await import('../../__tests__/oxy-app-permissions-fake.js');
+  const fake = fakeAppPermissions(
+    () => GRANTS[currentUser] ?? [],
+    () => currentUser,
+  );
+  appPermissions.current = fake;
+  return {
+    authenticateToken: (
+      _req: express.Request,
+      _res: express.Response,
+      next: express.NextFunction,
+    ) => {
+      next();
+    },
+    oxyClient: {
+      middleware: {
+        requireAppPermission: fake.requireAppPermission,
+        auth: () => (_req: unknown, res: express.Response) => res.sendStatus(401),
+      },
+    },
+    optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
+      next();
+    },
+  };
+});
 vi.mock('../../lib/rate-limit.js', () => ({
   makeRateLimiter:
     () => (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
@@ -79,54 +96,32 @@ vi.mock('../../db/postgres.js', () => ({
   closePostgres: () => Promise.resolve(),
 }));
 
-let enabledServer: Server;
-let disabledServer: Server;
-let enabledUrl: string;
-let disabledUrl: string;
+let server: Server;
+let url: string;
 
 async function listen(app: express.Express): Promise<{ server: Server; url: string }> {
-  const server = await new Promise<Server>((resolve) => {
-    const started = app.listen(0, () => {
-      resolve(started);
+  const started = await new Promise<Server>((resolve) => {
+    const listening = app.listen(0, () => {
+      resolve(listening);
     });
   });
-  const { port } = server.address() as AddressInfo;
-  return { server, url: `http://127.0.0.1:${String(port)}` };
-}
-
-/**
- * Build a real app against a FROZEN config for one allow-list state.
- * `config/index.ts` reads process.env once at module load; `vi.resetModules()`
- * gives each app its own frozen view.
- */
-async function buildApp(catalogOperatorIds: string): Promise<express.Express> {
-  vi.resetModules();
-  process.env.CATALOG_OPERATOR_OXY_USER_IDS = catalogOperatorIds;
-  process.env.PAYMENT_OPERATOR_OXY_USER_IDS = PAYMENTS_OPERATOR;
-  process.env.STRIPE_ENABLED = 'false';
-  const { createApp } = await import('../../app.js');
-  return createApp();
+  const { port } = started.address() as AddressInfo;
+  return { server: started, url: `http://127.0.0.1:${String(port)}` };
 }
 
 beforeAll(async () => {
-  ({ server: enabledServer, url: enabledUrl } = await listen(await buildApp(CATALOG_OPERATOR)));
-  ({ server: disabledServer, url: disabledUrl } = await listen(await buildApp('')));
+  process.env.STRIPE_ENABLED = 'false';
+  const { createApp } = await import('../../app.js');
+  ({ server, url } = await listen(createApp()));
 }, 60_000);
 
 afterAll(async () => {
-  delete process.env.CATALOG_OPERATOR_OXY_USER_IDS;
-  delete process.env.PAYMENT_OPERATOR_OXY_USER_IDS;
-  await Promise.all(
-    [enabledServer, disabledServer].map(
-      (server) =>
-        new Promise<void>((resolve, reject) => {
-          server.close((err) => {
-            if (err) reject(err);
-            else resolve();
-          });
-        }),
-    ),
-  );
+  await new Promise<void>((resolve, reject) => {
+    server.close((err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
 });
 
 /**
@@ -137,13 +132,13 @@ afterAll(async () => {
  * `/products/:winnerId/merge` and `/variants/:winnerId/merge` performed a
  * single-transaction merge outside #59's conflict gate and census-complete
  * rehoming plan. `internal-commerce-graph.test.ts` covers the merge-job routes
- * that replaced them, on the SAME operator allow-list.
+ * that replaced them, on the SAME `catalog.operate` key.
  */
 const PATHS: readonly { method: 'POST'; path: string; body: unknown }[] = [
   // `/attribute-definitions` was HERE until #94, which made a definition a
   // versioned record with a lifecycle and moved the whole registry to
   // `/internal/catalog-attributes/definitions` — its own router on the SAME
-  // operator allow-list, gated by `internal-catalog-attributes.test.ts`.
+  // operator key, gated by `internal-catalog-attributes.test.ts`.
   {
     method: 'POST',
     path: '/internal/canonical-catalog/product-families',
@@ -199,44 +194,37 @@ async function call(
   });
 }
 
-describe('the catalog operator allow-list on the product surface', () => {
-  it('lets an allow-listed catalog operator through the gate on every path', async () => {
+describe('the catalog.operate application role on the product surface', () => {
+  it('lets a holder of catalog.operate through the gate on every path', async () => {
     // Past the GATE is the assertion, not a 200: the database is stubbed to
     // throw, so handlers answer 500 — what matters is that none answers 403,
     // 404 or 400, which is what a gate or a schema refusing a valid request
     // would yield.
     for (const route of PATHS) {
-      const res = await call(enabledUrl, route, CATALOG_OPERATOR);
+      const res = await call(url, route, CATALOG_OPERATOR);
       expect([400, 403, 404], `${route.path} was refused before reaching a handler`).not.toContain(
         res.status,
       );
     }
   });
 
-  it('refuses an authenticated non-operator with 403 on every path', async () => {
+  it('answers a caller holding no key with 404 on every path', async () => {
     for (const route of PATHS) {
-      const res = await call(enabledUrl, route, MERCHANT_USER);
-      expect(res.status).toBe(403);
+      const res = await call(url, route, MERCHANT_USER);
+      expect(res.status).toBe(404);
     }
   });
 
-  it('does not open for a PAYMENTS operator — the two lists are separate powers', async () => {
+  it('does not open for a holder of payments.operate — the keys are separate powers', async () => {
     for (const route of PATHS) {
-      const res = await call(enabledUrl, route, PAYMENTS_OPERATOR);
-      expect(res.status).toBe(403);
-    }
-  });
-
-  it('answers 404 on every path when the allow-list is empty — the surface is not mounted', async () => {
-    for (const route of PATHS) {
-      const res = await call(disabledUrl, route, CATALOG_OPERATOR);
+      const res = await call(url, route, PAYMENTS_OPERATOR);
       expect(res.status).toBe(404);
     }
   });
 });
 
 describe('the source-fact boundary (#56 API rule 4)', () => {
-  /** As the ALLOW-LISTED operator, so a 400 can only be the schema. */
+  /** As the key HOLDER, so a 400 can only be the schema. */
   const observationPath = '/internal/canonical-catalog/products/p1/observations';
   const validObservation = {
     sourceId: 's1',
@@ -256,7 +244,7 @@ describe('the source-fact boundary (#56 API rule 4)', () => {
       { rating: 5 },
     ]) {
       const res = await call(
-        enabledUrl,
+        url,
         { method: 'POST', path: observationPath, body: { ...validObservation, ...forbidden } },
         CATALOG_OPERATOR,
       );
@@ -268,7 +256,7 @@ describe('the source-fact boundary (#56 API rule 4)', () => {
     // Without this, every assertion above would also pass against a schema that
     // rejected the endpoint's whole body.
     const res = await call(
-      enabledUrl,
+      url,
       {
         method: 'POST',
         path: observationPath,
@@ -283,7 +271,7 @@ describe('the source-fact boundary (#56 API rule 4)', () => {
     // #56 acceptance 2, at the request boundary: there is no `sku` scheme and no
     // `sku` field, so a seller's private code has no path into identity.
     const res = await call(
-      enabledUrl,
+      url,
       {
         method: 'POST',
         path: '/internal/canonical-catalog/identifiers',
@@ -294,7 +282,7 @@ describe('the source-fact boundary (#56 API rule 4)', () => {
     expect(res.status).toBe(400);
 
     const withSkuField = await call(
-      enabledUrl,
+      url,
       {
         method: 'POST',
         path: '/internal/canonical-catalog/identifiers',
@@ -311,7 +299,7 @@ describe('the source-fact boundary (#56 API rule 4)', () => {
       { scheme: 'ean', rawValue: '4006381333931' },
     ]) {
       const res = await call(
-        enabledUrl,
+        url,
         { method: 'POST', path: '/internal/canonical-catalog/identifiers', body },
         CATALOG_OPERATOR,
       );

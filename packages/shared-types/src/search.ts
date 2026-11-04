@@ -299,7 +299,12 @@ export interface SearchEntityRef {
 export interface SearchImageRef {
   /** An Oxy media file id, when Mercaria holds the asset. */
   readonly fileId?: string;
-  /** The image's address at its source, when Mercaria holds no copy. */
+  /**
+   * Never sent. A supplier URL is an import input and never leaves the backend
+   * (it may be a signed CDN link, and showing it would be a hotlink); kept in
+   * the type only so a reader written against it still compiles. An image
+   * Mercaria holds no Oxy copy of is not a result image at all.
+   */
   readonly sourceUrl?: string;
   readonly alt?: string;
 }

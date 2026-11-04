@@ -355,8 +355,11 @@ describe('completeDraftOrder writes an order a REAL server accepts', () => {
     // here rather than admitted by a looser predicate, because a census that
     // matched `%_number_seq%` would stop noticing the exact thing this one
     // exists for — a fourth sequence the POS quietly starts numbering from.
+    // `catalog_safety_reviews_revision_seq` is the same kind: the identity that
+    // orders one listing's operator safety reviews, never a receipt number.
     expect(rows.map((row) => row.relname)).toEqual([
       'catalog_review_events_sequence_seq',
+      'catalog_safety_reviews_revision_seq',
       'order_number_seq',
       'rma_number_seq',
     ]);

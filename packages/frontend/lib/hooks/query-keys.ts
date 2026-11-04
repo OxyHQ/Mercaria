@@ -248,6 +248,15 @@ export const queryKeys = {
       ['merchants', 'offers', idOrSlug, params] as const,
   },
   /**
+   * The caller's own merchant claims (#83), and the one-time challenge
+   * instructions per claim. The instructions are the only copy of the token the
+   * client ever holds, so they live in this in-memory cache and nowhere else.
+   */
+  merchantClaims: {
+    mine: ['merchant-claims', 'mine'] as const,
+    challenge: (claimId: string) => ['merchant-claims', 'challenge', claimId] as const,
+  },
+  /**
    * Grounded comparison and basket plans (#96).
    *
    * The whole REQUEST is in the key, because every field of it changes the
@@ -361,6 +370,14 @@ export const queryKeys = {
       ['referral-partner', 'performance', dimension, from, through] as const,
   },
   /**
+   * The BUYER's referral carrier (#143). `bind` is keyed by subject so each
+   * subject that appears — a guest session, then an account — binds once.
+   */
+  referrals: {
+    state: ['referrals', 'state'] as const,
+    bind: (subject: string) => ['referrals', 'bind', subject] as const,
+  },
+  /**
    * The universal catalog surfaces the storefront reads (#367 workstream 9).
    *
    * Every key carries the DIMENSIONS the answer varies by, and the six of them
@@ -401,4 +418,11 @@ export const queryKeys = {
     partFitments: (subjects: readonly string[]) =>
       ['catalog', 'part-fitments', ...subjects] as const,
   },
+  /**
+   * GoWay forward geocoding for a place picker, keyed on the debounced TERM
+   * and the reader's locale. The entry is collected as soon as no picker reads
+   * it (`gcTime: 0` in `usePlaceSearch`): an address someone typed is
+   * transient request data, never a warm cache.
+   */
+  placeSearch: (term: string, locale: string) => ['place-search', term, locale] as const,
 } as const;

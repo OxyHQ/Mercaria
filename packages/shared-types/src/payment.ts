@@ -792,6 +792,7 @@ export const LEDGER_TRANSACTION_KINDS: readonly LedgerTransactionKind[] = [
  */
 export type PaymentOutboxEventType =
   | 'payment_succeeded'
+  | 'supervised_purchase_cancelled'
   | 'payment_failed'
   | 'payment_succeeded_after_release'
   | 'payment_refunded'
@@ -810,6 +811,7 @@ export type PaymentOutboxEventType =
 /** {@link PaymentOutboxEventType} as the tuple the column types and CHECKs read. */
 export const PAYMENT_OUTBOX_EVENT_TYPES: readonly PaymentOutboxEventType[] = [
   'payment_succeeded',
+  'supervised_purchase_cancelled',
   'payment_failed',
   // The two exceptions, not lifecycle steps — see the notes above.
   'payment_succeeded_after_release',

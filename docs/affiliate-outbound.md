@@ -263,7 +263,7 @@ redirect to. **It gates no durable record** — clicks are written BY the route,
 an unmounted route writes none and no queue can strand. With it off the product
 page renders its existing `redirect_unavailable` branch.
 
-The operator surface is on `PAYMENT_OPERATOR_OXY_USER_IDS` and is NOT gated on
+The operator surface is on `payments.operate` and is NOT gated on
 the redirect: a host must be approvable before the redirect is switched on, and
 the evidence must be readable during the incident that switched it off.
 
@@ -282,7 +282,7 @@ the evidence must be readable during the incident that switched it off.
   eBay's waits on an account and an API that both exist; a directly-signed shop
   is not an API at all, so its statements arrive as documents and booking one is
   an operator action. What would close it is
-  `POST /internal/affiliate/reports/direct` on the payment-operator allow-list,
+  `POST /internal/affiliate/reports/direct` on the `payments.operate` key,
   opening a run for the window the operator states and driving the SAME
   `applyReportedTransaction` the Awin poll drives — which needs `runOneWindow`'s
   read step to become a value rather than a call, and a state map read off a

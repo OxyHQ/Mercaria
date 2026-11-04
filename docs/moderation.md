@@ -137,7 +137,7 @@ yet wired to it.
   Pinned by a test.
 - Stored only: `seller`, `store`. `SellerProfile` stores no user-authored
   identity to pin (display name and avatar are read live from Oxy) and
-  `applicationId` comes off the credential, so a case would open in Mercaria's
+  `applicationId` comes from the verified workload identity, so a case would open in Mercaria's
   tenant naming an object only Oxy can act on. That is a missing provider, not a
   refused report.
 
@@ -159,7 +159,6 @@ Names come from the packages, not from a plan table:
 
 ```
 CROWDSOURCE_ENABLED=false
-CROWDSOURCE_SERVICE_KEY=            # applicationId:credentialId:secret, ONE opaque value
 CROWDSOURCE_BASE_URL=               # optional
 CROWDSOURCE_WEBHOOK_SECRET=
 CROWDSOURCE_WEBHOOK_SECRET_PREVIOUS=   # both accepted during a rotation
@@ -168,12 +167,13 @@ CROWDSOURCE_OUTBOX_POLL_INTERVAL_MS=5000
 CROWDSOURCE_ENFORCEMENT_MODE=observe
 ```
 
-**There is no `CROWDSOURCE_APP_ID`, and never add one.** `applicationId` is read
-off the credential; a variable holding it could only ever disagree, and a surface
-able to carry one independently is a cross-tenant IDOR. `CROWDSOURCE_ENABLED=true`
-requires BOTH the service key and the webhook secret (enforced in
-`config/index.ts`), because a half-configured integration sends reports that can
-never come back.
+Mercaria uses `crowdSourceForOxyService({ oxy })` from `@crowdsource.you/core`.
+The shared SDK attests the registered workload; CrowdSource resolves its active
+tenant binding from that verified identity. Own calls use no OAuth scopes or
+service key. `CROWDSOURCE_ENABLED=true` still requires an attestable workload and
+the webhook verification secret. The flag gates delivery, never the durable
+outbox record. External CrowdSource customers retain their separate credentials
+and bounded permissions; tenant and staff/domain checks remain in the receiver.
 
 ### Lifecycle
 

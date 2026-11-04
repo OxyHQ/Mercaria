@@ -76,6 +76,12 @@ const NON_PUBLIC_SCREENS: readonly string[] = [
   'app/(app)/3d/game-assets.tsx',
   'app/(app)/3d/[slug].tsx',
   'app/(app)/creators/[slug].tsx',
+  // Donated materials (docs/materials.md): an account's own offers, requests and
+  // reservations, and a payer's transport-approval link. Read with the caller's
+  // credential and account-scoped; `/materials` is in `SEO_ROBOTS_DISALLOWED_PATHS`,
+  // which covers the transport page by prefix.
+  'app/(app)/materials.tsx',
+  'app/(app)/materials-transport/[id].tsx',
   'app/(app)/notifications.tsx',
   'app/(app)/price-alerts.tsx',
   // The referral partner dashboard (#147) — one account's own instruments,
@@ -99,7 +105,8 @@ const NON_PUBLIC_SCREENS: readonly string[] = [
   // `SEO_ROBOTS_DISALLOWED_PATHS`. A crawlable one is a crawl budget spent on
   // result pages nobody links to.
   'app/(app)/search.tsx',
-  // A shopper's conversation, never an indexable catalogue landing page.
+  // The old address of the shopping thread: it opens a shopper's conversation
+  // in Alia's sheet and leaves, never an indexable catalogue landing page.
   'app/(app)/thread.tsx',
   'app/(app)/profile.tsx',
   // Local editorial previews; no publishing source or indexable edition yet.
@@ -131,6 +138,9 @@ const NON_PUBLIC_SCREENS: readonly string[] = [
   'app/(app)/nearby.tsx',
   'app/(app)/checkout/index.tsx',
   'app/(app)/checkout/return.tsx',
+  // Personal, policy-gated shopping and immutable approval details are never public crawl surfaces.
+  'app/(app)/supervised-shopping/index.tsx',
+  'app/(app)/supervised-shopping/checkout.tsx',
   // The "Sell yours" flow (#91) — an authenticated draft-in-progress, reached
   // only from a credential, and never a landing page a crawler should index.
   'app/(app)/sell/index.tsx',

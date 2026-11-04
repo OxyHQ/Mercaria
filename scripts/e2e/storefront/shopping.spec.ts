@@ -11,20 +11,20 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test('composer opens a shopping thread from text and catalog suggestions', async ({ page }) => {
+// The composer asks Alia in her one sheet; there is no shopping-thread page.
+// Signed out the SDK opens Oxy's sign-in instead, the page stays where it is
+// and the words stay in the field, to send again once signed in.
+test('composer asks Alia from text and catalog suggestions, and never leaves the page', async ({
+  page,
+}) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
   const input = page.locator('[data-testid="shopping-composer"]:visible').getByRole('textbox');
   await input.fill('linen');
   await input.press('Enter');
-  await expect(page).toHaveURL(/\/thread\?q=linen$/);
-  await expect(page.getByTestId('shopping-thread')).toContainText('linen');
-  await expect(
-    page.getByText(
-      'The shopping assistant is not available yet. You can still search the catalogue.',
-    ),
-  ).toBeVisible();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(input).toHaveValue('linen');
 
   await page.goto('/');
   await input.click();
@@ -32,7 +32,8 @@ test('composer opens a shopping thread from text and catalog suggestions', async
   await expect(suggestion).toBeVisible();
   const label = await suggestion.innerText();
   await suggestion.click();
-  await expect(page).toHaveURL(new RegExp(`/thread\\?q=${encodeURIComponent(label)}$`));
+  await expect(page).toHaveURL(/\/$/);
+  await expect(input).toHaveValue(label);
 
   await page.goto('/');
   await input.click();
@@ -40,7 +41,8 @@ test('composer opens a shopping thread from text and catalog suggestions', async
   await input.press('ArrowDown');
   const keyboardChoice = await page.getByRole('option', { selected: true }).innerText();
   await input.press('Enter');
-  await expect(page).toHaveURL(new RegExp(`/thread\\?q=${encodeURIComponent(keyboardChoice)}$`));
+  await expect(page).toHaveURL(/\/$/);
+  await expect(input).toHaveValue(keyboardChoice);
   expect(errors).toEqual([]);
 });
 
@@ -75,7 +77,8 @@ test('mobile composer remains inside viewport above navigation', async ({ page }
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   await composer.getByRole('textbox').fill('beauty');
   await composer.getByRole('textbox').press('Enter');
-  await expect(page).toHaveURL(/\/thread\?q=beauty$/);
+  await expect(page).toHaveURL(/\/$/);
+  await expect(composer.getByRole('textbox')).toHaveValue('beauty');
 });
 
 test('dark Arabic layout and reduced motion retain a usable composer', async ({ page }) => {
@@ -94,8 +97,8 @@ test('dark Arabic layout and reduced motion retain a usable composer', async ({ 
   await expect(page.locator('html')).toHaveClass(/dark/);
   await composer.getByRole('textbox').fill('قميص');
   await composer.getByRole('textbox').press('Enter');
-  await expect(page).toHaveURL(/\/thread\?q=/);
-  await expect(page.getByTestId('shopping-thread')).toContainText('قميص');
+  await expect(page).toHaveURL(/\/$/);
+  await expect(composer.getByRole('textbox')).toHaveValue('قميص');
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(1440);
 });
 
@@ -185,33 +188,6 @@ test('document footer stays in the content column after scroll and resize', asyn
   await expect(page.getByRole('option')).toHaveCount(0);
 });
 
-test('explicit local thread preview supports follow-ups, cancellation and a new conversation', async ({
-  page,
-}) => {
-  const inference: string[] = [];
-  page.on('request', (request) => {
-    if (request.method() === 'POST' && request.url().endsWith('/shopping-thread'))
-      inference.push(request.url());
-  });
-  await page.goto('/thread?q=linen&preview=1');
-  await expect(page.getByText('Preview · Example responses, no AI connected')).toBeVisible();
-  await expect(page.getByTestId('thread-preview-products')).toHaveCount(1);
-  const input = page.locator('[data-testid="shopping-composer"]:visible').getByRole('textbox');
-  await input.fill('Something lighter');
-  await input.press('Enter');
-  await expect(page.getByTestId('thread-preview-products')).toHaveCount(2);
-  await input.fill('Cancel this turn');
-  await input.press('Enter');
-  await page.getByRole('button', { name: 'Stop', exact: true }).click();
-  await expect(input).toBeEnabled();
-  await input.fill('An unsent draft');
-  await page.getByRole('button', { name: 'New conversation', exact: true }).click();
-  await expect(input).toHaveValue('');
-  await expect(page.getByTestId('thread-preview-products')).toHaveCount(0);
-  await expect(page.getByTestId('shopping-thread')).not.toContainText('linen');
-  expect(inference).toEqual([]);
-});
-
 test('compact hero animates, responds to the pointer and opens the visible product', async ({
   page,
 }) => {
@@ -293,10 +269,10 @@ test('saving a product as a guest opens sign-in without pretending it was saved'
   await expect(save).toHaveAttribute('aria-pressed', 'false');
 });
 
-test('thread composer measures its real width and shrinks after clearing multiline input', async ({
+test('composer measures its real width and shrinks after clearing multiline input', async ({
   page,
 }) => {
-  await page.goto('/thread?preview=1');
+  await page.goto('/explore');
   const composer = page.getByTestId('shopping-composer');
   const input = composer.getByRole('textbox');
   await expect.poll(async () => (await composer.boundingBox())?.height).toBe(64);
@@ -460,33 +436,6 @@ for (const width of [390, 1440])
       new RegExp(`/checkout\\?seller=${encodeURIComponent(group.sellerKey)}$`),
     );
   });
-
-test('Keep shopping resumes a persisted conversation including its follow-up', async ({ page }) => {
-  await page.goto('/thread?q=Dinner%20party%20gifts&preview=1');
-  await expect(page.getByTestId('thread-preview-products')).toHaveCount(1);
-  const composer = page.getByTestId('shopping-composer').getByRole('textbox');
-  await composer.fill('Something under 50');
-  await composer.press('Enter');
-  await expect(page.getByTestId('thread-preview-products')).toHaveCount(2);
-  await page
-    .getByTestId('thread-header')
-    .getByRole('button', { name: 'Home', exact: true })
-    .click();
-  const card = page
-    .getByTestId('thread-shelf')
-    .getByRole('link', { name: 'Dinner party gifts', exact: true });
-  await expect(card).toBeVisible();
-  expect((await card.boundingBox())!.width).toBe(289);
-  expect((await card.boundingBox())!.height).toBe(56);
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect.poll(async () => (await card.boundingBox())!.width).toBe(239);
-  await card.click();
-  await expect(page).toHaveURL(/\/thread\?conversationId=/);
-  await expect(page.getByTestId('shopping-thread')).toContainText('Something under 50');
-  await expect(page.getByTestId('thread-preview-products')).toHaveCount(2);
-  await page.reload();
-  await expect(page.getByTestId('thread-preview-products')).toHaveCount(2);
-});
 
 test('Recently viewed keeps one image-only card per product and opens its full history', async ({
   page,
@@ -661,7 +610,7 @@ test('dark Arabic category arrows mirror direction and relinquish focus at the f
     .toBeGreaterThan(-2);
 });
 
-test('local shopping history never exposes a different account conversation to a guest', async ({
+test('conversations a device stored before they moved to Alia are never shown', async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -688,9 +637,17 @@ test('local shopping history never exposes a different account conversation to a
   await page.goto('/');
   await expect(page.getByTestId('home-hero')).toBeVisible();
   await expect(page.getByTestId('thread-shelf')).toHaveCount(0);
+  // The old address opens Alia's sheet on that conversation and leaves itself;
+  // a device's copy is never what is shown.
   await page.goto('/thread?conversationId=private-thread');
-  await expect(page.getByTestId('shopping-thread')).toBeVisible();
+  await expect(page).toHaveURL(/\/$/);
   await expect(page.getByText('Private shopping question')).toHaveCount(0);
+});
+
+test('an old /thread?q= address leaves itself for the home page', async ({ page }) => {
+  await page.goto('/thread?q=linen');
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByTestId('home-hero')).toBeVisible();
 });
 
 test('store offer headers show fixed savings with their qualifying subtotal and navigate to the store', async ({

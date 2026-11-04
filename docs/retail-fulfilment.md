@@ -337,5 +337,5 @@ Each is a named contract that fails closed, never a stub that answers.
   `retail_fulfilment_intents_awaiting_transport_idx` and
   `readRetailLineAllocationReconciliation`, and neither has an HTTP reader yet.
   When one is added it belongs on `/internal/procurement/*` behind the existing
-  `PROCUREMENT_OPERATOR_OXY_USER_IDS` allow-list — the sixth list, not a seventh:
+  `procurement.operate` key — the sixth key, not a seventh:
   the power is the same one #122/#124 already granted.

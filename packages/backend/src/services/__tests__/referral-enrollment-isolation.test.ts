@@ -292,11 +292,15 @@ const GRANT_DETECTORS: Readonly<Record<string, RegExp>> = {
   store_permission:
     /grantStorePermission|setStorePermissionOverride|upsertStorePermissionOverride|\.permissions\s*=|permissions:\s*\[/,
   store_membership:
-    /transferStoreOwnerAccount|oxyAccountId:\s*partner|members\.invite\(|accounts\.create\(/,
+    /transferStoreOwnerAccount|oxyAccountId:\s*partner|invitations\.create\(|accounts\.create\(/,
   merchant_claim: /merchant-claims\/|merchantClaimRepository|verifyMerchantClaim|claim_state/,
   payment_onboarding: /providerAccountRepository|insertProviderAccount|createOnboardingLink/,
   oxy_administrative_role: /setOxyRole|grantOxyRole|oxyAdmin|assignRole/,
-  operator_allow_list: /operatorOxyUserIds\s*[=.]\s*\[|OPERATOR_OXY_USER_IDS\s*=/,
+  // Operator power is an Oxy application role (`referrals.operate`): held by
+  // organization role in Oxy (oxy ADR 0056), read by `middleware/operator-authz.ts`.
+  // Enrollment must neither call Oxy's role API nor forge the answer.
+  operator_allow_list:
+    /\/roles\/(?:grants|permissions)|oxyAppPermissions\s*=|invalidateAppPermissions/,
 };
 const PAYMENT_REFERENCE =
   /services\/payments\/|paymentRepository|ledgerRepository|ledger_entries|PaymentIntent|openCheckoutPayment|stripe|Stripe/;
@@ -362,8 +366,10 @@ function assertReferralDomainIsWhole(): void {
   ).toBeGreaterThanOrEqual(2);
   expect(from('controllers/'), 'no referral controller was derived').toBeGreaterThanOrEqual(7);
   expect(from('routes/'), 'no referral route was derived').toBeGreaterThanOrEqual(5);
+  // Four: the referral operator gate is no longer a referral-named module — it
+  // is `requireReferralOperator` in the shared `middleware/operator-authz.ts`.
   expect(from('middleware/'), 'no referral middleware module was derived').toBeGreaterThanOrEqual(
-    5,
+    4,
   );
   expect(from('db/schema/'), 'no referral schema module was derived').toBeGreaterThanOrEqual(5);
   expect(ENROLLMENT_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
@@ -873,11 +879,12 @@ describe('each detector actually detects (mutation self-test)', () => {
       store_permission:
         "await upsertStorePermissionOverride({ storeId, oxyUserId, granted: ['products:write'] });",
       store_membership:
-        'await oxy.accounts.members.invite(store.oxyAccountId, { usernameOrEmail, role });',
+        'await oxy.accounts.invitations.create(store.oxyAccountId, { email, role });',
       merchant_claim: "import { verifyMerchantClaim } from '../merchant-claims/claim.js';",
       payment_onboarding: 'await insertProviderAccount(tx, { provider, ownerType, ownerId });',
       oxy_administrative_role: "await grantOxyRole(oxyUserId, 'admin');",
-      operator_allow_list: 'config.referrals.operatorOxyUserIds = [...ids, partner.ownerId];',
+      operator_allow_list:
+        "await oxyClient.serviceRequest('POST', '/applications/app-1/roles/grants', grant);",
     };
     expect(Object.keys(grantPositives).sort()).toEqual(
       [...REFERRAL_ENROLLMENT_FORBIDDEN_GRANTS].sort(),

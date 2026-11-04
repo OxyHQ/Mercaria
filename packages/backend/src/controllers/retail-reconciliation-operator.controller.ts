@@ -29,7 +29,7 @@ import {
 } from '../db/retailReconciliation/exceptionRepository.js';
 import { listOpenAdjustments } from '../db/retailReconciliation/adjustmentRepository.js';
 import { notFound, validationError } from '../lib/errors/error-codes.js';
-import { procurementOperatorId } from '../middleware/procurement-operator-authz.js';
+import { operatorId } from '../middleware/operator-authz.js';
 import { settleRetailCustomerAdjustmentOnRequest } from '../services/retail-reconciliation/adjustment.service.js';
 import {
   readRetailReconciliationMetrics,
@@ -84,7 +84,7 @@ async function withAudit<T>(
     { outcome: 'applied' | 'no_op'; body: T } | { outcome: 'refused'; detail: string }
   >,
 ): Promise<T> {
-  const actorOxyUserId = procurementOperatorId(input.req);
+  const actorOxyUserId = operatorId(input.req);
   const subject = {
     ...(input.orderId ? { orderId: input.orderId } : {}),
     ...(input.adjustmentId ? { adjustmentId: input.adjustmentId } : {}),
@@ -217,7 +217,7 @@ export async function resolveReconciliationExceptionHandler(
       }
       const resolved = await resolveReconciliationException({
         id: exceptionId,
-        resolvedByOxyUserId: procurementOperatorId(req),
+        resolvedByOxyUserId: operatorId(req),
         reason,
       });
       // A compare-and-swap loser: somebody else closed it first, and their

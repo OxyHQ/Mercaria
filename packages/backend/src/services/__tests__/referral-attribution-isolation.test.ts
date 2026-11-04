@@ -300,8 +300,10 @@ function assertReferralDomainIsWhole(): void {
   ).toBeGreaterThanOrEqual(2);
   expect(from('controllers/'), 'no referral controller was derived').toBeGreaterThanOrEqual(7);
   expect(from('routes/'), 'no referral route was derived').toBeGreaterThanOrEqual(5);
+  // Four: the referral operator gate is no longer a referral-named module — it
+  // is `requireReferralOperator` in the shared `middleware/operator-authz.ts`.
   expect(from('middleware/'), 'no referral middleware module was derived').toBeGreaterThanOrEqual(
-    5,
+    4,
   );
   expect(from('db/schema/'), 'no referral schema module was derived').toBeGreaterThanOrEqual(5);
   // No test file may enter the scanned set: a gate that scans its own probes

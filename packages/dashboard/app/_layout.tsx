@@ -4,7 +4,7 @@ import { useFonts } from 'expo-font';
 import { Slot, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useCallback, useEffect } from 'react';
-import { OxyProvider, useOxy } from '@oxy.so/services';
+import { OxyProvider, useAccountColor, useOxy } from '@oxy.so/services/ui/client';
 import { BloomProvider } from '@oxy.so/bloom/provider';
 import { OverlayInertBoundary, PortalOutlet, PortalProvider } from '@oxy.so/bloom/portal';
 import { expoRouterScrollAdapter } from '@oxy.so/bloom/scroll/expo-router';
@@ -15,10 +15,9 @@ import { Platform } from 'react-native';
 import { AppErrorBoundary } from '@/components/error-boundary';
 import AppSplashScreen from '@/components/AppSplashScreen';
 import { DashboardSettingsProvider } from '@/components/settings/DashboardSettingsProvider';
-import { KeyboardProvider } from '@/lib/keyboard';
 import { SharedUiTranslationProvider, useColorScheme } from '@mercaria/ui';
 import { AppFxProvider } from '@/lib/fx';
-import { setTokenGetter } from '@/lib/api/client';
+import { bindApiClient, releaseApiClient } from '@/lib/api/client';
 import { OXY_CLIENT_ID, OXY_API_URL } from '@/lib/config';
 import {
   BLOOM_DEFAULT_COLOR_PRESET,
@@ -46,7 +45,15 @@ const AUTH_REDIRECT_URI = Linking.createURL('/');
 function AuthSetup({ children }: { children: React.ReactNode }) {
   const { oxyServices } = useOxy();
 
-  setTokenGetter(() => oxyServices.session.accessToken || null);
+  bindApiClient(oxyServices);
+  useEffect(() => {
+    bindApiClient(oxyServices);
+    return () => releaseApiClient(oxyServices);
+  }, [oxyServices]);
+
+  // The account's colour wears the Bloom theme for every Oxy app; signed out,
+  // Bloom's default stays.
+  useAccountColor();
 
   // Resolve public Oxy file IDs using the rendition requested by Bloom.
   // No rendition means the original; Avatar explicitly requests its thumbnail.
@@ -69,25 +76,22 @@ function AuthSetup({ children }: { children: React.ReactNode }) {
 function AppContent() {
   const { colors } = useColorScheme();
 
-  return (
-    <KeyboardProvider>
-      {/* WEB: <Slot/>, so the matched route stays in normal document flow and
-          Bloom's AppShell can scroll the DOCUMENT (sticky navigation, scroll
-          restoration). A web Stack wraps every scene in a viewport-clamped
-          card, which is a scroll container between the root and the shell. */}
-      {Platform.OS === 'web' ? (
-        <Slot />
-      ) : (
-        <Stack
-          screenOptions={{
-            contentStyle: { backgroundColor: colors.background },
-            headerShown: false,
-          }}
-        >
-          <Stack.Screen name="(app)" options={{ headerShown: false }} />
-        </Stack>
-      )}
-    </KeyboardProvider>
+  // OxyProvider mounts the one KeyboardProvider; a second one nested with it took the native keyboard events.
+  // WEB: <Slot/>, so the matched route stays in normal document flow and
+  // Bloom's AppShell can scroll the DOCUMENT (sticky navigation, scroll
+  // restoration). A web Stack wraps every scene in a viewport-clamped
+  // card, which is a scroll container between the root and the shell.
+  return Platform.OS === 'web' ? (
+    <Slot />
+  ) : (
+    <Stack
+      screenOptions={{
+        contentStyle: { backgroundColor: colors.background },
+        headerShown: false,
+      }}
+    >
+      <Stack.Screen name="(app)" options={{ headerShown: false }} />
+    </Stack>
   );
 }
 

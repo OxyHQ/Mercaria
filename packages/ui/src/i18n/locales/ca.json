@@ -1043,7 +1043,8 @@
         "system": "Sistema",
         "light": "Clar",
         "dark": "Fosc",
-        "color": "Color de l'aplicació"
+        "color": "Color de l'aplicació",
+        "colorFailed": "No s'ha pogut desar el color de l'aplicació. Torna-ho a provar."
       },
       "language": {
         "title": "Idioma",

@@ -293,7 +293,7 @@ table nobody reviews.
   converges. ERASURE is one scoped hard delete, and `oxy_user_id` is the whole of
   what this domain stores about a person.
 - **Operator surface** `/internal/price-alerts/*` on the SAME
-  `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54/#56/#57/#58/#60/#62/#68/#78/#80
+  `catalog.operate` key #54/#56/#57/#58/#60/#62/#68/#78/#80
   use — an alert points at a canonical product and is decided from the
   catalogue's own offers. TWO reads and ONE write, and the write DRIVES the
   existing idempotent evaluation. There is deliberately no "trigger this alert",

@@ -20,7 +20,7 @@ import {
 import { findOfferWithChannel, retireOffers } from '../db/offers/offerRepository.js';
 import { convergeNativeOffersForListing } from '../services/offers/native-offer.service.js';
 import { getOffer } from '../services/offers/offer.service.js';
-import { catalogOperatorId } from '../middleware/catalog-operator-authz.js';
+import { operatorId } from '../middleware/operator-authz.js';
 import { log } from '../lib/logger.js';
 import { sendError, sendSuccess, ErrorCodes } from '../utils/api-response.js';
 import { routeParam } from '../utils/request.js';
@@ -82,7 +82,7 @@ export async function convergeListingOffersHandler(req: Request, res: Response):
     const listingId = routeParam(req, 'listingId');
     const result = await convergeNativeOffersForListing(listingId);
     log.general.info(
-      { ...result, operator: catalogOperatorId(req) },
+      { ...result, operator: operatorId(req) },
       '[Offers] operator ran a convergence',
     );
     sendSuccess(res, result);
@@ -127,7 +127,7 @@ export async function retireOfferHandler(req: Request, res: Response): Promise<v
       return;
     }
     log.general.info(
-      { offerId: id, reason: body.reason, note: body.note, operator: catalogOperatorId(req) },
+      { offerId: id, reason: body.reason, note: body.note, operator: operatorId(req) },
       '[Offers] operator retired an offer',
     );
     sendSuccess(res, { id, status: 'retired', reason: body.reason });

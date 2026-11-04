@@ -6,13 +6,14 @@ const publisher = vi.hoisted(() => ({
   observeSocket: vi.fn(),
   stop: vi.fn(async () => {}),
 }));
+const workloadCredentials = vi.hoisted(() => vi.fn());
+const provider = vi.hoisted(() => vi.fn(() => workloadCredentials));
 const create = vi.hoisted(() => vi.fn((_options: unknown) => publisher));
-vi.mock('@oxy.so/core/server', () => ({
+vi.mock('@oxy.so/core/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@oxy.so/core/server')>()),
   createEcosystemTraffic: create,
-  canAttestWorkloadIdentity: () => false,
-  OxyServer: class {},
 }));
-import { resetOxyServiceClientForTests } from '../capabilities/oxy-service-client';
+vi.mock('@oxy.so/core/server/aws', () => ({ createAwsWorkloadCredentialProvider: provider }));
 import {
   ecosystemActivityMiddleware,
   observeEcosystemSocket,
@@ -23,11 +24,8 @@ import {
 describe('ecosystem activity lifecycle', () => {
   beforeEach(() => {
     vi.stubEnv('OXY_ECOSYSTEM_ACTIVITY_ENABLED', 'true');
-    vi.stubEnv('OXY_APPLICATION_KEY', 'test-key');
-    vi.stubEnv('OXY_APPLICATION_SECRET', 'test-secret');
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.clearAllMocks();
-    resetOxyServiceClientForTests();
   });
   afterEach(async () => {
     await stopEcosystemActivity();
@@ -67,10 +65,20 @@ describe('ecosystem activity lifecycle', () => {
     expect(publisher.installFetch).not.toHaveBeenCalled();
   });
 
-  it('refuses a partially provisioned publishing credential', () => {
-    vi.stubEnv('OXY_APPLICATION_SECRET', '');
-    expect(() => startEcosystemActivity(() => true)).toThrow('OXY_APPLICATION_SECRET');
-    expect(create).not.toHaveBeenCalled();
+  it('passes the infrastructure provider without an ECS-only gate or customer key fallback', () => {
+    vi.stubEnv('AWS_CONTAINER_CREDENTIALS_RELATIVE_URI', undefined);
+    vi.stubEnv('AWS_CONTAINER_CREDENTIALS_FULL_URI', undefined);
+    vi.stubEnv('OXY_APPLICATION_KEY', 'external-key');
+    vi.stubEnv('OXY_APPLICATION_SECRET', 'external-secret');
+    startEcosystemActivity(() => true);
+    expect(provider).toHaveBeenCalledOnce();
+    expect(create).toHaveBeenCalledWith({
+      service: 'mercaria',
+      ready: expect.any(Function),
+      workloadCredentials,
+    });
+    // Resolution happens at publication; startup cannot attest authority from env flags.
+    expect(workloadCredentials).not.toHaveBeenCalled();
   });
 
   it('installs once and supplies live readiness without retaining request bodies', async () => {

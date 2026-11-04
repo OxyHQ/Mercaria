@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { eq, inArray } from 'drizzle-orm';
 import { Peable, type BillingSubscription } from '@peable.to/sdk';
+import { PEABLE_TRANSPORT } from '../../payments/peable/client.js';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import { stores } from '../../../db/schema/stores.js';
 import {
@@ -77,11 +78,14 @@ const legacyRead = vi.fn(async (ref: string): Promise<BillingSubscriptionSnapsho
   const s = snapshots.get(ref);
   if (!s) throw new Error('Unknown synthetic subscription');
   return {
-    ...s,
+    providerSubscriptionId: s.provider_subscription_id,
+    providerCustomerId: s.provider_customer_id,
+    providerPriceId: s.provider_price_id,
+    livemode: s.livemode,
     status: 'paused',
     interval: 'monthly',
-    currentPeriodStart: new Date(s.currentPeriodStart),
-    currentPeriodEnd: new Date(s.currentPeriodEnd),
+    currentPeriodStart: new Date(s.current_period_start * 1000),
+    currentPeriodEnd: new Date(s.current_period_end * 1000),
     trialEndsAt: undefined,
     cancelAt: undefined,
     cancelledAt: undefined,
@@ -167,20 +171,20 @@ beforeAll(async () => {
       acceptedAt: start,
     });
     snapshots.set(refs[index]!, {
-      providerSubscriptionId: refs[index]!,
-      providerCustomerId: customerId,
-      providerPriceId: `price_${livemode ? 'live' : 'test'}${nonce}`,
-      storeId,
-      planId,
+      provider_subscription_id: refs[index]!,
+      provider_customer_id: customerId,
+      provider_price_id: `price_${livemode ? 'live' : 'test'}${nonce}`,
+      store_id: storeId,
+      plan_id: planId,
       livemode,
       status: 'paused',
       interval: 'month',
-      currentPeriodStart: start.toISOString(),
-      currentPeriodEnd: end.toISOString(),
-      trialEndsAt: null,
-      cancelAt: null,
-      cancelledAt: null,
-      cancelAtPeriodEnd: false,
+      current_period_start: Math.floor(start.getTime() / 1000),
+      current_period_end: Math.floor(end.getTime() / 1000),
+      trial_ends_at: null,
+      cancel_at: null,
+      cancelled_at: null,
+      cancel_at_period_end: false,
     });
   }
   server = createServer(async (req, res) => {
@@ -200,7 +204,7 @@ beforeAll(async () => {
       res.end(
         JSON.stringify({
           id: 'merchant-fixture',
-          oxyAppId: 'app-fixture',
+          oxy_app_id: 'app-fixture',
           environment: 'development',
         }),
       );
@@ -240,12 +244,13 @@ beforeAll(async () => {
       secret: 'fixture-secret',
       baseURL: url,
       oxyApiUrl: url,
+      ...PEABLE_TRANSPORT,
     }),
     cohort,
     async (ref) => {
       const s = snapshots.get(ref);
       if (!s) throw new Error('Unknown fixture');
-      return { id: ref, customerId: s.providerCustomerId, livemode: s.livemode };
+      return { id: ref, customerId: s.provider_customer_id, livemode: s.livemode };
     },
   );
 }, 120_000);

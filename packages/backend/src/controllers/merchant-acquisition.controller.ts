@@ -1,6 +1,6 @@
 /**
  * The operator acquisition surface (#86 §"Operator acquisition pipeline") —
- * THIN handlers behind `ANALYTICS_OPERATOR_OXY_USER_IDS`.
+ * THIN handlers behind `analytics.operate`.
  *
  * Read, plus the eight writes `MERCHANT_ACQUISITION_ACTIONS` names. Every one
  * drives an idempotent path in `acquisition.service.ts` and every one is

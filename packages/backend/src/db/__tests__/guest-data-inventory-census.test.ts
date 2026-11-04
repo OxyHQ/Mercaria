@@ -17,7 +17,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { getTableName } from 'drizzle-orm';
+import { getTableName, is } from 'drizzle-orm';
+import { PgTable } from 'drizzle-orm/pg-core';
 import {
   GUEST_DATA_CLASSES,
   GUEST_DATA_INVENTORY,
@@ -25,6 +26,7 @@ import {
 } from '@mercaria/shared-types';
 import { EXPIRY_TARGETS } from '../expiryTargets.js';
 import { PROTECTED_COLUMNS } from '../protectedColumns.js';
+import * as schema from '../schema/index.js';
 
 /**
  * Every table the guest-commerce domains WRITE, from #103 through #111.
@@ -52,7 +54,6 @@ const GUEST_TABLES = [
   'guest_portal_messages',
   'guest_contact_suppressions',
   'guest_recovery_attempts',
-  'guest_contact_routing',
   'guest_portal_operator_actions',
   // #109
   'guest_order_claims',
@@ -184,5 +185,70 @@ describe('the census is checked from the two registries, not only from a list (#
       'email_verification_and_recovery',
       'provider_customer_wallet_reference',
     ]);
+  });
+});
+
+/**
+ * Every table the drizzle schema declares, DERIVED from the barrel (M8-04).
+ *
+ * The M8 review found this census agreeing with itself: `GUEST_TABLES` and the
+ * inventory both named `guest_contact_routing`, a table that exists nowhere in
+ * `db/schema/` — routing is a query over `guest_checkouts`. A list checked only
+ * against a second hand-written list carries the same error twice. The schema
+ * is the one source neither list can disagree with.
+ */
+function schemaTableNames(): ReadonlySet<string> {
+  return new Set(
+    Object.values(schema)
+      .filter((value): value is PgTable => is(value, PgTable))
+      .map((table) => getTableName(table)),
+  );
+}
+
+/**
+ * `guest_*` tables that are records ABOUT the governance process rather than
+ * about a person, and so belong to no data class: the published policy, what
+ * each pass did, why a deletion was paused, a receipt's per-class lines, and
+ * the rollout's decision history. Each is named, so a new guest table is not
+ * exempt by default.
+ */
+const GOVERNANCE_RECORD_TABLES = [
+  'guest_retention_policy_versions',
+  'guest_retention_runs',
+  'guest_legal_holds',
+  'guest_data_class_dispositions',
+  'guest_launch_gate_signoffs',
+  'guest_rollout_stage_advances',
+] as const;
+
+describe('the census is checked against the SCHEMA, not only against itself (M8-04, M8-09)', () => {
+  it('reads the real schema (vacuity floor and positive control)', () => {
+    const tables = schemaTableNames();
+    expect(tables.size).toBeGreaterThan(100);
+    expect(tables.has('guest_checkouts')).toBe(true);
+  });
+
+  it('every table the inventory names EXISTS', () => {
+    const tables = schemaTableNames();
+    expect(classifiedTables().filter((name) => !tables.has(name))).toEqual([]);
+    expect(GUEST_TABLES.filter((name) => !tables.has(name))).toEqual([]);
+  });
+
+  it('every guest_ table in the schema is classified, or is a named governance record', () => {
+    const classified = new Set(classifiedTables());
+    const exempt = new Set<string>(GOVERNANCE_RECORD_TABLES);
+    const guestTables = [...schemaTableNames()].filter((name) => name.startsWith('guest_'));
+    expect(guestTables.length).toBeGreaterThanOrEqual(15);
+    expect(guestTables.filter((name) => !classified.has(name) && !exempt.has(name))).toEqual([]);
+    // And the exemption list names only real tables, so it cannot rot into a
+    // list of phantoms the way the inventory did.
+    expect(GOVERNANCE_RECORD_TABLES.filter((name) => !guestTables.includes(name))).toEqual([]);
+  });
+
+  it('the existence check detects a phantom (mutation self-test)', () => {
+    const tables = schemaTableNames();
+    expect(
+      ['guest_checkouts', 'guest_contact_routing'].filter((name) => !tables.has(name)),
+    ).toEqual(['guest_contact_routing']);
   });
 });

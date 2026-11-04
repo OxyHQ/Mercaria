@@ -351,8 +351,8 @@ A pickup-distance ranking needs a neighbourhood; a comparison surface has no
 business holding a position accurate enough to identify a home. They are used and
 discarded: no column in the domain could store one.
 
-**Operator:** `/internal/ranking/*` on the SAME `CATALOG_OPERATOR_OXY_USER_IDS`
-allow-list every other catalogue surface uses — deciding what order a product's
+**Operator:** `/internal/ranking/*` on the SAME `catalog.operate`
+key every other catalogue surface uses — deciding what order a product's
 offers appear in is the same power over the same graph as deciding which offers
 exist. Mounted while nothing is published, because a deployment ranking under the
 built-in policy is exactly when somebody needs to read what that policy is.

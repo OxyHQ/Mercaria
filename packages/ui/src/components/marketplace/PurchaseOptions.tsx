@@ -3,7 +3,6 @@ import { View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withDelay,
   withTiming,
@@ -15,6 +14,7 @@ import { Text } from '../ui/text';
 import { useSharedUiTranslation } from '../../i18n/ui-translation';
 import { useShopControlClassName } from '../../lib/useShopControlClassName';
 import { useColorScheme } from '../../lib/useColorScheme';
+import { usePrefersReducedMotion } from '@oxy.so/bloom/hooks';
 
 export interface PurchaseOptionsProps {
   canBuy: boolean;
@@ -42,7 +42,7 @@ export interface PurchaseOptionsProps {
  * Keep the animated copy decorative: the button's accessible label owns state. */
 function AddToCartLabel({ added }: { added: boolean }) {
   const t = useSharedUiTranslation();
-  const reduced = useReducedMotion();
+  const reduced = usePrefersReducedMotion();
   const progress = useSharedValue(added ? 1 : 0);
   useEffect(() => {
     const target = added ? 1 : 0;

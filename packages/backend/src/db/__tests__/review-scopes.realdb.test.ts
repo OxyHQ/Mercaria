@@ -1638,7 +1638,13 @@ describe('ordered review attachments and atomic eligibility consumption', () => 
       .mockResolvedValue([{ fileId: 'https://invalid-at-storage.example/image', kind: 'image' }]);
     try {
       const error = await createReview(
-        { accountId: buyer, actorAccountId: buyer, delegated: false, accessToken: 'test-only' },
+        {
+          accountId: buyer,
+          actorAccountId: buyer,
+          delegated: false,
+          sessionId: 'test-session',
+          accessToken: 'test-only',
+        },
         {
           scope: 'product',
           canonicalProductId: productId,

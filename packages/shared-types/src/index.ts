@@ -901,7 +901,15 @@ export * from './catalog-governance';
 // its `unmeasured` branch carries no value, numerator or denominator, so a metric
 // nobody measured cannot be rendered as a number rather than merely should not be.
 export * from './catalog-metrics';
-export * from './shopping-thread';
 export * from './media';
 
+export * from './materials';
 export * from './catalog-media';
+export * from './supervised-shopping';
+
+// Oxy Files usage registration (Oxy ADR 0043): the stable reference entity
+// types Mercaria registers with Oxy, and the file events it handles.
+export * from './oxy-file-references';
+
+export { formatMoney } from './money-format';
+export { isolateBidi } from './bidi';
