@@ -31,7 +31,7 @@ import {
 import { compareRankings } from '../services/ranking/dominance.js';
 import { rankOfferComparison } from '../services/ranking/comparison.service.js';
 import { BUILTIN_RANKING_POLICY, OFFER_COMPARISON_POLICY_KEY } from '../services/ranking/policy.js';
-import { catalogOperatorId } from '../middleware/catalog-operator-authz.js';
+import { operatorId } from '../middleware/operator-authz.js';
 import { log } from '../lib/logger.js';
 import { sendError, sendSuccess, ErrorCodes } from '../utils/api-response.js';
 import { routeParam } from '../utils/request.js';
@@ -112,7 +112,7 @@ export async function createRankingPolicyHandler(req: Request, res: Response): P
       objectiveMetricKeys: string[];
       guardrailMetricKeys: string[];
     };
-    const actor = catalogOperatorId(req);
+    const actor = operatorId(req);
     const row = await insertRankingPolicyVersion({
       policyKey: OFFER_COMPARISON_POLICY_KEY,
       version: body.version,
@@ -155,7 +155,7 @@ export async function createRankingPolicyHandler(req: Request, res: Response): P
 export async function canaryRankingPolicyHandler(req: Request, res: Response): Promise<void> {
   try {
     const body = req.body as { shareBps: number };
-    const actor = catalogOperatorId(req);
+    const actor = operatorId(req);
     const row = await setRankingPolicyCanary({
       id: routeParam(req, 'id'),
       shareBps: body.shareBps,
@@ -184,7 +184,7 @@ export async function stopRankingCanaryHandler(req: Request, res: Response): Pro
       return;
     }
     log.general.info(
-      { rankingPolicyVersion: row.version, actor: catalogOperatorId(req) },
+      { rankingPolicyVersion: row.version, actor: operatorId(req) },
       '[Ranking] canary stopped',
     );
     sendSuccess(res, toPolicyView(row));
@@ -202,7 +202,7 @@ export async function stopRankingCanaryHandler(req: Request, res: Response): Pro
  */
 export async function activateRankingPolicyHandler(req: Request, res: Response): Promise<void> {
   try {
-    const actor = catalogOperatorId(req);
+    const actor = operatorId(req);
     const row = await activateRankingPolicyVersion({
       id: routeParam(req, 'id'),
       policyKey: OFFER_COMPARISON_POLICY_KEY,

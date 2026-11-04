@@ -17,8 +17,8 @@ exactly what was missing when they landed.
   `middleware/catalog-governance-schemas.ts`,
   `@mercaria/shared-types` `catalog-governance.ts`.
 - Surface: `/internal/catalog-governance/*`, on the **existing**
-  `CATALOG_OPERATOR_OXY_USER_IDS` allow-list. Empty list ⇒ not mounted (404,
-  never 401).
+  `catalog.operate` key. Anyone without it gets 404, never
+  401.
 - Environment: **none.** This domain adds no variable of its own. It reads
   `CATALOG_FOUR_EYES_REQUIRED`, which #55 and #59 already read.
 
@@ -332,12 +332,12 @@ path check that the caller is an operator?" is answered by the path COMPILING.
 #110's `BuyerRequestActor` is the precedent. A wall additionally fails the build
 if any module here imports store authorization.
 
-## Roles refine the allow-list and can never extend it
+## Roles refine the operator key and can never extend it
 
-`CATALOG_OPERATOR_OXY_USER_IDS` decides who reaches the surface at all;
-`requireCatalogOperator` answers 404 to an account absent from it before a grant
-is ever read. **Nothing in `catalog_governance_role_grants` can ADMIT anybody**,
-which is what keeps this from being a seventh allow-list.
+`catalog.operate` (an Oxy application role) decides who reaches the surface at
+all; `requireCatalogOperator` answers 404 to anyone who does not hold it before
+a grant is ever read. **Nothing in `catalog_governance_role_grants` can ADMIT
+anybody**, which is what keeps this from being a second way in.
 
 | Role | Gates |
 |---|---|
@@ -348,7 +348,7 @@ which is what keeps this from being a seventh allow-list.
 | `publish` | every taxonomy, product-type, attribute and navigation apply; snapshot restore; vertical package apply; granting and revoking roles |
 
 **An empty grant table means role separation has not been adopted** — every
-allow-listed operator holds every role, which is today's behaviour and what a
+`catalog.operate` holder holds every role, which is today's behaviour and what a
 rollout mechanism has to default to. The moment any live grant exists, grants
 are authoritative.
 

@@ -525,7 +525,7 @@ Stated rather than left to be discovered:
   those surfaces' own screens. `/compare?p=a&p=b` and `/compare?watchlist=…` are
   the contract they will use, and the screen works today from either.
 - **No operator surface.** Every read here is public and derived, there is no
-  row to trace and no idempotent path to drive, so a seventh allow-list would
+  row to trace and no idempotent path to drive, so a new operator key would
   gate nothing. A trace of why one comparison came out as it did is the
   response itself: it carries the policy versions, the record table, every
   rejection and every reason code.

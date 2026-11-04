@@ -1,8 +1,6 @@
-@import "tailwindcss/theme.css" layer(theme);
-@import "tailwindcss/preflight.css" layer(base);
-@import "tailwindcss/utilities.css";
-@import "nativewind/theme";
-@import "@oxy.so/bloom/design-tokens/theme.css";
+/* Tailwind v4, NativeWind, Bloom's design tokens, the `--font-sans` that wins
+   over NativeWind's native default, and the Oxy SDK `@source` globs. */
+@import "@oxy.so/app-preset/base.css";
 @import "@mercaria/ui/theme/color-scheme.css";
 @import "@mercaria/ui/theme/shop-typography.css";
 @import "@mercaria/ui/theme/shop-shadows.css";
@@ -17,12 +15,8 @@
    @theme/:root token block below mirrors @mercaria/ui/theme/global.css; keep the
    two in sync. Typography is imported from the shared package above. */
 @source "../ui/src/**/*.{js,jsx,ts,tsx}";
-@source "../../node_modules/@oxy.so/services/lib/**/*.{js,jsx}";
-@source "../../node_modules/@oxy.so/bloom/lib/**/*.{js,jsx}";
 
 @theme {
-  --font-sans: Inter, sans-serif;
-
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);

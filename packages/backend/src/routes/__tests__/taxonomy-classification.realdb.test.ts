@@ -40,19 +40,31 @@ vi.mock('@oxy.so/core/server', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@oxy.so/core/server')>()),
   getRequiredOxyUserId: () => OPERATOR,
 }));
-vi.mock('../../middleware/auth.js', () => ({
-  authenticateToken: (
-    _req: express.Request,
-    _res: express.Response,
-    next: express.NextFunction,
-  ) => {
-    next();
-  },
-  oxyClient: {},
-  optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
-    next();
-  },
-}));
+vi.mock('../../middleware/auth.js', async () => {
+  const { fakeAppPermissions } = await import('../../__tests__/oxy-app-permissions-fake.js');
+  const fake = fakeAppPermissions(
+    () => ['catalog.operate'],
+    () => OPERATOR,
+  );
+  return {
+    authenticateToken: (
+      _req: express.Request,
+      _res: express.Response,
+      next: express.NextFunction,
+    ) => {
+      next();
+    },
+    oxyClient: {
+      middleware: {
+        requireAppPermission: fake.requireAppPermission,
+        auth: () => (_req: unknown, res: express.Response) => res.sendStatus(401),
+      },
+    },
+    optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
+      next();
+    },
+  };
+});
 vi.mock('../../lib/rate-limit.js', () => ({
   makeRateLimiter:
     () => (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
@@ -140,11 +152,8 @@ function validBody(categoryId: string, overrides: Record<string, unknown> = {}) 
 }
 
 beforeAll(async () => {
-  // `config/index.ts` reads `process.env` once at import and freezes it, and
-  // `app.ts` decides every `/internal/*` mount from that frozen value — so the
-  // allow-list has to be set BEFORE the graph loads. The
-  // `catalog-rollout.realdb.test.ts` device.
-  process.env.CATALOG_OPERATOR_OXY_USER_IDS = OPERATOR;
+  // The caller holds `catalog.operate` (the app-permission fake above), so the
+  // `/internal/*` catalog surfaces admit it as OPERATOR.
   vi.resetModules();
 
   const postgres = await import('../../db/postgres.js');

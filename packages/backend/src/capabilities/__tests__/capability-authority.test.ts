@@ -1,22 +1,37 @@
+/**
+ * The capability verifier is the SDK's (`createLiveCapabilityTicketVerifier` +
+ * `createOxyJwksKeyResolver`), and these cases drive it for real — a ticket
+ * signed with a generated Ed25519 key, Oxy's JWKS served from a stubbed
+ * `fetch`, and Oxy's live introspection from a stubbed `oxyClient` — so what is
+ * asserted is the composition Mercaria ships, not a mock of it.
+ */
+
 import { generateKeyPairSync } from 'node:crypto';
 import type { CapabilityTicketClaims } from '@oxy.so/contracts';
-import { issueCapabilityTicket } from '@oxy.so/core/server';
+import { CapabilityTicketError, issueCapabilityTicket } from '@oxy.so/core/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ requiredOxyServiceToken: vi.fn() }));
+const mocks = vi.hoisted(() => ({ serviceRequest: vi.fn(), introspect: vi.fn() }));
 
-vi.mock('../oxy-service-client.js', () => ({
-  requiredOxyServiceToken: mocks.requiredOxyServiceToken,
+vi.mock('../../middleware/auth.js', () => ({
+  oxyClient: {
+    serviceRequest: mocks.serviceRequest,
+    agency: { introspectCapabilityTicket: mocks.introspect },
+  },
 }));
 
-import {
-  auditMercariaCapabilityTicket,
-  introspectMercariaCapabilityTicket,
-  resetMercariaCapabilityAuthorityForTests,
-  verifyMercariaCapabilityTicket,
-} from '../capability-authority.js';
-
 const NOW = new Date('2026-08-01T10:00:00.000Z');
+
+function signingKey(kid: string) {
+  const { privateKey, publicKey } = generateKeyPairSync('ed25519');
+  return {
+    kid,
+    privateKey,
+    jwk: { ...publicKey.export({ format: 'jwk' }), kid, use: 'sig', alg: 'EdDSA' },
+  };
+}
+
+const KEY = signingKey('key-1');
 
 function unsignedClaims(): Parameters<typeof issueCapabilityTicket>[0] {
   return {
@@ -25,7 +40,9 @@ function unsignedClaims(): Parameters<typeof issueCapabilityTicket>[0] {
     runId: 'run-1',
     stepId: 'step-1',
     executionAuthorization: { kind: 'direct_request', id: 'authorization-1' },
+    authority: 'first_party',
     coordinator: { applicationId: 'alia-app', credentialId: 'alia-credential' },
+    catalog: { registrationId: 'registration-1', version: '1.0.0', digest: 'a'.repeat(64) },
     requesterAccountId: 'requester-account',
     ownerAccountId: 'owner-account',
     actor: { type: 'agent', accountId: 'agent-account' },
@@ -42,125 +59,117 @@ function unsignedClaims(): Parameters<typeof issueCapabilityTicket>[0] {
   };
 }
 
-function signingKey(kid: string) {
-  const { privateKey, publicKey } = generateKeyPairSync('ed25519');
-  return {
-    kid,
-    privateKey,
-    jwk: { ...publicKey.export({ format: 'jwk' }), kid, use: 'sig', alg: 'EdDSA' },
-  };
-}
-
-function ticket(key: ReturnType<typeof signingKey>): string {
+function ticket(key = KEY): string {
   return issueCapabilityTicket(unsignedClaims(), {
     privateKey: key.privateKey,
     keyId: key.kid,
     issuer: 'https://api.oxy.so',
     now: NOW,
     ttlSeconds: 60,
-    jti: `ticket-${key.kid}`,
+    jti: 'ticket-1',
   });
 }
 
+/** The claims Oxy signed, as its introspection reports them. */
+function signedClaims(): CapabilityTicketClaims {
+  const iat = Math.floor(NOW.getTime() / 1_000);
+  return {
+    ...unsignedClaims(),
+    iss: 'https://api.oxy.so',
+    iat,
+    exp: iat + 60,
+    jti: 'ticket-1',
+  } as CapabilityTicketClaims;
+}
+
+// Stubbed BEFORE the module is imported: the SDK's JWKS resolver takes the
+// global `fetch` when it is built, which is once, at module load.
+const fetchMock = vi.fn();
+vi.stubGlobal('fetch', fetchMock);
+
 beforeEach(() => {
-  vi.useFakeTimers();
+  vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(NOW);
-  vi.unstubAllGlobals();
-  mocks.requiredOxyServiceToken.mockReset();
-  mocks.requiredOxyServiceToken.mockResolvedValue('service-token');
-  resetMercariaCapabilityAuthorityForTests();
+  fetchMock.mockReset();
+  fetchMock.mockImplementation(
+    async () => new Response(JSON.stringify({ keys: [KEY.jwk] }), { status: 200 }),
+  );
+  mocks.serviceRequest.mockReset();
+  mocks.introspect.mockReset();
+  mocks.introspect.mockResolvedValue({
+    active: true,
+    decision: { allowed: true, reason: 'authorized' },
+    claims: signedClaims(),
+  });
 });
 
 afterEach(() => {
   vi.useRealTimers();
-  vi.unstubAllGlobals();
 });
 
-describe('Mercaria capability authority client', () => {
-  it('verifies Ed25519 tickets against a cached Oxy JWKS', async () => {
-    const key = signingKey('key-1');
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(new Response(JSON.stringify({ keys: [key.jwk] }), { status: 200 }));
-    vi.stubGlobal('fetch', fetchMock);
+const {
+  CapabilityTicketRevokedError,
+  auditMercariaCapabilityTicket,
+  verifyMercariaCapabilityTicket,
+} = await import('../capability-authority.js');
 
-    await expect(verifyMercariaCapabilityTicket(ticket(key))).resolves.toMatchObject({
-      jti: 'ticket-key-1',
+describe('Mercaria capability verifier', () => {
+  it('accepts a ticket Oxy signed and still stands behind, keyed from its JWKS', async () => {
+    await expect(verifyMercariaCapabilityTicket(ticket())).resolves.toMatchObject({
+      jti: 'ticket-1',
       tool: 'listBuyerOrders',
       aud: 'oxy-mercaria-api',
     });
-    await verifyMercariaCapabilityTicket(ticket(key));
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
       'https://api.oxy.so/capabilities/.well-known/jwks.json',
+      expect.objectContaining({ method: 'GET' }),
+    );
+    expect(mocks.introspect).toHaveBeenCalledWith(
+      ticket(),
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
   });
 
-  it('refreshes JWKS once when Oxy rotates to a previously unknown key', async () => {
-    const oldKey = signingKey('old-key');
-    const newKey = signingKey('new-key');
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ keys: [oldKey.jwk] }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ keys: [newKey.jwk] }), { status: 200 }));
-    vi.stubGlobal('fetch', fetchMock);
-
-    await expect(verifyMercariaCapabilityTicket(ticket(newKey))).resolves.toMatchObject({
-      jti: 'ticket-new-key',
-    });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+  it.each([
+    ['inactive', { active: false }],
+    ['denied by policy', { active: true, decision: { allowed: false, reason: 'revoked' } }],
+  ])('refuses a ticket Oxy answers %s as revoked', async (_case, answer) => {
+    mocks.introspect.mockResolvedValueOnce({ ...answer, claims: signedClaims() });
+    await expect(verifyMercariaCapabilityTicket(ticket())).rejects.toBeInstanceOf(
+      CapabilityTicketRevokedError,
+    );
   });
 
-  it('binds live introspection to the locally verified ticket identity', async () => {
-    const localClaims = {
-      ...unsignedClaims(),
-      iss: 'https://api.oxy.so',
-      iat: Math.floor(NOW.getTime() / 1_000),
-      exp: Math.floor(NOW.getTime() / 1_000) + 60,
-      jti: 'ticket-1',
-    } as CapabilityTicketClaims;
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          active: true,
-          decision: { allowed: true, reason: 'authorized' },
-          claims: localClaims,
-        }),
-        { status: 200 },
-      ),
-    );
-    vi.stubGlobal('fetch', fetchMock);
-
-    await expect(introspectMercariaCapabilityTicket('signed-ticket', localClaims)).resolves.toBe(
-      true,
-    );
-    const [, request] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(request.headers).toEqual({
-      authorization: 'Bearer service-token',
-      'content-type': 'application/json',
+  it('refuses when Oxy disagrees with the signed claims, and not as a revocation', async () => {
+    mocks.introspect.mockResolvedValueOnce({
+      active: true,
+      decision: { allowed: true, reason: 'authorized' },
+      claims: { ...signedClaims(), tool: 'readBuyerOrder' },
     });
-    expect(JSON.parse(request.body as string)).toEqual({ ticket: 'signed-ticket' });
+    const outcome = verifyMercariaCapabilityTicket(ticket());
+    await expect(outcome).rejects.toThrow();
+    await expect(outcome).rejects.not.toBeInstanceOf(CapabilityTicketRevokedError);
+  });
 
-    fetchMock.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          active: true,
-          decision: { allowed: true, reason: 'authorized' },
-          claims: { ...localClaims, tool: 'readBuyerOrder' },
-        }),
-        { status: 200 },
-      ),
+  it('reports an Oxy outage as neither an invalid ticket nor a revocation', async () => {
+    mocks.introspect.mockRejectedValueOnce(
+      Object.assign(new Error('Bad Gateway'), { status: 502 }),
     );
-    await expect(introspectMercariaCapabilityTicket('signed-ticket', localClaims)).resolves.toBe(
-      false,
-    );
+    const outcome = verifyMercariaCapabilityTicket(ticket());
+    await expect(outcome).rejects.toThrow('Bad Gateway');
+    await expect(outcome).rejects.not.toBeInstanceOf(CapabilityTicketRevokedError);
+    await expect(outcome).rejects.not.toBeInstanceOf(CapabilityTicketError);
+  });
+
+  it('refuses a ticket signed by a key Oxy does not publish, without asking Oxy', async () => {
+    await expect(
+      verifyMercariaCapabilityTicket(ticket(signingKey('rogue'))),
+    ).rejects.toBeInstanceOf(CapabilityTicketError);
+    expect(mocks.introspect).not.toHaveBeenCalled();
   });
 
   it('sends only the hashed idempotency key to Oxy audit persistence', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }));
-    vi.stubGlobal('fetch', fetchMock);
+    mocks.serviceRequest.mockResolvedValue({});
 
     await auditMercariaCapabilityTicket({
       ticket: 'signed-ticket',
@@ -169,12 +178,16 @@ describe('Mercaria capability authority client', () => {
       idempotencyKeyHash: 'a'.repeat(64),
     });
 
-    const [, request] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(JSON.parse(request.body as string)).toEqual({
-      ticket: 'signed-ticket',
-      result: { status: 'succeeded' },
-      rollback: { supported: false, attempted: false },
-      idempotencyKeyHash: 'a'.repeat(64),
-    });
+    expect(mocks.serviceRequest).toHaveBeenCalledWith(
+      'POST',
+      '/capabilities/audit',
+      {
+        ticket: 'signed-ticket',
+        result: { status: 'succeeded' },
+        rollback: { supported: false, attempted: false },
+        idempotencyKeyHash: 'a'.repeat(64),
+      },
+      { timeout: 10_000, cache: false },
+    );
   });
 });

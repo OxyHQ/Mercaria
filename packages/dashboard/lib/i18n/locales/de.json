@@ -580,6 +580,16 @@
         "lte": "Kleiner oder gleich"
       },
       "categoryIdentifier": "Kategoriekennung"
+    },
+    "featured": {
+      "title": "Hervorgehobene Kollektionen",
+      "help": "Wähle bis zu %{count} veröffentlichte manuelle Kollektionen und ordne ihre Anzeige.",
+      "empty": "Keine hervorgehobenen Kollektionen.",
+      "unavailable": "Kollektion nicht verfügbar",
+      "hidden": "Diese Kollektion wird Käufern derzeit nicht angezeigt.",
+      "add": "Veröffentlichte manuelle Kollektion hinzufügen",
+      "failed": "Die hervorgehobenen Kollektionen konnten nicht gespeichert werden. Deine Änderungen bleiben erhalten.",
+      "saved": "Hervorgehobene Kollektionen gespeichert."
     }
   },
   "common": {
@@ -1703,18 +1713,39 @@
         "displayNameLabel": "Name der Organisation",
         "done": "Der Shop gehört jetzt der Organisation",
         "failed": "Der Shop konnte nicht umgewandelt werden",
-        "inviteLabel": "Benutzername oder E-Mail",
-        "invitePlaceholder": "benutzername oder email@beispiel.de",
+        "inviteLabel": "E-Mail",
+        "invitePlaceholder": "email@beispiel.de",
         "inviteesTitle": "Einzuladende Personen",
         "nameRequired": "Gib den Namen und den Benutzernamen der Organisation ein",
         "open": "In Organisation umwandeln",
-        "someInvitesFailed": "Der Shop wurde verschoben, aber diese Einladungen sind fehlgeschlagen: %{names}",
+        "someInvitesFailed": "Der Shop wurde verschoben, aber diese Einladungen konnten nicht gesendet werden: %{names}",
         "submit": "Organisation erstellen und Shop verschieben",
         "title": "In eine Organisation umwandeln",
         "usernameLabel": "Benutzername der Organisation",
         "warning": "Personen, die bisher für diesen Shop handeln konnten und nicht zur Organisation gehören, haben keinen Zugriff mehr."
       },
       "documentTitle": "Mitglieder | Wholesale by Mercaria",
+      "invitations": {
+        "body": "Personen treten der Organisation erst bei, nachdem sie die an ihre E-Mail gesendete Einladung angenommen haben.",
+        "dialogTitle": "Jemanden einladen",
+        "emailLabel": "E-Mail",
+        "empty": "Keine ausstehenden Einladungen",
+        "expired": "Abgelaufen",
+        "invalidEmail": "Gib eine gültige E-Mail-Adresse ein",
+        "invite": "Einladen",
+        "loadFailed": "Einladungen konnten nicht geladen werden",
+        "pending": "Ausstehend",
+        "resend": "Erneut senden",
+        "resendFailed": "Einladung konnte nicht erneut gesendet werden",
+        "resent": "Einladung erneut gesendet",
+        "revoke": "Widerrufen",
+        "revokeFailed": "Einladung konnte nicht widerrufen werden",
+        "revoked": "Einladung widerrufen",
+        "send": "Einladung senden",
+        "sendFailed": "Einladung konnte nicht gesendet werden",
+        "sent": "Einladung an %{email} gesendet",
+        "title": "Ausstehende Einladungen"
+      },
       "loadFailed": "Die Personen dieses Shops konnten nicht geladen werden",
       "noAccess": "Kein Zugriff",
       "organizationBody": "Wer für diesen Shop handeln darf, bestimmt die Mitgliedschaft der Organisation in Oxy. Mercaria speichert nur Ausnahmen zu den Berechtigungen jeder Rolle.",
@@ -2034,5 +2065,23 @@
   "brand": {
     "name": "Wholesale",
     "byline": "by Mercaria"
+  },
+  "catalogSafety": {
+    "title": "Prüfung von Einkaufsinhalten",
+    "intro": "Plattformmitarbeiter prüfen den vollständigen Ausgangstext, bevor reine Textangebote verfügbar werden.",
+    "accessDenied": "Plattformzugriff erforderlich",
+    "accessBody": "Dieser Bereich ist nur für autorisierte Katalogprüfer verfügbar.",
+    "unavailable": "Artikel kann nicht geprüft werden",
+    "empty": "Keine Artikel zu prüfen",
+    "next": "Nächste Artikel",
+    "select": "Wähle einen Artikel zur Prüfung",
+    "limitBody": "Dieser Artikel überschreitet die Prüfgrenzen und bleibt für begleitetes Einkaufen nicht verfügbar.",
+    "allowed": "Aktueller Text ist freigegeben",
+    "pending": "Aktueller Text ist nicht freigegeben",
+    "textOnly": "Nur Titel, Varianten, Optionen und Preis werden angezeigt. Fotos, Beschreibungen und Bewertungen sind ausgeschlossen.",
+    "saveError": "Die Prüfung konnte nicht gespeichert werden. Lade den Artikel erneut und prüfe den aktuellen Inhalt.",
+    "saved": "Prüfung gespeichert",
+    "allow": "Geprüften Text freigeben",
+    "withhold": "Nicht anzeigen"
   }
 }

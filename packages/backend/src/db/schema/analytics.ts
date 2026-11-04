@@ -311,7 +311,7 @@ export const analyticsEvents = pgTable(
  * nullable `actor` column with a rule about when to populate it would be a
  * rule; a table with no such column is a fact. Nothing here can be joined to a
  * person: `query_event_id` correlates to `analytics_events`, and that row is
- * where the (pseudonymous) actor lives, behind the operator allow-list and an
+ * where the (pseudonymous) actor lives, behind `analytics.operate` and an
  * audited trace. A merchant-facing query report reads THIS table and
  * `analytics_query_aggregates`, and has nothing to join identity by.
  *

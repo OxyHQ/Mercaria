@@ -586,6 +586,72 @@ const LEGACY_AMBIGUOUS_CONTRACTS = [
       "commercial record and is never recomputed from the variant's current axes.",
   },
   {
+    file: 'supervised-shopping.ts',
+    path: 'CatalogSafetyReviewMaterial.options.name',
+    count: 1,
+    disposition: 'presentation',
+    supersededBy: null,
+    why:
+      'Operator-reviewed seller text beside the persisted option-row id (listing_options.id), ' +
+      'bound to the current listing content digest. This projection never resolves taxonomy, ' +
+      'normalizes a claim or writes catalog identity; the id identifies the displayed source row.',
+  },
+  {
+    file: 'supervised-shopping.ts',
+    path: 'CatalogSafetyReviewMaterial.options.values',
+    count: 1,
+    disposition: 'presentation',
+    supersededBy: null,
+    why:
+      'Operator-reviewed seller text beside the persisted option-row id (listing_options.id), ' +
+      'bound to the current listing content digest. This projection never resolves taxonomy, ' +
+      'normalizes a claim or writes catalog identity; the id identifies the displayed source row.',
+  },
+  {
+    file: 'supervised-shopping.ts',
+    path: 'ReviewedShoppingVariant.options.name',
+    count: 1,
+    disposition: 'presentation',
+    supersededBy: null,
+    why:
+      'Operator-reviewed seller text beside the persisted option-row id (product_variant_option_values.id), ' +
+      'bound to the current listing content digest. This projection never resolves taxonomy, ' +
+      'normalizes a claim or writes catalog identity; the id identifies the displayed source row.',
+  },
+  {
+    file: 'supervised-shopping.ts',
+    path: 'ReviewedShoppingVariant.options.value',
+    count: 1,
+    disposition: 'presentation',
+    supersededBy: null,
+    why:
+      'Operator-reviewed seller text beside the persisted option-row id (product_variant_option_values.id), ' +
+      'bound to the current listing content digest. This projection never resolves taxonomy, ' +
+      'normalizes a claim or writes catalog identity; the id identifies the displayed source row.',
+  },
+  {
+    file: 'supervised-shopping.ts',
+    path: 'ReviewedShoppingCart.items.selection.options.name',
+    count: 1,
+    disposition: 'presentation',
+    supersededBy: null,
+    why:
+      'Operator-reviewed seller text beside the persisted option-row id (product_variant_option_values.id), ' +
+      'bound to the current listing content digest. This projection never resolves taxonomy, ' +
+      'normalizes a claim or writes catalog identity; the id identifies the displayed source row.',
+  },
+  {
+    file: 'supervised-shopping.ts',
+    path: 'ReviewedShoppingCart.items.selection.options.value',
+    count: 1,
+    disposition: 'presentation',
+    supersededBy: null,
+    why:
+      'Operator-reviewed seller text beside the persisted option-row id (product_variant_option_values.id), ' +
+      'bound to the current listing content digest. This projection never resolves taxonomy, ' +
+      'normalizes a claim or writes catalog identity; the id identifies the displayed source row.',
+  },
+  {
     file: 'variant.ts',
     path: 'VariantOptionValue.name',
     count: 1,
@@ -608,8 +674,8 @@ const LEGACY_AMBIGUOUS_CONTRACTS = [
   },
 ];
 
-/** Exact, so a thirty-fifth entry is a deliberate edit rather than a wildcard. */
-const EXPECTED_EXCUSED_ENTRIES = 34;
+/** Exact, so any additional presentation field is reviewed rather than matched by a wildcard. */
+const EXPECTED_EXCUSED_ENTRIES = 40;
 
 /* -------------------------------------------------------------------------- */
 /*  Check B's vocabulary — an option-shaped owner, a generic member             */

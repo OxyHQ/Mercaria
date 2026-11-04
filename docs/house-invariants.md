@@ -64,6 +64,13 @@
 - **The backend compiles `strict: false`.** Without `strictNullChecks` TypeScript
   does not narrow a union on a boolean-literal discriminant, so every
   discriminated union uses a STRING discriminant.
+- **`req.ip` is the client, and nothing else derives one.** `createApp()` sets
+  `trust proxy` to `@oxy.so/core`'s `oxyTrustProxy` before any middleware: it
+  trusts the ALB (a private peer) and a Cloudflare edge hop and nothing further
+  out, so the address is right whether or not the hostname is proxied and a
+  forged `X-Forwarded-For` is never believed. Every IP-keyed control reads
+  `req.ip`; never parse a forwarding header by hand, never set a hop count
+  (`client-ip.test.ts`).
 - **A provider id is NEVER a Mercaria primary key** — a plain indexed column;
   their key space changes between test and live mode.
 - **Immutability is a trigger.** Append-only means UPDATE *and* DELETE unless
@@ -96,18 +103,28 @@
 
 ## Raw-body mounts
 
-Five routers must stay mounted BEFORE `express.json()` in `app.ts`, and one more
-route buffers its own body:
+Six routers must stay mounted BEFORE `express.json()` in `app.ts`:
 
 `/channels/webhooks` · `/webhooks/crowdsource` · `/webhooks/stripe` and
 `/webhooks/stripe/connect` · `/webhooks/peable` (ADR 0009) ·
-`/webhooks/suppliers/:supplierAccountId`, plus the feed-import upload route
-(`express.raw`, refuses a JSON content type).
+`/webhooks/suppliers/:supplierAccountId` · `/webhooks/oxy-files` (Oxy ADR 0043
+D9, gated on `OXY_FILE_EVENTS_ENABLED`).
+
+**No route reads a large body, and none may start to.** Every Oxy API hostname
+sits behind a proxy that refuses a request body over 100 MB and gives an origin
+100 s to answer (the ALB drops an idle connection at 60 s). The feed-import
+upload route that streamed a raw body to the task's disk is gone: a feed file is
+a direct upload session whose parts the client PUTs straight to Oxy Files'
+storage on presigned URLs, and a whole-feed validation is a job the request
+enqueues and the client polls (`docs/feed-importer.md`). A creator's digital
+deliverable already worked this way. A file that has to reach Mercaria goes to
+storage first; a request carries its id.
 
 Asserted against the REAL middleware chain by
-`routes/__tests__/stripe-webhook.integration.test.ts` and
-`routes/__tests__/peable-webhook.integration.test.ts`. `app.ts` exists so the app
-can be built without listening, which is what makes that assertion possible.
+`routes/__tests__/stripe-webhook.integration.test.ts`,
+`routes/__tests__/peable-webhook.integration.test.ts` and
+`routes/__tests__/oxy-files-webhook.integration.test.ts`. `app.ts` exists so the
+app can be built without listening, which is what makes that assertion possible.
 
 **The assertion is PER MOUNT, and that is why there are two files rather than a
 shared one.** A raw-body test proves something about the router it sends bytes
@@ -115,33 +132,54 @@ to; the Stripe file staying green says nothing about a router added afterwards,
 which is exactly how a new webhook acquires a parser above it and nobody notices.
 Each has its own vacuity guard — the same router mounted behind `express.json()`,
 required to REFUSE the identical delivery — so an accepted delivery is positive
-evidence the handler read raw bytes rather than a green that cannot fail. A sixth
-mount brings a sixth file.
+evidence the handler read raw bytes rather than a green that cannot fail. A
+seventh mount brings its own file, as the sixth (`/webhooks/oxy-files`) did.
 
-## Operator allow-lists
+## Operator desks (application roles)
 
-Every internal surface is gated by an explicit Oxy-user-id allow-list. **Empty is
-a working configuration and means the router is NOT MOUNTED (404, never 401).**
-There are SEVEN. **A new surface joins the list whose power it already shares** —
-a new list is justified only by a power none of these grants, and the code
-records two that were refused on exactly that test (there is deliberately no
-`MERCHANT_DEMAND_OPERATOR_OXY_USER_IDS` and no `SEO_OPERATOR_OXY_USER_IDS`).
+Every internal surface is gated on an Oxy APPLICATION ROLE — one permission key
+per desk. Mercaria is one of Oxy's own applications, so the keys are declared IN
+CODE, in Mercaria's entry of oxy's first-party registry (`operatorPermissions` in
+`~/Oxy/oxy/packages/api/src/scripts/seedOxyApplicationsSpecs.ts`, oxy ADR 0056),
+each held by roles of the organization that owns Mercaria — today the owners and
+admins of the `oxy` organization. oxy's **Seed Oxy applications** workflow applies
+it (`only_apps` Mercaria). There are no per-person grants: Oxy refuses one on a
+first-party application (`409 FIRST_PARTY_ROLES_IN_CODE`) and the Console shows
+the keys read-only. To make someone an operator, give them that role in the
+organization; to remove them, change or remove the role. The gates are
+`middleware/operator-authz.ts`, built on `oxyClient.middleware.requireAppPermission`.
+There is no user-id list in the environment and no local staff table.
 
-| Variable | Surface |
+- **Every surface is mounted on every deployment.** A non-holder — and a
+  request with no person in a session, including any service token — is
+  answered 404, never 401, so a surface is not revealed. An Oxy outage is 503,
+  never a "no", and never remembered. A read reuses an answer for at most 30 s;
+  every write asks Oxy fresh.
+- **The actor is `operatorId(req)`** — the human Oxy resolved, even when they act
+  as their organization.
+- **A new surface joins the key whose power it already shares** — a new key is
+  justified only by a power none of these grants, and two were refused on
+  exactly that test (there is deliberately no `merchant_demand.operate` and no
+  `seo.operate`). Add a new key to the registry entry in an oxy PR and run the
+  seed BEFORE deploying code that checks it; until then the check denies. Keep
+  `OPERATOR_PERMISSIONS` identical to the registry — a key renamed in only one
+  place locks everybody out.
+- **All seven keys are held by the same roles today.** A desk that needs a
+  narrower holder set (a compliance reviewer who is not an admin) is a new
+  account role in Oxy, never a per-person grant or a Mercaria list.
+
+| Key | Surface |
 |---|---|
-| `PAYMENT_OPERATOR_OXY_USER_IDS` | `/internal/payments/*` (incl. fee schedules, retail-pricing policies) |
-| `CATALOG_OPERATOR_OXY_USER_IDS` | every catalogue surface: commerce-graph, offers, matching, ingestion, backfill, attributes, condition, eBay, Awin, feed-imports, offer-freshness, product-saves, price-history, price-alerts, price-signals, search, search-intent, SEO |
-| `GUEST_OPERATOR_OXY_USER_IDS` | `/internal/guest-commerce/*` (cart merge, portal, claims, buyer requests, P2P) |
-| `ANALYTICS_OPERATOR_OXY_USER_IDS` | `/internal/analytics/*`, `/internal/discovery/*`, and the merchant-demand acquisition pipeline |
-| `RETAIL_OPERATOR_OXY_USER_IDS` | `/internal/retail-eligibility/*` |
-| `PROCUREMENT_OPERATOR_OXY_USER_IDS` | `/internal/supplier-preflight/*`, `/internal/procurement/*`, `/internal/retail-pilot/*` |
-| `REFERRAL_OPERATOR_OXY_USER_IDS` | `/internal/referrals/*` — pausing attribution stops partners EARNING, and approving a payout batch is ADR 0005 D14's second pair of eyes (`approved_by <> created_by`, so one populated account cannot approve its own batch) |
+| `payments.operate` | `/internal/payments/*` (incl. fee schedules, retail-pricing policies, customer remedies) and `/internal/affiliate/*` |
+| `catalog.operate` | every catalogue surface: commerce-graph, canonical catalogue, offers, matching, ingestion, backfill, attributes, condition, eBay, Awin, feed-imports, offer-freshness, product-saves, price-history, price-alerts, price-signals, search, search-intent, SEO, taxonomy, navigation, proposals, governance, localization, metrics, pickup |
+| `guest.operate` | `/internal/guest-commerce/*` (cart merge, portal, claims, buyer requests, P2P, governance) |
+| `analytics.operate` | `/internal/analytics/*`, `/internal/discovery/*`, and the merchant-demand acquisition pipeline |
+| `retail.operate` | `/internal/retail-eligibility/*` |
+| `procurement.operate` | `/internal/supplier-preflight/*`, `/internal/procurement/*`, `/internal/retail-pilot/*`, `/internal/retail-reconciliation/*` |
+| `referrals.operate` | `/internal/referrals/*` — pausing attribution stops partners EARNING, and approving a payout batch is ADR 0005 D14's second pair of eyes (`approved_by <> created_by`, so one operator cannot approve their own batch) |
 
-The payment gate is INTERIM: store permissions are scoped to a store by
-construction, so none can express "may see all stores' money" without becoming
-one an owner could grant themselves. `resolvePaymentOperatorIds` and
-`requirePaymentOperator` are the two places that change when Oxy grows a platform
-operator role.
+`catalog.operate` holders are further NARROWED (never widened) by the catalogue
+governance roles (`services/catalog-governance/role.service.ts`).
 
 ## The digital-commerce chokepoints (#1015, ADR 0010)
 
@@ -151,9 +189,9 @@ refusal stated where a second one would otherwise grow.
 | Invariant | Held by | What it prevents |
 |---|---|---|
 | **An `asset_rights` row is the ONLY thing that authorizes a download.** Not a payment, not a signed URL, not an order status. | `services/digital/download.service.ts`, six checks in a fixed order | #1015 boundary 4 — a paid payment proving the right to arbitrary files |
-| **`asset_files.storage_key` is read in exactly ONE place**, after the last refusal. | `PROTECTED_COLUMNS.asset_files`, `findAssetFileStorageKey` | the input a signed URL is minted from leaving the process in a response body |
+| **`asset_files.storage_key` is read in exactly ONE place**, after the last refusal (and by the operator's storage-move backfill through that same function). | `PROTECTED_COLUMNS.asset_files`, `findAssetFileStorageKey` | the input a signed URL is minted from leaving the process in a response body |
 | **A download grant's token is never stored and never logged.** Only a SHA-256 of it. | `asset_download_grants.token_hash` + its shape CHECK | a dump or a log line opening somebody's paid files |
-| **A published version, file or licence version cannot be edited or deleted.** | four triggers in `0156` | v2 mutating what v1 was; a creator swapping bytes after a sale |
+| **A published version, file or licence version cannot be edited or deleted.** A file's storage key may move only in a declared, same-hash move (Oxy ADR 0043). | four triggers in `0156`; `0174` | v2 mutating what v1 was; a creator swapping bytes after a sale |
 | **A right's COMMERCIAL half cannot be rewritten and the row cannot be deleted.** Only `status` and the revocation basis move. | `asset_rights_commercial_half_immutable` | a buyer's licence being upgraded in place |
 | **A `digital` order has NO address and every other order has a whole one.** | `orders_shipping_address_digital_check` | a fabricated street — #1015 boundary 16 |
 | **Place of supply is resolved PER LINE.** | `rateMatchesPlaceOfSupply` in `pricing.service.ts` | a digital supply taxed at the shipping address, or silently at zero |

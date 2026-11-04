@@ -1,3 +1,13 @@
+import {
+  MaterialOfferSchema,
+  MaterialReservationSchema,
+  MaterialOfferPageSchema,
+  MaterialReservationPageSchema,
+  MaterialOfferCreateSchema,
+  MaterialRequestCreateSchema,
+  MaterialActionSchema,
+  MaterialTransportLinkSchema,
+} from './materials';
 /**
  * Every NAMED schema of the contract, and its JSON Schema.
  *
@@ -8,7 +18,7 @@
  * **What JSON Schema does NOT carry.** zod refinements have no JSON Schema
  * equivalent and are dropped by the conversion: a condition key belonging to
  * its group, a purchase option naming its own product, `relevance` requiring
- * `q`. A payload that passes the JSON Schema is well-FORMED; the zod schema is
+ * `q`, an offer naming one of its product's variants. A payload that passes the JSON Schema is well-FORMED; the zod schema is
  * the authority, and it is what the backend and the SDK run.
  */
 
@@ -22,9 +32,15 @@ import {
   MercariaSellerSchema,
   MercariaStoreSchema,
 } from './catalog';
+import {
+  MercariaCatalogProductSchema,
+  MercariaCatalogProductSummarySchema,
+  MercariaOfferSchema,
+} from './catalog-products';
 import { MercariaErrorBodySchema } from './errors';
 import { MercariaLocationProductSchema, MercariaLocationSchema } from './locations';
 import {
+  MercariaCatalogProductSummaryPageSchema,
   MercariaCollectionPageSchema,
   MercariaLocationPageSchema,
   MercariaLocationProductPageSchema,
@@ -32,6 +48,7 @@ import {
 } from './pagination';
 import { MercariaImageSchema, MercariaMoneySchema } from './primitives';
 import {
+  MercariaCatalogProductRefSchema,
   MercariaCollectionRefSchema,
   MercariaLocationRefSchema,
   MercariaProductRefSchema,
@@ -52,6 +69,15 @@ export const MercariaOpenApiDocumentSchema = z.looseObject({
 });
 
 export const CONTRACT_JSON_SCHEMA_NAMES = [
+  'MaterialOffer',
+  'MaterialReservation',
+  'MaterialOfferPage',
+  'MaterialReservationPage',
+  'MaterialOfferCreate',
+  'MaterialRequestCreate',
+  'MaterialAction',
+  'MaterialTransportLink',
+
   'MercariaMoney',
   'MercariaImage',
   'MercariaProductRef',
@@ -59,6 +85,7 @@ export const CONTRACT_JSON_SCHEMA_NAMES = [
   'MercariaStoreRef',
   'MercariaCollectionRef',
   'MercariaLocationRef',
+  'MercariaCatalogProductRef',
   'MercariaRef',
   'MercariaProductCondition',
   'MercariaSeller',
@@ -73,6 +100,10 @@ export const CONTRACT_JSON_SCHEMA_NAMES = [
   'MercariaCollectionPage',
   'MercariaLocationPage',
   'MercariaLocationProductPage',
+  'MercariaOffer',
+  'MercariaCatalogProductSummary',
+  'MercariaCatalogProduct',
+  'MercariaCatalogProductSummaryPage',
   'MercariaErrorBody',
   'MercariaOpenApiDocument',
 ] as const;
@@ -85,6 +116,15 @@ export type ContractJsonSchemaName = (typeof CONTRACT_JSON_SCHEMA_NAMES)[number]
  * compile error, and each entry keeps its own type for the route registry.
  */
 export const CONTRACT_SCHEMAS = {
+  MaterialOffer: MaterialOfferSchema,
+  MaterialReservation: MaterialReservationSchema,
+  MaterialOfferPage: MaterialOfferPageSchema,
+  MaterialReservationPage: MaterialReservationPageSchema,
+  MaterialOfferCreate: MaterialOfferCreateSchema,
+  MaterialRequestCreate: MaterialRequestCreateSchema,
+  MaterialAction: MaterialActionSchema,
+  MaterialTransportLink: MaterialTransportLinkSchema,
+
   MercariaMoney: MercariaMoneySchema,
   MercariaImage: MercariaImageSchema,
   MercariaProductRef: MercariaProductRefSchema,
@@ -92,6 +132,7 @@ export const CONTRACT_SCHEMAS = {
   MercariaStoreRef: MercariaStoreRefSchema,
   MercariaCollectionRef: MercariaCollectionRefSchema,
   MercariaLocationRef: MercariaLocationRefSchema,
+  MercariaCatalogProductRef: MercariaCatalogProductRefSchema,
   MercariaRef: MercariaRefSchema,
   MercariaProductCondition: MercariaProductConditionSchema,
   MercariaSeller: MercariaSellerSchema,
@@ -106,6 +147,10 @@ export const CONTRACT_SCHEMAS = {
   MercariaCollectionPage: MercariaCollectionPageSchema,
   MercariaLocationPage: MercariaLocationPageSchema,
   MercariaLocationProductPage: MercariaLocationProductPageSchema,
+  MercariaOffer: MercariaOfferSchema,
+  MercariaCatalogProductSummary: MercariaCatalogProductSummarySchema,
+  MercariaCatalogProduct: MercariaCatalogProductSchema,
+  MercariaCatalogProductSummaryPage: MercariaCatalogProductSummaryPageSchema,
   MercariaErrorBody: MercariaErrorBodySchema,
   MercariaOpenApiDocument: MercariaOpenApiDocumentSchema,
 } as const satisfies Record<ContractJsonSchemaName, z.ZodType>;

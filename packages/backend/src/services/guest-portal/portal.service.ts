@@ -23,7 +23,7 @@
  * The route still takes a `:groupId` and compares it to the grant's, and that
  * comparison is NOT redundant with the above: it is what makes a client holding
  * two credentials get a 404 instead of silently reading whichever group the
- * cookie happened to name.
+ * presented header named.
  */
 
 import type {

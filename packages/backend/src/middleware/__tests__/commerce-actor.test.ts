@@ -147,396 +147,191 @@ async function resolve(req: Request, fake: FakeResponse): Promise<{ nextCalls: n
   return { nextCalls };
 }
 
-const DEV_COOKIE = 'mercaria_guest_dev';
+describe('explicit commerce credentials', () => {
+  it.each(['', 'Basic invalid', 'Bearer', 'bearer invalid', ' Bearer invalid'])(
+    'never downgrades malformed Authorization (%j)',
+    async (authorization) => {
+      const req = makeReq({
+        headers: { authorization, 'x-mercaria-guest-token': WELL_FORMED_TOKEN },
+      });
+      const fake = makeRes();
+      expect((await resolve(req, fake)).nextCalls).toBe(0);
+      expect(fake.status()).toBe(401);
+      expect(service.resolveGuestSessionByToken).not.toHaveBeenCalled();
+      expect(service.issueGuestSession).not.toHaveBeenCalled();
+    },
+  );
 
-describe('precedence (D2)', () => {
-  it('resolves a verified Oxy user as the actor, carrying a valid guest session only as possession proof', async () => {
+  it('keeps verified Oxy as actor and guest possession inert, without rotating', async () => {
     service.resolveGuestSessionByToken.mockResolvedValue({
       session: makeSessionRow(),
       matchedPrevious: false,
     });
+    service.rotationDue.mockReturnValue(true);
     const req = makeReq({
       userId: 'oxy-1',
-      headers: { authorization: 'Bearer something', cookie: `${DEV_COOKIE}=${WELL_FORMED_TOKEN}` },
+      headers: {
+        authorization: 'Bearer verified',
+        'x-mercaria-guest-token': WELL_FORMED_TOKEN,
+        'x-mercaria-guest-persistence': 'unavailable',
+      },
     });
-    const fake = makeRes();
-
-    await resolve(req, fake);
-
+    await resolve(req, makeRes());
     expect(req.commerceActor).toEqual({
       kind: 'oxy',
       oxyUserId: 'oxy-1',
       presentedGuestSessionId: 'gs-row-1',
     });
-    expect(req.guestCredential).toBe('valid');
-  });
-
-  it('NEVER rotates the guest session when Oxy wins, even with rotation due', async () => {
-    service.resolveGuestSessionByToken.mockResolvedValue({
-      session: makeSessionRow(),
-      matchedPrevious: false,
-    });
-    service.rotationDue.mockReturnValue(true);
-    const req = makeReq({
-      userId: 'oxy-1',
-      headers: { authorization: 'Bearer something', cookie: `${DEV_COOKIE}=${WELL_FORMED_TOKEN}` },
-    });
-
-    await resolve(req, makeRes());
-
     expect(service.rotateGuestSession).not.toHaveBeenCalled();
   });
 
-  it('answers 401 for a presented-but-unverified Bearer — no downgrade to the guest cookie', async () => {
+  it('refuses an unavailable persistence marker before guest lookup, touch or rotation', async () => {
     const req = makeReq({
       headers: {
-        authorization: 'Bearer garbage-that-did-not-verify',
-        cookie: `${DEV_COOKIE}=${WELL_FORMED_TOKEN}`,
+        'x-mercaria-guest-token': WELL_FORMED_TOKEN,
+        'x-mercaria-guest-persistence': 'unavailable',
       },
     });
     const fake = makeRes();
-
-    const { nextCalls } = await resolve(req, fake);
-
-    expect(fake.status()).toBe(401);
-    expect(nextCalls).toBe(0);
-    // The refusal happens BEFORE the guest credential is even consulted.
+    expect((await resolve(req, fake)).nextCalls).toBe(0);
+    expect(fake.status()).toBe(503);
+    expect(req.commerceActor).toBeUndefined();
     expect(service.resolveGuestSessionByToken).not.toHaveBeenCalled();
-  });
-
-  it('resolves a lone valid guest cookie to a guest actor with cookie transport', async () => {
-    service.resolveGuestSessionByToken.mockResolvedValue({
-      session: makeSessionRow(),
-      matchedPrevious: false,
-    });
-    const req = makeReq({ headers: { cookie: `${DEV_COOKIE}=${WELL_FORMED_TOKEN}` } });
-
-    await resolve(req, makeRes());
-
-    expect(req.commerceActor).toEqual({
-      kind: 'guest',
-      guestSessionId: 'gs-row-1',
-      transport: 'cookie',
-    });
-  });
-
-  it('reads the header FIRST when both carriages are present (D9)', async () => {
-    service.resolveGuestSessionByToken.mockResolvedValue({
-      session: makeSessionRow(),
-      matchedPrevious: false,
-    });
-    const headerToken = `mgs_${'B'.repeat(43)}`;
-    const req = makeReq({
-      headers: {
-        'x-mercaria-guest-token': headerToken,
-        cookie: `${DEV_COOKIE}=${WELL_FORMED_TOKEN}`,
-      },
-    });
-
-    await resolve(req, makeRes());
-
-    expect(service.resolveGuestSessionByToken).toHaveBeenCalledTimes(1);
-    expect(service.resolveGuestSessionByToken.mock.calls[0][0]).toBe(headerToken);
-    expect(req.commerceActor).toEqual({
-      kind: 'guest',
-      guestSessionId: 'gs-row-1',
-      transport: 'header',
-    });
-  });
-
-  it('treats an INVALID guest credential as absent — anonymous, marked invalid', async () => {
-    service.resolveGuestSessionByToken.mockResolvedValue(null);
-    const req = makeReq({ headers: { cookie: `${DEV_COOKIE}=${WELL_FORMED_TOKEN}` } });
-
-    await resolve(req, makeRes());
-
-    expect(req.commerceActor).toEqual({ kind: 'anonymous' });
-    expect(req.guestCredential).toBe('invalid');
-  });
-
-  it('an invalid guest credential beside verified Oxy yields plain Oxy with NO possession proof', async () => {
-    service.resolveGuestSessionByToken.mockResolvedValue(null);
-    const req = makeReq({
-      userId: 'oxy-1',
-      headers: { authorization: 'Bearer x', cookie: `${DEV_COOKIE}=${WELL_FORMED_TOKEN}` },
-    });
-
-    await resolve(req, makeRes());
-
-    expect(req.commerceActor).toEqual({ kind: 'oxy', oxyUserId: 'oxy-1' });
-    expect(req.guestCredential).toBe('invalid');
-  });
-
-  it('resolves no credential at all to anonymous, marked absent', async () => {
-    const req = makeReq({});
-
-    await resolve(req, makeRes());
-
-    expect(req.commerceActor).toEqual({ kind: 'anonymous' });
-    expect(req.guestCredential).toBe('absent');
-    expect(service.resolveGuestSessionByToken).not.toHaveBeenCalled();
-  });
-
-  it('NEVER issues a session during resolution — reads cannot create rows (acceptance 7)', async () => {
-    await resolve(makeReq({}), makeRes());
-    await resolve(
-      makeReq({ method: 'POST', headers: { origin: 'https://mercaria.co' } }),
-      makeRes(),
-    );
-
+    expect(service.rotateGuestSession).not.toHaveBeenCalled();
     expect(service.issueGuestSession).not.toHaveBeenCalled();
   });
-});
 
-describe('CSRF on cookie-authenticated writes (D10, acceptance 3)', () => {
-  const cookieHeaders = { cookie: `${DEV_COOKIE}=${WELL_FORMED_TOKEN}` };
-
-  it('refuses a cookie-authenticated POST from a non-allow-listed Origin, before any lookup', async () => {
-    const req = makeReq({
-      method: 'POST',
-      headers: { ...cookieHeaders, origin: 'https://evil.example' },
-    });
-    const fake = makeRes();
-
-    const { nextCalls } = await resolve(req, fake);
-
-    expect(fake.status()).toBe(403);
-    expect(nextCalls).toBe(0);
-    expect(service.resolveGuestSessionByToken).not.toHaveBeenCalled();
-  });
-
-  it('refuses a cookie-authenticated POST carrying neither Origin nor Referer', async () => {
-    const req = makeReq({ method: 'POST', headers: cookieHeaders });
-    const fake = makeRes();
-
-    await resolve(req, fake);
-
-    expect(fake.status()).toBe(403);
-  });
-
-  it('accepts an allow-listed Referer when Origin is absent', async () => {
+  it('uses header B even beside legacy cookie A, retaining the persisted web cohort', async () => {
     service.resolveGuestSessionByToken.mockResolvedValue({
       session: makeSessionRow(),
       matchedPrevious: false,
     });
     const req = makeReq({
-      method: 'POST',
-      headers: { ...cookieHeaders, referer: 'https://mercaria.co/cart' },
+      headers: {
+        'x-mercaria-guest-token': WELL_FORMED_TOKEN,
+        cookie: 'mercaria_guest_dev=other',
+        'x-mercaria-guest-client': 'android',
+      },
     });
-    const fake = makeRes();
-
-    await resolve(req, fake);
-
-    expect(fake.status()).toBeUndefined();
-    expect(req.commerceActor?.kind).toBe('guest');
-  });
-
-  it('does not gate SAFE methods — a cookie GET resolves without any Origin', async () => {
-    service.resolveGuestSessionByToken.mockResolvedValue({
-      session: makeSessionRow(),
-      matchedPrevious: false,
-    });
-    const req = makeReq({ headers: cookieHeaders });
-    const fake = makeRes();
-
-    await resolve(req, fake);
-
-    expect(fake.status()).toBeUndefined();
-    expect(req.commerceActor?.kind).toBe('guest');
-  });
-
-  it('does not gate HEADER transport — the CORS preflight is that carriage’s control', async () => {
-    service.resolveGuestSessionByToken.mockResolvedValue({
-      session: makeSessionRow(),
-      matchedPrevious: false,
-    });
-    const req = makeReq({
-      method: 'POST',
-      headers: { 'x-mercaria-guest-token': WELL_FORMED_TOKEN },
-    });
-    const fake = makeRes();
-
-    await resolve(req, fake);
-
-    expect(fake.status()).toBeUndefined();
+    await resolve(req, makeRes());
+    expect(service.resolveGuestSessionByToken).toHaveBeenCalledWith(
+      WELL_FORMED_TOKEN,
+      expect.any(Date),
+    );
     expect(req.commerceActor).toEqual({
       kind: 'guest',
       guestSessionId: 'gs-row-1',
-      transport: 'header',
+      clientClass: 'web',
     });
   });
-});
 
-describe('the 7-day rotation cadence, answered in kind (D3/D9)', () => {
-  it('rotates a due cookie session and answers with Set-Cookie, marking rotatedInFlight', async () => {
-    service.resolveGuestSessionByToken.mockResolvedValue({
-      session: makeSessionRow(),
-      matchedPrevious: false,
+  it.each(['GET', 'POST'])(
+    'refuses cookie-only %s without looking up or minting an owner',
+    async (method) => {
+      const req = makeReq({
+        method,
+        headers: {
+          cookie: `mercaria_guest_dev=${WELL_FORMED_TOKEN}`,
+          origin: 'https://mercaria.co',
+        },
+      });
+      const fake = makeRes();
+      await resolve(req, fake);
+      expect(fake.status()).toBe(426);
+      expect(service.resolveGuestSessionByToken).not.toHaveBeenCalled();
+      expect(service.issueGuestSession).not.toHaveBeenCalled();
+    },
+  );
+
+  it('does not block a verified Oxy actor because an inert old cookie exists', async () => {
+    const req = makeReq({
+      userId: 'oxy-1',
+      headers: { cookie: `mercaria_guest_dev=${WELL_FORMED_TOKEN}` },
     });
-    service.rotationDue.mockReturnValue(true);
-    const rotatedRow = makeSessionRow({ rotatedAt: new Date() });
-    service.rotateGuestSession.mockResolvedValue({
-      session: rotatedRow,
-      token: `mgs_${'C'.repeat(43)}`,
-    });
-    const req = makeReq({ headers: { cookie: `${DEV_COOKIE}=${WELL_FORMED_TOKEN}` } });
-    const fake = makeRes();
-
-    await resolve(req, fake);
-
-    expect(service.rotateGuestSession).toHaveBeenCalledTimes(1);
-    expect(fake.cookies.get(DEV_COOKIE)?.value).toBe(`mgs_${'C'.repeat(43)}`);
-    expect(req.guestSessionContext?.rotatedInFlight).toBe(true);
-    expect(req.commerceActor?.kind).toBe('guest');
+    await resolve(req, makeRes());
+    expect(req.commerceActor).toEqual({ kind: 'oxy', oxyUserId: 'oxy-1' });
+    expect(service.resolveGuestSessionByToken).not.toHaveBeenCalled();
   });
 
-  it('rotates a due header session onto the response header, never a cookie', async () => {
-    service.resolveGuestSessionByToken.mockResolvedValue({
-      session: makeSessionRow(),
-      matchedPrevious: false,
+  it('never falls back from an invalid explicit header to a legacy cookie', async () => {
+    service.resolveGuestSessionByToken.mockResolvedValue(null);
+    const req = makeReq({
+      headers: {
+        'x-mercaria-guest-token': 'invalid',
+        cookie: `mercaria_guest_dev=${WELL_FORMED_TOKEN}`,
+      },
     });
+    await resolve(req, makeRes());
+    expect(req.guestCredential).toBe('invalid');
+    expect(req.commerceActor).toEqual({ kind: 'anonymous' });
+    expect(service.resolveGuestSessionByToken).toHaveBeenCalledTimes(1);
+    expect(service.resolveGuestSessionByToken).toHaveBeenCalledWith('invalid', expect.any(Date));
+    expect(service.issueGuestSession).not.toHaveBeenCalled();
+  });
+
+  it('creates no identity for an anonymous read', async () => {
+    const req = makeReq({});
+    await resolve(req, makeRes());
+    expect(req.commerceActor).toEqual({ kind: 'anonymous' });
+    expect(service.issueGuestSession).not.toHaveBeenCalled();
+  });
+
+  it('rotates once with server expiry/generation and never emits a cookie', async () => {
+    const session = makeSessionRow();
+    const rotated = makeSessionRow({ rotatedAt: new Date() });
+    service.resolveGuestSessionByToken.mockResolvedValue({ session, matchedPrevious: false });
     service.rotationDue.mockReturnValue(true);
-    service.rotateGuestSession.mockResolvedValue({
-      session: makeSessionRow({ rotatedAt: new Date() }),
-      token: `mgs_${'D'.repeat(43)}`,
-    });
+    service.rotateGuestSession.mockResolvedValue({ session: rotated, token: 'new-token' });
     const req = makeReq({ headers: { 'x-mercaria-guest-token': WELL_FORMED_TOKEN } });
     const fake = makeRes();
-
     await resolve(req, fake);
-
-    expect(fake.headers.get('x-mercaria-guest-token')).toBe(`mgs_${'D'.repeat(43)}`);
+    expect(service.rotateGuestSession).toHaveBeenCalledTimes(1);
+    expect(req.guestSessionContext?.rotatedInFlight).toBe(true);
+    expect(fake.headers.get('x-mercaria-guest-token')).toBe('new-token');
+    expect(fake.headers.get('x-mercaria-guest-expires-at')).toBe(rotated.expiresAt.toISOString());
+    expect(fake.headers.get('x-mercaria-guest-generation')).toBe(
+      String(rotated.rotatedAt?.getTime()),
+    );
+    expect(fake.headers.get('cache-control')).toBe('no-store');
     expect(fake.cookies.size).toBe(0);
   });
 
-  it('never auto-rotates on a grace-window (previous-hash) match', async () => {
+  it('never relabels a grace-window token as the current generation', async () => {
     service.resolveGuestSessionByToken.mockResolvedValue({
       session: makeSessionRow(),
       matchedPrevious: true,
     });
     service.rotationDue.mockReturnValue(true);
-    const req = makeReq({ headers: { cookie: `${DEV_COOKIE}=${WELL_FORMED_TOKEN}` } });
-
-    await resolve(req, makeRes());
-
-    expect(service.rotateGuestSession).not.toHaveBeenCalled();
-  });
-});
-
-describe('issueGuestActor — the lazy-issuance primitive', () => {
-  it('refuses cookie-transport issuance without an allow-listed Origin (403), issuing nothing', async () => {
-    const req = makeReq({ method: 'POST', headers: {} });
     const fake = makeRes();
+    await resolve(makeReq({ headers: { 'x-mercaria-guest-token': WELL_FORMED_TOKEN } }), fake);
+    expect(service.rotateGuestSession).not.toHaveBeenCalled();
+    expect(fake.headers.has('x-mercaria-guest-token')).toBe(false);
+  });
 
-    const context = await middleware.issueGuestActor(req, fake.res);
-
-    expect(context).toBeUndefined();
-    expect(fake.status()).toBe(403);
+  it('a lost rotation CAS never mints a second token or changes the owner', async () => {
+    service.resolveGuestSessionByToken.mockResolvedValue({
+      session: makeSessionRow(),
+      matchedPrevious: false,
+    });
+    service.rotationDue.mockReturnValue(true);
+    service.rotateGuestSession.mockResolvedValue(null);
+    const req = makeReq({ headers: { 'x-mercaria-guest-token': WELL_FORMED_TOKEN } });
+    const fake = makeRes();
+    await resolve(req, fake);
+    expect(req.commerceActor).toMatchObject({ kind: 'guest', guestSessionId: 'gs-row-1' });
+    expect(fake.headers.has('x-mercaria-guest-token')).toBe(false);
     expect(service.issueGuestSession).not.toHaveBeenCalled();
   });
 
-  it('issues over cookie transport with a valid Origin: Set-Cookie, no token in any header', async () => {
-    service.issueGuestSession.mockResolvedValue({
-      session: makeSessionRow(),
-      token: `mgs_${'E'.repeat(43)}`,
-    });
-    const req = makeReq({ method: 'POST', headers: { origin: 'https://mercaria.co' } });
+  it('refuses old issuing clients before creating an orphan session', async () => {
     const fake = makeRes();
-
-    const context = await middleware.issueGuestActor(req, fake.res);
-
-    expect(context?.transport).toBe('cookie');
-    expect(service.issueGuestSession).toHaveBeenCalledWith(
-      expect.objectContaining({ clientClass: 'web' }),
-    );
-    expect(fake.cookies.get(DEV_COOKIE)?.value).toBe(`mgs_${'E'.repeat(43)}`);
-    expect(fake.headers.has('x-mercaria-guest-token')).toBe(false);
-    expect(req.commerceActor).toEqual({
-      kind: 'guest',
-      guestSessionId: 'gs-row-1',
-      transport: 'cookie',
-    });
-  });
-
-  it('issues over declared header transport with no Origin at all: header out, no cookie', async () => {
-    service.issueGuestSession.mockResolvedValue({
-      session: makeSessionRow({ clientClass: 'ios' }),
-      token: `mgs_${'F'.repeat(43)}`,
-    });
-    const req = makeReq({
-      method: 'POST',
-      headers: { 'x-mercaria-guest-transport': 'header', 'x-mercaria-guest-client': 'ios' },
-    });
-    const fake = makeRes();
-
-    const context = await middleware.issueGuestActor(req, fake.res);
-
-    expect(context?.transport).toBe('header');
-    expect(service.issueGuestSession).toHaveBeenCalledWith(
-      expect.objectContaining({ clientClass: 'ios' }),
-    );
-    expect(fake.headers.get('x-mercaria-guest-token')).toBe(`mgs_${'F'.repeat(43)}`);
-    expect(fake.cookies.size).toBe(0);
-  });
-
-  it('allow-lists the declared client class — garbage falls back to the transport default', async () => {
-    service.issueGuestSession.mockResolvedValue({
-      session: makeSessionRow(),
-      token: `mgs_${'G'.repeat(43)}`,
-    });
-    const req = makeReq({
-      method: 'POST',
-      headers: {
-        'x-mercaria-guest-transport': 'header',
-        'x-mercaria-guest-client': 'smart-fridge',
-      },
-    });
-
-    await middleware.issueGuestActor(req, makeRes().res);
-
-    expect(service.issueGuestSession).toHaveBeenCalledWith(
-      expect.objectContaining({ clientClass: 'other' }),
-    );
-  });
-});
-
-describe('the cookie profile (D9) and the scoped cookie read', () => {
-  it('is __Host-, HttpOnly, Secure, SameSite=Lax, Path=/ in production', () => {
-    vi.stubEnv('NODE_ENV', 'production');
-    try {
-      const profile = middleware.guestCookieProfile();
-      expect(profile.name).toBe('__Host-mercaria_guest');
-      expect(profile.options).toMatchObject({
-        httpOnly: true,
-        secure: true,
-        sameSite: 'lax',
-        path: '/',
-      });
-    } finally {
-      vi.unstubAllEnvs();
-    }
-  });
-
-  it('downgrades EXPLICITLY in development: different name, no Secure, same everything else', () => {
-    const profile = middleware.guestCookieProfile();
-    expect(profile.name).toBe(DEV_COOKIE);
-    expect(profile.options).toMatchObject({
-      httpOnly: true,
-      secure: false,
-      sameSite: 'lax',
-      path: '/',
-    });
-  });
-
-  it('reads exactly the named cookie out of a shared jar, quoted or not', () => {
-    const jar = `other=1; ${DEV_COOKIE}="${WELL_FORMED_TOKEN}"; trailing=x`;
-    expect(middleware.readGuestCookie(jar, DEV_COOKIE)).toBe(WELL_FORMED_TOKEN);
-    expect(middleware.readGuestCookie(`a=1; b=2`, DEV_COOKIE)).toBeUndefined();
-    expect(middleware.readGuestCookie(undefined, DEV_COOKIE)).toBeUndefined();
-  });
-
-  it('refuses an oversized Cookie header outright', () => {
-    const jar = `${DEV_COOKIE}=${WELL_FORMED_TOKEN}; junk=${'x'.repeat(9_000)}`;
-    expect(middleware.readGuestCookie(jar, DEV_COOKIE)).toBeUndefined();
+    expect(
+      await middleware.issueGuestActor(
+        makeReq({ method: 'POST', headers: { origin: 'https://mercaria.co' } }),
+        fake.res,
+      ),
+    ).toBeUndefined();
+    expect(fake.status()).toBe(426);
+    expect(service.issueGuestSession).not.toHaveBeenCalled();
   });
 });

@@ -1,18 +1,18 @@
 /**
  * `/internal/affiliate/*` — the affiliate outbound operator surface (#67).
  *
- * ## On the PAYMENT operator allow-list, not the catalogue one
+ * ## On the PAYMENT operator key, not the catalogue one
  *
- * `PAYMENT_OPERATOR_OXY_USER_IDS`, and deliberately not a seventh list. Both of
+ * `payments.operate`, and deliberately not a new key. Both of
  * this surface's powers are money-adjacent in the same way: approving a
  * destination host decides where Mercaria sends its buyers and therefore which
  * commercial relationships can earn, and the report reads what Mercaria EARNED.
- * "May see all stores' money" is the power the payment list already names, and
- * splitting the host approval onto the catalogue list would mean two operators
+ * "May see all stores' money" is the power `payments.operate` already names, and
+ * splitting the host approval onto `catalog.operate` would mean two operators
  * with different remits could each half-configure one rail.
  *
- * Empty list = the router is not MOUNTED at all (404, never a 401 that would
- * advertise the surface exists), and it stays mounted while
+ * Anyone without the key is answered 404 (never a 401 that would advertise the
+ * surface exists), and it stays mounted while
  * `OUTBOUND_REDIRECT_ENABLED` is off — the evidence has to be readable during
  * the incident that turned the redirect off, and a host has to be approvable
  * BEFORE the redirect is switched on.
@@ -47,9 +47,8 @@ import {
 
 const router = Router();
 
-// Authentication FIRST, then the allow-list — the gate reads the verified
-// caller, and an allow-list consulted before authentication would compare
-// against whatever a client claimed.
+// Authentication FIRST, then the operator gate — it asks Oxy about the verified
+// caller's own session, which only `authenticateToken` establishes.
 router.use(authenticateToken);
 router.use(requirePaymentOperator);
 

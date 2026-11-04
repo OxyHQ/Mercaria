@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { RiPaletteLine } from '@oxy.so/bloom/icons/RiPaletteLine';
 import { RiStore2Line } from '@oxy.so/bloom/icons/RiStore2Line';
 import { RiTranslate2 } from '@oxy.so/bloom/icons/RiTranslate2';
@@ -80,8 +80,6 @@ export default function DashboardSettingsDialog(state: SettingsDialogState) {
       pages={{
         account: { title: titles.account, content: <AccountPage /> },
         language: { title: titles.language, content: <LanguagePage /> },
-        // No colour preset: `BloomProvider` pins the dashboard's (controlled
-        // `colorPreset`), so a choice here would do nothing.
         appearance: { title: titles.appearance, content: <AppearanceSettingsPage /> },
       }}
     />

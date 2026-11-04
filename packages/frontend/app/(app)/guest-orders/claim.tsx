@@ -35,7 +35,7 @@ import { Button } from '@oxy.so/bloom/button';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Head from 'expo-router/head';
 import { View } from 'react-native';
-import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { SectionHeader, Text } from '@mercaria/ui';
 import type { GuestClaimBlockReason, GuestClaimOrderRef } from '@mercaria/shared-types';
 import { ScreenShell } from '@/components/shell/ScreenShell';
@@ -83,7 +83,7 @@ function ClaimBody() {
   const { t } = useTranslation();
   const params = useLocalSearchParams<{ group?: string }>();
   const router = useRouter();
-  const { isAuthenticated } = useOxy();
+  const { isAuthenticated, openAccountDialog } = useOxy();
   const claim = useGuestClaim();
 
   const checkoutGroupId = params.group;

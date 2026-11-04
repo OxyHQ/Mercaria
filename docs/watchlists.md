@@ -246,7 +246,7 @@ meant to remove.
 - **One account id, on one table.** Only `watchlists` carries `oxy_user_id`;
   items, snapshots and lines reach their owner through the list. An erasure is
   one scoped DELETE.
-- **No operator surface and no seventh allow-list.** None of the six existing
+- **No operator surface and no new operator key.** None of the six existing
   ones should be able to read a private list or a private note, and every repair
   this domain could need is an idempotent path the owner already drives.
 

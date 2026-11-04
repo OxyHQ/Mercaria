@@ -208,7 +208,7 @@ Encoded as #62 rights on the source's own policy version, from #64 §6:
 | Outbound links are `itemAffiliateWebUrl` or the plain item URL only | §7. |
 | No AI training | Not a code path this integration has. Stated here because the contract states it, and because the stored projection is the only eBay content Mercaria holds. |
 | Third-party sellers shown as the merchant | §8 — this is the whole `per_record` seller-identity path. |
-| Image caching duration | **requires account approval** (Buy API contract). Until signed, Mercaria stores eBay-hosted image URLs and hot-links them; it re-hosts nothing. |
+| Image caching duration | **requires account approval** (Buy API contract). Mercaria stores eBay-hosted image URLs in the source record's projection and, by the owner's decision, COPIES them into Oxy (application-owned, Oxy ADR 0043) when the observation is attached to a canonical product, showing the copy (`docs/catalog-media.md`, "External imagery is copied"). It never hot-links (an earlier version of this row said it did; nothing ever did). **eBay's terms restrict image caching**: the copy is the owner's decision against that term, recorded here. |
 
 **Condition** reaches #90 as the eBay **`conditionId`**, never the `condition`
 display name. The display name is LOCALIZED — "Used" on EBAY_GB and "Usado" on
@@ -441,9 +441,9 @@ measurement problem by creating a freshness one.
 
 ### The operator surface
 
-`/internal/ebay/*`, behind the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list
-#54/#56/#57/#58/#60/#62 use. Empty = not mounted (404, never a 401 that would
-advertise it). It stays mounted while `EBAY_ENABLED` and `EBAY_FETCH_ENABLED` are
+`/internal/ebay/*`, behind the SAME `catalog.operate` key
+#54/#56/#57/#58/#60/#62 use. Anyone without it gets 404, never a 401 that would
+advertise it. It stays mounted while `EBAY_ENABLED` and `EBAY_FETCH_ENABLED` are
 off, because reading the budget is exactly what somebody does after flipping the
 kill switch.
 
@@ -484,7 +484,7 @@ every line is green.
 2. [ ] EPN account; a 10-digit campaign id in `EPN_CAMPAIGN_ID`.
 3. [ ] **Buy API production application approved** and the Buy-API contracts
        signed. A sandbox keyset never feeds public pages (#64 §9.1).
-4. [ ] `CATALOG_OPERATOR_OXY_USER_IDS` populated, or nobody can configure the
+4. [ ] `catalog.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`), or nobody can configure the
        source or review its policy.
 5. [ ] The source configured with `seller_identity = per_record`, an eBay
        operator merchant BOUND, and a marketplace storefront BOUND.

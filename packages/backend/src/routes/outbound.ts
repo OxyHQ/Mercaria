@@ -34,7 +34,12 @@ import { Router } from 'express';
 import { makeRateLimiter } from '../lib/rate-limit.js';
 import { affiliateOutboundHandler } from '../controllers/outbound.controller.js';
 
+import { optionalAuth } from '../middleware/auth.js';
+
 const router = Router();
+
+// A presented supervised session cannot bypass policy through an anonymous catalog route.
+router.use(optionalAuth);
 
 router.use(makeRateLimiter('outbound'));
 

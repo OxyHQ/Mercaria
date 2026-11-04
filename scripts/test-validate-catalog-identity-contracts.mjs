@@ -370,10 +370,26 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // ADR 0016 adds the source-scoped productGroupKey: one property.
     // CategoryNode/Tile/Pill retain Oxy IDs, plus child sample IDs: four properties.
     // Organization adds oxyAccountId, the opaque canonical Oxy identity: one property.
+    // Materials adds one contract module without catalog identity fields.
+    // Kids adds the reviewed shopping module and its bounded presentation DTOs;
+    // option labels carry their persisted source-row ids: +1 module, +6 types,
+    // +44 properties. Measured by the real guard.
+    // Oxy ADR 0043 adds `oxy-file-references.ts`: the closed value sets of file
+    // usage (entity types, owner kinds, event types, event actions) as four type
+    // aliases and no property: +1 module, +4 types. Measured by the real guard.
+    // `shopping-thread.ts` LEFT: the shopping thread is a conversation with Alia
+    // through her SDK, so Mercaria publishes no message, request or reply shape
+    // for it — -1 module, -3 types, -6 properties. Measured by the real guard.
+    // ProductSummary gains `catalogSlug`, a catalogue card's product page: one
+    // property. Measured by the real guard.
+    // Direct feed uploads add the session status and failure vocabularies, the
+    // validation job status, and move `FeedRefusalReason` into shared-types: four
+    // type aliases and no property: +4 types. Measured by the real guard.
+    // Pure money-format and bidi modules add no contract types or properties.
     // Price alerts are always mounted now, so `ProductSavePriceAlert` lost its
     // `{ supported: false; reason }` variant: two properties.
-    // 137/2376/7933, read off the guard's own output line.
-    'walked 137 contract module(s), 2376 exported type(s), 7933 property signature(s)',
+    // 141/2388/7973, read off the guard's own output line.
+    'walked 141 contract module(s), 2388 exported type(s), 7973 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });

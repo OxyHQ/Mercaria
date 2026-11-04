@@ -55,6 +55,7 @@ it and can only rise.
 
 | Module | Schema file | Repositories | Tables |
 |---|---|---|---|
+| Seller merchandising | `db/schema/merchandising.ts` | `db/merchandising/featuredCollectionRepository.ts` | `store_featured_collections` |
 | Organization migration evidence | `db/schema/organizations.ts` | — (migration-only immutable evidence) | `organization_identity_archives` |
 | Taxonomy | `db/schema/taxonomy.ts` | `db/taxonomy/taxonomyRepository.ts` | `category_aliases`, `category_redirects`, `category_external_mappings` — plus `categories` itself, which lives in `db/schema/catalog.ts:128` and was widened in place (D2) |
 | Classification | `db/schema/taxonomyClassification.ts` | `db/taxonomy/classificationRepository.ts` | `listing_secondary_categories`, `canonical_product_secondary_categories` — the JUSTIFIED secondary filings (#367 W1). There is deliberately no primary table: the primary category IS `listings.category_id` / `canonical_products.category_id`, so "exactly one" is held by a scalar column rather than by a partial unique on an `is_primary` flag |
@@ -76,7 +77,13 @@ it and can only rise.
 | Digital licences and buyer rights | `db/schema/digitalRights.ts` | `db/digital/licenceRepository.ts`, `rightRepository.ts`, `downloadRepository.ts`, `bindingRepository.ts` | `asset_licences`, `asset_licence_versions`, `asset_licence_options`, `asset_rights`, `asset_right_events`, `asset_download_grants`, `asset_download_events`, `asset_variant_bindings` |
 | Digital retail supply | `db/schema/digitalRetail.ts` | `db/digitalRetail/supplyTermsRepository.ts`, `digitalProcurementOfferRepository.ts`, `pricingPolicyRepository.ts` | `digital_supply_terms`, `digital_supplier_capabilities`, `digital_procurement_offers`, `digital_retail_pricing_policies` |
 | Digital retail procurement and fulfilment | `db/schema/digitalRetail.ts` | `db/digitalRetail/digitalPurchaseOrderRepository.ts`, `digitalFulfilmentRepository.ts` | `digital_purchase_orders`, `digital_purchase_order_attempts`, `digital_fulfilments`, `digital_fulfilment_artifacts`, `digital_fulfilment_reveals`, `digital_fulfilment_incidents` |
+| Donated materials | `db/schema/materials.ts` | `services/materials/materials.service.ts`, `transport.service.ts` (the Moovo reference), `pending-pickups.ts` (read-only) | `material_offers`, `material_reservations`, `material_reservation_events` — free offers, account reservations and their idempotent action trail; Moovo owns any transport ([materials.md](materials.md)) |
+| Supervised catalog review | `db/schema/supervisedShopping.ts` | `services/supervised-shopping/catalog-review.service.ts` | `catalog_safety_reviews` — append-only operator evidence bound to the current content digest; Oxy owns audience authorization |
+| Supervised purchase coordination | `db/schema/supervisedShopping.ts` | `services/supervised-shopping/purchase.service.ts` | `supervised_checkout_requests`, `supervised_purchase_operations`, `supervised_purchase_lines` — durable request identity and immutable order effects; Oxy owns guardian consent and its lifecycle |
 | Store access | `db/schema/stores.ts` | `db/stores/storeRepository.ts` | `store_permission_overrides` — per-person EXCEPTIONS to the role map; who may act for a store is the owning Oxy account's membership (ADR 0012), never a table here |
+| Canonical source imagery (Oxy ADR 0043) | `db/schema/canonicalSourceMedia.ts` | `db/canonical/sourceMediaImportRepository.ts` — new requests come from the `mercaria_canonical_source_media_enqueue` trigger of `0173` on the canonical product source links | `canonical_source_media_imports` — an attached observation's `payload.media` owed to its canonical product as application-owned images; `docs/catalog-media.md` |
+| Oxy file usage (Oxy ADR 0043) | `db/schema/oxyFiles.ts` | `db/oxyFiles/` (6) — the outbox's only NEW-request writer is the `mercaria_oxy_file_reference_enqueue` trigger function of `0172` | `oxy_file_reference_outboxes`, `oxy_file_references`, `oxy_file_reference_reconciliations`, `oxy_file_events`, `oxy_file_event_actions` — what Mercaria told Oxy about every file it uses, and what a takedown removed; `oxy_application_files` — the files Oxy answered as the application's own, written only by `services/catalog-media/oxy-files.ts` through `db/oxyFiles/applicationFileRepository.ts`, so a backfill rerun skips finished rows; `docs/catalog-media.md` |
+| Feed uploads and validations (#63) | `db/schema/feedImport.ts` | `db/feedImport/feedUploadSessionRepository.ts`, `db/feedImport/feedValidationJobRepository.ts` | `feed_upload_sessions` — a direct upload of a feed file, which the client PUTs to Oxy Files' storage in presigned parts, so no request body carries a feed; `feed_validation_jobs` — the whole-feed validation outbox `POST …/validate` enqueues and its client polls; [feed-importer.md](feed-importer.md) |
 
 **#1016's ten tables are split across TWO rows of one schema module, and the split
 is the ownership decision** (ADR 0011). The supply half — what a counterparty has
@@ -173,7 +180,7 @@ them**, and that difference is the thing to know before adding a route.
 
 | Subject | Sole writer | Reachable over HTTP by | Add-direction gate |
 |---|---|---|---|
-| `categories` | `db/taxonomy/taxonomyRepository.ts` | `/internal/catalog-governance` only (operator allow-list) | **Yes** — `db/__tests__/taxonomy-write-chokepoint.test.ts:136` finds only the repository and its two named exceptions |
+| `categories` | `db/taxonomy/taxonomyRepository.ts` | `/internal/catalog-governance` only (`catalog.operate`) | **Yes** — `db/__tests__/taxonomy-write-chokepoint.test.ts:136` finds only the repository and its two named exceptions |
 | controlled values (`attribute_enum_values`) | `db/attributes/definitionRepository.ts:322` | `/internal/catalog-attributes`, and proposal APPROVAL by an operator | **Yes** — `services/catalog-proposals/__tests__/catalog-proposal-isolation.test.ts:157` and `:172`, which also forbid the one writer from minting anything else |
 | `attribute_definitions` | `db/attributes/definitionRepository.ts:51`, `:174` | `/internal/catalog-attributes`, governance apply | **No** — the operator mount is gated and tested, but no repo-wide writer census exists |
 | `brands` | `db/canonical/brandRepository.ts` | nothing: `createBrand` has one caller, the vertical seed, reached only through governance `vertical_package_apply`; `updateBrand` has zero callers | **No** |
@@ -189,13 +196,13 @@ they defend the modules that exist and not a module somebody adds elsewhere.
 The operator mounts themselves are gated, and the gate is tested in both
 directions: `routes/__tests__/catalog-rollout.realdb.test.ts:398` asserts each
 listed `/internal/*` catalog router is still MOUNTED with every rollout lever
-off, and `:408` asserts each answers **404 when
-`CATALOG_OPERATOR_OXY_USER_IDS` is empty**.
+off, and `:408` asserts each answers **404 to a caller without
+`catalog.operate`**.
 
 **Read that test's coverage before relying on it.** Its `INTERNAL` list
 (`:281`) names **nine** surfaces and `:421` pins the length at nine, calling it
-the vacuity floor. There are **26** `app.use` mounts inside a
-`config.catalog.graphOperatorSurfaceEnabled` block in `app.ts` — the count is
+the vacuity floor. There are **26** `catalog.operate`-gated `app.use` mounts in
+`app.ts` — the count is
 `app.ts:286, 471, 519, 644, 724, 745, 749, 754, 755, 760, 765, 772, 782, 796,
 810, 819, 823, 833, 844, 854, 865, 876, 886, 992, 1008, 1014`. So seventeen
 surfaces are unasserted, and the floor cannot notice: it is computed from the
@@ -389,8 +396,9 @@ D12 is corrected in place and states each reason; the operational detail is
 [`catalog-migration-operations.md`](catalog-migration-operations.md) and
 [`runbooks/catalog-rollout-rollback.md`](runbooks/catalog-rollout-rollback.md).
 
-**Turning every lever off leaves every row readable — conditionally.** The nine
-`/internal/*` catalog surfaces are gated on `CATALOG_OPERATOR_OXY_USER_IDS`
-being non-empty, and an empty list answers 404. The evidence has to be readable
-during the incident that turned the levers off, so that list is part of the
-rollback plan and not an afterthought.
+**Turning every lever off leaves every row readable — to a `catalog.operate`
+holder.** The nine `/internal/*` catalog surfaces are mounted on every
+deployment and answer 404 to anyone without the key. The evidence has to be
+readable during the incident that turned the levers off, so having the key
+granted to the people on call is part of the rollback plan and not an
+afterthought.

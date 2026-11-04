@@ -580,3 +580,44 @@ export async function listCanonicalProductsPage(
   const counted = await db.select({ count: sql<number>`count(*)::int` }).from(canonicalProducts);
   return { rows, total: counted[0]?.count ?? 0 };
 }
+
+/** One keyset page of canonical products whose description may show an image. */
+export async function findCanonicalDescriptionImagePage(
+  db: DatabaseOrTransaction,
+  options: { after?: string; id?: string; limit: number },
+): Promise<{ id: string; description: string }[]> {
+  const rows = await db
+    .select({ id: canonicalProducts.id, description: canonicalProducts.description })
+    .from(canonicalProducts)
+    .where(
+      and(
+        sql`${canonicalProducts.description} ilike '%<img%'`,
+        options.after ? sql`${canonicalProducts.id} > ${options.after}` : undefined,
+        options.id ? eq(canonicalProducts.id, options.id) : undefined,
+      ),
+    )
+    .orderBy(asc(canonicalProducts.id))
+    .limit(options.limit);
+  return rows.flatMap((row) =>
+    row.description === null ? [] : [{ id: row.id, description: row.description }],
+  );
+}
+
+/**
+ * Replace a canonical description only while it still reads `previous` — the
+ * application-media backfill's compare-and-swap, so an edit made while the
+ * import was in flight wins.
+ */
+export async function replaceCanonicalProductDescription(
+  db: DatabaseOrTransaction,
+  id: string,
+  previous: string,
+  next: string,
+): Promise<boolean> {
+  const rows = await db
+    .update(canonicalProducts)
+    .set({ description: next })
+    .where(and(eq(canonicalProducts.id, id), eq(canonicalProducts.description, previous)))
+    .returning({ id: canonicalProducts.id });
+  return rows.length === 1;
+}

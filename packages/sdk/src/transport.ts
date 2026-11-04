@@ -306,6 +306,7 @@ export async function request<T>(
   query: Readonly<Record<string, QueryValue>>,
   schema: z.ZodType<T>,
   signal: MercariaAbortSignal | undefined,
+  mutation?: { body: unknown },
 ): Promise<T> {
   if (signal?.aborted) throw new MercariaAbortError('The request was aborted before it was sent');
 
@@ -341,6 +342,7 @@ export async function request<T>(
 
   try {
     const headers: Record<string, string> = { ...config.headers, Accept: 'application/json' };
+    if (mutation) headers['Content-Type'] = 'application/json';
     if (config.getAccessToken) {
       const getter = config.getAccessToken;
       const token = await race(Promise.resolve().then(() => getter()));
@@ -354,7 +356,8 @@ export async function request<T>(
     try {
       response = await race(
         fetchImpl(url, {
-          method: 'GET',
+          method: mutation ? 'POST' : 'GET',
+          ...(mutation ? { body: JSON.stringify(mutation.body) } : {}),
           headers,
           credentials: 'omit',
           redirect: 'follow',

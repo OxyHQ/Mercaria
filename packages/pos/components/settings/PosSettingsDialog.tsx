@@ -1,4 +1,4 @@
-import { useAuth, useOxy } from '@oxy.so/services';
+import { useAuth, useOxy } from '@oxy.so/services/ui/client';
 import { RiPaletteLine } from '@oxy.so/bloom/icons/RiPaletteLine';
 import { RiTranslate2 } from '@oxy.so/bloom/icons/RiTranslate2';
 import { RiUserLine } from '@oxy.so/bloom/icons/RiUserLine';

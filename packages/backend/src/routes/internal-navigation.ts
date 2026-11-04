@@ -2,10 +2,10 @@
  * `/internal/navigation/*` — the navigation domain's operator surface
  * (#367 step 7, ADR 0007 D3).
  *
- * On the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54/#55/#56/#57/#58/
- * #60/#62/#68/#70/#78 use, and deliberately not an eighth list: deciding what
+ * On the SAME `catalog.operate` key #54/#55/#56/#57/#58/
+ * #60/#62/#68/#70/#78 use, and deliberately not an eighth key: deciding what
  * the front page points at is the same power over the same graph as reshaping
- * the catalogue it points into, and a new list would be another thing to keep in
+ * the catalogue it points into, and a new key would be another thing to keep in
  * step for a separation it does not have.
  *
  * ## Mounted while `CATALOG_TAXONOMY_V2_ENABLED` is OFF, deliberately
@@ -33,7 +33,7 @@
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireCatalogOperator } from '../middleware/catalog-operator-authz.js';
+import { requireCatalogOperator } from '../middleware/operator-authz.js';
 import { validateBody, validateId, validateQuery } from '../middleware/validate.js';
 import {
   createNavigationSavedQueryBodySchema,
@@ -54,9 +54,8 @@ import {
 
 const router = Router();
 
-// Authentication FIRST, then the allow-list — the gate reads the verified
-// caller, and an allow-list consulted before authentication would compare
-// against whatever a client claimed.
+// Authentication FIRST, then the operator gate — it asks Oxy about the verified
+// caller's own session, which only `authenticateToken` establishes.
 router.use(authenticateToken);
 router.use(requireCatalogOperator);
 

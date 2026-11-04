@@ -518,8 +518,8 @@ The derivation is pure and is tested without a server in
   [catalog-migration-operations.md](catalog-migration-operations.md).
 - **An operator HTTP surface.** None exists yet — the public layout read above is
   not one. When it arrives it belongs on the existing
-  `CATALOG_OPERATOR_OXY_USER_IDS` allow-list — the one #54, #56, #57, #58, #60,
-  #62, #68, #78 and #94 already share — and not a seventh list.
+  `catalog.operate` key — the one #54, #56, #57, #58, #60,
+  #62, #68, #78 and #94 already share — and not a new operator key.
 - ~~**The open item ADR 0007 records:** whether bundles, services and digital
   goods get their own product-type scopes or are excluded at launch.~~
   **CLOSED** by ADR 0007 D15 (#367 line 144) — see

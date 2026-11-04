@@ -1,13 +1,6 @@
-import type { z } from 'zod';
-import {
-  MercariaCollectionRefSchema,
-  MercariaLocationRefSchema,
-  MercariaProductRefSchema,
-  MercariaRefSchema,
-  MercariaStoreRefSchema,
-  MercariaVariantRefSchema,
-} from './contract';
+import { parsePortableMercariaRef, type MercariaRefKind } from '@mercaria/contracts/ref-core';
 import type {
+  MercariaCatalogProductRef,
   MercariaCollectionRef,
   MercariaLocationRef,
   MercariaProductRef,
@@ -21,46 +14,54 @@ import { MercariaValidationError } from './errors';
  * Portable references — what a consumer PERSISTS.
  *
  * A ref is identity and nothing else: no title, no price, no availability, no
- * store handle. Every helper here parses with the contract's ref schemas, which
+ * store handle. Every helper here parses with the contract's portable identity rules, which
  * are STRICT (exactly the contract's keys, non-blank string ids) and return a
  * FRESH, FROZEN object, so a ref can be stored, compared and passed around
  * without anything mutable riding along.
  */
 
 /** Build a ref from its parts, or throw {@link MercariaValidationError} naming what was wrong. */
-function build<T>(schema: z.ZodType<T>, value: object, what: string): T {
-  const parsed = schema.safeParse(value);
-  if (!parsed.success) throw new MercariaValidationError(`${what} must be a non-empty string`);
-  return parsed.data;
+function build(kind: 'product', value: object, what: string): MercariaProductRef;
+function build(kind: 'variant', value: object, what: string): MercariaVariantRef;
+function build(kind: 'store', value: object, what: string): MercariaStoreRef;
+function build(kind: 'collection', value: object, what: string): MercariaCollectionRef;
+function build(kind: 'location', value: object, what: string): MercariaLocationRef;
+function build(kind: 'catalog_product', value: object, what: string): MercariaCatalogProductRef;
+function build(kind: MercariaRefKind, value: object, what: string): MercariaRef {
+  const parsed = parsePortableMercariaRef(value);
+  if (!parsed || parsed.kind !== kind)
+    throw new MercariaValidationError(`${what} must be a non-empty string`);
+  return parsed;
 }
 
 /** A product ref. Throws {@link MercariaValidationError} for an empty id. */
 export function productRef(id: string): MercariaProductRef {
-  return build(MercariaProductRefSchema, { kind: 'product', id }, 'product id');
+  return build('product', { kind: 'product', id }, 'product id');
 }
 
 /** A variant (purchase option) ref. Throws {@link MercariaValidationError} for an empty id. */
 export function variantRef(productId: string, variantId: string): MercariaVariantRef {
-  return build(
-    MercariaVariantRefSchema,
-    { kind: 'variant', productId, variantId },
-    'product id and variant id',
-  );
+  return build('variant', { kind: 'variant', productId, variantId }, 'product id and variant id');
 }
 
 /** A store ref. Throws {@link MercariaValidationError} for an empty id. */
 export function storeRef(id: string): MercariaStoreRef {
-  return build(MercariaStoreRefSchema, { kind: 'store', id }, 'store id');
+  return build('store', { kind: 'store', id }, 'store id');
 }
 
 /** A collection ref. Throws {@link MercariaValidationError} for an empty id. */
 export function collectionRef(id: string): MercariaCollectionRef {
-  return build(MercariaCollectionRefSchema, { kind: 'collection', id }, 'collection id');
+  return build('collection', { kind: 'collection', id }, 'collection id');
 }
 
 /** A location (shop front) ref. Throws {@link MercariaValidationError} for an empty id. */
 export function locationRef(id: string): MercariaLocationRef {
-  return build(MercariaLocationRefSchema, { kind: 'location', id }, 'location id');
+  return build('location', { kind: 'location', id }, 'location id');
+}
+
+/** A catalog (canonical, compared) product ref. Throws {@link MercariaValidationError} for an empty id. */
+export function catalogProductRef(id: string): MercariaCatalogProductRef {
+  return build('catalog_product', { kind: 'catalog_product', id }, 'catalog product id');
 }
 
 /**
@@ -73,13 +74,7 @@ export function locationRef(id: string): MercariaLocationRef {
  * the input.
  */
 export function parseMercariaRef(value: unknown): MercariaRef | null {
-  // Plain data only: a class instance that happens to carry the keys is not a
-  // ref somebody persisted.
-  if (typeof value !== 'object' || value === null) return null;
-  const prototype = Object.getPrototypeOf(value) as unknown;
-  if (prototype !== Object.prototype && prototype !== null) return null;
-  const parsed = MercariaRefSchema.safeParse(value);
-  return parsed.success ? parsed.data : null;
+  return parsePortableMercariaRef(value);
 }
 
 /** Whether `value` is a well-formed ref, by exactly the rules of {@link parseMercariaRef}. */
@@ -99,6 +94,7 @@ const REF_STRING_SCHEME = 'mercaria';
  * - `mercaria:store:<id>`
  * - `mercaria:collection:<id>`
  * - `mercaria:location:<id>`
+ * - `mercaria:catalog_product:<id>`
  *
  * Each id is percent-encoded with `encodeURIComponent` (which encodes `:`), so
  * the form is unambiguous for any id and every ref has exactly ONE string —
@@ -145,7 +141,13 @@ export function parseMercariaRefString(value: unknown): MercariaRef | null {
       ? null
       : parseMercariaRef({ kind: 'variant', productId, variantId });
   }
-  if (kind === 'product' || kind === 'store' || kind === 'collection' || kind === 'location') {
+  if (
+    kind === 'product' ||
+    kind === 'store' ||
+    kind === 'collection' ||
+    kind === 'location' ||
+    kind === 'catalog_product'
+  ) {
     if (parts.length !== 3) return null;
     const id = decodeCanonical(parts[2] ?? '');
     return id === null ? null : parseMercariaRef({ kind, id });

@@ -310,6 +310,26 @@ export async function releaseSourceRun(
   return rows.length === 1;
 }
 
+/**
+ * Hand a healthy run back to the queue, due NOW — the end of a tick's budget.
+ *
+ * Unlike {@link releaseSourceRun} nothing went wrong: no error is written and
+ * the run is due immediately. Without it the run would stay leased until its
+ * lease expired, and a multi-page pass would advance one burst per lease
+ * (about a page every two minutes before this existed).
+ */
+export async function yieldSourceRun(
+  db: DatabaseOrTransaction,
+  input: { id: string; leaseOwner: string; now: Date },
+): Promise<boolean> {
+  const rows = await db
+    .update(catalogSourceRuns)
+    .set({ status: 'pending', availableAt: input.now, leaseOwner: null, leaseUntil: null })
+    .where(ownedLease(input.id, input.leaseOwner, input.now))
+    .returning({ id: catalogSourceRuns.id });
+  return rows.length === 1;
+}
+
 export async function findSourceRun(
   db: DatabaseOrTransaction,
   id: string,

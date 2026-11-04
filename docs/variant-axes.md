@@ -342,8 +342,8 @@ detector is asserted to fire.
   still `native_listing_links`, and nothing here writes one.
 - **An operator surface** is deliberately absent. Settling a claim is a
   `settleVariantAttributeClaim` call and the queue is `countQueuedClaims`; when a
-  route arrives it belongs on the existing `CATALOG_OPERATOR_OXY_USER_IDS`
-  allow-list, not a seventh.
+  route arrives it belongs on the existing `catalog.operate`
+  key, not a seventh.
 
 ## What this issue adds no flag for
 

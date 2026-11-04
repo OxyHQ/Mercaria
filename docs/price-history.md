@@ -341,8 +341,9 @@ no "correct this price" and no delete** — every one of those would be a way to
 make a price history say something nobody observed, which is the single property
 that makes it worth keeping.
 
-All three are behind the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list
-#54/#56/#57/#58/#60/#62/#68 use.
+All three are behind the SAME `catalog.operate` key
+#54/#56/#57/#58/#60/#62/#68 use, and the router is always mounted: the evidence
+has to be readable during the incident that turned the loop off.
 
 ### Shard and archival strategy — recorded, not adopted
 
@@ -439,8 +440,7 @@ Each is a NAMED contract, never a stub that lies.
 
 ## Production-readiness checklist
 
-1. `CATALOG_OPERATOR_OXY_USER_IDS` populated, or the operator surface is not
-   mounted and nobody can read the metrics or trace an offer.
+1. `catalog.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`), or nobody can read the metrics or trace an offer.
 2. Decide `PRICE_HISTORY_SERIES_CURRENCIES`. Empty is a working configuration
    and means no chart is ever built; every code listed multiplies the series
    count by one.

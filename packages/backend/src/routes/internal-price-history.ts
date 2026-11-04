@@ -2,11 +2,12 @@
  * `/internal/price-history/*` — the price-history operator surface (#78
  * §"Operations").
  *
- * On the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54/#56/#57/#58/#60/
- * #62/#68 use, and deliberately not a seventh list: who may decide what a
+ * On the SAME `catalog.operate` key #54/#56/#57/#58/#60/
+ * #62/#68 use, and deliberately not a new key: who may decide what a
  * source is permitted to publish and who may read what it published are the
- * same power over the same graph. Empty list = the router is not mounted at all
- * (404, never a 401 that would advertise the surface).
+ * same power over the same graph. Anyone without the key is answered 404
+ * (never a 401 that would advertise the surface), and it is always mounted:
+ * the evidence has to be readable during the incident that turned the loop off.
  *
  * ## Two reads and ONE write, and the omissions are the design
  *
@@ -22,7 +23,7 @@
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireCatalogOperator } from '../middleware/catalog-operator-authz.js';
+import { requireCatalogOperator } from '../middleware/operator-authz.js';
 import { validateBody, validateQuery } from '../middleware/validate.js';
 import {
   priceHistoryMetricsQuerySchema,
@@ -36,9 +37,8 @@ import {
 
 const router = Router();
 
-// Authentication FIRST, then the allow-list — the gate reads the verified
-// caller, and an allow-list consulted before authentication would compare
-// against whatever a client claimed.
+// Authentication FIRST, then the operator gate — it asks Oxy about the verified
+// caller's own session, which only `authenticateToken` establishes.
 router.use(authenticateToken);
 router.use(requireCatalogOperator);
 

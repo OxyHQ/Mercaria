@@ -1,10 +1,13 @@
+import { requireHeaderTransport } from '../middleware/commerce-transport.js';
 /**
  * The guest order portal's public surface (#108).
  *
  * Seven routes and no eighth. Each is one of the four things a person with a
  * placed guest order can legitimately do — get a link, use a link, look at
  * their orders, or cut off everyone else's access — plus the confirmation the
- * paying device pulls and the sign-out that closes its own session.
+ * paying device pulls and the sign-out that closes its own session. Since the
+ * M8 review there is a fifth thing (M8-01): erase the purchase's contact,
+ * behind the same fresh inbox proof "secure my access" needs.
  *
  * ## Mounted UNCONDITIONALLY, and that is acceptance 10
  *
@@ -32,8 +35,6 @@ import { log } from '../lib/logger.js';
 import { respondWithError } from '../lib/errors/error-codes.js';
 import {
   clearPortalCredential,
-  declaredPortalTransport,
-  passesPortalCookieCsrf,
   requirePortalSession,
   resolvePortalSession,
   setPortalCredential,
@@ -58,6 +59,7 @@ import {
   requestStepUpLink,
 } from '../services/guest-portal/recovery.service.js';
 import { grantHasScope } from '../services/guest-portal/scopes.js';
+import { requestGuestData } from '../services/guest-governance/data-request.service.js';
 import { getCollectionHandler } from '../controllers/collection-code.controller.js';
 import {
   claimGuestCheckoutGroup,
@@ -117,6 +119,19 @@ const confirmationSchema = z
   .strict();
 
 /**
+ * An erasure request's body: WHICH erasure, and nothing that could say whose.
+ *
+ * `export` is deliberately not accepted — its receipt is not yet honest (see
+ * `composeExportDispositions`). The group comes from the credential, never
+ * from the body.
+ */
+const dataRequestSchema = z
+  .object({
+    kind: z.enum(['deletion', 'minimization']),
+  })
+  .strict();
+
+/**
  * `POST /guest/orders/recover` — ask for an access link.
  *
  * ALWAYS 202 with the same body. The work runs after the response is written,
@@ -160,9 +175,8 @@ function requestRecovery(req: Request, res: Response): void {
  * `POST /guest/orders/exchange` — trade a magic-link token for a portal session.
  *
  * The token arrives in the BODY because the client read it from the fragment,
- * which never leaves the browser. The credential leaves in a `Set-Cookie` or
- * the `X-Mercaria-Portal-Token` header and NEVER in the body, on either
- * transport.
+ * which never leaves the browser. The credential leaves only in the
+ * `X-Mercaria-Portal-Token` header, with expiry and generation metadata.
  *
  * A rotation is possible here: if the caller already held a portal session and
  * the link was a step-up, the old credential is revoked inside the exchange
@@ -177,10 +191,9 @@ async function exchangeToken(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const transport = declaredPortalTransport(req);
-  // The exchange SETS a cookie, so it is as CSRF-relevant as a write
-  // authenticated by one (ADR 0003 D10).
-  if (transport === 'cookie' && !passesPortalCookieCsrf(req, res)) return;
+  if (!requireHeaderTransport(req, res, 'portal')) return;
+  // Negotiate before consuming the one-time link: old bundles cannot retain
+  // a response credential they do not understand (ADR 0003 D10).
 
   const now = new Date();
   const credential = await exchangeMagicLinkToken({
@@ -203,7 +216,7 @@ async function exchangeToken(req: Request, res: Response): Promise<void> {
     now,
   });
 
-  setPortalCredential(res, credential.token, transport);
+  setPortalCredential(res, credential.token, credential.grant);
   // The GRANT's row id, never the token: an id authorizes nothing and cannot be
   // presented anywhere, which is why the analytics vocabulary has a column it
   // may sit in and no column a credential could.
@@ -244,8 +257,7 @@ async function mintConfirmation(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const transport = declaredPortalTransport(req);
-  if (transport === 'cookie' && !passesPortalCookieCsrf(req, res)) return;
+  if (!requireHeaderTransport(req, res, 'portal')) return;
 
   const result = await mintPostCheckoutGrant({
     checkoutGroupId: parsed.data.checkoutGroupId,
@@ -266,7 +278,7 @@ async function mintConfirmation(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  setPortalCredential(res, result.credential.token, transport);
+  setPortalCredential(res, result.credential.token, result.credential.grant);
   sendSuccess(res, result.credential.state, 201);
 }
 
@@ -382,6 +394,58 @@ async function secureGroup(req: Request, res: Response): Promise<void> {
 }
 
 /**
+ * `POST /guest/orders/:groupId/data-requests` — erase this purchase's contact
+ * (ADR 0003 D15, #111 "Guest data export and deletion", M8-01).
+ *
+ * The data subject's own path, and the only one: an operator cannot erase on a
+ * buyer's behalf (`docs/guest-governance.md`). It requires a FRESH inbox proof,
+ * exactly as "secure my access" does — D15 names the magic link as the proof,
+ * and an erasure is the one action here that cannot be undone, so a stolen
+ * credential that is not fresh must not be able to perform it.
+ *
+ * The answer is the per-class RECEIPT, never a sentence claiming everything is
+ * gone. A success clears the portal credential because the erasure revoked it,
+ * along with every other credential for the group.
+ */
+async function fileDataRequest(req: Request, res: Response): Promise<void> {
+  const grant = req.portalGrant;
+  if (grant === undefined || req.params.groupId !== grant.checkoutGroupId) {
+    sendError(res, ErrorCodes.NOT_FOUND, 'Order not found', 404);
+    return;
+  }
+  const parsed = dataRequestSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    sendError(res, ErrorCodes.VALIDATION_ERROR, 'kind must be deletion or minimization', 400);
+    return;
+  }
+  const now = new Date();
+  if (!stepUpSatisfied(grant, now)) {
+    sendError(
+      res,
+      ErrorCodes.FORBIDDEN,
+      'Confirm your email address again before erasing your details',
+      403,
+    );
+    return;
+  }
+  const outcome = await requestGuestData({
+    subject: {
+      proof: 'verified_portal_grant',
+      grantId: grant.id,
+      checkoutGroupId: grant.checkoutGroupId,
+    },
+    kind: parsed.data.kind,
+    now,
+  });
+  if (outcome.outcome === 'refused') {
+    sendError(res, ErrorCodes.NOT_FOUND, 'Order not found', 404);
+    return;
+  }
+  clearPortalCredential(res);
+  sendSuccess(res, outcome.receipt, 201);
+}
+
+/**
  * `GET /guest/orders/:groupId/claim` — the claim REVIEW screen's read (#109).
  *
  * Requires BOTH proofs, exactly as the POST does, and changes nothing. It is a
@@ -427,8 +491,7 @@ async function readClaimPreview(req: Request, res: Response): Promise<void> {
  * parameter for any of them either.
  *
  * A success clears the portal credential, because the claim revoked it: leaving
- * a dead cookie in the jar would make the next portal read a confusing 401
- * rather than an obvious "you are signed in now".
+ * a revoked local grant would otherwise keep failing subsequent portal reads.
  */
 async function performClaim(req: Request, res: Response): Promise<void> {
   const grant = req.portalGrant;
@@ -467,7 +530,7 @@ async function performClaim(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  clearPortalCredential(res, req.portalTransport ?? 'cookie');
+  clearPortalCredential(res);
   emitAnalyticsEvent(req, {
     eventType: 'guest_claim_completed',
     buyerOrigin: 'guest',
@@ -539,15 +602,15 @@ function refuseClaim(
  * `DELETE /guest/orders/session` — sign this credential out.
  *
  * Always 204: revocation is idempotent, and answering differently for a live,
- * expired or absent credential would make this a validity oracle. The cookie is
- * cleared unconditionally, which is a no-op when none was set.
+ * expired or absent credential would make this a validity oracle. The clear
+ * header is unconditional and clients apply it to the request credential only.
  */
 async function signOut(req: Request, res: Response): Promise<void> {
   const grant = req.portalGrant;
   if (grant !== undefined) {
     await revokePortalGrant(grant.id, new Date());
   }
-  clearPortalCredential(res, req.portalTransport ?? 'cookie');
+  clearPortalCredential(res);
   res.status(204).end();
 }
 
@@ -616,6 +679,12 @@ router.post(
   makeRateLimiter('guest-portal'),
   requirePortalSession,
   handle(secureGroup, 'Failed to secure access'),
+);
+router.post(
+  '/:groupId/data-requests',
+  makeRateLimiter('guest-portal'),
+  requirePortalSession,
+  handle(fileDataRequest, 'Failed to erase these details'),
 );
 
 /**

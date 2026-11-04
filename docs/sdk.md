@@ -48,7 +48,7 @@ is the SDK's one `dependency`. Consumers import only `@mercaria.co/sdk`.
 | A location carries no place fact; `goWayPlaceId` is how a consumer reads them | the place is GoWay's (ADR 0013); a copy here would be a second answer to "when does this shop open" | the contract's `locations.ts` |
 | `service_unavailable` on a location read is `MercariaUnavailableError`, never gone | Mercaria could not ask GoWay; a consumer must not drop a good ref for an outage | `src/transport.ts` |
 | Token getter called per request, never cached | Oxy owns the session and its refresh | `src/transport.ts` |
-| No service-to-service auth option | none exists yet; the SDK must not fake one | README |
+| Own public catalogue reads use `mercariaForOxyService` | shared workload identity, canonical audience, no fabricated user or private materials authority | SDK `src/server.ts` |
 | Locale is the only context dimension | public reads serve native currency and convert nothing | README |
 | No retries | retryability is exposed; policy belongs to the caller | `src/errors.ts` |
 | `instanceof` answers from a `Symbol.for` brand | the ESM and CJS builds are two class identities in one process | `src/errors.ts` |
@@ -101,36 +101,33 @@ is where it must be caught.
    (`test/parse.test.ts`).
 4. **`packages/sdk/CHANGELOG.md`** — an entry under the new version.
 5. **Version bump** in `packages/sdk/package.json` per the rules above.
-6. **Merge to `main`**, then publish it by hand (next section).
+6. **Merge to `main`**, then release it (next section).
 
 Steps 1–5 land in ONE pull request, so a published SDK never describes a
 contract the backend at that commit does not serve.
 
 ## How it is published
 
-Releases are published by hand from the maintainer's machine, never from
-GitHub Actions — the same way every Oxy SDK is released. There is no publish
-workflow and no `NPM_TOKEN` secret.
+By GitHub Actions only — Actions → **Release packages** (`release-packages.yml`, which calls
+Oxy's shared `npm-release.yml`), never from a laptop and with no `NPM_TOKEN`: npm trusted
+publishing (OIDC) with provenance. `~/Oxy/docs/npm-releases.md` has the steps.
 
-1. Wait for `ci.yml` to pass on the merged commit. Its `Lint & Test` job lints,
-   typechecks, tests, builds and smoke-tests the SDK.
-2. From a clean checkout of that commit: `bun install`, then
-   `bun run smoke:sdk -- --out <dir>` (it builds first). `smoke.mjs --out` packs the
-   tarball from a staging directory (a manifest whose only dependency is `zod`,
-   no scripts and no `workspace:`), tests the installed tarball from Node ESM
-   and CJS, Bun, a browser bundle, a React Native bundle and a `nodenext`
-   type-check as a Node and as a browser consumer, fails if any shipped file
-   names `@mercaria/`, and keeps that exact tarball.
-3. `npm view @mercaria.co/sdk@<version> version` — a version already on the
-   registry is never republished.
-4. `npm publish ./<dir>/<tarball> --access public`. The `./` is load-bearing:
-   npm reads a bare `dir/x.tgz` as the GitHub shorthand `owner/repo` (#1021).
-5. Tag the commit `sdk-v<version>` and push the tag.
-
-`npm publish <tarball>` runs no lifecycle scripts, which is why the tarball
-published is the one `smoke.mjs` tested, never a re-pack. `prepublishOnly`
-(typecheck, test, build, smoke) only guards an `npm publish` run from
-`packages/sdk`, and that path publishes the unstaged manifest — don't use it.
+1. Merge the version bump to `main`. Each push queues an automatic release;
+   the shared workflow waits for CI on that exact commit and plans public
+   package versions missing from npm. An inputless manual dispatch retries
+   the current `main` head when needed; it does not select a package or commit.
+2. The build job runs `prepublishOnly` (typecheck, test, build), then `release:pack`:
+   `smoke.mjs --out` packs the tarball from a staging directory (a manifest whose only
+   dependency is `zod`, no scripts and no `workspace:`), tests the installed tarball from
+   Node ESM and CJS, Bun, a browser bundle, a React Native bundle and a `nodenext`
+   type-check as a Node and as a browser consumer, fails if any shipped file names
+   `@mercaria/`, and keeps that exact tarball. Versions already on the registry
+   are omitted from the release plan.
+3. The publish job rebuilds and repacks the same way from a fresh checkout, the bytes must
+   match, and only then `npm publish <tarball>` — the tarball `smoke.mjs` tested, never a
+   re-pack of the package directory.
+4. The shared workflow records the package release tag (`@mercaria.co/sdk@<version>`)
+   at the released commit. Do not publish or create a separate release tag locally.
 
 ## The contract test against the real backend
 
@@ -190,3 +187,35 @@ bun run --cwd packages/backend test -- src/routes/__tests__/public-api-sdk-contr
   (phase 3) — each needs an explicit contract and permission review first.
 - **Service-to-service authority** — waits on an Oxy service-auth contract for
   the public routes.
+
+## Donated materials
+
+The `materials` namespace supports free offers, account-authorized requests,
+atomic reservations, cancellation and recipient-confirmed receipt. All writes
+use the caller's live Oxy bearer and explicit idempotency keys. Iterate accepted
+reservations with `materials.iterateReservations({ accountId, status: 'accepted' })`
+to discover pending pickups. Store only their opaque IDs in another product.
+See [materials.md](materials.md) for contracts, roles, privacy and retry semantics.
+
+
+### Seller-selected storefront shelves (SDK 0.8.0)
+
+`client.stores.featuredCollections(storeRef, { cursor, limit })` returns the
+canonical collection page, in the store's explicitly saved order. A store may
+select up to six of its published manual collections. Empty means the seller
+has made no current selection; consumers must not substitute an algorithmic list
+and label it featured. Unpublished, deleted or no-longer-manual selections are
+omitted; suspended/closed stores retain the normal typed availability errors.
+
+Render each collection as its own shelf, loading its products through
+`client.collections.products(ref, { cursor, limit })`. This preserves the
+collection's existing ordering and live product visibility. Do not flatten all
+collections or load every product eagerly. This merchandising selection has no
+paid placement, marketplace search or social ranking effect.
+
+The existing seller dashboard collection editor owns product membership. Its
+store selection uses `GET/PUT /admin/stores/:storeId/collections/featured`, with
+`{ collectionIds: string[] }`, current `collections:write` permission for writes,
+and atomic replacement. The SQL relation enforces same-store collection ownership,
+unique positions and the six-shelf limit. A store ownership change between
+authorization and replacement is refused, rather than transferring old authority.

@@ -2,15 +2,15 @@
  * `/internal/taxonomy/*` — the taxonomy domain's operator surface for
  * CLASSIFICATION (#367 Workstream 1).
  *
- * On the SAME allow-list (`CATALOG_OPERATOR_OXY_USER_IDS`) that #54, #55, #56,
- * #57, #58, #60, #62, #68, #70, #78, #83, #90 and #94 use. Not a seventh list:
+ * On the SAME key (`catalog.operate`) that #54, #55, #56,
+ * #57, #58, #60, #62, #68, #70, #78, #83, #90 and #94 use. Not a new key:
  * deciding that a product is ALSO a regulated battery is the same power over
  * the same graph as deciding what a category means, and an operator who may
  * deprecate a category at `/internal/catalog-governance` but not see what is
  * filed under it would be holding half a decision.
  *
- * Mount gated on the allow-list being non-empty, so a deployment with no
- * operators 404s rather than 401s — a 401 advertises the surface.
+ * Mounted on every deployment; anyone without the key 404s rather than 401s — a
+ * 401 advertises the surface.
  *
  * ## Why this is operator-gated and not seller-facing
  *
@@ -37,7 +37,7 @@
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireCatalogOperator } from '../middleware/catalog-operator-authz.js';
+import { requireCatalogOperator } from '../middleware/operator-authz.js';
 import { validateBody } from '../middleware/validate.js';
 import { secondaryClassificationSchema } from '../middleware/taxonomy-classification-schemas.js';
 import {
@@ -49,9 +49,8 @@ import {
 
 const router = Router();
 
-// Authentication FIRST, then the allow-list: the gate reads the VERIFIED
-// caller, and an allow-list consulted before authentication would compare
-// against whatever a client claimed.
+// Authentication FIRST, then the operator gate — it asks Oxy about the verified
+// caller's own session, which only `authenticateToken` establishes.
 router.use(authenticateToken);
 router.use(requireCatalogOperator);
 

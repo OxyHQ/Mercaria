@@ -264,7 +264,7 @@ Two cautions specific to F, both from
 ## 6. If you need a number
 
 Everything here is on `GET /internal/catalog-metrics`
-(`CATALOG_OPERATOR_OXY_USER_IDS`, empty ⇒ 404):
+(`catalog.operate`; anyone without it gets 404):
 `backfill_progress`, `backfill_failed_run_count`, `backfill_retry_count`,
 `reindex_pending_count`, and `backfill_dead_letter_count`, which is **measured**
 and counts runs that EXHAUSTED the bounded retry.

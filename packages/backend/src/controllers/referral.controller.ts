@@ -6,7 +6,7 @@
  * a second answer to any of them and no response shape here can widen what a
  * projection emits.
  *
- * The one thing these DO own is carriage — cookie versus header, and the cache
+ * These own fragment/header carriage and the cache
  * and referrer headers on the redirect — because that is an HTTP fact rather
  * than a domain one.
  */
@@ -31,12 +31,8 @@ import {
 import { resolveReferralRedirect } from '../services/referrals/redirect.service.js';
 import {
   clearReferralState,
-  readReferralStateCookie,
-  referralStateCookieProfile,
-  setReferralState,
   verifyReferralState,
   REFERRAL_STATE_REQUEST_HEADER,
-  type ReferralStateTransport,
 } from '../services/referrals/referral-state.js';
 import { classifyReferralTraffic, INTERNAL_TRAFFIC_HEADER } from '../services/referrals/traffic.js';
 
@@ -82,25 +78,9 @@ function classify(req: Request): ReturnType<typeof classifyReferralTraffic> {
   );
 }
 
-/**
- * How the carrier reaches this client.
- *
- * Header when the client PRESENTED one that way, cookie otherwise — the #103
- * rule that a credential is answered in the kind it arrived in, so a native
- * client that stores tokens itself never has a cookie jar it cannot read and a
- * browser never gets a header it will not persist.
- */
-function stateTransport(req: Request): ReferralStateTransport {
-  return headerValue(req, REFERRAL_STATE_REQUEST_HEADER) !== undefined ? 'header' : 'cookie';
-}
-
-/** The presented carrier, header first, then cookie. */
+/** Attribution is explicit domain state, never ambient browser authority. */
 function presentedState(req: Request): string | undefined {
-  const fromHeader = headerValue(req, REFERRAL_STATE_REQUEST_HEADER);
-  if (fromHeader !== undefined) return fromHeader;
-  // `maxAge` is irrelevant to a READ; the profile is consulted for its NAME.
-  const profile = referralStateCookieProfile(0);
-  return readReferralStateCookie(req.headers.cookie, profile.name);
+  return headerValue(req, REFERRAL_STATE_REQUEST_HEADER);
 }
 
 /** The bind context every referral write runs under. */
@@ -127,7 +107,7 @@ function bindContext(
  *    browser that stopped asking would keep following a revoked link, stop
  *    spending the click ceiling, and make the operator lever inert.
  *  - `Cache-Control: no-store` plus `Pragma: no-cache`, so no intermediary
- *    holds the `Set-Cookie` this response may carry, and every click reaches
+ *    stores the signed destination fragment, and every click reaches
  *    the row that decides.
  *  - `Referrer-Policy: no-referrer`, so the destination page never learns the
  *    token from a `Referer` header — the token is the credential-shaped part of
@@ -165,9 +145,6 @@ export async function referralRedirectHandler(req: Request, res: Response): Prom
       return;
     }
 
-    if (outcome.state !== undefined) {
-      setReferralState(res, outcome.state.token, stateTransport(req), outcome.state.maxAgeMs);
-    }
     res.redirect(302, outcome.location);
   } catch {
     // A malformed token, a link this deployment does not serve and an expired
@@ -190,17 +167,16 @@ export async function referralBindHandler(req: Request, res: Response): Promise<
   try {
     const body = req.body as { surface?: ReferralClientSurface } | undefined;
     const context = bindContext(req, body?.surface);
-    const transport = stateTransport(req);
 
     if (context.consentMode === 'denied') {
       // The declaration's one effect: nothing is written and the carrier goes.
-      clearReferralState(res, transport);
+      clearReferralState(res);
       sendSuccess(res, { state: 'none', reason: 'state_unusable', disclosureRequired: false });
       return;
     }
 
     const result = await bindCarriedReferral({ stateToken: presentedState(req), context });
-    if (result.redeemed) clearReferralState(res, transport);
+    if (result.redeemed) clearReferralState(res);
     const { redeemed: _redeemed, ...view } = result;
     sendSuccess(res, view);
   } catch (error: unknown) {

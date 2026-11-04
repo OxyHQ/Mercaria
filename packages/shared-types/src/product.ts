@@ -14,8 +14,18 @@ import type { StoreRatingSource } from './review';
 
 /** A product as summarized for browse/feed cards. */
 export interface ProductSummary {
-  /** Stable product id. */
+  /**
+   * Stable product id: a LISTING's id, or — when {@link catalogSlug} is
+   * present — a canonical CATALOG product's id.
+   */
   id: string;
+  /**
+   * Present when the card is a canonical catalogue product (one a shelf filled
+   * from the catalogue after a Mercaria store's listings): its page is
+   * `/p/<catalogSlug>`, its price is the lowest CURRENT offer, and saving it
+   * saves the product, not a listing. Absent on a listing's card.
+   */
+  catalogSlug?: string;
   /** Short product title. */
   title: string;
   /** Brand / seller short name shown above the title. */

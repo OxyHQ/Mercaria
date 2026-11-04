@@ -1,70 +1,102 @@
-import { Readable } from 'node:stream';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { safeFetch, findStoreById, oxyServiceClient, serviceToken, upload } = vi.hoisted(() => ({
-  safeFetch: vi.fn(),
+const { findStoreById, importUserMedia, importAppFile, importAppFiles } = vi.hoisted(() => ({
   findStoreById: vi.fn(),
-  oxyServiceClient: vi.fn(),
-  serviceToken: vi.fn(),
-  upload: vi.fn(),
+  importUserMedia: vi.fn(),
+  importAppFile: vi.fn(),
+  importAppFiles: vi.fn(),
 }));
-vi.mock('@oxy.so/core/server', () => ({ safeFetch }));
 vi.mock('../../db/stores/storeRepository.js', () => ({ findStoreById }));
-vi.mock('../../capabilities/oxy-service-client.js', () => ({ oxyServiceClient }));
-import { synchronizeAccountImages, synchronizeStoreImages } from '../catalog-media/sync.js';
+vi.mock('../../middleware/auth.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../middleware/auth.js')>()),
+  oxyClient: {
+    assets: {
+      importUserMedia: (...args: unknown[]) => importUserMedia(...args),
+      importAppFile: (...args: unknown[]) => importAppFile(...args),
+      importAppFiles: (...args: unknown[]) => importAppFiles(...args),
+    },
+  },
+}));
+import {
+  synchronizeAccountImages,
+  synchronizeApplicationImages,
+  synchronizeStoreImages,
+} from '../catalog-media/sync.js';
 
-function download(
-  chunks: Buffer[] = [Buffer.from('image bytes')],
-  headers = { 'content-type': 'image/png' },
-  status = 200,
-) {
-  return { status, headers, response: Readable.from(chunks) };
+/** What Oxy answers for an import by URL (ADR 0043 D7). */
+function imported(id = 'oxy-file-1', overrides: Record<string, unknown> = {}) {
+  return {
+    file: { id, mime: 'image/png', size: 10, visibility: 'public', status: 'active', ...overrides },
+    outcome: 'downloaded',
+    deduplicated: false,
+  };
 }
-function uploaded(id = 'oxy-file-1', visibility = 'public') {
-  return Response.json({ data: { file: { id, visibility } } });
+function refused(status: number, message = `HTTP ${status}`) {
+  return Object.assign(new Error(message), { status });
 }
+
 beforeEach(() => {
   vi.resetAllMocks();
   findStoreById.mockResolvedValue({ oxyAccountId: 'persisted-owner' });
-  serviceToken.mockResolvedValue('internal-service-token');
-  oxyServiceClient.mockReturnValue({ baseURL: 'https://api.oxy.so/', serviceToken });
-  safeFetch.mockImplementation(async () => download());
-  upload.mockImplementation(async () => uploaded());
-  vi.stubGlobal('fetch', upload);
+  importUserMedia.mockImplementation(async () => imported());
+  importAppFile.mockImplementation(async () => imported('oxy-app-file'));
+  importAppFiles.mockImplementation(async (items: unknown[]) =>
+    items.map((_, index) => ({ index, ok: true, ...imported(`oxy-app-file-${index}`) })),
+  );
 });
-afterEach(() => vi.unstubAllGlobals());
 
 describe('catalog image synchronization', () => {
-  it('imports canonical media under the authenticated account without inventing a store owner', async () => {
+  it('imports under the authenticated account without inventing a store owner', async () => {
     expect(
-      await synchronizeAccountImages('authenticated-operator', [
+      await synchronizeAccountImages('authenticated-seller', [
         'https://supplier.example/photo.png',
       ]),
     ).toEqual(['oxy-file-1']);
     expect(findStoreById).not.toHaveBeenCalled();
-    expect(upload.mock.calls[0][1].headers['x-owner-user-id']).toBe('authenticated-operator');
+    expect(importUserMedia).toHaveBeenCalledExactlyOnceWith(
+      'authenticated-seller',
+      'https://supplier.example/photo.png',
+      { visibility: 'public' },
+    );
+    expect(importAppFile).not.toHaveBeenCalled();
   });
 
-  it('requires an authenticated account before downloading canonical media', async () => {
+  it('imports content no account owns as the Mercaria application, never an operator', async () => {
+    expect(
+      await synchronizeApplicationImages([
+        'https://supplier.example/photo.png',
+        'https://supplier.example/back.png',
+        'https://supplier.example/photo.png',
+      ]),
+    ).toEqual(['oxy-app-file-0', 'oxy-app-file-1', 'oxy-app-file-0']);
+    // The whole gallery in ONE batch request — one unit of Oxy's budget.
+    expect(importAppFiles).toHaveBeenCalledExactlyOnceWith([
+      { sourceUrl: 'https://supplier.example/photo.png', visibility: 'public' },
+      { sourceUrl: 'https://supplier.example/back.png', visibility: 'public' },
+    ]);
+    expect(importAppFile).not.toHaveBeenCalled();
+    expect(importUserMedia).not.toHaveBeenCalled();
+  });
+
+  it('requires an authenticated account before importing account media', async () => {
     await expect(
       synchronizeAccountImages(undefined, ['https://supplier.example/photo.png']),
     ).rejects.toThrow(/authenticated owner/);
-    expect(safeFetch).not.toHaveBeenCalled();
-    expect(upload).not.toHaveBeenCalled();
+    expect(importUserMedia).not.toHaveBeenCalled();
   });
 
-  it('passes internal IDs without requesting credentials or touching a network', async () => {
+  it('passes internal IDs without touching a network', async () => {
     expect(await synchronizeStoreImages('store', ['file-1', 'file_2'])).toEqual([
       'file-1',
       'file_2',
     ]);
     expect(findStoreById).not.toHaveBeenCalled();
-    expect(oxyServiceClient).not.toHaveBeenCalled();
-    expect(safeFetch).not.toHaveBeenCalled();
-    expect(upload).not.toHaveBeenCalled();
+    expect(importUserMedia).not.toHaveBeenCalled();
+    expect(importAppFile).not.toHaveBeenCalled();
+    expect(importAppFiles).not.toHaveBeenCalled();
   });
 
-  it('stores downloaded bytes under the persisted owner, preserves gallery order and deduplicates sources', async () => {
+  it('imports under the persisted store owner, preserves gallery order and asks once per source', async () => {
     const source = 'https://supplier.example/photo.png?signature=private';
     expect(await synchronizeStoreImages('store', [source, 'file-existing', source])).toEqual([
       'oxy-file-1',
@@ -72,18 +104,9 @@ describe('catalog image synchronization', () => {
       'oxy-file-1',
     ]);
     expect(findStoreById).toHaveBeenCalledWith('store');
-    expect(safeFetch).toHaveBeenCalledTimes(1);
-    expect(safeFetch.mock.calls[0][1]).not.toHaveProperty('headers');
-    expect(upload).toHaveBeenCalledTimes(1);
-    const [url, request] = upload.mock.calls[0];
-    expect(url).toBe('https://api.oxy.so/assets/service/user-media');
-    expect(request.headers).toMatchObject({
-      'x-owner-user-id': 'persisted-owner',
-      Authorization: 'Bearer internal-service-token',
-      'Content-Type': 'image/png',
+    expect(importUserMedia).toHaveBeenCalledExactlyOnceWith('persisted-owner', source, {
+      visibility: 'public',
     });
-    expect(Buffer.from(request.body).toString()).toBe('image bytes');
-    expect(request.redirect).toBe('error');
   });
 
   it.each([
@@ -96,22 +119,13 @@ describe('catalog image synchronization', () => {
     await expect(
       synchronizeStoreImages('store', ['https://supplier.example/ok.png', bad]),
     ).rejects.toThrow(/HTTPS|file ID/);
-    expect(safeFetch).not.toHaveBeenCalled();
-    expect(upload).not.toHaveBeenCalled();
-  });
-
-  it('fails closed without a configured Oxy application', async () => {
-    oxyServiceClient.mockReturnValue(null);
-    await expect(
-      synchronizeStoreImages('store', ['https://supplier.example/a.png']),
-    ).rejects.toThrow(/credentials/);
-    expect(safeFetch).not.toHaveBeenCalled();
+    expect(importUserMedia).not.toHaveBeenCalled();
   });
 
   it.each([401, 403, 500])(
-    'never falls back to the source when Oxy refuses the upload (%s)',
+    'never falls back to the source when Oxy refuses (%s)',
     async (status) => {
-      upload.mockResolvedValue(new Response('failure', { status }));
+      importUserMedia.mockRejectedValue(refused(status));
       await expect(
         synchronizeStoreImages('store', ['https://supplier.example/a.png']),
       ).rejects.toThrow(/Oxy/);
@@ -119,41 +133,27 @@ describe('catalog image synchronization', () => {
   );
 
   it.each([
-    ['https://supplier.example/not-an-id', 'public'],
-    ['oxy-file-1', 'private'],
-  ])('refuses an invalid or nonpublic Oxy result', async (id, visibility) => {
-    upload.mockResolvedValue(uploaded(id, visibility));
+    ['https://supplier.example/not-an-id', {}],
+    ['oxy-file-1', { visibility: 'private' }],
+    ['oxy-file-1', { mime: 'video/mp4' }],
+    ['oxy-file-1', { mime: 'text/html' }],
+    ['oxy-file-1', { size: 0 }],
+  ])('refuses an invalid, nonpublic or wrong-kind Oxy result (%s %j)', async (id, overrides) => {
+    importUserMedia.mockResolvedValue(imported(id, overrides));
     await expect(
       synchronizeStoreImages('store', ['https://supplier.example/a.png']),
-    ).rejects.toThrow(/public.*file ID/);
+    ).rejects.toThrow(/Oxy|image/);
   });
 
-  it('does not expose a signed source URL from network errors', async () => {
-    safeFetch.mockRejectedValue(new Error('failed https://supplier.example/a.png?secret=token'));
-    await expect(
-      synchronizeStoreImages('store', ['https://supplier.example/a.png?secret=token']),
-    ).rejects.toThrow(/^Catalog image synchronization failed\.$/);
-    expect(upload).not.toHaveBeenCalled();
+  it('does not expose a signed source URL from an Oxy error', async () => {
+    importUserMedia.mockRejectedValue(
+      refused(502, 'failed https://supplier.example/a.png?secret=token'),
+    );
+    const failure = await synchronizeStoreImages('store', [
+      'https://supplier.example/a.png?secret=token',
+    ]).catch((error: Error) => error);
+    expect(failure).toBeInstanceOf(Error);
+    expect((failure as Error).message).toBe('Oxy could not import the media source (HTTP 502).');
+    expect((failure as Error).message).not.toMatch(/supplier|secret/);
   });
-
-  it.each(['status', 'mime', 'empty', 'declared-size', 'streamed-size'])(
-    'refuses %s failures and closes the download',
-    async (failure) => {
-      const response = download(
-        failure === 'empty'
-          ? []
-          : [Buffer.alloc(failure === 'streamed-size' ? 20 * 1024 * 1024 + 1 : 8)],
-        failure === 'mime' ? { 'content-type': 'text/html' } : { 'content-type': 'image/png' },
-        failure === 'status' ? 404 : 200,
-      );
-      if (failure === 'declared-size')
-        Object.assign(response.headers, { 'content-length': String(20 * 1024 * 1024 + 1) });
-      safeFetch.mockResolvedValue(response);
-      await expect(
-        synchronizeStoreImages('store', ['https://supplier.example/a.png']),
-      ).rejects.toThrow();
-      expect(upload).not.toHaveBeenCalled();
-      expect(response.response.destroyed).toBe(true);
-    },
-  );
 });

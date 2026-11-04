@@ -942,6 +942,10 @@ export const shoppingAgentNotifications = pgTable(
       .where(sql`${t.state} = 'delivering'`),
     index('shopping_agent_notifications_finding_idx').on(t.findingId),
     index('shopping_agent_notifications_agent_idx').on(t.agentId, t.createdAt.desc()),
+    // `notifications` is swept (`db/expiryTargets.ts`); each deleted row checks this foreign key.
+    index('shopping_agent_notifications_notification_id_idx')
+      .on(t.notificationId)
+      .where(sql`${t.notificationId} is not null`),
   ],
 );
 

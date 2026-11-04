@@ -507,8 +507,8 @@ Public — `/catalog-attributes`, no auth, `listings` rate-limit scope:
 | `POST /constraints/evaluate` | One product or variant, with its explanation |
 | `GET /values/:entityKind/:entityId[?unitSystem=][&market=]` | SELECTED values, no provenance, in the preferred display unit |
 
-Operator — `/internal/catalog-attributes`, behind `CATALOG_OPERATOR_OXY_USER_IDS`
-(empty ⇒ not mounted, 404):
+Operator — `/internal/catalog-attributes`, behind `catalog.operate`
+(anyone without it gets 404):
 
 | Route | Does |
 |---|---|

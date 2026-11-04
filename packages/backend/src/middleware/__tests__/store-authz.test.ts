@@ -3,8 +3,9 @@
  *
  * Covers the ONE role map (`STORE_ROLE_PERMISSIONS`), the override arithmetic
  * (`(role defaults ∪ granted) − revoked`), `requireStorePermission`, and
- * `loadStore` end to end against a mocked store repository and a mocked Oxy
- * account graph — which is where every decision that matters is made: who is
+ * `loadStore` end to end against a mocked store repository and a fake of the
+ * SDK's account-access read (`oxyClient.accountAccessFor`, with the SDK's own
+ * outcome types) — which is where every decision that matters is made: who is
  * the owning account, when Oxy is asked, that an override never admits
  * anybody, and that an Oxy outage refuses rather than guesses.
  */
@@ -22,6 +23,7 @@ import {
 const findStoreById = vi.fn();
 const findStorePermissionOverride = vi.fn();
 const readCallerAccountRole = vi.fn();
+const accountAccessFor = vi.fn();
 
 vi.mock('../../lib/logger.js', () => ({
   log: { general: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } },
@@ -32,13 +34,22 @@ vi.mock('../../db/stores/storeRepository.js', () => ({
   findStorePermissionOverridesForUser: vi.fn(),
   findStoresByOwnerAccounts: vi.fn(),
 }));
-vi.mock('../../services/oxy-account-graph.js', () => ({
-  readCallerAccountRole: (...args: unknown[]) => readCallerAccountRole(...args),
-  listCallerAccountRoles: vi.fn(),
-}));
+vi.mock('../../middleware/auth.js', async () => {
+  const { fakeAccountAccess } = await import('../../__tests__/oxy-account-access-fake.js');
+  const fake = fakeAccountAccess((bearer, accountId) => readCallerAccountRole(bearer, accountId));
+  return {
+    oxyClient: {
+      ...fake,
+      accountAccessFor: (...args: Parameters<typeof fake.accountAccessFor>) => {
+        accountAccessFor(...args);
+        return fake.accountAccessFor(...args);
+      },
+    },
+  };
+});
 
 import { loadStore, requireStorePermission } from '../store-authz.js';
-import { resetStoreAccessCacheForTests } from '../../services/store-access.service.js';
+import { OxyAccessError } from '@oxy.so/core/server';
 import { serviceUnavailable } from '../../lib/errors/error-codes.js';
 
 const STORE_ID = '1'.repeat(24);
@@ -63,10 +74,13 @@ function mockRes(): MockRes {
 function request(
   userId: string | undefined,
   actor?: { actorAccountId: string; delegated: boolean },
+  method = 'GET',
 ): Request {
   return {
+    method,
     params: { storeId: STORE_ID },
     userId,
+    sessionId: userId ? `session-of-${userId}` : undefined,
     accessToken: userId ? `bearer-of-${userId}` : undefined,
     ...(actor && userId
       ? { oxyActor: { schemaVersion: 1, effectiveAccountId: userId, ...actor } }
@@ -87,7 +101,6 @@ async function load(req: Request): Promise<{ status: number | null; access?: Sto
 
 beforeEach(() => {
   vi.clearAllMocks();
-  resetStoreAccessCacheForTests();
   findStoreById.mockResolvedValue({ id: STORE_ID, oxyAccountId: ORG });
   findStorePermissionOverride.mockResolvedValue(null);
   readCallerAccountRole.mockResolvedValue(null);
@@ -270,22 +283,47 @@ describe('loadStore', () => {
     );
   });
 
-  it('reuses a role per ACTOR, and never shares one between two people', async () => {
+  it('asks Oxy as the caller’s own session — fresh on a write, cacheable on a read', async () => {
     readCallerAccountRole.mockResolvedValue('admin');
     await load(request(ALICE, { actorAccountId: ALICE, delegated: false }));
-    await load(request(ALICE, { actorAccountId: ALICE, delegated: false }));
-    expect(readCallerAccountRole).toHaveBeenCalledTimes(1);
+    await load(request(ALICE, { actorAccountId: ALICE, delegated: false }, 'PATCH'));
+    expect(accountAccessFor.mock.calls).toEqual([
+      [
+        { userId: ALICE, sessionId: `session-of-${ALICE}`, accessToken: `bearer-of-${ALICE}` },
+        ORG,
+        { fresh: false },
+      ],
+      [
+        { userId: ALICE, sessionId: `session-of-${ALICE}`, accessToken: `bearer-of-${ALICE}` },
+        ORG,
+        { fresh: true },
+      ],
+    ]);
+  });
 
-    // Bob operating the same organization is a different person: asked anew.
-    readCallerAccountRole.mockResolvedValue(null);
-    expect((await load(request(ORG, { actorAccountId: BOB, delegated: true }))).status).toBe(403);
+  it('never remembers an outage as a refusal — the next request asks again', async () => {
+    readCallerAccountRole.mockRejectedValueOnce(
+      Object.assign(new Error('Bad Gateway'), { status: 502 }),
+    );
+    readCallerAccountRole.mockResolvedValueOnce('admin');
+    const caller = request(ALICE, { actorAccountId: ALICE, delegated: false });
+    expect((await load(caller)).status).toBe(503);
+    expect(
+      (await load(request(ALICE, { actorAccountId: ALICE, delegated: false }))).status,
+    ).toBeNull();
     expect(readCallerAccountRole).toHaveBeenCalledTimes(2);
   });
 
-  it('never caches a caller whose actor Oxy did not report', async () => {
-    readCallerAccountRole.mockResolvedValue('admin');
-    await load(request(ALICE));
-    await load(request(ALICE));
-    expect(readCallerAccountRole).toHaveBeenCalledTimes(2);
+  it('answers 401 when Oxy no longer accepts the session, and 403 when it says no', async () => {
+    readCallerAccountRole.mockRejectedValueOnce(
+      new OxyAccessError('ACCESS_SESSION_REQUIRED', 'Oxy refused the session'),
+    );
+    expect((await load(request(ALICE, { actorAccountId: ALICE, delegated: false }))).status).toBe(
+      401,
+    );
+    readCallerAccountRole.mockResolvedValueOnce(null);
+    expect((await load(request(ALICE, { actorAccountId: ALICE, delegated: false }))).status).toBe(
+      403,
+    );
   });
 });

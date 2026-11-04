@@ -2,23 +2,23 @@
  * The two OPERATOR surfaces for retail service requests (#127 §"Customer and
  * operator experience"), split by what each may disclose.
  *
- * ## Two existing allow-lists, and the split is the design
+ * ## Two existing operator keys, and the split is the design
  *
  * *"Operator surfaces must show customer obligation and supplier recovery side
  * by side without conflating them."* The two halves are disclosed to different
  * people, so they are served by different routers behind different gates:
  *
  *  - the CUSTOMER half from `/internal/payments/retail-service-requests/*`,
- *    behind `PAYMENT_OPERATOR_OXY_USER_IDS`. Deciding a remedy moves Mercaria's
- *    money, which is exactly what that list already gates, and the projection it
+ *    behind `payments.operate`. Deciding a remedy moves Mercaria's
+ *    money, which is exactly what that key already gates, and the projection it
  *    serves carries NO recovery, no wholesale figure and no purchase-order id.
  *  - the SIDE-BY-SIDE trace from `/internal/procurement/retail-service/*`,
- *    behind `PROCUREMENT_OPERATOR_OXY_USER_IDS`. That list exists for "reading
+ *    behind `procurement.operate`. That key exists for "reading
  *    what Mercaria PAYS its suppliers" and this is the only surface that
  *    discloses one.
  *
  * So the disclosure boundary is a property of the two ROUTERS rather than of a
- * filter somebody has to remember to apply, and neither is a seventh list.
+ * filter somebody has to remember to apply, and neither is a new key.
  *
  * ## Every write drives an existing idempotent path
  *
@@ -320,7 +320,7 @@ export async function retailServiceEscalateSafetyHandler(
  * GET — one request with its recoveries SIDE BY SIDE.
  *
  * The only projection in this domain that carries a supplier recovery, served
- * from the only router whose allow-list already grants "read what Mercaria pays
+ * from the only router whose key already grants "read what Mercaria pays
  * its suppliers". There is no member on it that nets one against the other.
  */
 export async function retailRecoveryTraceHandler(req: Request, res: Response): Promise<void> {

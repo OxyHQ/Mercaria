@@ -305,10 +305,10 @@ once-per-group act requiring two verified credentials, so a caller hammering it
 is retrying a refusal or probing.
 
 **Operator** — `/internal/guest-commerce/claims*`, on the SAME
-`GUEST_OPERATOR_OXY_USER_IDS` allow-list #104 and #108 use, deliberately not a
-seventh list. Two reads (a trace opening from a CHECKOUT GROUP and nothing else,
+`guest.operate` key #104 and #108 use, deliberately not a
+new operator key. Two reads (a trace opening from a CHECKOUT GROUP and nothing else,
 and the consistency probes) and three writes that are three STEPS of one
-capability. Empty allow-list means the router is not mounted at all.
+capability. Anyone without the key gets 404.
 
 **Storefront** — the offer on the guest confirmation and on the portal, the
 review screen showing which checkout and which sibling orders attach, an

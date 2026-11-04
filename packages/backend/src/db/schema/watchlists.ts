@@ -485,6 +485,10 @@ export const watchlistSnapshots = pgTable(
     ),
     /** The expiry sweep's work list. */
     index('watchlist_snapshots_retention_expires_at_idx').on(t.retentionExpiresAt),
+    // `watchlist_snapshots` is swept (`db/expiryTargets.ts`); each deleted row checks this foreign key.
+    index('watchlist_snapshots_previous_snapshot_id_idx')
+      .on(t.previousSnapshotId)
+      .where(sql`${t.previousSnapshotId} is not null`),
   ],
 );
 

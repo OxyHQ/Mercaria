@@ -820,6 +820,29 @@ export const offers = pgTable(
       .on(t.canonicalVariantId, t.country, t.priceAmount)
       .where(sql`${t.status} = 'active'`),
     /**
+     * The catalogue's "On sale" shelf, deepest discount first
+     * (`db/discovery/catalogShelfRepository.ts`).
+     *
+     * Without it the shelf had to evaluate EVERY discounted offer — ~37k in
+     * production, each with an anti-join for a cheaper offer of its product —
+     * before it could sort them: 1.4 s on an idle database, 8–31 s on the
+     * shared one under load, on every cold home feed (2026-10-20). Indexing
+     * the discount the shelf orders by lets it walk from the deepest discount
+     * and stop once its page is full, so the anti-join runs on a few hundred
+     * rows.
+     *
+     * ASCENDING on purpose: the shelf orders `discount desc, id desc`, which a
+     * backward scan of this index serves exactly. `.desc()` would render
+     * `DESC NULLS LAST`, which a plain `DESC` (NULLS FIRST) does not match (the
+     * `offers_merchant_browse_idx` note below). The expression is the reader's,
+     * character for character, and the predicate is the shelf's own.
+     */
+    index('offers_sale_discount_idx')
+      .on(sql`(1 - ${t.priceAmount}::numeric / ${t.compareAtPriceAmount})`, t.id)
+      .where(
+        sql`${t.status} = 'active' and ${t.kind} <> 'native' and ${t.priceAmount} is not null and ${t.compareAtPriceAmount} > ${t.priceAmount} and ${t.compareAtPriceCurrency} = ${t.priceCurrency}`,
+      ),
+    /**
      * ISSUE INDEX 3 — merchant browse: everything one seller currently offers,
      * most recently seen first.
      *

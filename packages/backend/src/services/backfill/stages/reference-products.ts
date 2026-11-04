@@ -25,6 +25,12 @@
  * 4. **A GTIN somebody already owns mints nothing** (`identifier_already_owned`)
  *    — the product appeared after the matcher's verdict, and the object
  *    attaches on the next `source_readvance` instead.
+ * 5. **No image, no product** (`reference_no_image`). Mercaria accepts no
+ *    product without at least one image (the owner, 2026-10-20), so a record
+ *    that would mint a NEW product and names no importable image
+ *    (`observationNamesAnImage`) mints nothing. A record joining a product
+ *    already minted (a sibling of the same source key, a previous run's) adds
+ *    to it as before.
  *
  * ## It links NOTHING
  *
@@ -42,6 +48,7 @@
  * and the record reuse above means it never gets that far.
  */
 
+import { observationNamesAnImage } from '../../catalog-media/source-media-urls.js';
 import { createHash } from 'node:crypto';
 import { and, asc, eq, gt, inArray, type SQL } from 'drizzle-orm';
 import type { IdentifierScheme } from '@mercaria/shared-types';
@@ -202,6 +209,14 @@ async function decideObject(context: StageContext, object: ObjectRow): Promise<S
     }
   }
 
+  // Rule 5: Mercaria accepts no product without at least one image.
+  if (reused === undefined && !observationNamesAnImage(payload)) {
+    return {
+      reasonCode: 'reference_no_image',
+      detail: `object ${object.id} names no image; no product is minted without one`,
+    };
+  }
+
   const description = readDescription(payload);
   const product =
     reused === undefined
@@ -286,6 +301,14 @@ async function decideAnchored(
     excludeObjectId: object.id,
   });
   const reused = sibling?.productId ?? (await previousProductFor(context, object.id));
+  // Rule 5: Mercaria accepts no product without at least one image. A record
+  // joining a product its sibling already minted adds a variant, not a product.
+  if (reused === undefined && !observationNamesAnImage(payload)) {
+    return {
+      reasonCode: 'reference_no_image',
+      detail: `object ${object.id} names no image; no product is minted without one`,
+    };
+  }
 
   const description = readDescription(payload);
   const product =

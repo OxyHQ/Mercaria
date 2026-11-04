@@ -35,7 +35,7 @@ import {
   WEBHOOK_SIGNATURE_HEADER,
   WEBHOOK_SIGNATURE_VERSION,
   WEBHOOK_TIMESTAMP_HEADER,
-} from '@oxy.so/crowdsource-contracts';
+} from '@crowdsource.you/contracts';
 
 const SECRET = 'test-secret-not-a-real-one';
 const servers: Server[] = [];

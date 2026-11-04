@@ -40,9 +40,10 @@ services:
     # Raise the SHARED lock table above its 64 default.
     #
     # Every realdb file that creates its OWN throwaway database
-    # (src/db/testDatabase.ts) migrates it with the real migrator, which applies
-    # the whole chain in ONE transaction — so a single migration holds every
-    # object lock it takes until commit. PostgreSQL sizes ONE shared lock table
+    # (src/db/testDatabase.ts) migrates it with the real migrator. Since
+    # @oxy.so/db 1.2.0 that commits EACH migration in its own transaction, so a
+    # database holds one migration's object locks at a time (until @oxy.so/db
+    # 1.1 it held the whole chain's until one commit). PostgreSQL sizes ONE shared lock table
     # from `max_locks_per_transaction * (max_connections +
     # max_prepared_transactions)`, so this is not a per-transaction cap and
     # concurrent migrations contend for a single pool.
@@ -64,11 +65,13 @@ services:
     # ## What this ceiling carries, measured
     #
     # `packages/backend/scripts/lock-capacity-probe.ts` applies the real full
-    # chain concurrently until shared lock exhaustion. On 2026-10-15 at
-    # 096013fc, PostgreSQL 17.5 / postgis:17-3.5, max_connections=100 and
-    # max_prepared_transactions=0, the 168-entry chain held 6,545 locks alone.
-    # At max_locks_per_transaction=512, all 28 concurrent migrations completed
-    # (interval overlap 28, sampled peak 169,194 locks); 29 exhausted the table.
+    # chain concurrently until shared lock exhaustion. On 2026-10-17 at
+    # 6c344f98 (@oxy.so/db 1.2.0, per-migration transactions), PostgreSQL 17.5 /
+    # postgis:17-3.5, max_connections=100 and max_prepared_transactions=0, the
+    # 176-entry chain: at max_locks_per_transaction=512, 48 concurrent
+    # migrations completed (overlap 48, sampled peak 18,054 locks), and 64 hit
+    # `too many clients` before the lock table. Under the old whole-chain
+    # transaction (2026-10-15) the same ceiling carried 28 and 29 exhausted it.
     # The guard counts the required concurrency and projects capacity as the
     # chain grows. The former 256 ceiling no longer carries that requirement.
     # Measurement rows and the older 256 evidence live in the guard, not an

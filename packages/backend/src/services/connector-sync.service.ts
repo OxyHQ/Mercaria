@@ -48,6 +48,7 @@
  *    `Record`.
  */
 
+import { isOxyRateLimited } from './catalog-media/oxy-files.js';
 import { synchronizeStoreImages, synchronizeStoreMedia } from './catalog-media/sync.js';
 import { synchronizeStoreDescription } from './catalog-media/description.js';
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -3519,6 +3520,11 @@ async function runWebhookUnit(
     });
     emitSyncProgress(conn.storeId, { connectionId, kind: 'webhook', phase: 'failed', counts });
     log.general.error({ err, connectionId, topic }, 'Failed to process connector webhook');
+    // Oxy's media budget was spent (its 429 outlasted the adapter's own bounded
+    // wait): not a verdict on the product, so hand the job back to the sync
+    // queue, which retries it with backoff, instead of dropping the delivery.
+    // The run row above records this attempt; the upsert is idempotent.
+    if (isOxyRateLimited(err)) throw err;
   }
 }
 
@@ -3648,8 +3654,10 @@ async function handleInventoryWebhook(
  *    upsert (`{ storeId, source.externalId }` never duplicates).
  *  - inventory update (gated on the inventory direction) → re-fetch + absolute set.
  * Records a `webhook` `SyncRun` and emits live progress. Best-effort: a modeled
- * failure is recorded + logged and does NOT throw. Keeps every platform's behavior
- * identical — Shopify and WooCommerce topics resolve to the same kinds.
+ * failure is recorded + logged and does NOT throw — except Oxy's media rate limit,
+ * which is thrown after recording so the sync queue retries the delivery (inline,
+ * without Redis, `runInline` swallows it as before). Keeps every platform's
+ * behavior identical — Shopify and WooCommerce topics resolve to the same kinds.
  */
 export async function processConnectorWebhook(job: {
   connectionId: string;

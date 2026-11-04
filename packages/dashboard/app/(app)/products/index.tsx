@@ -4,7 +4,7 @@ import { Link, useRouter, type RoutePath } from 'expo-router';
 import Head from 'expo-router/head';
 import { Plus, Search as SearchIcon } from 'lucide-react-native';
 import { ALL_LISTING_STATUSES, type Listing, type ListingStatus } from '@mercaria/shared-types';
-import { useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { Checkbox } from '@oxy.so/bloom/checkbox';
 import { useBulkProductStatus } from '@/lib/hooks/use-bulk-product-status';
 import { BulkProductActions } from '@/components/products/BulkProductActions';

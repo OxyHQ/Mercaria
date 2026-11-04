@@ -29,13 +29,22 @@ module.exports = {
       favicon: './assets/icon-192.png',
     },
     plugins: [
-      'expo-router',
+      // SDK 58 turns async routes on for web by default; keep the single
+      // eager bundle every earlier release shipped.
+      ['expo-router', { asyncRoutes: { web: false } }],
       'expo-localization',
       'expo-font',
       'expo-image',
       'expo-secure-store',
       'expo-web-browser',
       'expo-asset',
+      // The Oxy config plugin: the shared keychain group, the Oxy build
+      // properties, withOxySharedPermissions (and its ecosystem release
+      // signing). `gifEnabled`/`webpEnabled: false` drop React Native's GIF/WebP
+      // decoders from the Android build: nothing here renders an image through
+      // react-native's own Image — app images, @mercaria/ui, Bloom and
+      // @oxy.so/services all draw with expo-image.
+      ['@oxy.so/app-preset', { android: { gifEnabled: false, webpEnabled: false } }],
       // Native OS splash (Oxy family "Instagram, from Meta" pattern): Mercaria's
       // own logo (white on transparent) centered on the dark brand background,
       // with the shared Oxy symbol pinned to the bottom. `oxySplashScreenPlugin`

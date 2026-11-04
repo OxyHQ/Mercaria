@@ -274,10 +274,9 @@ guess. Two things that buys:
 
 ## Dashboards and read APIs
 
-`/internal/analytics/*`, behind `ANALYTICS_OPERATOR_OXY_USER_IDS` — a FOURTH
-allow-list beside payments, catalog and guest, for the fourth instance of the
-reason those three are separate. An empty list does not MOUNT the router (404,
-never 401).
+`/internal/analytics/*`, behind `analytics.operate` — a FOURTH operator key
+beside payments, catalog and guest, for the fourth instance of the reason those
+three are separate. Anyone without it gets 404, never 401.
 
 | Route | Answers |
 |---|---|
@@ -473,7 +472,6 @@ so a sink that quietly did nothing cannot pass for the wrong reason.
 ```
 ANALYTICS_COLLECTION_MODE=off        # off | essential | full — DEFAULT off
 ANALYTICS_ENABLED=false              # a kill switch that can only turn collection DOWN
-ANALYTICS_OPERATOR_OXY_USER_IDS=     # empty ⇒ /internal/analytics is NOT MOUNTED (404)
 ANALYTICS_QUEUE_MAX_EVENTS=10000
 ANALYTICS_FLUSH_INTERVAL_MS=2000
 ANALYTICS_FLUSH_BATCH_SIZE=500
@@ -523,8 +521,11 @@ coordinated with #111 for the guest-specific gates). What it must cover:
 6. **The redaction pattern set** against a sample of real production queries, in
    both directions: what it missed, and what it destroyed that it should not
    have. The suite covers common shapes; only real data covers the rest.
-7. **The four operator allow-lists** and who is on each — specifically that
-   analytics is vetted separately from payments, catalog and guest.
+7. **The operator keys** and who holds each (the Seed Oxy applications dry run
+   lists holders by organization role). Today every key is held by the owners and
+   admins of the `oxy` organization, so `analytics.operate` is NOT vetted
+   separately from payments, catalog and guest; if the review needs that, it is a
+   new account role in Oxy (oxy ADR 0056), not a per-person grant.
 8. **The event-class retention windows** against the actual questions the
    product asks, and against any statutory minimum the launch jurisdiction
    imposes on none of these (they are not financial records).

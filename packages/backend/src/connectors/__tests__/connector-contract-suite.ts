@@ -1782,7 +1782,7 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         const children = await findListingChildren([listing.id]);
         const images = children.images.get(listing.id) ?? [];
         expect(images).toHaveLength(source.imageUrls.length);
-        expect(images.every((image) => /^oxy-file-[a-f0-9]{64}$/.test(image.fileId))).toBe(true);
+        expect(images.every((image) => /^oxy-file-[a-f0-9]{40}$/.test(image.fileId))).toBe(true);
 
         const variants = await findVariantsByListing(listing.id);
         expect(variants).toHaveLength(source.variants.length);

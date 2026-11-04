@@ -1036,7 +1036,8 @@
         "system": "System",
         "light": "Light",
         "dark": "Dark",
-        "color": "App Color"
+        "color": "App Color",
+        "colorFailed": "Couldn't save the app color. Try again."
       },
       "language": {
         "title": "Language",

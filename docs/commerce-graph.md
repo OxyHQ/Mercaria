@@ -35,7 +35,7 @@ scoped, temporal, evidence-gated CLAIM — never a boolean and never inferable.
   window too, so a lapsed claim produces no badge whether or not a sweep ran.
   Revocation keeps the row, its verification facts, its evidence and its reviews.
 - Operator surface: `/internal/commerce-graph/relationships*` behind the SAME
-  `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54 uses. Public reads:
+  `catalog.operate` key #54 uses. Public reads:
   `/brand-relationships/*`. Ranking isolation is a test
   (`relationship-ranking-isolation.test.ts`), the fee-domain precedent.
 - **The ranking use of verification is CLOSED, not deferred** —
@@ -103,7 +103,7 @@ are load-bearing:
   leave a listing's offers claiming it is on sale.
 - Public read: `GET /offers` (exactly one of `canonicalVariantId` /
   `canonicalProductId`, keyset-paginated cheapest-first). Operator surface:
-  `/internal/offers/*` behind the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list
+  `/internal/offers/*` behind the SAME `catalog.operate` key
   #54/#56 use — trace, converge-now, retire (an EXTERNAL offer only; a native one
   follows its listing). The convergence loop always runs. Env:
   `OFFER_OUTBOX_BATCH_SIZE`, `OFFER_OUTBOX_POLL_INTERVAL_MS`.
@@ -170,7 +170,7 @@ load-bearing:
   and the policy with production byte for byte and simplifying only RETRIEVAL.
   A scale pass is opt-in behind `MATCH_BENCHMARK_SCALE`.
 - Operator surface: `/internal/matching/*` behind the SAME
-  `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54/#56/#57 use — metrics (queue
+  `catalog.operate` key #54/#56/#57 use — metrics (queue
   AGE and ambiguity rate), traces, the review inbox, policy versions, category
   gates, blocked pairs, and triggers for one evaluation / one drain / one sweep
   page. Env: `MATCH_PIPELINE_ENABLED` (gates the LOOP only — the queue always

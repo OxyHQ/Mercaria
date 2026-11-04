@@ -2,14 +2,14 @@
  * `/internal/referrals/*` — the referral operator surface (#143, extended by
  * #145's earnings ledger).
  *
- * On the SEVENTH allow-list (`REFERRAL_OPERATOR_OXY_USER_IDS`), for the reason
- * `middleware/referral-operator-authz.ts` gives: pausing a program's
+ * On the SEVENTH key (`referrals.operate`), for the reason
+ * `middleware/operator-authz.ts` gives: pausing a program's
  * attribution stops partners earning, and an operator vetted to repair a
  * payment or trace a cart merge has not been vetted for that. #145 adds the
- * power to move a partner's MONEY and stays on the SAME list rather than
+ * power to move a partner's MONEY and stays on the SAME key rather than
  * growing an eighth — approving a payout and pausing attribution are the same
  * economy, and splitting them would put one half of a partner's fate behind a
- * list the other half's operator is not on.
+ * key the other half's operator does not hold.
  *
  * The route set is CLOSED. There is no "attribute this subject to that
  * partner", no "create a touch", no "extend this window", no "move this
@@ -27,7 +27,7 @@
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireReferralOperator } from '../middleware/referral-operator-authz.js';
+import { requireReferralOperator } from '../middleware/operator-authz.js';
 import { validateBody } from '../middleware/validate.js';
 import {
   referralAppealDecisionSchema,
@@ -129,15 +129,14 @@ import {
 
 const router = Router();
 
-// Authentication FIRST, then the allow-list — the gate reads the verified
-// caller, and an allow-list consulted before authentication would compare
-// against whatever a client claimed.
+// Authentication FIRST, then the operator gate — it asks Oxy about the verified
+// caller's own session, which only `authenticateToken` establishes.
 router.use(authenticateToken);
 router.use(requireReferralOperator);
 
 // ── Enrollment review (#146 increment 2) ────────────────────────────────────
 //
-// On this SAME list rather than an eighth: deciding whether somebody may be a
+// On this SAME key rather than an eighth: deciding whether somebody may be a
 // referral partner and approving what they are paid are the same economy, which
 // is the argument #145 made when it joined. Deliberately NOT gated by
 // `REFERRAL_PARTNER_ENROLLMENT_ENABLED` — that lever stops NEW enrollment, and
@@ -195,7 +194,7 @@ router.post(
 
 // ─── Program management (#147) ──────────────────────────────────────────────
 //
-// On this SAME list, NOT an eighth: publishing the terms a partner earns under
+// On this SAME key, NOT an eighth: publishing the terms a partner earns under
 // and approving what they are paid are the same economy — #145's argument when
 // it joined, one step earlier in the lifecycle.
 //
@@ -353,10 +352,10 @@ router.post('/earnings/vest', runReferralVestingHandler);
 
 // ── Integrity: conduct, disclosures, signals, enforcement, appeals (#148) ────
 //
-// On this SAME list, not an eighth. #143 already said why: pausing attribution
+// On this SAME key, not an eighth. #143 already said why: pausing attribution
 // stops partners earning, and #148 is that power at a finer grain plus the one
 // #145 stopped short of — taking money back. Splitting them would put one half
-// of a partner's fate behind a list the other half's operator is not on.
+// of a partner's fate behind a key the other half's operator does not hold.
 //
 // The set is CLOSED. There is no "clear this signal", no "edit this action", no
 // "delete this appeal", no "set this partner's risk state" and no "open an
@@ -432,7 +431,7 @@ router.post(
 
 // ── The bounded pilot: bounds, stops and measured economics (#149) ───────────
 //
-// On this SAME list, not an eighth — for #143's and #148's reason, one step
+// On this SAME key, not an eighth — for #143's and #148's reason, one step
 // further out: publishing the bounds a partner was recruited under, pausing
 // entry and writing the dated review that authorises expansion are the same
 // power as pausing attribution and approving a payout.

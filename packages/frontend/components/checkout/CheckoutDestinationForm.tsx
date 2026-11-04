@@ -61,6 +61,8 @@ export const EMPTY_CHECKOUT_DRAFT: CheckoutDestinationDraft = {
 
 export interface CheckoutDestinationFormProps {
   draft: CheckoutDestinationDraft;
+  /** False when the authenticated account owns contact details and marketing is not offered. */
+  collectContact?: boolean;
   onChange: (next: CheckoutDestinationDraft) => void;
   /**
    * Whether "save this address to my account" may be offered.
@@ -87,10 +89,10 @@ export interface CheckoutDestinationFormProps {
 }
 
 /** The required-field set the submit button gates on (the server re-checks). */
-export function isDraftComplete(draft: CheckoutDestinationDraft): boolean {
+export function isDraftComplete(draft: CheckoutDestinationDraft, collectContact = true): boolean {
   const { address, contact } = draft;
   return (
-    contact.email.trim().length > 0 &&
+    (!collectContact || contact.email.trim().length > 0) &&
     address.recipientName.trim().length > 0 &&
     address.line1.trim().length > 0 &&
     address.city.trim().length > 0 &&
@@ -129,6 +131,7 @@ export function cleanContact(contact: CheckoutContactInput): CheckoutContactInpu
 
 export function CheckoutDestinationForm({
   draft,
+  collectContact = true,
   onChange,
   canSaveToAddressBook,
   pickupLocations = [],
@@ -153,21 +156,23 @@ export function CheckoutDestinationForm({
         and Stripe's integration expects an email to be collected before the
         payment surface renders (#105 frontend rule 5).
       */}
-      <Field label={t('checkout.form.emailLabel')} description={t('checkout.form.emailHelp')}>
-        <TextFieldInput
-          label={t('checkout.form.emailA11y')}
-          value={draft.contact.email}
-          onValueChange={setContact('email')}
-          placeholder={t('checkout.form.emailPlaceholder')}
-          keyboardType="email-address"
-          inputMode="email"
-          autoCapitalize="none"
-          autoCorrect={false}
-          autoComplete="email"
-          textContentType="emailAddress"
-          returnKeyType="next"
-        />
-      </Field>
+      {collectContact ? (
+        <Field label={t('checkout.form.emailLabel')} description={t('checkout.form.emailHelp')}>
+          <TextFieldInput
+            label={t('checkout.form.emailA11y')}
+            value={draft.contact.email}
+            onValueChange={setContact('email')}
+            placeholder={t('checkout.form.emailPlaceholder')}
+            keyboardType="email-address"
+            inputMode="email"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
+            textContentType="emailAddress"
+            returnKeyType="next"
+          />
+        </Field>
+      ) : null}
 
       {offersPickup ? (
         <View className="gap-2">
@@ -356,14 +361,18 @@ export function CheckoutDestinationForm({
         stated above the email field; this is the other thing entirely, and
         buying does not depend on it.
       */}
-      <View className="flex-row items-center justify-between gap-3">
-        <Text className="flex-1 text-sm text-foreground">{t('checkout.form.marketingOptIn')}</Text>
-        <Switch
-          checked={draft.marketingOptIn}
-          onCheckedChange={(next) => onChange({ ...draft, marketingOptIn: next })}
-          accessibilityLabel={t('checkout.form.marketingOptInA11y')}
-        />
-      </View>
+      {collectContact ? (
+        <View className="flex-row items-center justify-between gap-3">
+          <Text className="flex-1 text-sm text-foreground">
+            {t('checkout.form.marketingOptIn')}
+          </Text>
+          <Switch
+            checked={draft.marketingOptIn}
+            onCheckedChange={(next) => onChange({ ...draft, marketingOptIn: next })}
+            accessibilityLabel={t('checkout.form.marketingOptInA11y')}
+          />
+        </View>
+      ) : null}
 
       {/*
         What each seller is told. Stated on the page rather than buried in a

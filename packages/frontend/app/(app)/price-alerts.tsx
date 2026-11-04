@@ -4,7 +4,7 @@ import { Loading } from '@oxy.so/bloom/loading';
 import { TextFieldInput } from '@oxy.so/bloom/text-field';
 import Head from 'expo-router/head';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { RiNotification3Line } from '@oxy.so/bloom/icons/RiNotification3Line';
 import { EmptyState } from '@oxy.so/bloom/empty-state';
 import { PriceAlertCard, Text, useFormatters, useFx } from '@mercaria/ui';
@@ -270,6 +270,7 @@ function EmptyAlertsPlaceholder() {
 }
 
 function SignedOutInvitation() {
+  const { openAccountDialog } = useOxy();
   const { t } = useTranslation();
   return (
     <EmptyState

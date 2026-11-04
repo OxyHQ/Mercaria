@@ -188,15 +188,18 @@ describe('THE GATE: every route is reachable, or says why it is not', () => {
     expect(
       deliberate.map((entry) => `${entry.app}${entry.route}`).sort(),
       'the DELIBERATE list changed. A route unreachable BY DESIGN is rare — a provider return ' +
-        "URL and the Settings dialog's deep-link bridges. Adding one means in-app navigation " +
+        "URL, a payer's shared approval link, the Settings dialog's deep-link bridges and the old shopping-thread address that opens Alia's sheet. Adding one means in-app navigation " +
         'must never reach that screen; if the truth is "nobody has wired it yet", it is ' +
         'awaiting_product_decision instead.',
     ).toEqual([
       'frontend/checkout/return',
+      'frontend/materials-transport/[id]',
       'frontend/referral-partner',
       'frontend/settings',
       'frontend/settings/addresses',
       'frontend/settings/feedback',
+      'frontend/settings/general',
+      'frontend/thread',
     ]);
 
     expect(
@@ -675,5 +678,9 @@ describe('the enumerator refuses what it does not understand', () => {
       });
     }
     expect(Date.now() - started).toBeLessThan(60_000);
-  });
+    // The vitest default (`testTimeout: 30000` in vitest.config.ts) is below the
+    // 60s bound above, so without this the runner killed the test at 30s and the
+    // re-derived bound never got to decide (#1111 timed out at 30,000 ms on a
+    // loaded runner with an analysis that A/Bs identical to `main`).
+  }, 90_000);
 });

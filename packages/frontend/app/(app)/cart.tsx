@@ -7,7 +7,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Image } from '@mercaria/ui';
 import Head from 'expo-router/head';
 import { useRouter } from 'expo-router';
-import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { RiShoppingBag3Line } from '@oxy.so/bloom/icons/RiShoppingBag3Line';
 import { EmptyState } from '@oxy.so/bloom/empty-state';
 import { Rating } from '@oxy.so/bloom/rating';
@@ -66,6 +66,7 @@ const ACCOUNT_BENEFIT_KEYS = [
  * cannot make.
  */
 function AccountBenefitsCard() {
+  const { openAccountDialog } = useOxy();
   const { t } = useTranslation();
   return (
     <View className="mb-4 rounded-3xl border border-border bg-card p-4 web:shadow">
@@ -248,6 +249,7 @@ function CartGroupCard({
  * a switchboard somebody could read out one item at a time.
  */
 function GuestGroupBlockedNotice({ vendorName }: { vendorName: string }) {
+  const { openAccountDialog } = useOxy();
   const { t } = useTranslation();
   return (
     <View className="mt-4 rounded-2xl border border-border bg-muted p-4">

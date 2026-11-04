@@ -30,7 +30,7 @@ vi.hoisted(() => {
 describe('referralRedirectOrigin', () => {
   it('is an allow-listed browser origin', () => {
     // The ONE origin authority (`lib/allowed-origins.ts`), shared with CORS and
-    // the guest CSRF gate. A deployment-local second list is the shape an open
+    // the finite referral migration gate. A deployment-local second list is the shape an open
     // redirect takes.
     expect(referralRedirectOrigin()).toBe('https://mercaria.co');
   });
@@ -44,7 +44,7 @@ describe('composeReferralDestination', () => {
       referralDestinationPath({ destinationType: 'collection', destinationRef: 'summer' }),
       referralDestinationPath({ destinationType: 'store', destinationRef: 'nice-shop' }),
     ];
-    expect(paths.map(composeReferralDestination)).toEqual([
+    expect(paths.map((path) => composeReferralDestination(path))).toEqual([
       'https://mercaria.co/',
       'https://mercaria.co/listings/abc123',
       'https://mercaria.co/collections/summer',
@@ -61,6 +61,19 @@ describe('composeReferralDestination', () => {
       expect(url.search).toBe('');
       expect(url.hash).toBe('');
     }
+  });
+
+  it('attaches signed evidence only in its fragment without changing the destination origin', () => {
+    const carrier = 'mrf_fixture?next=https://other.example/#another';
+    const url = new URL(composeReferralDestination('/listings/abc123', carrier));
+    expect(url.origin).toBe('https://mercaria.co');
+    expect(url.pathname).toBe('/listings/abc123');
+    expect(url.search).toBe('');
+    expect(new URLSearchParams(url.hash.slice(1)).get('mercaria-referral')).toBe(carrier);
+    expect(() => composeReferralDestination('/listings/abc123#mgx_existing', carrier)).toThrow(
+      /fragment/,
+    );
+    expect(() => composeReferralDestination('//other.example/', carrier)).toThrow(/off-origin/);
   });
 
   it('refuses every off-origin escape', () => {

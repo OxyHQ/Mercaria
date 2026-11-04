@@ -26,7 +26,7 @@ import type {
 } from '@mercaria/shared-types';
 import { sendSuccess, sendError, ErrorCodes } from '../utils/api-response.js';
 import { validationError } from '../lib/errors/error-codes.js';
-import { procurementOperatorId } from '../middleware/procurement-operator-authz.js';
+import { operatorId } from '../middleware/operator-authz.js';
 import {
   addRetailPilotSku,
   addRetailPilotThreshold,
@@ -149,7 +149,7 @@ export async function addRetailPilotSkuHandler(
       supplierSku: String(body.supplierSku),
       procurementOfferId:
         body.procurementOfferId === undefined ? null : String(body.procurementOfferId),
-      addedByOxyUserId: procurementOperatorId(req),
+      addedByOxyUserId: operatorId(req),
       note: String(body.note),
     });
     sendSuccess(res, { added: true }, 201);
@@ -212,7 +212,7 @@ export async function publishRetailPilotCohortHandler(
     }
     const published = await publishRetailPilotCohortVersion({
       cohortId,
-      publishedByOxyUserId: procurementOperatorId(req),
+      publishedByOxyUserId: operatorId(req),
     });
     if (!published) {
       sendError(res, ErrorCodes.NOT_FOUND, 'Not found', 404);
@@ -256,7 +256,7 @@ export async function recordSupplierFundingHandler(
       // An operator-entered figure NAMES the operator; a provider reading does
       // not, because attributing an API's answer to a person makes the trail
       // say something false. The CHECK enforces the pairing.
-      recordedByOxyUserId: source === 'operator_entry' ? procurementOperatorId(req) : null,
+      recordedByOxyUserId: source === 'operator_entry' ? operatorId(req) : null,
       ...(body.note === undefined ? {} : { note: String(body.note) }),
     });
     sendSuccess(res, { recorded: true }, 201);
@@ -277,7 +277,7 @@ export async function raiseRetailPilotStopHandler(
       metric: oneOf<RetailPilotStopMetric>(RETAIL_PILOT_STOP_METRICS, body.metric, 'metric'),
       scope: oneOf<RetailPilotStopScope>(RETAIL_PILOT_STOP_SCOPES, body.scope, 'scope'),
       scopeRef: String(body.scopeRef ?? ''),
-      raisedByOxyUserId: procurementOperatorId(req),
+      raisedByOxyUserId: operatorId(req),
       detail: String(body.detail),
     });
     sendSuccess(res, result, result.raised ? 201 : 200);
@@ -295,7 +295,7 @@ export async function liftRetailPilotStopHandler(
   try {
     const lifted = await liftRetailPilotStop({
       stopId: requiredParam(req, 'stopId'),
-      liftedByOxyUserId: procurementOperatorId(req),
+      liftedByOxyUserId: operatorId(req),
       liftReason: String((req.body as Record<string, unknown>).liftReason),
     });
     if (!lifted) {

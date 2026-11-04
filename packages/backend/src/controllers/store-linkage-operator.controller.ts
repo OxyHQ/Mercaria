@@ -1,10 +1,10 @@
 /**
  * The operator-facing linkage controller (#84), behind the SAME
- * `CATALOG_OPERATOR_OXY_USER_IDS` gate #54, #55, #56 and #83 use.
+ * `catalog.operate` gate #54, #55, #56 and #83 use.
  *
  * Deciding which native store a canonical merchant resolves to is the same power
  * as deciding who operates that merchant, over the same graph — so it belongs on
- * the same allow-list rather than on a fourth one to keep in step.
+ * the same key rather than on a fourth one to keep in step.
  *
  * ## The composition this file performs, and why it lives HERE
  *
@@ -24,7 +24,7 @@
 
 import type { Request, Response } from 'express';
 import type { MerchantClaimRevokeReason } from '@mercaria/shared-types';
-import { catalogOperatorId } from '../middleware/catalog-operator-authz.js';
+import { operatorId } from '../middleware/operator-authz.js';
 import {
   decideLinkageRequest,
   getRequestDetail,
@@ -92,7 +92,7 @@ export async function decideLinkageRequestHandler(req: Request, res: Response): 
       approve: body.approve,
       ...(body.storeId !== undefined ? { storeId: body.storeId } : {}),
       reason: body.reason,
-      operatorOxyUserId: catalogOperatorId(req),
+      operatorOxyUserId: operatorId(req),
     });
     sendSuccess(res, toStoreLinkageRequestDTO(decided));
   } catch (error) {
@@ -116,7 +116,7 @@ export async function proposeLinkageCandidateHandler(req: Request, res: Response
       requestId: routeParam(req, 'id'),
       storeId: body.storeId,
       reason: body.reason,
-      operatorOxyUserId: catalogOperatorId(req),
+      operatorOxyUserId: operatorId(req),
     });
     const detail = await getRequestDetail(routeParam(req, 'id'));
     sendSuccess(res, detail.candidates.map(toStoreLinkageCandidateDTO), 201);
@@ -144,7 +144,7 @@ export async function openLinkageCorrectionHandler(req: Request, res: Response):
         ? { intendedMerchantId: body.intendedMerchantId }
         : {}),
       reason: body.reason,
-      operatorOxyUserId: catalogOperatorId(req),
+      operatorOxyUserId: operatorId(req),
     });
     sendSuccess(res, toStoreLinkageRequestDTO(request), 201);
   } catch (error) {
@@ -171,7 +171,7 @@ export async function openLinkageCorrectionHandler(req: Request, res: Response):
 export async function revokeClaimAndUnlinkHandler(req: Request, res: Response): Promise<void> {
   try {
     const body = req.body as { reason: MerchantClaimRevokeReason; note: string };
-    const operatorOxyUserId = catalogOperatorId(req);
+    const operatorOxyUserId = operatorId(req);
     const claimId = routeParam(req, 'id');
 
     // The merchant is read BEFORE the revocation, because revoking clears the

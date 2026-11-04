@@ -22,12 +22,14 @@ import { openSourceRun } from '../../db/ingestion/catalogSourceRunRepository.js'
 import { insertMatchPolicyVersion } from '../../db/matching/matchPolicyRepository.js';
 import { catalogBackfillRecords, catalogBackfillRuns } from '../../db/schema/backfill.js';
 import {
+  canonicalImages,
   canonicalProducts,
   canonicalProductSourceLinks,
   canonicalVariants,
   canonicalVariantSourceLinks,
   productIdentifiers,
 } from '../../db/schema/canonicalCatalog.js';
+import { canonicalSourceMediaImports } from '../../db/schema/canonicalSourceMedia.js';
 import {
   catalogSourceConfigs,
   catalogSourceObjects,
@@ -108,7 +110,8 @@ function cardRecord(finish: 'Nonfoil' | 'Foil', amount: number, observedAt: Date
       identifiers: [],
       options: [{ name: 'Finish', value: finish }],
       productGroupKey: CARD_ID,
-      media: [],
+      // At least one image, or no product is minted (`reference_no_image`).
+      media: [`https://cards.scryfall.io/large/front/${CARD_ID}.jpg`],
       merchantHint: 'Cardmarket',
       price: { amount, currency: 'EUR' },
       facts: [{ key: 'scryfall.rarity', value: 'common' }],
@@ -224,6 +227,23 @@ async function recordFor(runId: string, sourceObjectId: string) {
       ),
     );
   return record;
+}
+
+/** What the source-media importer leaves once a product's imagery is copied: one shown image. */
+async function showAnImage(productId: string): Promise<void> {
+  const [link] = await db
+    .select({ sourceRecordId: canonicalProductSourceLinks.sourceRecordId })
+    .from(canonicalProductSourceLinks)
+    .where(eq(canonicalProductSourceLinks.productId, productId))
+    .limit(1);
+  await db.insert(canonicalImages).values({
+    productId,
+    fileId: uuidv7(),
+    sourceRecordId: link?.sourceRecordId ?? '',
+    kind: 'image',
+    status: 'active',
+    position: 0,
+  });
 }
 
 async function seededProducts() {
@@ -342,6 +362,13 @@ afterAll(async () => {
     await db
       .delete(matchDecisions)
       .where(inArray(matchDecisions.sourceRecordId, safe(ownRecordIds)));
+    // The source links queued the observations' imagery; those jobs cite the
+    // records (RESTRICT) and go first.
+    await db
+      .delete(canonicalSourceMediaImports)
+      .where(inArray(canonicalSourceMediaImports.canonicalProductId, safe(productIds)));
+    // The image `showAnImage` gave a product cites its source record (RESTRICT).
+    await db.delete(canonicalImages).where(inArray(canonicalImages.productId, safe(productIds)));
     await db.delete(sourceRecords).where(inArray(sourceRecords.sourceId, safe(createdSourceIds)));
     await db
       .delete(catalogSourceConfigs)
@@ -445,7 +472,12 @@ describe('ADR 0016: a source seeds products by its own product key', () => {
     expect(variants).toHaveLength(2);
   });
 
-  it('reference_promotion makes it active on its anchor and its priced offers', async () => {
+  it('reference_promotion waits for an image, then makes it active on its anchor and its priced offers', async () => {
+    // Priced and anchored, but its imagery is still importing: no image, no product.
+    await backfill('reference_promotion', 'apply');
+    const [draft] = await seededProducts();
+    expect(draft?.status).toBe('draft');
+    await showAnImage(draft?.id ?? '');
     await backfill('reference_promotion', 'apply');
     expect((await seededProducts())[0]?.status).toBe('active');
   });

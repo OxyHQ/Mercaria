@@ -225,7 +225,17 @@ function importedNames(clause: string): string[] {
 
 /** Resolve a relative specifier to the source file it names. */
 function resolveRelative(fromFile: string, specifier: string): string | null {
-  if (!specifier.startsWith('.')) return null;
+  if (!specifier.startsWith('.')) {
+    // Workspace package re-exports are source edges too. Resolve the same
+    // source entry shape used to discover barrels, without depending on dist.
+    for (const dir of packageDirectories()) {
+      const manifest = JSON.parse(read(join(dir, 'package.json')));
+      if (manifest.name !== specifier) continue;
+      const entry = join(dir, 'src', 'index.ts');
+      return existsSync(entry) ? entry : null;
+    }
+    return null;
+  }
   const base = join(dirname(fromFile), specifier);
   const stem = base.replace(/\.js$/, '');
   const candidates = [`${stem}.ts`, `${stem}.tsx`, join(stem, 'index.ts'), join(stem, 'index.tsx')];
@@ -325,8 +335,20 @@ function buildBarrel(packageName: string, barrelPath: string): PackageBarrel {
       continue;
     }
     // `export { A, type B, C as D } from './x'` — the barrel states the map.
-    for (const name of exportedNames(clause.slice(1, -1)))
-      if (!owners.has(name)) owners.set(name, target);
+    if (match[2].startsWith('.')) {
+      for (const name of exportedNames(clause.slice(1, -1)))
+        if (!owners.has(name)) owners.set(name, target);
+      continue;
+    }
+    const declarations = new Map<string, string>();
+    declaredNames(target, new Set(), declarations);
+    for (const entry of clauseEntries(clause.slice(1, -1))) {
+      const requested = importedNames(entry)[0];
+      const published = exportedNames(entry)[0];
+      const owner = declarations.get(requested);
+      if (!owner) unresolved.push(`${match[2]}#${requested}`);
+      else if (!owners.has(published)) owners.set(published, owner);
+    }
   }
 
   return { packageName, path: barrelPath, owners, unresolved };

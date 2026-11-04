@@ -7,7 +7,7 @@
  * ## What it deliberately cannot expose
  *
  * A guest credential, in any form. The token exists only in the client's
- * storage and in a `Set-Cookie`; the server keeps a SHA-256 that no query here
+ * storage and explicit headers; the server keeps a SHA-256 that no query here
  * reads, `cart_merges` has no column that could hold one, and the two handles
  * this surface accepts — a guest session ROW id and an Oxy account id — are
  * audit handles that authorize nothing. Possession of a token is what

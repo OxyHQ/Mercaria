@@ -15,7 +15,7 @@
  * ## Some gates are CHECKED, not signed
  *
  * `GUEST_GATE_EVIDENCE_KINDS` distinguishes `automated_check` from the three
- * kinds that need a person, and the four automated ones are evaluated HERE
+ * kinds that need a person, and the automated one is evaluated HERE
  * against the live configuration rather than trusted from a signature. A gate
  * that a function can decide must not be satisfiable by somebody typing "yes":
  * `stripe_architecture_production_ready` is either configured or it is not, and
@@ -45,16 +45,15 @@ import {
 /**
  * The gates an `automated_check` can decide, and how.
  *
- * A `Record` over the four rather than a switch with a default, so adding a
- * fifth `automated_check` gate to the register without deciding how it is
- * evaluated fails `tsc` — the `ANALYTICS_REASON_CODES` mapping device #106
- * used, applied to a launch gate.
+ * Only a fact this process can read decides a gate. Three gates used to be
+ * read off "the analytics / guest operator list is non-empty"; the operator
+ * desks are now application roles mounted on every deployment, so that proxy
+ * says nothing, and those gates are `operational_verification` — signed by
+ * the person who checked the dashboards, the rollback suite and the failure
+ * tests — rather than a constant `true`.
  */
 const AUTOMATED_GATE_CHECKS: Readonly<Record<string, () => boolean>> = {
   stripe_architecture_production_ready: () => config.payments.stripe.enabled,
-  dashboard_metrics_and_alerts_live: () => config.analytics.operatorSurfaceEnabled,
-  feature_flags_and_kill_switches_tested: () => config.guest.operatorSurfaceEnabled,
-  payment_to_portal_tested_under_failure: () => config.guest.operatorSurfaceEnabled,
 };
 
 /** Which gates apply at a stage — every gate whose `requiredFromStage` is at or before it. */

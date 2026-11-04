@@ -82,7 +82,12 @@ import {
   vehicleModelsHandler,
 } from '../controllers/compatibility.controller.js';
 
+import { optionalAuth } from '../middleware/auth.js';
+
 const router = Router();
+
+// A presented supervised session cannot bypass policy through an anonymous catalog route.
+router.use(optionalAuth);
 
 router.use(makeRateLimiter('listings'));
 

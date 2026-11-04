@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { type ComponentRef, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Platform,
   Pressable,
@@ -172,7 +172,7 @@ export function ReviewMediaViewer({
   const backgroundColor = isDarkColorScheme ? '#121212' : '#ffffff';
   const control = useDialogControl();
   const safeArea = useSafeAreaInsets();
-  const rail = useRef<ScrollView>(null);
+  const rail = useRef<ComponentRef<typeof ScrollView>>(null);
   const [railWidth, setRailWidth] = useState(0);
   const [railContentWidth, setRailContentWidth] = useState(0);
   const index = items.findIndex((item) => item.media.id === selectedId);

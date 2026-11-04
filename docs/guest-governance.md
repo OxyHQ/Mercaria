@@ -135,6 +135,24 @@ keyset cursor and not an offset (an offset over a set the pass is DELETING from
 skips rows, which is the specific way a retention job silently leaves data
 behind).
 
+**It runs on a timer (M8-02).** The M8 review found no scheduler at all — the
+pass was reachable only from `POST /governance/retention-runs` while the
+configuration declared a loop. `startGuestRetentionLoop` is started from
+`src/index.ts` beside the expiry sweeper, on every task and UNCONDITIONALLY,
+every `GUEST_RETENTION_POLL_INTERVAL_MS`. Each tick runs only the classes whose
+ACTIVE policy row names `minimization_job`: the published policy is the switch,
+and there is no environment flag in front of it. Pages are taken `FOR UPDATE
+SKIP LOCKED`, so N tasks share the work; rows are minimized in savepoints; the
+cursor threads from page to page so held or failing rows cannot starve the rest;
+and a page with nothing due writes no run row, because `guest_retention_runs` is
+never swept.
+
+**`lookup_hash` is carried, not run.** The hash is nulled in the same statement
+as the ciphertext it digests, so the two contact passes perform it and it cannot
+outlive its value; a hold on `lookup_hash` pauses those passes.
+`guest-governance-mechanisms.test.ts` fails the build if a class declares
+`minimization_job` and is neither run nor carried.
+
 `guest_retention_runs_counters_total_check` forces
 `examined = minimized + deleted + skipped_held + failed`, an EQUALITY and never
 `<=` — #60's device. A pass that swallowed a row cannot write a row at all. A
@@ -177,6 +195,23 @@ the request concerned, sitting in a table whose retention is longer than the
 data it duplicates. `guest_data_requests` records the request, the proof and the
 per-class outcome, and holds no value from any class.
 
+**An erasure performs what its receipt reports (M8-01).** The M8 review found
+this service wrote nothing and answered every erasable class with one affected
+row. A deletion or minimization now runs ADR 0003 D15 in the transaction that
+writes the receipt — the contact anonymized by the same writer the retention
+job uses, every live portal credential for the group revoked, the session that
+placed the checkout deleted with its cart — and every count is a `RETURNING`
+set from that transaction. The receipt is an exhaustive switch over the class:
+the session and cart are `deleted`, the contact is `minimized` (or retained for
+`legal_hold`), the order, its shipping snapshot, claims and money are retained
+as `financial_record`, credentials and throttle evidence as `security_audit`,
+and the pseudonymous analytics, the cohort aggregates and the recipient-less
+message queue as `expires_on_schedule` — a reason a receipt gives and a legal
+hold may not carry. The buyer reaches it at
+`POST /guest/orders/:groupId/data-requests` behind a FRESH inbox proof. Not yet
+built: a route for the `completed_oxy_claim` proof, a storefront button, and an
+honest EXPORT receipt (`HANDOFF.md`).
+
 **Three distinct kinds**, because they have different answers: deletion of a
 paid checkout is impossible (the order is a financial record) while minimization
 of its contact snapshot is exactly what ADR 0003 D15 designed for. Collapsing
@@ -206,6 +241,13 @@ join a person's recovery attempts to their claim attempts — a per-person
 activity profile assembled out of two rate limiters. With the scope in the
 preimage the two digests are different values, so the counters bound each action
 independently and compose into nothing.
+
+**The counter is written whenever a subject can be named (M8-03).** The flag
+gates FRICTION; the subject KEY gates counting, because without one the only
+digest available is an oracle. The M8 review found the flag read first and a
+`return` before the counter, under a docblock promising the opposite; with the
+key set and friction off every attempt is now counted and none refused.
+Only `session_issuance` has a caller today — the other policies are M8-13.
 
 **Friction is explicit, never silent.** Every member of
 `GUEST_FRICTION_MEASURES` is something the person is TOLD: a stated cooldown
@@ -351,12 +393,15 @@ purchase on iOS.
 `guest_launch_gate_signoffs` and `guest_rollout_stage_advances` — both
 append-only against UPDATE and DELETE by trigger.
 
-**Some gates are CHECKED, not signed.** Four are `automated_check` and are
+**Some gates are CHECKED, not signed.** One is `automated_check` and is
 evaluated against the live configuration rather than trusted from a signature: a
 gate a function can decide must not be satisfiable by somebody typing "yes", and
-`stripe_architecture_production_ready` is either configured or it is not. The
-`AUTOMATED_GATE_CHECKS` record is exhaustive, so adding a fifth automated gate
-without deciding how it is evaluated fails `tsc`.
+`stripe_architecture_production_ready` is either configured or it is not.
+`dashboard_metrics_and_alerts_live`, `feature_flags_and_kill_switches_tested`
+and `payment_to_portal_tested_under_failure` used to be read off "the analytics
+/ guest operator list is non-empty"; the operator desks are now application
+roles mounted on every deployment, so that proxy proves nothing and the three
+are `operational_verification` — signed by the person who checked.
 
 **A withdrawal is a new row saying `no`**, never an edit. The advance gate reads
 the LATEST row per (stage, gate), so a withdrawal takes effect immediately and
@@ -402,9 +447,9 @@ a `blockedBy` it could no longer name.
 ## The operator surface
 
 `/internal/guest-commerce/governance/*`, on the SAME
-`GUEST_OPERATOR_OXY_USER_IDS` allow-list #104, #108, #109 and #110 use — not a
-seventh. Empty means the whole prefix is not mounted (404, never a 401 that
-would advertise it).
+`guest.operate` key #104, #108, #109 and #110 use — not a
+new one. Anyone without it gets 404 on the whole prefix, never a 401 that would
+advertise it.
 
 | Route | Answers |
 |---|---|
@@ -425,8 +470,9 @@ would advertise it).
 ### What it cannot do
 
 - **Erase a guest's data on their behalf.** An erasure is driven by the DATA
-  SUBJECT through their own credential; an operator-triggered one would be a way
-  for staff to destroy a buyer's records without the buyer asking.
+  SUBJECT through their own credential (`POST /guest/orders/:groupId/data-requests`);
+  an operator-triggered one would be a way for staff to destroy a buyer's
+  records without the buyer asking.
 - **Read a subject hash.** The column is protected and it is the one cross-row
   join key this domain has — a trace returning it would let a reader ask "what
   else did this subject do", which is the correlation the per-scope preimage
@@ -468,12 +514,14 @@ than defaulted.
 
 ## The production-readiness checklist
 
-1. Populate `GUEST_OPERATOR_OXY_USER_IDS`, or none of the above is reachable.
-2. Set `GUEST_ABUSE_SUBJECT_HASH_KEY` and turn `GUEST_ABUSE_CONTROLS_ENABLED`
-   on. Until then no counter is written and no friction is applied.
+1. `guest.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`), or none of the above is reachable.
+2. Set `GUEST_ABUSE_SUBJECT_HASH_KEY`. Until it is set no counter is written,
+   because no subject can be named safely; once it is, every attempt is
+   counted whether or not friction is applied.
 3. `POST /governance/retention-policy` once, to publish the reviewed schedule.
-   Until a version is ACTIVE the retention job refuses every pass and says
-   `policy_missing`.
+   Until a version is ACTIVE the scheduled loop runs and erases nothing, and an
+   operator pass is refused with `policy_missing`. Publishing IS turning
+   retention on.
 4. Leave `GUEST_RETENTION_DRY_RUN=true` for at least one full cycle and read
    `GET /governance/retention-runs`. The counters are what a review reads before
    anything is erased.

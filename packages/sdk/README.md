@@ -28,6 +28,7 @@ bun add @mercaria.co/sdk     # or: npm install @mercaria.co/sdk
 - [Stores](#stores)
 - [Collections](#collections)
 - [Locations: products at a shop on a map](#locations-products-at-a-shop-on-a-map)
+- [Catalog: one product, every seller](#catalog-one-product-every-seller)
 - [Links](#links)
 - [References](#references)
 - [Pagination](#pagination)
@@ -52,8 +53,8 @@ Every option is optional:
 | --- | --- | --- |
 | `apiBaseUrl` | `https://api.mercaria.co` | The API origin. |
 | `webBaseUrl` | `https://mercaria.co` | The origin links are built on. |
-| `fetch` | the global `fetch` | Looked up at request time. Pass one for tests or old runtimes. |
-| `getAccessToken` | none | Supplies the current Oxy access token. See below. |
+| `fetch` | the global `fetch` | Own apps pass the shared linked transport; also usable for tests. |
+| `getAccessToken` | none | Explicit external credential callback; own apps use shared transport. |
 | `locale` | none | Default locale for the list reads that take one; each call can override it. |
 | `timeoutMs` | `15000` | Per request, token acquisition and body included. |
 | `headers` | none | Extra non-auth headers (a tracing id, say). `Authorization` and `Accept` are refused. |
@@ -63,34 +64,60 @@ no state beyond its options.
 
 ## Anonymous and Oxy-authenticated reads
 
-With no `getAccessToken`, every request is anonymous. Every read in this
-release works anonymously.
+With the default fetch and no credential callback, requests are anonymous.
+Public catalogue reads remain available anonymously.
 
-To act as the signed-in Oxy user, hand the SDK a function that returns the
-current access token:
+**An Oxy app using the person's session** supplies its existing provider's linked
+transport. Oxy owns refresh, account-switch cancellation and destination checks:
 
 ```ts
+const apiBaseUrl = 'https://api.mercaria.co';
+const linked = oxyServices.createLinkedClient({ baseURL: apiBaseUrl });
 const mercaria = createMercariaClient({
-  getAccessToken: () => currentOxyAccessToken(), // however your app reads its Oxy session
+  apiBaseUrl,
+  fetch: linked.fetchOptional,
 });
+// Keep both for the owning component's lifetime; on its cleanup:
+// linked.dispose();
 ```
 
-- It is called before **every** request and its result is never cached,
-  stored or logged. Return `null`, `undefined` or `''` when there is no session:
-  that request is sent anonymously.
-- The token is sent as `Authorization: Bearer <token>` and nowhere else. The SDK
-  sends no cookies (`credentials: 'omit'`).
-- **Session ownership stays with Oxy.** Sign-in, refresh and sign-out belong to
-  Oxy's auth packages. The SDK never refreshes a token; if a request fails with
-  `MercariaUnauthorizedError`, refresh through Oxy and try again.
-- An error thrown by your getter is passed through unchanged.
-- Today the only authenticated difference is `product.viewer`, which is
-  `{ saved }` for a signed-in caller and `null` for an anonymous one.
+Use `linked.fetch` instead when the operation must require authentication.
+Do not copy `session.accessToken` or add an app-local refresh/retry loop. Bind the
+client to the current Oxy provider, and dispose it when that owner unmounts or is
+replaced. This identity transport omits cookies and follows no redirects. The
+separate Mercaria storefront guest/cart/portal cookie decision is not covered
+by this SDK example.
 
-**Service-to-service authority is not provided.** There is no client secret,
-API key or service token option, and the SDK does not fake one. When a
-Mercaria method needs service authority, it will use Oxy's canonical service
-authorization and be added here explicitly.
+**Explicit external credentials** retain the `getAccessToken` option. The
+callback is resolved for every request and is never cached, stored or logged;
+a missing value produces an anonymous request. The SDK sends a supplied token
+only as a bearer header and does not refresh it or promote it to own authority.
+Callback failures propagate unchanged. External credentials retain their server
+scope, revocation and account checks.
+
+The public catalogue's authenticated `product.viewer` value is `{ saved }` for
+a signed-in caller and `null` for an anonymous one.
+
+**An Oxy service reading the public catalogue** uses the shared workload client:
+
+```ts
+import { mercariaForOxyService } from '@mercaria.co/sdk/server';
+const mercaria = mercariaForOxyService(oxyServer);
+const page = await mercaria.catalog.search({ query: 'headphones' });
+// Dispose when the owning service/component closes, not after every request.
+mercaria.dispose();
+```
+
+The factory pins Mercaria's receiving audience. Oxy owns workload authentication,
+refresh and origin protection; no internal scopes or customer keys are passed.
+Public payloads and visibility stay identical to anonymous reads. The verified
+application supplies the rate-budget identity, never a fabricated user. This
+factory exposes public catalogue reads, not account-private materials operations.
+The existing `createMercariaClient({ getAccessToken })` API remains available for
+external/user credentials. Its meaning is not promoted by an Oxy brand.
+
+Deploy the receiver that understands canonical workload identity before enabling
+this factory in a backend. SDK publication by itself changes no running caller.
 
 ## Products and search
 
@@ -228,6 +255,46 @@ for (const location of items) {
 - `inStock: true` keeps what is on THIS shelf now; `query`, `sort`, `locale`,
   `limit` and `cursor` work as on `stores.products`.
 
+## Catalog: one product, every seller
+
+`products` reads ONE seller's listing. `catalog` reads the comparison
+catalogue: the canonical product — the model, "Phone X 128 GB" — and every
+current offer for it, from Mercaria's own stores and people and from the
+retailers and open-data sources Mercaria ingests.
+
+```ts
+const page = await mercaria.catalog.search({ query: 'phone x', market: 'ES' });
+const card = page.items[0];          // { ref, name, image, url, offers: { count, availability, lowestPrice } | null }
+
+const product = await mercaria.catalog.get(card.ref);
+product.variants;                    // [{ id, name, gtins: ['00012345678905'] }]
+for (const offer of product.offers ?? []) {
+  offer.kind;                        // 'native' | 'external' | 'affiliate' | 'informational'
+  offer.price;                       // native currency, or null
+  mercaria.links.offer(offer);       // where following it goes, or null
+}
+```
+
+- **A barcode is a query.** `catalog.search({ query: '8412345678905' })` is
+  answered by exact identifier.
+- **Order is Mercaria's.** Offers arrive in the versioned comparison's ranked
+  order; do not present a re-ranking as Mercaria's "best offer".
+- **Prices are native and never converted.** A price in a currency Mercaria
+  does not model is `null`, never a number in the wrong precision.
+- **`offers: null` means comparison is not being served**, never "nobody sells
+  it". A search card's `offers: null` means no current offer: the product is
+  still a real answer.
+- **Follow an external offer only through `links.offer`.** It is Mercaria's
+  redirect, which re-checks the offer at click time; the retailer's own URL is
+  not published. Render it with the action's `rel` and name `destinationHost`
+  beside it. A native offer's link is its Mercaria product page, and its
+  `purchaseOption` is the variant ref `products.resolveVariant` hydrates.
+- **Show `source` when present.** An open-data offer's licence requires the
+  attribution (`name`, `licenceLabel`, `homepage`).
+- **A merged product answers as its winner.** Persist the `ref` the body
+  carries, and drop a ref only on `MercariaGoneError`.
+  `MercariaUnavailableError` means the catalogue is not being served right now.
+
 ## Links
 
 Never build Mercaria URLs by hand. The link helpers produce the same strings the
@@ -238,7 +305,11 @@ mercaria.links.product(product);             // or a product ref, or an id
 mercaria.links.store(store);                 // or a handle, or a store seller
 mercaria.links.collection(collection, store); // a collection needs its store's handle
 mercaria.links.location(location, location.store); // a location, on its store's page
+mercaria.links.offer(offer);                 // a catalog offer: the redirect, the product page, or null
 ```
+
+A catalog product has no builder: its page is addressed by a slug a ref does
+not carry, so use the `url` its body serves.
 
 A store link needs the store's current **handle**, which a ref deliberately
 does not carry — hydrate the store (or use the `handle` on a product's store
@@ -251,7 +322,7 @@ availability, and no store handle. That is what makes it safe to persist.
 
 ```ts
 import {
-  productRef, variantRef, storeRef, collectionRef, locationRef,
+  productRef, variantRef, storeRef, collectionRef, locationRef, catalogProductRef,
   parseMercariaRef, isMercariaRef,
   formatMercariaRef, parseMercariaRefString,
 } from '@mercaria.co/sdk';
@@ -266,6 +337,7 @@ const ref = parseMercariaRef(row.mercariaRef);
 formatMercariaRef(productRef('prod_1'));          // 'mercaria:product:prod_1'
 parseMercariaRefString('mercaria:store:store_1'); // { kind: 'store', id: 'store_1' }
 formatMercariaRef(locationRef('loc_1'));          // 'mercaria:location:loc_1'
+formatMercariaRef(catalogProductRef('cp_1'));     // 'mercaria:catalog_product:cp_1'
 ```
 
 `parseMercariaRef` accepts only a plain object with exactly the keys of its
@@ -433,7 +505,9 @@ import {
   MercariaGoneError, MercariaNotFoundError,
 } from '@mercaria.co/sdk';
 
-const mercaria = createMercariaClient({ getAccessToken: () => session.accessToken ?? null });
+const linked = oxyServices.createLinkedClient({ baseURL: 'https://api.mercaria.co' });
+const mercaria = createMercariaClient({ fetch: linked.fetchOptional });
+// Dispose linked when this integration's owner closes.
 
 // Writing: persist only the ref.
 await db.attachments.insert({ postId, mercariaRef: picked.ref });
@@ -509,3 +583,45 @@ does. See `CHANGELOG.md`.
 ## License
 
 Apache-2.0 — see `LICENSE` and `NOTICE`.
+
+### Donated materials
+
+`client.materials` supports free offers, quantity requests, donor acceptance,
+cancellation and recipient-confirmed receipt. Supply `getAccessToken` for every
+private read or mutation, and preserve each mutation's `idempotencyKey` when
+retrying a lost response. The SDK does not automatically retry writes.
+
+```ts
+for await (const page of client.materials.iterateReservations({
+  accountId: authorizedAccountId,
+  status: 'accepted',
+})) {
+  // Persist only reservation.id; resolve its current facts through Mercaria.
+  showPendingPickups(page.items);
+}
+```
+
+The recipient calls `confirmDelivery` only after receiving the materials.
+Accepted quantities are committed; recipient-confirmed quantities are received.
+There is no payment for the donated items.
+
+### Material transport reference
+
+`client.materials.linkTransport(reservationId, { actingAccountId, transportId })`
+attaches only the opaque Moovo reference after Moovo verifies the reservation.
+Use Moovo's SDK to propose, quote, authorize and book transport directly as the
+user, and to read its current status. Cancelling a Mercaria reservation preserves
+this reference and does not cancel an existing courier booking.
+
+### Display a catalog price
+
+Use `formatMoney(product.price, locale)` from `@mercaria.co/sdk/money` (also exported from the root). It is the same formatter Mercaria uses: amounts stay in their catalog currency, FAIR uses its eight-decimal minor-unit scale, and the returned display string includes bidirectional isolation. Do not infer precision with `Intl` currency mode: FAIR is not an ISO currency code.
+
+### Lightweight portable references
+
+Persisted identities and list keys can import `productRef`, `collectionRef`,
+`parseMercariaRef` and `formatMercariaRef` from `@mercaria.co/sdk/refs`. This entry
+ships the canonical reference rules without the response validators or HTTP
+client, so rendering a feed does not eagerly download Zod. The root exports
+remain available and have identical behavior. References still contain identity
+only; hydrate current price and availability through the client when needed.

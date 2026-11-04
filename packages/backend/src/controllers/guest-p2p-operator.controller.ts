@@ -1,8 +1,8 @@
 /**
  * The guest-P2P policy surface for an operator (#112).
  *
- * TWO reads and no writes, behind the SAME `GUEST_OPERATOR_OXY_USER_IDS`
- * allow-list #104, #108, #109 and #110 use — not a seventh list, because this
+ * TWO reads and no writes, behind the SAME `guest.operate`
+ * key #104, #108, #109 and #110 use — not a new key, because this
  * is the same power class: a guest-commerce question answered without learning
  * what anybody bought or who they are.
  *

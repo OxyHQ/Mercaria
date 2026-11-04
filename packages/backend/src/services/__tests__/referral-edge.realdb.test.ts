@@ -352,7 +352,8 @@ describe('acceptance 1: a valid signed link reaches ONE allow-listed destination
     const response = await click(base, link.token);
 
     expect(response.status).toBe(302);
-    expect(response.headers.get('location')).toBe('https://mercaria.co/listings/abc123');
+    const destination = new URL(response.headers.get('location') ?? '');
+    expect(destination.origin + destination.pathname).toBe('https://mercaria.co/listings/abc123');
     // A permanent redirect would be cached forever: the click ceiling would
     // stop counting, a revoked link would keep working, and the operator lever
     // would be inert. 302 + no-store is the only pair under which every click
@@ -361,14 +362,11 @@ describe('acceptance 1: a valid signed link reaches ONE allow-listed destination
     // The destination page must not learn the token from a Referer header.
     expect(response.headers.get('referrer-policy')).toBe('no-referrer');
 
-    const cookie = response.headers.get('set-cookie') ?? '';
-    expect(cookie).toContain('mercaria_referral');
-    expect(cookie).toContain('HttpOnly');
-    expect(cookie).toContain('SameSite=Lax');
-    // Not a guest cart credential, not a portal credential.
-    expect(cookie).toContain('mrf_');
-    expect(cookie).not.toContain('mgs_');
-    expect(cookie).not.toContain('mgp_');
+    expect(response.headers.get('set-cookie')).toBeNull();
+    const state = new URLSearchParams(destination.hash.slice(1)).get('mercaria-referral');
+    expect(state).toMatch(/^mrf_/);
+    expect(state).not.toContain('mgs_');
+    expect(state).not.toContain('mgp_');
   });
 
   it('creates ONLY the approved touch state — no touch row for an anonymous click', async () => {
@@ -475,7 +473,8 @@ describe('acceptance 2: the redirect is not an open redirect or a campaign injec
     // The destination is composed from a configured allow-listed origin and a
     // closed template. Nothing the caller sent appears in it, and there is no
     // query string on the target at all.
-    expect(response.headers.get('location')).toBe('https://mercaria.co/listings/abc123');
+    const destination = new URL(response.headers.get('location') ?? '');
+    expect(destination.origin + destination.pathname).toBe('https://mercaria.co/listings/abc123');
   });
 
   it('cannot be steered by a forged Host or X-Forwarded-Host', async () => {
@@ -485,7 +484,8 @@ describe('acceptance 2: the redirect is not an open redirect or a campaign injec
       'x-forwarded-host': 'evil.example',
       'x-forwarded-proto': 'http',
     });
-    expect(response.headers.get('location')).toBe('https://mercaria.co/listings/abc123');
+    const destination = new URL(response.headers.get('location') ?? '');
+    expect(destination.origin + destination.pathname).toBe('https://mercaria.co/listings/abc123');
   });
 
   it('answers 404 for garbage, an unknown token and a forged signature', async () => {
@@ -517,7 +517,8 @@ describe('acceptance 8: bots, previews and scanners are classified and unattribu
     // Identical destination: a redirect that varied on the User-Agent would be
     // cloaking, and search engines treat it as such.
     expect(response.status).toBe(302);
-    expect(response.headers.get('location')).toBe('https://mercaria.co/listings/abc123');
+    const destination = new URL(response.headers.get('location') ?? '');
+    expect(destination.origin + destination.pathname).toBe('https://mercaria.co/listings/abc123');
     // No carrier, no touch, and — the part a partner cares about — no click
     // spent against their ceiling.
     expect(response.headers.get('set-cookie')).toBeNull();
@@ -652,7 +653,7 @@ describe('binding: the carrier becomes a touch only when there is a subject', ()
 
     const result = await bindCarriedReferral({
       stateToken: token,
-      context: contextFor({ kind: 'guest', guestSessionId, transport: 'cookie' }),
+      context: contextFor({ kind: 'guest', guestSessionId, clientClass: 'web' }),
     });
 
     expect(result.state).toBe('attributed');
@@ -699,7 +700,7 @@ describe('binding: the carrier becomes a touch only when there is a subject', ()
     const actor: CommerceActor = {
       kind: 'guest',
       guestSessionId,
-      transport: 'cookie',
+      clientClass: 'web',
     };
     await bindCarriedReferral({
       stateToken: mintFor(new Date(Date.now() - 120_000)),
@@ -876,7 +877,7 @@ describe('acceptance 5: contact and payment data are never cross-checkout identi
         context: contextFor({
           kind: 'guest',
           guestSessionId: `guest-${TAG}-sep-${suffix}`,
-          transport: 'cookie',
+          clientClass: 'web',
         }),
       });
       expect(result.state, suffix).toBe('attributed');

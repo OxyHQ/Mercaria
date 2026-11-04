@@ -16,7 +16,7 @@
  * end up in a query log.
  */
 
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import type { GuestContactVerificationStage } from '@mercaria/shared-types';
 import { guestCheckouts } from '../schema/guests.js';
 import type { DatabaseOrTransaction } from '../postgres.js';
@@ -287,4 +287,49 @@ export async function setGuestCheckoutVerificationStage(
     .where(eq(guestCheckouts.checkoutGroupId, checkoutGroupId))
     .returning();
   return row ?? null;
+}
+
+/**
+ * Erase one contact in place (ADR 0003 D15) — the ONE writer of the
+ * anonymization transition.
+ *
+ * Two callers and one statement: the scheduled retention job
+ * (`services/guest-governance/retention.service.ts`) and a data subject's
+ * erasure request (`data-request.service.ts`). Before M8-01 the request path
+ * wrote nothing at all and reported a row affected; sharing this function is
+ * what makes "the request erases what the job erases" true by construction
+ * rather than by two UPDATEs agreeing.
+ *
+ * All five columns in ONE statement, because `guest_checkouts_anonymization_check`
+ * states the transition WHOLE — once `anonymized_at` is set there must be no
+ * ciphertext, no hash and no phone left, and the phone PAIR check needs the
+ * redacted form gone with its ciphertext. Writing them one at a time would fail
+ * the CHECK on the first partial state, which is the constraint working.
+ *
+ * `emailRedacted` becomes the literal `deleted` rather than being nulled — the
+ * column is NOT NULL and the display form is what a merchant's order view
+ * renders, so the honest value is a word saying the address is gone.
+ *
+ * A CAS on `anonymized_at IS NULL`, so a second erasure (or the job racing a
+ * request) changes nothing and says so: the return is whether THIS call erased
+ * a contact, which is the number a receipt and a run counter may report.
+ */
+export async function minimizeGuestCheckoutContact(
+  db: DatabaseOrTransaction,
+  guestCheckoutId: string,
+  now: Date,
+): Promise<boolean> {
+  const rows = await db
+    .update(guestCheckouts)
+    .set({
+      emailCiphertext: null,
+      emailHash: null,
+      phoneCiphertext: null,
+      phoneRedacted: null,
+      emailRedacted: 'deleted',
+      anonymizedAt: now,
+    })
+    .where(and(eq(guestCheckouts.id, guestCheckoutId), isNull(guestCheckouts.anonymizedAt)))
+    .returning({ id: guestCheckouts.id });
+  return rows.length === 1;
 }

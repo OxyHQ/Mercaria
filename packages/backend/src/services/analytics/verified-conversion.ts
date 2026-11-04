@@ -139,8 +139,8 @@ export async function countVerifiedConversions(input: {
  * The operator trace's conversion answer. A boolean, deliberately: a trace that
  * returned the payment row would let the analytics surface display provider
  * state, amounts and reference ids — every one of which already has an audited
- * surface behind the PAYMENT operator allow-list, which is a different list and
- * a different vetting.
+ * surface behind `payments.operate`, which is a different key and a different
+ * vetting.
  */
 export async function checkoutGroupConverted(checkoutGroupId: string): Promise<boolean> {
   const rows = await getDb()

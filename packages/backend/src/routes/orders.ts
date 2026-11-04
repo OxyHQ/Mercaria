@@ -54,10 +54,10 @@ router.use('/:id', validateId('id'), buyerRequestRouter);
  * #127's retail service requests, on the SAME order path.
  *
  * A separate router rather than more paths on #110's, because the two domains
- * are decided by different authorities: a marketplace request is answered by the
- * SELLER who made the sale, and a `mercaria_retail` order has no seller but
- * Mercaria. Merging them would put a store-permission table and a
- * payment-operator allow-list behind one set of handlers.
+ * are decided by different authorities: a marketplace request is answered by
+ * the SELLER who made the sale, and a `mercaria_retail` order has no seller but
+ * Mercaria. Merging them would put a store-permission table and the
+ * `payments.operate` key behind one set of handlers.
  *
  * Both mount on the same `:id`, so a buyer with a mixed basket reaches #110's
  * paths on their marketplace order and #127's on their retail one, and neither

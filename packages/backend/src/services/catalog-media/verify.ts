@@ -1,11 +1,14 @@
-import { OxyApiError, OxyServices } from '@oxy.so/core';
 import { isOxyFileId, type ListingMedia } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
 import { forbidden, serviceUnavailable, validationError } from '../../lib/errors/error-codes.js';
+import { oxyAccessOutcome } from '../../lib/errors/oxy-access.js';
+import { oxyClient } from '../../middleware/auth.js';
 import { catalogMediaKind } from './policy.js';
 
 /** Store authority was established by loadStore; bytes belong to its persisted
- * Oxy account, including when an editor operates in their personal session. */
+ * Oxy account, including when an editor operates in their personal session.
+ * Each file is read AS the store caller (`oxyClient.withUser`), so Oxy shows
+ * only what that person may see. */
 export async function prepareCatalogMedia(
   ownerAccountId: string,
   accessToken: string,
@@ -23,32 +26,32 @@ export async function prepareCatalogMedia(
   if (!ids.length) return [];
   if (!ownerAccountId || !accessToken)
     throw forbidden('Catalog media access requires the store caller');
-  const client = new OxyServices({ baseURL: process.env.OXY_API_URL || 'https://api.oxy.so' });
-  client.session.setAccessToken(accessToken);
-  const result: ListingMedia[] = [];
-  for (const [position, fileId] of ids.entries()) {
-    let file: Awaited<ReturnType<typeof client.assets.get>>['file'];
-    try {
-      file = (await client.assets.get(fileId)).file;
-    } catch (error) {
-      if (error instanceof OxyApiError && [401, 403, 404].includes(error.status))
+  return oxyClient.withUser(accessToken, async (user) => {
+    const result: ListingMedia[] = [];
+    for (const [position, fileId] of ids.entries()) {
+      let file: Awaited<ReturnType<typeof user.assets.get>>['file'];
+      try {
+        file = (await user.assets.get(fileId)).file;
+      } catch (error) {
+        if (oxyAccessOutcome(error) === 'unavailable')
+          throw serviceUnavailable('Catalog media could not be verified. Please retry.');
         throw forbidden('Catalog media is unavailable to the store caller');
-      throw serviceUnavailable('Catalog media could not be verified. Please retry.');
+      }
+      if (
+        file.id !== fileId ||
+        (file.ownerUserId !== ownerAccountId && !retainedFileIds.has(fileId)) ||
+        file.status !== 'active' ||
+        file.visibility !== 'public'
+      ) {
+        throw forbidden('New catalog media must be active public files owned by the store');
+      }
+      const kind = catalogMediaKind(file.mime, file.size);
+      if (!kind || (imagesOnly && kind !== 'image'))
+        throw validationError('Unsupported catalog media type or size');
+      if (kind === 'video' && !config.catalog.videoWritesEnabled)
+        throw serviceUnavailable('Catalog video writes are not enabled');
+      result.push({ fileId, kind, position });
     }
-    if (
-      file.id !== fileId ||
-      (file.ownerUserId !== ownerAccountId && !retainedFileIds.has(fileId)) ||
-      file.status !== 'active' ||
-      file.visibility !== 'public'
-    ) {
-      throw forbidden('New catalog media must be active public files owned by the store');
-    }
-    const kind = catalogMediaKind(file.mime, file.size);
-    if (!kind || (imagesOnly && kind !== 'image'))
-      throw validationError('Unsupported catalog media type or size');
-    if (kind === 'video' && !config.catalog.videoWritesEnabled)
-      throw serviceUnavailable('Catalog video writes are not enabled');
-    result.push({ fileId, kind, position });
-  }
-  return result;
+    return result;
+  });
 }

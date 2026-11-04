@@ -3,7 +3,7 @@ import { Pressable, View } from 'react-native';
 import { Loading } from '@oxy.so/bloom/loading';
 import Head from 'expo-router/head';
 import { useRouter } from 'expo-router';
-import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { RiHeartLine } from '@oxy.so/bloom/icons/RiHeartLine';
 import { EmptyState } from '@oxy.so/bloom/empty-state';
 import { SavedItemCard, Text } from '@mercaria/ui';
@@ -162,6 +162,7 @@ export default function SavedScreen() {
 }
 
 function SignedOutInvitation() {
+  const { openAccountDialog } = useOxy();
   const { t } = useTranslation();
   return (
     <View className="gap-space-12 rounded-radius-16 border border-border-secondary bg-bg-fill p-space-16">
