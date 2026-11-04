@@ -50,7 +50,6 @@ const EXCLUDED: Readonly<Record<string, readonly string[]>> = {
     'src/capabilities/__tests__/capability-authority.test.ts',
     'src/capabilities/__tests__/mercaria-domain-authority.test.ts',
     'src/capabilities/__tests__/mercaria-handlers.test.ts',
-    'src/capabilities/__tests__/oxy-service-client.test.ts',
     'src/config/__tests__/billing-cohort.test.ts',
     'src/connectors/shopify/__tests__/shopify-contract.test.ts',
     'src/connectors/woocommerce/__tests__/woocommerce-contract.test.ts',
