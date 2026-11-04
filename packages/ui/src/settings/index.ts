@@ -16,5 +16,4 @@ export {
   useLanguageSettingsSection,
   type LanguageSettingsPageProps,
 } from './LanguageSettingsPage';
-export { SettingsSelect } from './SettingsSelect';
 export { useSharedSettingsTitles } from './titles';

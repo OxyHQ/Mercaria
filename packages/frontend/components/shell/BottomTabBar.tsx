@@ -1,9 +1,9 @@
 import { useCallback, useMemo } from 'react';
-import { Platform, View } from 'react-native';
+import { View } from 'react-native';
 import { usePathname, useRouter } from 'expo-router';
-import * as Haptics from 'expo-haptics';
 import { Avatar } from '@oxy.so/bloom/avatar';
 import { BottomBar, type BottomBarProps } from '@oxy.so/bloom/bottom-bar';
+import { useHaptics } from '@oxy.so/bloom/hooks';
 import { useOxy } from '@oxy.so/services/ui/client';
 import { CartFlightTarget, ShopNavigationIcon, Text } from '@mercaria/ui';
 
@@ -21,11 +21,6 @@ const ACCOUNT_TAB = 'account';
 const MAX_BADGE_COUNT = 9;
 
 const AVATAR_SIZE = 26;
-
-function triggerHaptic() {
-  if (Platform.OS === 'web') return;
-  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-}
 
 /**
  * The signed-in user's avatar for the account tab: their Oxy photo at the
@@ -76,6 +71,8 @@ function CartGlyph({ count, fill }: { count: number; fill?: string }) {
 export function BottomTabBar() {
   const { t } = useTranslation();
   const router = useRouter();
+  // Bloom's haptics honour the viewer's preference and the app's override.
+  const haptic = useHaptics();
   const pathname = usePathname();
   const { isAuthenticated } = useOxy();
   const { data: cart } = useCart();
@@ -117,7 +114,7 @@ export function BottomTabBar() {
 
   const onValueChange = useCallback(
     (name: string) => {
-      triggerHaptic();
+      haptic();
       if (name === ACCOUNT_TAB) {
         router.push('/profile');
         return;
@@ -126,7 +123,7 @@ export function BottomTabBar() {
       const destination = available.find((item) => item.key === name);
       if (destination) router.push(destination.href);
     },
-    [available, router],
+    [available, haptic, router],
   );
 
   return (

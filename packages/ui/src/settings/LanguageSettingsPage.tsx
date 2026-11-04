@@ -1,7 +1,10 @@
-import { SettingsGeneralPage, type SettingsPageSection } from '@oxy.so/bloom/settings-modal';
+import {
+  SettingsGeneralPage,
+  type SettingsPageSection,
+  SettingsSelect,
+} from '@oxy.so/bloom/settings-modal';
 import { useSharedUiTranslation } from '../i18n/ui-translation';
 import { LOCALE_ENDONYMS, type SupportedLocale } from '../i18n/locales';
-import { SettingsSelect } from './SettingsSelect';
 
 export interface LanguageSettingsPageProps {
   /** What the app SHIPS — its `shippedLocales` — never a hand-written list (#435). */

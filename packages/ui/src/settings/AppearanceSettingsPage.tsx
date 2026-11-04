@@ -3,12 +3,15 @@ import {
   SegmentedControlItem,
   SegmentedControlItemText,
 } from '@oxy.so/bloom/segmented-control';
-import { SettingsGeneralPage, type SettingsPageSection } from '@oxy.so/bloom/settings-modal';
+import {
+  SettingsGeneralPage,
+  type SettingsPageSection,
+  SettingsSelect,
+} from '@oxy.so/bloom/settings-modal';
 import { toast } from '@oxy.so/bloom/toast';
 import { COLOR_PRESET_REGISTRY, useBloomTheme } from '@oxy.so/bloom/theme';
 import { useAccountColorSave, useOxy } from '@oxy.so/services/ui/client';
 import { useSharedUiTranslation } from '../i18n/ui-translation';
-import { SettingsSelect } from './SettingsSelect';
 
 const MODES = ['system', 'light', 'dark'] as const;
 type Mode = (typeof MODES)[number];
