@@ -157,6 +157,11 @@ describe('the deploy workflow and the migrator agree', () => {
         /'(\{family,[\s\S]*?)'\s*\\\s*\n\s*<<<"\$DEFINITION"/,
       )?.[1];
       if (!filter) throw new Error('The deployment jq renderer was not found');
+      // The program is a single-quoted shell word: an apostrophe anywhere in it,
+      // even in a jq comment, ends the word and the step fails to parse (the
+      // 2026-11-04 release of Mercaria#1178 stopped at exactly that).
+      expect(filter).not.toContain("'");
+      execFileSync('bash', ['-n'], { input: register?.run ?? '', encoding: 'utf8' });
       // Historical task data stays outside runtime source; the retirement census
       // deliberately rejects the old secret name anywhere under backend/src.
       const retired: { name: string; reference: string; syntheticPlaintext: string } = JSON.parse(
