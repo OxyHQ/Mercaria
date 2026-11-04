@@ -15,12 +15,12 @@ import Animated, {
   cancelAnimation,
   Easing,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
 import { useColorScheme } from '../../lib/useColorScheme';
+import { usePrefersReducedMotion } from '@oxy.so/bloom/hooks';
 
 export interface CartFlightRect {
   x: number;
@@ -66,7 +66,7 @@ function measure(view: ComponentRef<typeof View> | null): Promise<CartFlightRect
 export function CartFlightTarget({ children }: { children: ReactNode }) {
   const ref = useRef<ComponentRef<typeof View>>(null);
   const { registerTarget, arrivals } = useCartFlight();
-  const reduced = useReducedMotion();
+  const reduced = usePrefersReducedMotion();
   const previousArrival = useRef(arrivals);
   const scale = useSharedValue(1);
   useEffect(() => registerTarget(() => ref.current), [registerTarget]);
@@ -100,7 +100,7 @@ export function CartFlightTarget({ children }: { children: ReactNode }) {
 /** Marketplace feedback stays outside Bloom's layout and navigation internals. */
 export function CartFlightProvider({ children }: { children: ReactNode }) {
   const { width, height } = useWindowDimensions();
-  const reduced = useReducedMotion();
+  const reduced = usePrefersReducedMotion();
   const targets = useRef(new Set<Target>());
   const nextId = useRef(0);
   const mounted = useRef(true);

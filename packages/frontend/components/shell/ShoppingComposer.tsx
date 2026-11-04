@@ -20,13 +20,13 @@ import Animated, {
   FadeInDown,
   ReduceMotion,
   useAnimatedStyle,
-  useReducedMotion,
   withTiming,
 } from 'react-native-reanimated';
 import { ArrowRight } from 'lucide-react-native';
 import { toBloomIcon } from '@mercaria/ui';
 import { useTranslation } from '@/lib/i18n';
 import { useFeed } from '@/lib/hooks/use-feed';
+import { usePrefersReducedMotion } from '@oxy.so/bloom/hooks';
 
 const ARRIVAL = FadeInDown.duration(200)
   .easing(Easing.bezier(0.2, 0, 0, 1))
@@ -67,7 +67,7 @@ export function ShoppingComposer({ inline = false }: { inline?: boolean }) {
   const [activeIndex, setActiveIndex] = useState(-1);
   const inputRef = useRef<ComponentRef<typeof TextInput>>(null);
   const feed = useFeed();
-  const reducedMotion = useReducedMotion();
+  const reducedMotion = usePrefersReducedMotion();
   const expansion = useAnimatedStyle(
     () => ({
       maxWidth: reducedMotion

@@ -4,7 +4,6 @@ import Animated, {
   Easing,
   interpolateColor,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
@@ -25,6 +24,7 @@ import { Text } from '../ui/text';
 import { PriceDisplay, usePriceText } from '../PriceDisplay';
 import { useSharedUiTranslation } from '../../i18n/ui-translation';
 import { useColorScheme } from '../../lib/useColorScheme';
+import { usePrefersReducedMotion } from '@oxy.so/bloom/hooks';
 
 /** Display data supplied by a selling-plan allocation. Prices and savings are
  * authoritative inputs, never calculated from a promotional percentage here.
@@ -64,7 +64,7 @@ function PlanPanel({
   children: ReactNode;
 }) {
   const { colors } = useColorScheme();
-  const reduced = useReducedMotion();
+  const reduced = usePrefersReducedMotion();
   const progress = useSharedValue(checked ? 1 : 0);
   useEffect(() => {
     const target = checked ? 1 : 0;

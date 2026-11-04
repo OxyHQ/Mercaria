@@ -13,7 +13,7 @@ import { Image } from '../ui/image';
 import { Button } from '@oxy.so/bloom/button';
 import { Box as SkeletonBox } from '@oxy.so/bloom/skeleton';
 import { Carousel, CarouselItem, type CarouselProps } from '@oxy.so/bloom/carousel';
-import { useIsRtl } from '@oxy.so/bloom/hooks';
+import { useIsRtl, usePrefersReducedMotion } from '@oxy.so/bloom/hooks';
 import {
   ZoomableMediaGallery,
   type ZoomableMediaGalleryHandle,
@@ -27,7 +27,6 @@ import { Text } from '../ui/text';
 import { useColorScheme } from '../../lib/useColorScheme';
 import { cn } from '../../lib/cn';
 import { useSharedUiTranslation } from '../../i18n/ui-translation';
-import { useReducedMotion } from 'react-native-reanimated';
 import { SHOP_CAROUSEL_ARROW_CLASS_NAME } from '../../lib/shelf-carousel';
 import {
   GALLERY_NEXT_KEY,
@@ -113,7 +112,7 @@ export function ProductGallery({
     thumbnailOffset.current = 0;
   }, []);
   const [thumbnailViewportExtent, setThumbnailViewportExtent] = useState(0);
-  const reducedMotion = useReducedMotion();
+  const reducedMotion = usePrefersReducedMotion();
   const frames = useRef<Record<number, ComponentRef<typeof View> | null>>({});
   const [panelWidth, setPanelWidth] = useState(0);
   const [ratios, setRatios] = useState<Record<string, number>>({});

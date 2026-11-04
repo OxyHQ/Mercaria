@@ -6,7 +6,6 @@ import {
   type ScrollView,
   type ScrollViewProps,
 } from 'react-native';
-import { useReducedMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Dialog, useDialogControl } from '@oxy.so/bloom/dialog';
 import { Button } from '@oxy.so/bloom/button';
@@ -17,6 +16,7 @@ import { useColorScheme } from '../../lib/useColorScheme';
 import { Text } from '../ui/text';
 import { ViewportScrollView } from '../shell/ViewportScrollView';
 import { ShopDetailIcon } from './ShopDetailIcon';
+import { usePrefersReducedMotion } from '@oxy.so/bloom/hooks';
 
 export interface MarketplaceSheetProps extends PropsWithChildren {
   open: boolean;
@@ -44,7 +44,7 @@ export function MarketplaceSheet({
   children,
 }: MarketplaceSheetProps) {
   const control = useDialogControl();
-  const reducedMotion = useReducedMotion();
+  const reducedMotion = usePrefersReducedMotion();
   const { width } = useWindowDimensions();
   const wide = width >= 976;
   const safeArea = useSafeAreaInsets();
