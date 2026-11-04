@@ -35,7 +35,15 @@
  *    gateway's client secret with a payment method Mercaria never sees.
  */
 
-import type { Money, PaymentStatus, TransferStatus } from '@mercaria/shared-types';
+import type { CurrencyCode, Money, PaymentStatus, TransferStatus } from '@mercaria/shared-types';
+import {
+  FIAT_CURRENCY_CODES,
+  type FiatCurrencyCode,
+  type PaymentIntent,
+  type PaymentIntentStatus,
+  type Peable,
+  PeableError,
+} from '@peable.to/sdk';
 import { PaymentProviderError } from '../provider.js';
 import type {
   CreatePaymentRequest,
@@ -54,69 +62,73 @@ import type {
   ReverseTransferRequest,
   SettlingPaymentProvider,
 } from '../provider.js';
-import { type Peable, PeableError, peableForOxyService } from '@peable.to/sdk';
-import { config } from '../../../config/index.js';
-import { requiredOxyServiceClient } from '../../../capabilities/oxy-service-client.js';
+import { createPeableClient } from './client.js';
 import { verifyPeableSignature } from './verify.js';
 
-// SDK response types remain upstream. The gateway's existing create/retrieve
-// compatibility response may contain a client_action not present on list DTOs.
-type GatewayIntent = Awaited<ReturnType<Peable['paymentIntents']['retrieve']>>;
-function clientActionOf(intent: GatewayIntent): ProviderPaymentResult['clientAction'] {
-  if (!('client_action' in intent)) return undefined;
-  const action: unknown = intent.client_action;
-  if (typeof action !== 'object' || action === null || !('kind' in action) || !('value' in action))
-    return undefined;
-  if (
-    (action.kind === 'client_secret' || action.kind === 'redirect') &&
-    typeof action.value === 'string'
-  ) {
-    return { kind: action.kind, value: action.value };
-  }
-  return undefined;
+/** The gateway's transfer statuses, as the wire contract closes them. */
+type GatewayTransferStatus = Awaited<ReturnType<Peable['transfers']['create']>>['status'];
+
+/** A status this adapter has no Mercaria word for: permanent, and loud. */
+function unmapped(stage: PaymentProviderStage, what: string): PaymentProviderError {
+  return new PaymentProviderError({
+    provider: 'peable',
+    stage,
+    message: `the Peable gateway reported an unmapped ${what}`,
+    // PERMANENT: the same request returns the same unmapped status forever.
+    // A retry would spin, and the fix is a code change here.
+    retryable: false,
+  });
 }
 
 /**
- * The gateway's payment statuses, mapped onto Mercaria's.
+ * Where a `succeeded` payment stands once refunds are counted.
  *
- * TOTAL over the gateway's set rather than a lookup with a fallback: an
- * unmapped status silently becoming `processing` is how a settled payment stays
- * unpaid, and the compiler cannot see a missing key in a partial record. A
- * status the gateway adds later fails HERE, loudly, rather than downstream.
+ * The gateway's PaymentIntent stays `succeeded` for life (ADR 0019): money
+ * coming back is `amount_refunded` — the sum of SUCCEEDED refunds — beside the
+ * `amount_received` it is measured against. Compared as `bigint`, because both
+ * are unbounded canonical integer strings.
  */
-function toPaymentStatus(status: string, stage: PaymentProviderStage): PaymentStatus {
+function refundedStatus(intent: PaymentIntent): PaymentStatus {
+  const refunded = BigInt(intent.amount_refunded);
+  if (refunded === 0n) return 'succeeded';
+  return refunded >= BigInt(intent.amount_received) ? 'refunded' : 'partially_refunded';
+}
+
+/**
+ * The gateway's PaymentIntent, mapped onto Mercaria's payment status.
+ *
+ * TOTAL over the contract's status set — a status the gateway adds later is a
+ * compile error here rather than a settled payment that stays unpaid.
+ */
+function toPaymentStatus(intent: PaymentIntent, stage: PaymentProviderStage): PaymentStatus {
+  const status: PaymentIntentStatus = intent.status;
   switch (status) {
-    // `created` is `created`, NOT `processing`, and the two are not
-    // interchangeable: `processing` means a charge is in flight at the acquirer,
-    // and reporting it for a payment the buyer has not even been shown a form
-    // for would make every abandoned checkout look like money on its way.
-    case 'created':
+    // A card intent waits for its payment method twice: before the buyer has
+    // been shown a form (`created`, NOT `processing` — that would make every
+    // abandoned checkout look like money on its way), and after a declined
+    // attempt, which returns it here with `last_payment_error` set. The second
+    // is Mercaria's `failed`, which the buyer can still recover from.
+    case 'requires_payment_method':
+      return intent.last_payment_error ? 'failed' : 'created';
+    case 'requires_confirmation':
       return 'created';
     // The SCA challenge, kept distinct because the checkout has a screen for it.
     case 'requires_action':
       return 'requires_action';
     case 'processing':
       return 'processing';
-    case 'settled':
-      return 'succeeded';
-    case 'failed':
-      return 'failed';
-    case 'rejected':
-    case 'expired':
+    case 'succeeded':
+      return refundedStatus(intent);
+    case 'canceled':
       return 'canceled';
-    case 'refunded':
-      return 'refunded';
-    case 'partially_refunded':
-      return 'partially_refunded';
-    default:
-      throw new PaymentProviderError({
-        provider: 'peable',
-        stage,
-        message: `the Peable gateway reported an unmapped status '${status}'`,
-        // PERMANENT: the same request returns the same unmapped status forever.
-        // A retry would spin, and the fix is a code change here.
-        retryable: false,
-      });
+    // ADR 0001 D3 captures immediately, so a held authorization is a
+    // configuration mistake this code must not paper over with a status.
+    case 'requires_capture':
+      throw unmapped(stage, `status '${status}'`);
+    default: {
+      const exhaustive: never = status;
+      throw unmapped(stage, `status '${String(exhaustive)}'`);
+    }
   }
 }
 
@@ -141,8 +153,13 @@ function toGatewayAmount(money: Money, stage: PaymentProviderStage): string {
   return String(money.amount);
 }
 
+/** The card rail charges fiat only; which fiat is the gateway's own vocabulary. */
+function isCardCurrency(currency: CurrencyCode): currency is CurrencyCode & FiatCurrencyCode {
+  return (FIAT_CURRENCY_CODES as readonly string[]).includes(currency);
+}
+
 /** The gateway's transfer statuses, mapped onto Mercaria's. Total, as above. */
-function toTransferStatus(status: string): TransferStatus {
+function toTransferStatus(status: GatewayTransferStatus): TransferStatus {
   switch (status) {
     case 'pending':
       return 'pending';
@@ -153,22 +170,21 @@ function toTransferStatus(status: string): TransferStatus {
       return 'reversed';
     case 'failed':
       return 'failed';
-    default:
-      throw new PaymentProviderError({
-        provider: 'peable',
-        stage: 'transfer',
-        message: `the Peable gateway reported an unmapped transfer status '${status}'`,
-        retryable: false,
-      });
+    default: {
+      const exhaustive: never = status;
+      throw unmapped('transfer', `transfer status '${String(exhaustive)}'`);
+    }
   }
 }
 
-function toResult(intent: GatewayIntent, stage: PaymentProviderStage): ProviderPaymentResult {
-  const clientAction = clientActionOf(intent);
+function toResult(intent: PaymentIntent, stage: PaymentProviderStage): ProviderPaymentResult {
+  // Present only on a create's answer and a single merchant retrieve of a card
+  // payment that can still be paid — never on a list or an event.
+  const action = intent.client_action;
   return {
     providerObjectId: intent.id,
-    status: toPaymentStatus(intent.status, stage),
-    ...(clientAction ? { clientAction } : {}),
+    status: toPaymentStatus(intent, stage),
+    ...(action ? { clientAction: { kind: action.kind, value: action.value } } : {}),
   };
 }
 
@@ -187,15 +203,8 @@ export class PeablePaymentProvider
 {
   readonly id = 'peable' as const;
   private readonly client: Peable;
-  constructor(client?: Peable) {
-    // Mercaria's own Oxy identity (the task role on ECS); no Peable credential.
-    this.client =
-      client ??
-      peableForOxyService({
-        oxy: requiredOxyServiceClient(),
-        baseURL: config.payments.peable.baseUrl,
-        requestTimeoutMs: 20_000,
-      });
+  constructor(client: Peable = createPeableClient()) {
+    this.client = client;
   }
   private async call<T>(stage: PaymentProviderStage, operation: () => Promise<T>): Promise<T> {
     try {
@@ -217,8 +226,8 @@ export class PeablePaymentProvider
 
   async createPayment(request: CreatePaymentRequest): Promise<ProviderPaymentResult> {
     const currency = request.amount.currency;
-    if (currency !== 'USD' && currency !== 'EUR' && currency !== 'FAIR')
-      throw unsupported('createPayment', 'Currency is not supported by the Peable gateway.');
+    if (!isCardCurrency(currency))
+      throw unsupported('createPayment', 'Currency is not supported by the Peable card rail.');
     const intent = await this.call('createPayment', () =>
       this.client.paymentIntents.create(
         {
@@ -262,9 +271,13 @@ export class PeablePaymentProvider
 
   async cancel(request: PaymentOperationRequest): Promise<ProviderPaymentResult> {
     const intent = await this.call('cancel', () =>
-      this.client.paymentIntents.reject(request.providerObjectId, {
-        idempotencyKey: request.idempotencyKey,
-      }),
+      this.client.paymentIntents.cancel(
+        request.providerObjectId,
+        // The one caller is the reservation sweep giving up on a checkout the
+        // buyer never completed — the gateway's own word for its expiry.
+        { cancellation_reason: 'abandoned' },
+        { idempotencyKey: request.idempotencyKey },
+      ),
     );
     return toResult(intent, 'getStatus');
   }
@@ -273,31 +286,37 @@ export class PeablePaymentProvider
     const refund = await this.call('refund', () =>
       this.client.refunds.create(
         {
-          payment_intent_id: request.providerObjectId,
+          payment_intent: request.providerObjectId,
           external_ref: request.refundId,
           amount: toGatewayAmount(request.amount, 'refund'),
         },
         { idempotencyKey: request.idempotencyKey },
       ),
     );
+    // Where the PAYMENT stands after this refund. Refunds are not intent
+    // statuses (ADR 0019); the payment's refund budget is — `remaining_refundable`
+    // counts pending refunds beside succeeded ones, so a full refund still in
+    // flight already closes the payment, as it does on the Stripe rail.
+    const refunds = await this.call('refund', () =>
+      this.client.refunds.listForPaymentIntent(request.providerObjectId, { limit: 1 }),
+    );
 
     return {
       providerObjectId: refund.id,
-      // The PAYMENT's status after this refund, which the gateway returns on the
-      // refund itself. Re-reading the intent for it would be a second round
-      // trip whose answer can have moved on by the time it arrives.
-      status: toPaymentStatus(refund.payment_status, 'getStatus'),
-      // The REFUND's own lifecycle, which is a different question. A gateway
-      // status this adapter does not recognise becomes `pending` rather than
-      // `succeeded`: reporting money returned that has not moved is the
-      // direction that cannot be walked back.
+      status: refunds.remaining_refundable === '0' ? 'refunded' : 'partially_refunded',
+      // The REFUND's own lifecycle, which is a different question. A status this
+      // adapter does not recognise becomes `pending` rather than `succeeded`:
+      // reporting money returned that has not moved is the direction that
+      // cannot be walked back.
       state:
         refund.status === 'succeeded'
           ? 'succeeded'
           : refund.status === 'failed'
             ? 'failed'
-            : 'pending',
-      ...(refund.failure_code === null ? {} : { failureCode: refund.failure_code }),
+            : refund.status === 'canceled'
+              ? 'canceled'
+              : 'pending',
+      ...(refund.failure_code ? { failureCode: refund.failure_code } : {}),
     };
   }
 
@@ -340,8 +359,8 @@ export class PeablePaymentProvider
     const transfer = await this.call('transfer', () =>
       this.client.transfers.create(
         {
-          payment_intent_id: request.sourcePaymentObjectId,
-          connected_account_id: request.destinationAccountId,
+          payment_intent: request.sourcePaymentObjectId,
+          connected_account: request.destinationAccountId,
           external_ref: request.orderId,
           amount: toGatewayAmount(request.amount, 'transfer'),
         },
@@ -380,6 +399,6 @@ export class PeablePaymentProvider
         retryable: false,
       });
     }
-    return { providerObjectId: transfer.id, totalReversedMinor: total };
+    return { providerObjectId: transfer.reversal.id, totalReversedMinor: total };
   }
 }

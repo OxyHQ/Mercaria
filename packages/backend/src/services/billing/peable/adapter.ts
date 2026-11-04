@@ -311,7 +311,7 @@ export class CohortBillingProvider implements BillingProvider {
       // A failed read leaves the caller's intent pending; never project history
       // or invent another mutation key to recover the response.
       await this.snapshot(
-        await this.client.billing.cancelAtPeriodEnd(ref, { idempotencyKey: key }),
+        await this.client.billing.cancelAtPeriodEnd(ref, {}, { idempotencyKey: key }),
         ref,
         store,
         'cancelSubscription',

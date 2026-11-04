@@ -4,19 +4,17 @@
  * `claimProviderEvent` takes the OLDEST due row. That was unambiguous while
  * `stripe` was the only rail that could produce one; ADR 0009 made it a hazard,
  * because a claim is immediately followed by the claimer handing the row to ITS
- * OWN router, and the two rails do not share event-type names.
+ * OWN router, and both rails speak Stripe's event-type names.
  *
  * The failure is silent and it destroys money. `drainStripeEvents` claiming a
- * `peable` row would call `routeStripeEvent('payment_intent.settled')`, get no
- * handler, and take the "authentic, stored, nothing acts on it" branch — which
- * marks the row **processed** with a note saying no handler exists. A real
- * settlement, acknowledged as handled, with the Peable drain then finding
- * nothing left to do and the order never funded. Every log line reads normal.
+ * `peable` row would call `routeStripeEvent('payment_intent.succeeded')`, find a
+ * handler, and ask STRIPE about a `pi_…` that is Peable's — a settlement Stripe
+ * has never heard of, retried until it dead-letters while the Peable drain
+ * finds nothing left to do and the order is never funded.
  *
  * So the scope is asserted at the CLAIM, which is the only place both rails'
- * rows are visible at once, rather than trusted to each router noticing a type
- * it does not recognise — the Stripe router's "I do not recognise this" branch
- * is exactly the branch that does the damage.
+ * rows are visible at once, rather than trusted to each router noticing an
+ * event that is not its own — a type name cannot tell them apart.
  *
  * No cleanup and no TRUNCATE: vitest runs files in parallel against one
  * throwaway database, so every id here is unique per run instead.
@@ -75,7 +73,7 @@ describe('claiming an inbound provider event', () => {
     const peableId = await store(
       'peable',
       'cross_steal',
-      'payment_intent.settled',
+      'payment_intent.succeeded',
       new Date(Date.now() - 3_600_000),
     );
 
@@ -120,7 +118,7 @@ describe('claiming an inbound provider event', () => {
    * question.
    */
   it('refuses a named event that belongs to another rail', async () => {
-    const peableId = await store('peable', 'named', 'payment_intent.failed', new Date());
+    const peableId = await store('peable', 'named', 'payment_intent.payment_failed', new Date());
 
     const row = await claimProviderEvent(db, {
       leaseOwner: `stripe-named-${RUN}`,
