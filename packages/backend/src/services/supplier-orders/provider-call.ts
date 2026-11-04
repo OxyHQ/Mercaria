@@ -17,17 +17,13 @@
  *     stops a supplier stops it for quoting and for ordering with one act.
  *  3. **The capability.** An operation whose capability the adapter did not
  *     declare is REFUSED and recorded, never simulated.
- *  4. **The fetch lever.** Read-only operations are gated by
- *     `PROCUREMENT_PROVIDER_FETCH_ENABLED`; a SUBMISSION and a CANCELLATION are
- *     deliberately not, because those are consequences of money that has
- *     already moved and pausing them silently would strand a paid order.
- *  5. **The provider lease** (#122's `supplier_call_leases`), so the outbound
+ *  4. **The provider lease** (#122's `supplier_call_leases`), so the outbound
  *     rate this domain adds is counted in the same budget the preflight spends
  *     from. Two independent limiters against one supplier's published limit is
  *     how a supplier starts refusing Mercaria at checkout time.
- *  6. **The attempt row**, committed `in_flight` BEFORE the call.
- *  7. **The call**, with its deadline.
- *  8. **The attempt row's terminal outcome**, and the lease released.
+ *  5. **The attempt row**, committed `in_flight` BEFORE the call.
+ *  6. **The call**, with its deadline.
+ *  7. **The attempt row's terminal outcome**, and the lease released.
  *
  * ## A refusal is an OUTCOME, not a skipped call
  *
@@ -199,9 +195,6 @@ export async function callSupplierProvider<T>(
   }
   if (!adapter.capabilities.includes(OPERATION_CAPABILITY[input.operation])) {
     return await refuse(input, 'capability_not_declared', now);
-  }
-  if (READ_ONLY_OPERATIONS.includes(input.operation) && !config.procurement.providerFetchEnabled) {
-    return await refuse(input, 'provider_fetch_disabled', now);
   }
 
   const leaseOwner = `procurement:${String(process.pid)}:${randomUUID()}`;

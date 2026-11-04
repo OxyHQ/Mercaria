@@ -11,9 +11,9 @@
  * Mounted on every deployment; anyone without the key is answered 404, never a
  * 401 that would advertise the surface.
  *
- * The surface stays mounted while every procurement lever is OFF, and that is
- * deliberate: the evidence has to be readable during the incident that turned
- * them off — the `/internal/backfill` and `/internal/ingestion` rule.
+ * The surface does not depend on any supplier being live: the evidence has to
+ * be readable during the incident that killed one — the `/internal/backfill`
+ * and `/internal/ingestion` rule.
  */
 
 import { Router } from 'express';

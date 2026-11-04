@@ -369,18 +369,18 @@ describe('the reconciliation domain cannot reach what it must not', () => {
   }
 });
 
-describe('only the runner reads the sweep’s feature flag', () => {
+describe('only the runner reads the sweep’s configuration', () => {
   it('keeps `config.retailReconciliation` out of every durable path', () => {
-    // The payment outbox's rule: the LOOP is gated, the record never is. An
-    // operator reconciling an order by hand still writes its revision, raises
-    // its exceptions and books what it recognizes — which is only true while no
-    // module but the runner can see the flag.
+    // The payment outbox's rule: nothing that configures the LOOP may gate the
+    // record. An operator reconciling an order by hand writes its revision,
+    // raises its exceptions and books what it recognizes whatever the sweep is
+    // doing — which stays true while no module but the runner can see its config.
     const readers = DOMAIN_FILES.filter(
       (file) => /config\.retailReconciliation/.test(code(file)) && !file.endsWith('runner.ts'),
     );
     expect(readers.map((file) => relative(SERVICE_DIR, file))).toEqual([]);
     // The positive control: the runner DOES read it, so an empty result above
-    // cannot mean the flag was renamed away.
+    // cannot mean the config was renamed away.
     expect(code(join(SERVICE_DIR, 'runner.ts'))).toMatch(/config\.retailReconciliation/);
   });
 });

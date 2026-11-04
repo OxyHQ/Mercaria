@@ -22,7 +22,8 @@
  * **FAIL CLOSED.** `error` is not `clean`; `PUBLISHABLE_ASSET_SCAN_VERDICTS` has one
  * member and it is `clean`; so with no scanner registered, no version is
  * publishable. That is the correct behaviour for a marketplace that cannot yet
- * scan, and it is why `DIGITAL_PUBLICATION_ENABLED` is a separate lever.
+ * scan, and it is the ONLY thing standing between an upload and a sale: there is
+ * no publication lever, so this verdict is the gate.
  *
  * ## Why the pipeline writes the verdict at all, rather than leaving it `pending`
  *
@@ -88,8 +89,8 @@ export const NO_SCANNER_CONFIGURED_NAME = 'no-scanner-configured';
  * `warn` rather than `debug` — and deliberately unlike `moovo.port.ts`, which logs
  * at `debug` because its feature is off by default. Uploads being inspected at all
  * means a creator is waiting for a publishable version, and the reason they cannot
- * have one is this. A deployment that has turned `DIGITAL_UPLOADS_ENABLED` on and
- * has no scanner is a misconfiguration somebody should see.
+ * have one is this. A deployment that has mounted creator uploads and has no
+ * scanner is a misconfiguration somebody should see.
  */
 export const unregisteredAssetMalwareScanner: AssetMalwareScanner = {
   scan(request: AssetScanRequest): Promise<AssetScanResult> {

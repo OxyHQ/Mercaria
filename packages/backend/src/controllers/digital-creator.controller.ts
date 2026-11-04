@@ -30,18 +30,16 @@
  * row stores. A deployment that cannot ask answers 503 and registers nothing; it
  * never falls back to believing the client, or to the creator's own upload.
  *
- * ## Publication asks three questions and none of them is "is this pretty"
+ * ## Publication asks two questions and neither of them is "is this pretty"
  *
- * `config.digital.publicationEnabled` (ADR 0010 D13 — a version becoming sellable
- * is the lever that has a per-market launch gate in front of it), then
  * `everyFileScannedClean` (is any file MALICIOUS) and `everyFileInspectionAcceptable`
- * (is any file BROKEN). The last two are #1015 W1 requirement 12 and both answer
+ * (is any file BROKEN). Both are #1015 W1 requirement 12 and both answer
  * `false` for a version with no files, deliberately. They are separate calls so a
  * creator is told which one refused them, and the second exists because a `corrupt`
  * file is not malicious: a scanner calls it clean, and until the inspection gate
  * landed nothing else stood between it and a buyer.
  *
- * All three run before `publishAssetVersion`, which is itself a CAS — so a double
+ * Both run before `publishAssetVersion`, which is itself a CAS — so a double
  * tap from a dashboard converges rather than publishing twice.
  */
 
@@ -339,14 +337,11 @@ export async function registerAssetFileHandler(req: Request, res: Response): Pro
 /**
  * POST /digital/stores/:storeId/assets/:assetId/versions/:versionId/publish
  *
- * The lever and the scan gate, then the CAS.
+ * The scan and inspection gates, then the CAS.
  */
 export async function publishAssetVersionHandler(req: Request, res: Response): Promise<void> {
   try {
     const { version } = await requireStoreVersion(req);
-    if (!config.digital.publicationEnabled) {
-      throw conflict('Publishing digital versions is switched off on this deployment.');
-    }
     // #1015 W1 requirement 12. `everyFileScannedClean` answers `false` for a
     // version with NO files, deliberately — publishing an empty deliverable is
     // not a thing a creator means to do.

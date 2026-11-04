@@ -31,14 +31,12 @@
  * digest, so it writes no revision at all. Resumability and idempotency are the
  * same property here approached from two sides.
  *
- * ## The LOOP is gated; the records never are
+ * ## The sweep is not the only writer
  *
- * `RETAIL_RECONCILIATION_ENABLED=false` stops the timer and nothing else. An
- * operator reconciling an order by hand still writes its revision, still raises
- * its exceptions and still books what it recognizes — the payment outbox's rule,
- * for the same reason: switching a loop off during an incident should park work,
- * not lose the record of it. `retail-reconciliation-isolation.test.ts` fails the
- * build if any module but this one reads the flag.
+ * An operator reconciling an order by hand writes the same revision, raises the
+ * same exceptions and books what it recognizes through the same paths.
+ * `retail-reconciliation-isolation.test.ts` fails the build if any module but
+ * this one reads `config.retailReconciliation`.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -223,12 +221,6 @@ async function settleOpenAdjustments(input: { limit: number; now: Date }): Promi
  */
 export function startRetailReconciliationSweep(): void {
   if (timer) return;
-  if (!config.retailReconciliation.enabled) {
-    log.general.info(
-      '[RetailReconciliation] the sweep is disabled; records and operator actions are unaffected',
-    );
-    return;
-  }
   timer = setInterval(() => {
     if (running) return;
     running = true;

@@ -16,10 +16,9 @@
  * `verified-conversion.ts` states for analytics and #110's own reconciler
  * already follows.
  *
- * ## The LOOP is gated; the record never is
+ * ## The sweep is not the only way forward
  *
- * `RETAIL_SERVICE_RECONCILER_ENABLED` stops the sweep and stops nothing else.
- * Every request it would have advanced is advanced by the operator surface's
+ * Every request it advances is also advanced by the operator surface's
  * `complete`, which drives the same idempotent path, and by the buyer's own
  * portal read, which shows the true rail state whatever this loop is doing.
  *
@@ -145,13 +144,9 @@ export async function notifyRetailServiceDelays(now: Date): Promise<number> {
   return notified;
 }
 
-/** Start the sweep. A no-op when the lever is off or it is already running. */
+/** Start the sweep. A no-op when it is already running. */
 export function startRetailServiceReconciler(): void {
   if (timer !== undefined) return;
-  if (!config.retailService.reconcilerEnabled) {
-    log.general.info({}, '[RetailService] the refund reconciler is disabled');
-    return;
-  }
   timer = setInterval(() => {
     const now = new Date();
     void reconcileRetailServiceRefunds(now).catch((err: unknown) => {

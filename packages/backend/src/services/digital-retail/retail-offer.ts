@@ -28,7 +28,6 @@ import type {
 import type { DatabaseOrTransaction } from '../../db/postgres.js';
 import type { DigitalProcurementCandidate } from '../../db/digitalRetail/digitalProcurementOfferRepository.js';
 import { findActivePricingPolicy } from '../../db/digitalRetail/pricingPolicyRepository.js';
-import { config } from '../../config/index.js';
 import { priceDigitalRetailOffer } from './pricing.js';
 
 /**
@@ -55,11 +54,7 @@ export function projectDigitalRetailSourcingSeam(
 }
 
 /** Why a public retail offer could not be composed. Closed, and all actionable. */
-export type RetailOfferRefusal =
-  | 'publication_disabled'
-  | 'no_eligible_supply'
-  | 'unmapped'
-  | 'not_priced';
+export type RetailOfferRefusal = 'no_eligible_supply' | 'unmapped' | 'not_priced';
 
 /** A public offer, or the reason there is not one. */
 export type ComposeRetailOfferResult =
@@ -69,10 +64,10 @@ export type ComposeRetailOfferResult =
 /**
  * Compose the one PUBLIC offer for a canonical variant in one market.
  *
- * The order of the refusals is the order a reader needs them in: the lever, then
- * whether any supply is eligible at all, then whether it is mapped exactly, then
- * whether a policy prices it. Each is a different remedy — a deployment switch, a
- * supplier problem, a catalogue problem, a commercial decision.
+ * The order of the refusals is the order a reader needs them in: whether any
+ * supply is eligible at all, then whether it is mapped exactly, then whether a
+ * policy prices it. Each is a different remedy — a supplier problem, a catalogue
+ * problem, a commercial decision.
  *
  * **The cheapest eligible cost is what gets priced, and the supplier that
  * supplied it is not returned.** That is the whole privacy property in one line:
@@ -88,9 +83,6 @@ export async function composeDigitalRetailOffer(
   market: string,
   tx?: DatabaseOrTransaction,
 ): Promise<ComposeRetailOfferResult> {
-  if (!config.digitalRetail.publicationEnabled) {
-    return { composed: false, refusal: 'publication_disabled' };
-  }
   const eligible = candidates.filter((entry) => entry.eligibility.eligible);
   if (eligible.length === 0) return { composed: false, refusal: 'no_eligible_supply' };
 

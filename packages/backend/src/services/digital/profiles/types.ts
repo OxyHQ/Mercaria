@@ -11,7 +11,7 @@
  * operator who chooses to.
  *
  * The digital domain has a second reason the catalogue domain did not: ADR 0010
- * D13's five levers and D15's per-market launch gate mean a deployment may
+ * D13's controls and D15's per-market launch gate mean a deployment may
  * legitimately hold this vocabulary and sell none of it, or sell it in one
  * market and not another. A migration that installed the profiles everywhere
  * would be the code pretending to have made a decision that three sign-offs

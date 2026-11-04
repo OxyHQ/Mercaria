@@ -19,11 +19,6 @@
  * Mounted on every deployment; anyone without the key is answered 404, never a
  * 401 that would advertise the surface.
  *
- * The surface stays mounted while `RETAIL_RECONCILIATION_ENABLED` is off, and
- * that is deliberate: the evidence has to be readable during the incident that
- * turned the sweep off — the `/internal/backfill` and `/internal/procurement`
- * rule.
- *
  * ## READ, plus a CLOSED set of three writes
  *
  * Each write drives a path the sweep already runs on its own, so this adds a

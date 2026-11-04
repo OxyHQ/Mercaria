@@ -31,7 +31,6 @@ import {
   RETAIL_SERVICE_NOTE_MAX_LENGTH,
   RETAIL_SERVICE_REQUEST_KINDS,
 } from '@mercaria/shared-types';
-import { config } from '../config/index.js';
 import { respondWithError } from '../lib/errors/error-codes.js';
 import { ErrorCodes, sendError, sendSuccess } from '../utils/api-response.js';
 import {
@@ -136,18 +135,6 @@ function idempotencyKey(req: Request): string | undefined {
   const raw = req.headers['idempotency-key'];
   const value = (Array.isArray(raw) ? raw[0] : raw)?.trim();
   return value !== undefined && value.length > 0 ? value : undefined;
-}
-
-/** Refuse a buyer WRITE while the incident lever is down. Reads stay open. */
-function retailRequestsAreOpen(res: Response): boolean {
-  if (config.retailService.requestsEnabled) return true;
-  sendError(
-    res,
-    ErrorCodes.BUYER_REQUESTS_DISABLED,
-    'New requests are temporarily unavailable; existing ones are unaffected',
-    503,
-  );
-  return false;
 }
 
 /** An authorized buyer plus the order they were authorized for, or a sent response. */
@@ -258,7 +245,6 @@ export async function listRetailRequests(req: Request, res: Response): Promise<v
 /** `POST …/retail-requests` — file one. */
 export async function createRetailRequest(req: Request, res: Response): Promise<void> {
   try {
-    if (!retailRequestsAreOpen(res)) return;
     const parsed = submitSchema.safeParse(req.body);
     if (!parsed.success) {
       sendError(
@@ -330,7 +316,6 @@ export async function createRetailRequest(req: Request, res: Response): Promise<
 /** `POST …/retail-requests/:requestId/evidence` — attach what was asked for. */
 export async function addRetailRequestEvidence(req: Request, res: Response): Promise<void> {
   try {
-    if (!retailRequestsAreOpen(res)) return;
     const parsed = evidenceSchema.safeParse(req.body);
     if (!parsed.success) {
       sendError(

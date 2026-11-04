@@ -71,7 +71,7 @@ export const DIGITAL_RETAIL_PRODUCT_CLASSES: readonly DigitalRetailProductClass[
  * conclusion — the epic is explicit that it *"does not hard-code jurisdictional
  * legal conclusions; it requires the commerce model to carry the distinctions
  * needed for reviewed policy"*. A market whose treatment is unresolved does not
- * launch, and the lever that holds it is per deployment.
+ * launch, and the gate that holds it (`MERCARIA_RETAIL_ENABLED`) is per deployment.
  */
 export type DigitalRetailTaxClass =
   | 'electronically_supplied_service'

@@ -10,16 +10,15 @@
  *
  * ## Two independent gates, and neither is sufficient alone
  *
- * 1. `SUPPLIER_PREFLIGHT_FAKE_ADAPTER_ENABLED` must be on for the adapter to be
- *    registrable at all. Default false, so a production deployment that never
- *    sets it has no fake adapter in its registry.
- * 2. The adapter REFUSES a `live` supplier account at call time, whatever the
- *    flag says. So a staging flag accidentally set in production still cannot
- *    fabricate an answer for a real supplier account, and the refusal is a
- *    `contract_violation` an operator sees rather than a silent fallback.
+ * 1. The adapter is registrable only outside production
+ *    (`config.supplierPreflight.fakeAdapterEnabled` is `NODE_ENV !== 'production'`),
+ *    so a production deployment has no fake adapter in its registry.
+ * 2. The adapter REFUSES a `live` supplier account at call time. So a staging
+ *    environment pointed at a real supplier account still cannot fabricate an
+ *    answer for it, and the refusal is a `contract_violation` an operator sees
+ *    rather than a silent fallback.
  *
- * The second gate is the load-bearing one, because a flag is exactly the thing
- * that gets copied between environments.
+ * The second gate is the load-bearing one, because environments get copied.
  *
  * ## Injection is process-local, and that is stated rather than hidden
  *
@@ -237,9 +236,8 @@ function buildReservation(
  * The gate that a flag cannot defeat.
  *
  * A `live` supplier account is never served a fabricated answer, whatever
- * `SUPPLIER_PREFLIGHT_FAKE_ADAPTER_ENABLED` says — because a flag is exactly
- * the thing that gets copied between environments, and the consequence here is
- * a customer charged against stock that was never checked.
+ * environment this is — because environments get copied, and the consequence
+ * here is a customer charged against stock that was never checked.
  */
 function assertNotLive(environment: 'test' | 'live'): void {
   if (environment === 'live') {
@@ -254,16 +252,15 @@ function assertNotLive(environment: 'test' | 'live'): void {
 /**
  * Put the fake adapter in the registry.
  *
- * Throws when the flag is off rather than no-opping: a test or a staging
- * runbook that called this and got silence would go on to assert against
- * whatever the registry did hold, and the failure would read as a missing
- * supplier rather than as a missing flag.
+ * Throws in production rather than no-opping: a runbook that called this and
+ * got silence would go on to assert against whatever the registry did hold, and
+ * the failure would read as a missing supplier rather than as the refusal.
  */
 export function registerFakeSupplierAdapter(): void {
   if (!config.supplierPreflight.fakeAdapterEnabled) {
     throw new Error(
-      'SUPPLIER_PREFLIGHT_FAKE_ADAPTER_ENABLED is off. The fake supplier adapter fabricates ' +
-        'stock, cost and reservation answers and is registrable only where that is intended.',
+      'NODE_ENV is production. The fake supplier adapter fabricates stock, cost and ' +
+        'reservation answers and is never registrable in production.',
     );
   }
   registerSupplierAdapter(fakeAdapter);

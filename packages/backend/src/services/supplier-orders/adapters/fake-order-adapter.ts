@@ -13,17 +13,16 @@
  *
  * ## Two independent gates, and the second is the load-bearing one
  *
- *  1. `PROCUREMENT_FAKE_ADAPTER_ENABLED` must be on for it to be registrable at
- *     all. Default false, so a production deployment that never sets it has no
- *     fake adapter in its registry.
- *  2. It REFUSES a `live` supplier account at call time, whatever the flag
- *     says. A staging flag copied into production still cannot fabricate an
- *     acceptance for a real supplier account — and the consequence there is
- *     worse than the preflight's: a fabricated acceptance tells a customer
+ *  1. It is registrable only outside production (`NODE_ENV !== 'production'`),
+ *     so a production deployment has no fake adapter in its registry.
+ *  2. It REFUSES a `live` supplier account at call time, whatever the
+ *     environment. A staging environment pointed at a real supplier account
+ *     still cannot fabricate an acceptance for it — and the consequence there
+ *     is worse than the preflight's: a fabricated acceptance tells a customer
  *     goods are coming that nobody ordered.
  *
- * A flag is exactly the thing that gets copied between environments, which is
- * why the second gate exists and why it is not conditional on the first.
+ * Environments get copied, which is why the second gate exists and why it is
+ * not conditional on the first.
  *
  * ## Injection is process-local, and that is stated rather than hidden
  *
@@ -511,10 +510,10 @@ function acknowledgement(
 }
 
 /**
- * The gate a flag cannot defeat.
+ * The gate no environment can defeat.
  *
- * A `live` supplier account is never served a fabricated answer, whatever
- * `PROCUREMENT_FAKE_ADAPTER_ENABLED` says. The consequence of getting this
+ * A `live` supplier account is never served a fabricated answer, in any
+ * environment. The consequence of getting this
  * wrong is worse than the preflight's: a fabricated ACCEPTANCE tells a customer
  * that goods nobody ordered are on their way.
  */

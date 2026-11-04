@@ -315,26 +315,26 @@ absence. `inventory_semantics` was not one of the seven prerequisites
 `digital_good`'s exclusion named; #1015 boundary 1 asks anyway, and this is the
 answer.
 
-### D13. Five independent feature levers, and only one touches an existing right
+### D13. No lever may strand a prior purchase
 
 #1015 acceptance criterion 19 requires that uploads, publication, paid checkout,
-downloads and a vertical be disableable **without stranding prior purchases**. One
-master flag could not do that. So:
+downloads and a vertical be disableable **without stranding prior purchases**.
 
-| Lever | Default | What it stops |
+*Amended 2026-10-16:* the owner removed every `*_ENABLED` switch that a finished
+feature does not need. What remains:
+
+| Control | Default | What it stops |
 |---|---|---|
-| `DIGITAL_UPLOADS_ENABLED` | off | new files |
-| `DIGITAL_PUBLICATION_ENABLED` | off | a version becoming sellable |
 | `DIGITAL_PAID_CHECKOUT_ENABLED` | off | buying (a free claim still works) |
-| `DIGITAL_DOWNLOADS_ENABLED` | **on** | minting new grants |
-| `DIGITAL_ENABLED_VERTICALS` | empty | a whole vertical |
+| `DIGITAL_ENABLED_VERTICALS` | empty | a whole vertical, and the creator upload mount |
+| Oxy service identity | — | the creator upload mount (registering a file reads the asset service) |
+| malware-scan + inspection verdicts | — | a version becoming sellable (no scanner registered = nothing publishes) |
 
-`downloadsEnabled` is the only one that reaches an existing right, hence the only
-one defaulting on: it is an INCIDENT lever, and the thing you reach for mid-incident
-must not be the thing that destroys what buyers hold. Turning it off refuses new
-grants with `downloads_disabled` and leaves every right `active`.
+Downloads have no lever at all: the right alone authorizes one, so nothing a
+deployment sets can take away what a buyer holds. `downloads_disabled` stays in the
+stored refusal vocabulary only because `asset_download_events`' CHECK carries it.
 
-Everything else defaults OFF because digital commerce has a launch gate in front of
+Paid checkout defaults OFF because digital commerce has a launch gate in front of
 it that is not a code review — see D15.
 
 ### D14. Creator content is not training data, and there is no column saying otherwise

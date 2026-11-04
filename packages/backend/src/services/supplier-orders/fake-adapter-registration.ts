@@ -7,8 +7,8 @@
  * real adapter. Registration reads `config`, so it lives here, one level up.
  *
  * The SECOND gate — the refusal of any `live` supplier account at call time — is
- * inside the adapter itself and is not conditional on this one. A flag is
- * exactly the thing that gets copied between environments.
+ * inside the adapter itself and is not conditional on this one, because
+ * environments get copied.
  */
 
 import { config } from '../../config/index.js';
@@ -18,18 +18,17 @@ import { fakeOrderAdapterInstance } from './adapters/fake-order-adapter.js';
 /**
  * Put the fake order adapter in the registry.
  *
- * Throws when the flag is off rather than no-opping: a test or a staging
- * runbook that called this and got silence would go on to assert against
- * whatever the registry did hold, and the failure would read as a missing
- * supplier rather than as a missing flag — #122's `registerFakeSupplierAdapter`
- * reasoning, verbatim.
+ * Throws in production (`config.procurement.fakeAdapterEnabled` is
+ * `NODE_ENV !== 'production'`) rather than no-opping: a runbook that called this
+ * and got silence would go on to assert against whatever the registry did hold,
+ * and the failure would read as a missing supplier rather than as the refusal —
+ * #122's `registerFakeSupplierAdapter` reasoning, verbatim.
  */
 export function registerFakeOrderAdapter(): void {
   if (!config.procurement.fakeAdapterEnabled) {
     throw new Error(
-      'PROCUREMENT_FAKE_ADAPTER_ENABLED is off. The fake supplier order adapter fabricates ' +
-        'acceptances, shipments and cancellations, and is registrable only where that is ' +
-        'intended.',
+      'NODE_ENV is production. The fake supplier order adapter fabricates acceptances, ' +
+        'shipments and cancellations, and is never registrable in production.',
     );
   }
   registerSupplierAdapter(fakeOrderAdapterInstance());

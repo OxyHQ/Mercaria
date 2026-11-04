@@ -1,22 +1,21 @@
 /**
- * The three loops of the procurement domain, and the levers that gate them.
+ * The three loops of the procurement domain.
  *
  * All three start on EVERY task, not on a leader. Claims are Postgres leases
  * taken with `for update skip locked` and released with an owner check, so N
  * tasks share the work without contending and a dead task's lease is reclaimed
  * rather than stranding a supplier order.
  *
- * The LOOPS are gated; the durable records never are. Rows are written whatever
- * the configuration says, so switching a lever off during an incident parks the
- * work and switching it back on delivers the backlog — the rule the payment and
- * moderation dispatchers already follow, and one whose inverse (gating the
- * record) is the change that looks equivalent and silently loses a supplier
- * order a customer has paid for.
+ * The loops always run. What stops a supplier is the per-supplier kill switch
+ * (`supplier_accounts.state = 'killed'`), read at the provider-call chokepoint;
+ * what keeps a new retail order out of this domain is `MERCARIA_RETAIL_ENABLED`
+ * at checkout entry. Neither gates a durable record, so a paused supplier's work
+ * waits rather than being lost.
  *
  * ## Why THREE loops and not one
  *
- * Because the three answer to different levers, and #124 item 10 asks for
- * exactly that independence:
+ * Because the three are different kinds of work, and #124 item 10 asks for them
+ * to be separable:
  *
  *  - the ORCHESTRATION loop submits and cancels — the acts that change
  *    something at a supplier;
@@ -25,8 +24,8 @@
  *  - the EVENT loop interprets what is already stored — which is what moves a
  *    purchase order and therefore what a customer sees.
  *
- * One loop reading a filter would give the same behaviour and hide the fact
- * that these are three separate decisions an operator makes at 3am.
+ * One loop reading a filter would give the same behaviour and hide that a slow
+ * provider read must not hold up a submission or the interpretation of events.
  */
 
 import { config } from '../../config/index.js';
@@ -121,51 +120,17 @@ async function tickEvents(): Promise<void> {
 export function startProcurementDispatchers(): void {
   if (timers.length > 0) return;
 
-  if (config.procurement.orchestrationEnabled) {
-    const timer = setInterval(
-      () => void tickOrchestration(),
-      config.procurement.outboxPollIntervalMs,
-    );
+  const loops: [() => Promise<void>, number][] = [
+    [tickOrchestration, config.procurement.outboxPollIntervalMs],
+    [tickPolling, config.procurement.outboxPollIntervalMs],
+    [tickEvents, config.procurement.eventPollIntervalMs],
+  ];
+  for (const [tick, intervalMs] of loops) {
+    const timer = setInterval(() => void tick(), intervalMs);
     timer.unref?.();
     timers.push(timer);
-  } else {
-    log.general.warn(
-      '[Procurement] the orchestration dispatcher is DISABLED; supplier submissions and ' +
-        'cancellations are recorded and will deliver once it is enabled',
-    );
   }
-
-  if (config.procurement.orchestrationEnabled && config.procurement.providerFetchEnabled) {
-    const timer = setInterval(() => void tickPolling(), config.procurement.outboxPollIntervalMs);
-    timer.unref?.();
-    timers.push(timer);
-  } else {
-    log.general.warn(
-      '[Procurement] status polling is DISABLED; webhooks are still received and stored',
-    );
-  }
-
-  if (config.procurement.eventProcessingEnabled) {
-    const timer = setInterval(() => void tickEvents(), config.procurement.eventPollIntervalMs);
-    timer.unref?.();
-    timers.push(timer);
-  } else {
-    log.general.warn(
-      '[Procurement] supplier event processing is DISABLED; events accumulate durably and ' +
-        'nothing customer-visible moves',
-    );
-  }
-
-  if (timers.length > 0) {
-    log.general.info(
-      {
-        orchestration: config.procurement.orchestrationEnabled,
-        providerFetch: config.procurement.providerFetchEnabled,
-        eventProcessing: config.procurement.eventProcessingEnabled,
-      },
-      '[Procurement] dispatchers started',
-    );
-  }
+  log.general.info('[Procurement] dispatchers started');
 }
 
 /**

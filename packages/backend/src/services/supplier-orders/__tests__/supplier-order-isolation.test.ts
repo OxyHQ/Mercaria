@@ -12,8 +12,9 @@
  *  2. **Only ONE module calls a provider.** No module in this domain may invoke
  *     an adapter method except `provider-call.ts`, because every gate, the
  *     lease and the attempt log live in that one chokepoint.
- *  3. **No lever gates a durable record** (#124 acceptance 5). The ingress, the
- *     repositories and the exception path may not read
+ *  3. **No lever gates a durable record** (#124 acceptance 5). The loops have
+ *     no deployment lever today; should one return, the ingress, the
+ *     repositories and the exception path may still not read
  *     `config.procurement.*Enabled` — a kill switch that stopped a webhook
  *     being STORED would lose updates for orders already placed.
  *  4. **Procurement never touches payments** (ADR 0004 D1). No module here may
@@ -307,7 +308,8 @@ describe('supplier order isolation (static)', () => {
           "import { findSupplierAdapter } from '../supplier-preflight/registry.js';",
         ],
         'a procurement lever, from a durable-record path': [
-          'if (config.procurement.orchestrationEnabled) { return; }',
+          // A hypothetical lever: none exists today, which is what keeps it so.
+          'if (!config.procurement.submissionsEnabled) { return; }',
         ],
         'the payment domain': [
           "import { paymentService } from '../../services/payments/payment.service.js';",

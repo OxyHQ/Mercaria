@@ -229,8 +229,8 @@ Left, in order:
 
 # Mercaria Digital (#1015) — what is built, what is inert, and what Phases B–E still need
 
-**Status: Phase A is code-complete, CI-green and INERT.** Four of the five feature
-levers default OFF and nothing has run against real object storage, a real asset
+**Status: Phase A is code-complete, CI-green and INERT.** Paid checkout defaults
+OFF, no version can publish without a malware scanner, and nothing has run against real object storage, a real asset
 file or a real buyer. Binding decisions: [ADR 0010](docs/adr/0010-digital-commerce.md).
 Design: [docs/digital-commerce.md](docs/digital-commerce.md).
 
@@ -238,7 +238,7 @@ Design: [docs/digital-commerce.md](docs/digital-commerce.md).
 
 Migration `0156` creates fifteen tables and seven triggers and runs with the normal
 pipeline, so the schema is live on every deployment. **Nothing uses it** until the
-levers below are set, and a deployment that sets none behaves exactly as it did
+configuration below is set, and a deployment that sets none behaves exactly as it did
 before #1015 — including the address constraint, which is stricter for physical
 orders and otherwise invisible.
 
@@ -246,11 +246,14 @@ orders and otherwise invisible.
 
 | Var | Default | Notes |
 |---|---|---|
-| `DIGITAL_UPLOADS_ENABLED` | `false` | gates the creator upload surface. Off does not touch a published asset. |
-| `DIGITAL_PUBLICATION_ENABLED` | `false` | gates a version becoming sellable. Separate from uploads so work can be staged while publication is paused. |
 | `DIGITAL_PAID_CHECKOUT_ENABLED` | `false` | **the launch gate — see §3.** A free claim still works with it off. |
-| `DIGITAL_DOWNLOADS_ENABLED` | **`true`** | the INCIDENT lever. Off refuses new grants with `downloads_disabled` and leaves every right `active`, so flipping it back restores access with nothing to repair. **Never use it as a rollout lever.** |
 | `DIGITAL_ENABLED_VERTICALS` | empty | comma-separated `DigitalVertical` keys; an ALLOW-list. `three_d` is the only one with a format registry today. |
+
+There is no uploads, publication or downloads lever. The creator upload surface is
+mounted when Mercaria has an Oxy service identity AND `DIGITAL_ENABLED_VERTICALS`
+names a vertical; a version becomes sellable only when every file is scanned
+`clean` and inspected acceptably (no scanner is registered, so nothing publishes
+yet); a download is authorized by the right alone.
 
 ## 2. Object storage IS wired now — and the part that is NOT is upload
 
@@ -279,9 +282,9 @@ owner having attached it to the `mercaria` application.
    wanting a whole version's files must go through it.
 
 Until step 2, every download answers `absent`, which surfaces as *"your purchase is
-unaffected — please contact support"* rather than a revocation. `downloadsEnabled`
-defaults **on** (it is the incident lever), so the gate that actually holds is
-`publicationEnabled`.
+unaffected — please contact support"* rather than a revocation. The gate that
+actually holds is publication: with no malware scanner registered, no version is
+publishable.
 
 ### What is still missing: UPLOAD
 
@@ -411,24 +414,16 @@ of the epic's own recommended order plus the library projection. Read
 `docs/digital-retail.md` first — this section is only what is NOT done and what
 each remaining piece needs.
 
-## What is live-but-inert, and the levers that hold it
+## What is live-but-inert, and what holds it
 
-Everything defaults OFF except the incident lever:
-
-| Variable | Default | Stops |
-|---|---|---|
-| `DIGITAL_RETAIL_CATALOG_SYNC_ENABLED` | off | pulling supplier catalogues |
-| `DIGITAL_RETAIL_PUBLICATION_ENABLED` | off | an offer becoming publishable |
-| `DIGITAL_RETAIL_CHECKOUT_ENABLED` | off | buying |
-| `DIGITAL_RETAIL_PROCUREMENT_ENABLED` | off | submitting anything to a supplier |
-| `DIGITAL_RETAIL_REVEAL_ENABLED` | **on** | revealing something a buyer already owns |
+There are no deployment levers. Buying is not wired (#57); when it is, it is gated
+by `MERCARIA_RETAIL_ENABLED`. Procurement is on exactly when the seal key resolves:
 
 `DIGITAL_RETAIL_SEAL_KEY_REFERENCE` must name a path under
 `/oxy/mercaria/digital-retail/seal/`, and the key itself is 32 base64 bytes in
 `DIGITAL_RETAIL_SEAL_KEY_<LAST_SEGMENT>`. **Treat it as durable: rotating it makes
 every artifact sealed under it unopenable.** A deployment with no key can seal
-nothing, which is the reason procurement defaults off rather than failing after
-money has been spent.
+nothing, so it procures nothing rather than failing after money has been spent.
 
 ## What is NOT built, and what each needs
 

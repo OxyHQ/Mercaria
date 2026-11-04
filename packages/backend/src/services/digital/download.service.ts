@@ -10,14 +10,13 @@
  * makes #1015 acceptance criterion 7 true: *"an unauthorized user cannot obtain
  * the original from the viewer, API or guessed object path"*.
  *
- * ## Six questions, in this order, and none of them is "did they pay"
+ * ## Five questions, in this order, and none of them is "did they pay"
  *
- * 1. Are downloads enabled on this deployment?
- * 2. Does a right exist for this caller over this package?
- * 3. Is it in a status that authorizes?
- * 4. Does its update policy cover the version being asked for?
- * 5. Is that version in a downloadable state?
- * 6. Is the file IN the package at that version, and is it downloadable at all?
+ * 1. Does a right exist for this caller over this package?
+ * 2. Is it in a status that authorizes?
+ * 3. Does its update policy cover the version being asked for?
+ * 4. Is that version in a downloadable state?
+ * 5. Is the file IN the package at that version, and is it downloadable at all?
  *
  * #1015 boundary 4: a successful payment does not itself prove a buyer may
  * download arbitrary files. Nothing in the list above reads a payment — the right
@@ -41,7 +40,6 @@ import {
   DOWNLOAD_AUTHORIZING_ASSET_RIGHT_STATUSES,
   PUBLICLY_VIEWABLE_ASSET_FILE_ROLES,
 } from '@mercaria/shared-types';
-import { config } from '../../config/index.js';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import { assetVersions } from '../../db/schema/digitalAssets.js';
 import {
@@ -116,14 +114,7 @@ export async function mintDownloadGrant(
     return { outcome: 'refused', reason };
   };
 
-  // 1. The deployment lever. Checked first so a disabled deployment does no reads
-  //    at all, and so the refusal reason is the lever rather than something that
-  //    looks like the buyer's fault.
-  if (!config.digital.downloadsEnabled) {
-    return refuse('downloads_disabled', null);
-  }
-
-  // 2. The right must exist AND belong to this caller. One lookup, then an
+  // 1. The right must exist AND belong to this caller. One lookup, then an
   //    ownership comparison — never a query that trusts a caller-supplied buyer
   //    key, which would make the id the whole of the authorization.
   const right = await findRight(input.rightId, db);
@@ -134,12 +125,12 @@ export async function mintDownloadGrant(
     return refuse('no_right', null);
   }
 
-  // 3. Status.
+  // 2. Status.
   if (!DOWNLOAD_AUTHORIZING_ASSET_RIGHT_STATUSES.includes(right.status)) {
     return refuse('right_not_active', right.id);
   }
 
-  // 4 and 5. Coverage, and the target version's own state.
+  // 3 and 4. Coverage, and the target version's own state.
   const versions = await readAssetVersions(right.assetId, db);
   const purchased = versions.find((version) => version.id === right.purchasedVersionId);
   const target = versions.find((version) => version.id === input.versionId);
@@ -153,7 +144,7 @@ export async function mintDownloadGrant(
     return refuse('version_not_covered', right.id);
   }
 
-  // 6. The file must be IN the package at that version. This is the check that
+  // 5. The file must be IN the package at that version. This is the check that
   //    stops a cheaper licence reaching a `source` file: the package defines what
   //    was sold, and a file outside it is not refused by its own properties but by
   //    not being part of the deliverable.
@@ -236,10 +227,6 @@ export async function redeemDownloadGrant(
   const db = tx ?? getDb();
   const now = new Date();
   const tokenHash = hashToken(token);
-
-  if (!config.digital.downloadsEnabled) {
-    return { outcome: 'refused', reason: 'downloads_disabled' };
-  }
 
   const claimed = await redeemGrant(tokenHash, now, db);
   if (!claimed) {

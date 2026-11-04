@@ -165,7 +165,13 @@ export const ASSET_DOWNLOAD_GRANT_TTL_SECONDS = 300;
  */
 export const ASSET_DOWNLOAD_GRANT_MAX_REDEMPTIONS = 5;
 
-/** Why a download was refused, for the buyer's message and for the metrics. */
+/**
+ * Why a download was refused, for the buyer's message and for the metrics.
+ *
+ * `downloads_disabled` is no longer produced — downloads have no deployment
+ * lever — and stays because `asset_download_events`' CHECK is rendered from this
+ * tuple, so dropping it is a `post` migration rather than an edit here.
+ */
 export const ASSET_DOWNLOAD_REFUSAL_REASONS = [
   'no_right',
   'right_not_active',

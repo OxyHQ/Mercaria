@@ -40,14 +40,10 @@ let supplierProviderEvents: typeof import('../../db/schema/supplierOrders.js').s
 let supplierAccountId: string;
 
 /**
- * Everything is imported AFTER the environment is set.
- *
- * `config/index.ts` reads `process.env` once at module load and freezes the
- * result. A static import would evaluate it before `beforeAll` ran.
+ * Everything is imported inside `beforeAll`. The fake order adapter is
+ * registrable because this is not `NODE_ENV=production`.
  */
 beforeAll(async () => {
-  process.env.PROCUREMENT_FAKE_ADAPTER_ENABLED = 'true';
-
   ({ createApp } = await import('../../app.js'));
   supplierWebhookRouter = (await import('../supplier-webhook.js')).default;
   const postgres = await import('../../db/postgres.js');
