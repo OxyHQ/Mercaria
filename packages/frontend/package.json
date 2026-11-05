@@ -29,11 +29,11 @@
     "@mercaria/contracts": "workspace:*",
     "@mercaria/shared-types": "workspace:*",
     "@mercaria/ui": "workspace:*",
-    "@oxy.so/app-preset": "5.3.0",
+    "@oxy.so/app-preset": "6.0.0",
     "@oxy.so/bloom": "17.5.0",
-    "@oxy.so/core": "7.18.0",
+    "@oxy.so/core": "7.23.0",
     "@oxy.so/moovo-sdk": "0.3.0",
-    "@oxy.so/services": "14.3.4",
+    "@oxy.so/services": "14.3.8",
     "@peable.to/sdk": "3.0.0",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-native-community/hooks": "^100.1.0",
@@ -77,6 +77,7 @@
     "expo-splash-screen": "~58.0.10",
     "expo-status-bar": "~58.0.3",
     "expo-system-ui": "~58.0.6",
+    "expo-updates": "~58.0.21",
     "expo-video": "~58.0.12",
     "expo-web-browser": "~58.0.6",
     "express": "^5.2.1",
@@ -110,6 +111,7 @@
     "zustand-persist": "^0.4.0"
   },
   "devDependencies": {
+    "@oxy.so/ship": "2.0.0",
     "@tailwindcss/postcss": "4.2.2",
     "@types/react": "~19.3.0",
     "@typescript-eslint/parser": "^8.64.0",
@@ -118,10 +120,10 @@
     "eslint-plugin-expo": "^1.2.1",
     "patch-package": "^8.0.1",
     "react-test-renderer": "19.1.0",
+    "socket.io": "^4.8.3",
     "tsx": "^4.23.1",
     "typescript": "~5.9.3",
-    "vitest": "^4.1.10",
-    "socket.io": "^4.8.3"
+    "vitest": "^4.1.10"
   },
   "optionalDependencies": {
     "@tailwindcss/oxide-linux-x64-gnu": "4.2.2",
