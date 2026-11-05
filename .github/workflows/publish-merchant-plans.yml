@@ -1,0 +1,122 @@
+# Publish the reviewed merchant plan catalogue (#89):
+# packages/backend/src/services/billing/plan-catalogue.ts → Orbit products,
+# prices and features on Mercaria's Peable merchant, then the Mercaria plan
+# versions bound to them. A one-shot ECS task on the LIVE task definition,
+# because it needs Mercaria's workload identity and the production database.
+#
+# `preview` reads only and prints what it would do; `apply` writes; `probe` is
+# the live no-money check (a subscription Checkout Session per published price,
+# its page fetched, then expired). None turns billing on — that is
+# `MERCHANT_BILLING_ENABLED` in deploy-aws.yml.
+# Runbook: docs/runbooks/merchant-plans-live.md.
+name: Publish merchant plans
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: preview reads and writes nothing; apply writes; probe opens and expires one live checkout per price (no money)
+        type: choice
+        required: true
+        default: preview
+        options:
+          - preview
+          - apply
+          - probe
+
+concurrency:
+  group: publish-merchant-plans
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-west-2
+  APP: mercaria
+  CLUSTER: oxy-cluster
+  # Mercaria's own Peable merchant (first_party; plan revenue is Oxy Platforms,
+  # Inc.'s — owner decision 2026-11-05). The script refuses any other.
+  PEABLE_MERCHANT: merch_bd106296a0fef49a861ee6b7
+
+jobs:
+  publish:
+    name: Publish merchant plans (${{ inputs.mode }})
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Build the command from the closed input
+        id: command
+        env:
+          MODE: ${{ inputs.mode }}
+        run: |
+          set -euo pipefail
+          case "$MODE" in
+            preview | apply | probe) ;;
+            *) echo "::error::unknown mode '$MODE'"; exit 1 ;;
+          esac
+          command=$(jq -nc --arg mode "$MODE" --arg merchant "$PEABLE_MERCHANT" \
+            '["bun", "packages/backend/dist/scripts/publish-merchant-plans.js", "--\($mode)", "--merchant=\($merchant)"]')
+          echo "json=$command" >> "$GITHUB_OUTPUT"
+          echo "command: $command"
+          {
+            echo "### publish merchant plans ($MODE)"
+            echo
+            echo "\`$command\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Configure AWS credentials (OIDC, no stored keys)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::237343248947:role/oxy-github-deploy
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve the live task definition
+        id: ecs
+        run: |
+          set -euo pipefail
+          service=$(aws ecs describe-services --cluster "$CLUSTER" --services "$APP" \
+            --query 'services[0]' --output json)
+          status=$(jq -r '.status // "MISSING"' <<<"$service")
+          if [ "$status" != ACTIVE ]; then
+            echo "::error::service $APP on $CLUSTER is $status, not ACTIVE"
+            exit 1
+          fi
+          deployments=$(jq '[.deployments[]] | length' <<<"$service")
+          rollout=$(jq -r '.deployments[] | select(.status == "PRIMARY") | .rolloutState // "COMPLETED"' <<<"$service")
+          if [ "$deployments" != 1 ] || [ "$rollout" != COMPLETED ]; then
+            echo "::error::a rollout of $APP is in flight ($deployments deployments, primary $rollout); run again once it settles"
+            exit 1
+          fi
+          task_definition=$(jq -er '.taskDefinition' <<<"$service")
+          definition=$(aws ecs describe-task-definition --task-definition "$task_definition" \
+            --query taskDefinition --output json)
+          if [ "$(jq '.containerDefinitions | length' <<<"$definition")" != 1 ]; then
+            echo "::error::expected exactly one container in $task_definition"
+            exit 1
+          fi
+          container=$(jq -er '.containerDefinitions[0].name' <<<"$definition")
+          image=$(jq -er '.containerDefinitions[0].image' <<<"$definition")
+          echo "task_definition=$task_definition" >> "$GITHUB_OUTPUT"
+          echo "container=$container" >> "$GITHUB_OUTPUT"
+          echo "network=$(jq -c '.networkConfiguration' <<<"$service")" >> "$GITHUB_OUTPUT"
+          echo "live task definition $task_definition, image $image"
+          echo "live image: \`$image\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run the publish as an ECS one-shot task
+        run: .github/scripts/run-ecs-task.sh
+        env:
+          TASK_DEFINITION: ${{ steps.ecs.outputs.task_definition }}
+          CONTAINER_NAME: ${{ steps.ecs.outputs.container }}
+          NETWORK_CONFIGURATION: ${{ steps.ecs.outputs.network }}
+          COMMAND_JSON: ${{ steps.command.outputs.json }}
+          TASK_LABEL: publish merchant plans (${{ inputs.mode }})
+          STARTED_BY: publish-merchant-plans
+          TASK_TIMEOUT_SECONDS: '1500'
+          PRINT_TASK_LOG: 'true'

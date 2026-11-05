@@ -4,6 +4,7 @@ import { requireStorePermission } from '../../middleware/store-authz.js';
 import { merchantPlanCheckoutSchema } from '../../middleware/merchant-plans-schemas.js';
 import {
   cancelStorePlanHandler,
+  changePlanHandler,
   getPlanCatalogHandler,
   getStoreCapabilitiesHandler,
   getStorePlanHandler,
@@ -19,7 +20,7 @@ import {
  * (`admin/index.ts` runs `authenticateToken`, `admin/stores.ts` runs
  * `loadStore`), so this router only adds the permission.
  *
- * ## `store:manage` on all five billing routes, like the fee surface and for its reason
+ * ## `store:manage` on every billing route, like the fee surface and for its reason
  *
  * The comparison, the upgrade, the portal and the cancellation are one
  * conversation — "what does Mercaria charge this store, and do we agree" — and
@@ -54,6 +55,14 @@ router.post(
   requireStorePermission('store:manage'),
   validateBody(merchantPlanCheckoutSchema),
   startPlanCheckoutHandler,
+);
+
+/** Move a live subscription to another paid plan or billing period. */
+router.post(
+  '/change',
+  requireStorePermission('store:manage'),
+  validateBody(merchantPlanCheckoutSchema),
+  changePlanHandler,
 );
 
 /** Open the provider's hosted billing portal. */

@@ -54,63 +54,57 @@ entitlement and none can become one.
 
 Staff seats and locations are **unlimited**, and see §3 below for why.
 
-### 2. Proposed Go, Plus, Creator and Ultra capabilities
+### 2. What Go, Creator, Plus and Ultra sell (on sale from 5 November 2026)
 
-Eight, and every one of them is `postponed` because none exists yet:
+The owner decided on 2026-11-05 to sell every plan, at economical prices, and
+left the remaining choices to engineering. Each capability below was BUILT
+(its own PR) and moved to `available` before any version naming it could be
+activated; the #89 rule — never sell a placeholder plan — was kept, not relaxed.
+The reviewed catalogue is `services/billing/plan-catalogue.ts`.
 
-| Capability | Limit kind | Why it is not the free tier |
-|---|---|---|
-| `advanced_demand_analytics` | flag | Beyond #77's aggregate store summary, which stays free |
-| `competitive_price_analytics` | flag | A merchant's own offers against the rest of the comparison |
-| `automation_rules` | total | Nothing automates catalogue or order operations today |
-| `replenishment_planning` | flag | No forecasting exists over multi-location inventory |
-| `advanced_merchandising_rules` | total | Beyond the manual collections and discounts every store has |
-| `expanded_pos_registers` | total | POS has no register concept at all today |
-| `scheduled_exports` | per_period | Export on demand is ungateable; the SCHEDULE is what this adds |
-| `ai_catalog_assistance` | per_period | Gated on #42 being grounded |
+| Capability | Kind | Go | Creator | Plus | Ultra |
+|---|---|---|---|---|---|
+| `automation_rules` | total (rules) | 10 | 25 | 50 | 200 |
+| `scheduled_exports` | per period (runs) | 60 | 150 | 300 | 1,500 |
+| `advanced_demand_analytics` | flag | — | yes | yes | yes |
+| `advanced_merchandising_rules` | total (rules) | — | 20 | 20 | 100 |
+| `replenishment_planning` | flag | — | — | yes | yes |
+| `competitive_price_analytics` | flag | — | — | — | yes |
+| `expanded_pos_registers` | total (extra registers) | — | — | — | 20 |
+| `ai_catalog_assistance` | per period | not sold | not sold | not sold | not sold |
 
-**A plan version naming any of them cannot be activated.**
-`activateMerchantPlan` refuses it and names the capabilities, in the same
-transaction that would have activated it. That is "do not sell a placeholder
-plan whose advertised features are not implemented" as a mechanism rather than a
-promise — and it means no paid plan is sellable on any deployment today, whatever
-the billing flag says.
+**Why the limits are these.** A daily scheduled export is about 31 runs a
+period, so Go's 60 covers two daily schedules and Ultra's 1,500 is effectively
+unmetered for a shop. Rule counts are what a shop of that size plausibly keeps
+active; a rule that is deleted gives its slot back (`releaseCapability`), and
+reaching a limit never stops anything already created from running.
 
-### Product composition (9 October 2026)
+**Why `ai_catalog_assistance` is not sold.** The design requires that AI usage
+"draw from the applicable account allowance" with no extra credit pool. Today a
+product backend can only call Kaana on its own workload identity, which bills
+the APPLICATION's owner (oxy `docs/inference/attribution.md`: "deliberately no
+fallback to the signed-in user's personal account"); drawing on the merchant's
+own allowance waits for oxy ADR 0046's cross-product path, and Mercaria has no
+reviewed `internal_metered` inference relationship. Selling it now would either
+break the design or make Oxy absorb an unbounded cost nobody approved. It comes
+back as a NEW plan version of Creator and Ultra once one of those exists
+(grandfathering is structural, §8).
 
-The four product names are **Mercaria Go, Mercaria Plus, Mercaria Creator and
-Mercaria Ultra**. Free commerce remains available without any of these plans.
-The dashboard shows these as designs, separately from published offers; the
-client must not turn a design into a selectable checkout offer.
+**Creator without AI.** Creator was designed as the "drops and product content"
+workflow beside Plus. Without AI assistance it is automation, scheduled exports,
+demand analytics and scheduled merchandising — the drop toolkit — without
+Plus's multi-location replenishment, so it sits BELOW Plus in price rather than
+beside it.
 
-| Design | Proposed additional tools | Intended use |
-| --- | --- | --- |
-| Go | Automation rules; scheduled exports | Save time on repeat store operations |
-| Plus | Go tools; advanced demand analytics; merchandising rules; replenishment planning | Plan stock and operate an established shop |
-| Creator | Automation; scheduled exports; demand analytics; merchandising rules; AI catalogue assistance | Organise merch drops and prepare product content |
-| Ultra | All eight candidate capabilities | Forecasting, competitive-price analysis and expanded POS operations |
-
-Creator is a separate workflow, not a step above Plus: it does not include
-replenishment planning, competitive-price analytics or expanded POS registers.
 Neither Creator nor any other plan buys ads, promotion, reach, a verified badge,
-reputation, search position or preferential moderation. Oxy is 100% ad-free,
-including Free. Basic merch listings, manual collections, orders, on-demand
-exports, refunds, security and unlimited store members/locations stay free.
-
-Rule, export, register and AI limits remain unset until the corresponding tools
-are implemented and measured. No unlimited automation or AI promise is implied.
-AI usage must name its cost and draw from the applicable account allowance;
-this design creates no extra credit pool. Manufacturing and delivery of merch
-are not included. Marketplace transaction fees remain independent of the plan.
+reputation, search position or preferential moderation
+(`MERCHANT_PLAN_FORBIDDEN_BENEFITS`). Oxy is 100% ad-free, including Free.
+Manufacturing and delivery of merch are not included. Marketplace transaction
+fees remain independent of the plan.
 
 Oxy One Business proposes Go → Mercaria Go, Pro/Max → Mercaria Plus, and
-Ultra → Mercaria Ultra, as the alternative to Homiio Plus. Every Oxy One Creator
-level proposes Mercaria Creator. These mappings are not entitlement grants.
-
-The design source is `packages/dashboard/lib/merchant-plan-designs.ts`. Published
-plans still come exclusively from the versioned backend catalogue. Activation
-continues to reject postponed capabilities; no paid plan or price is seeded by
-this change.
+Ultra → Mercaria Ultra; every Oxy One Creator level proposes Mercaria Creator.
+These mappings are not entitlement grants.
 
 ### 3. Two candidates EVALUATED and NOT ADOPTED
 
@@ -127,38 +121,77 @@ the free baseline is — and neither was taken now.
 
 ### 4. Pricing, currencies and markets
 
-**None are set.** `merchant_plan_prices` models a price per (plan version,
-provider, mode, cadence, currency) and no row exists, because there is nothing
-sellable to price. When there is, the prices are rows an operator publishes on
-the draft version before activating it — never an environment variable, and
-never a constant shipped to a client.
+| Plan | Monthly | Yearly (10 × monthly) |
+|---|---|---|
+| Mercaria Go | 4.99 | 49.90 |
+| Mercaria Creator | 9.99 | 99.90 |
+| Mercaria Plus | 14.99 | 149.90 |
+| Mercaria Ultra | 24.99 | 249.90 |
+
+The same figures in **USD and EUR**: Mercaria's dashboard ships Spanish,
+Catalan, German, French and Portuguese, and its merchants include EU shops, so
+EUR is a first-class billing currency; a store whose default currency is EUR
+sees EUR first. Each (plan, cadence, currency) is its own Orbit price —
+Peable's prices carry one currency each (it has no `currency_options`) — and
+each is a `merchant_plan_prices` row. Yearly is ten months: two months free.
+
+**Prices exclude tax** (`tax_behavior: 'exclusive'` on every Orbit price).
+
+**Why these prices — positioned clearly below the commerce platforms.** A
+Mercaria plan adds tools to a store that already sells for free, so the
+comparison is the entry commerce tier a merchant would otherwise pay just to
+sell (approximate USD list prices as published in 2026; monthly billing unless noted — re-check before quoting them externally):
+
+| Comparable | Entry price | Mercaria |
+|---|---|---|
+| Shopify Basic / Grow | $39 / $105 a month | Ultra $24.99 includes every tool |
+| Wix Core / Business | $29 / $36 a month, billed yearly | Plus $14.99 |
+| Squarespace plans that sell online | from about $23 a month, billed yearly | Plus $14.99 |
+| eBay Store Starter / Basic | $7.95 / $27.95 a month | Go $4.99 |
+| Etsy Plus | $10 a month | Creator $9.99 |
+
+Every Mercaria plan is below the cheapest tier it resembles, and the most
+expensive Mercaria plan is below the cheapest Shopify plan that sells at all.
+Marketplace fees are separate and unchanged by any plan (§7).
 
 ### 5. Trial and grace policy
 
-Both are columns on the plan VERSION (`trial_days`, `grace_period_days`), so
-they are frozen once the version is active and cannot change under somebody
-mid-trial. Neither has a value yet, for the reason above.
+- **No trial on version 1.** A native subscription Checkout Session cannot
+  start one, and a version with `trial_days > 0` is refused by name
+  (`trial_not_supported`) rather than sold without the trial its terms promise.
+- **Grace: 16 days** (`grace_period_days = 16`). Peable's default dunning
+  (`retry_schedule_days` `{1,3,5,7}`, each delay counted from the previous
+  attempt, then `final_action: cancel`) makes its last retry 16 days after the
+  first failure. The tools keep working for exactly as long as the rail is still
+  trying, so a card that succeeds on the last retry never cost the merchant a
+  day; after it the rail cancels and the subscription ends.
 
-The grace mechanism is settled even though the number is not: entering
-`past_due` computes the deadline ONCE from the plan version in force at that
-moment and stores it on the subscription, so a later plan change cannot shorten
-a grace already running and a redelivered `invoice.payment_failed` cannot extend
-one.
+The grace mechanism: entering `past_due` computes the deadline ONCE from the
+plan version in force at that moment and stores it on the subscription, so a
+later plan change cannot shorten a grace already running and a redelivered
+`invoice.payment_failed` cannot extend one.
 
 ### 6. Upgrade, downgrade, cancellation and refund behaviour
 
-- **Upgrade** — a hosted provider checkout. The subscription row is written from
-  a provider snapshot, never from the client coming back.
+- **First plan** — a hosted Peable Checkout Session. The subscription row is
+  written from a provider snapshot, never from the client coming back.
+- **One subscription per store.** A checkout is REFUSED while the store has a
+  live subscription (anything but `expired`): `merchant_subscriptions_store_key`
+  holds one row per store, so a second rail subscription could only be recorded
+  by overwriting the first — which would keep billing with nothing in Mercaria
+  pointing at it.
+- **Changing plan or cadence** — `POST /plan/change` (`changeMerchantPlan`):
+  the new version's terms are accepted first, then the ONE rail subscription's
+  price is swapped with `proration_behavior: 'always_invoice'` — the unused time
+  is credited and the new plan's remaining time charged on one invoice NOW, so an
+  upgrade is paid when it is taken and a downgrade leaves a credit the next
+  invoices draw down (never cash). A pending cancellation is withdrawn. The
+  currency stays the subscription's. Refused while `past_due` or `paused`.
 - **Cancellation** — at the END of the paid period. There is no immediate
-  cancellation route on the merchant surface, and no proration.
-- **Refunds** — none are issued for a subscription. A merchant who cancels keeps
-  what they paid for until the period ends. A credit, if one is ever warranted,
-  is an operator decision booked as an `adjustment` through the existing ledger
-  mechanism; there is deliberately no `subscription_refund` transaction kind
-  nothing would write.
-- **Downgrade** — is cancellation. There is no downgrade path between two paid
-  plans yet. The four designs below require an explicit, tested plan-change
-  policy before paid-to-paid switches are offered.
+  cancellation route on the merchant surface.
+- **Refunds** — none are issued for a subscription. A credit, if one is ever
+  warranted, is an operator decision booked as an `adjustment` through the
+  existing ledger mechanism.
 
 ### 7. Does any plan select a different marketplace fee schedule?
 
@@ -182,10 +215,32 @@ grandfather because nothing can retroactively change.
 
 ### 9. What is postponed because it does not exist
 
-Everything in §2. The `availability` column carries that as data rather than as
-a note in this document, and it is what the activation refusal reads.
+`ai_catalog_assistance` (§2). Its definition stays `postponed`, so a version
+naming it still cannot be activated.
 
----
+### 10. Terms
+
+The Mercaria Merchant Plan Terms, version `merchant-plans-2026-11-05`
+(`services/billing/terms/merchant-plan-terms.ts`, served at
+`GET /legal/merchant-plan-terms/:version` and linked from the plan screen).
+Each version's text is hash-pinned by a test: a change is a new version, named
+by a new plan version and accepted afresh. **Drafted by engineering and pending
+the owner's and legal's review.** The owner confirmed Oxy Platforms, Inc. as the
+contracting entity and seller of record; its registered address and the
+governing law are explicit `[… TO BE COMPLETED BY THE OWNER]` placeholders,
+because no authoritative source in the repositories states them (oxy
+`docs/products/oxy-one-launch-readiness.md` records the incorporation as in
+progress). The publish script prints any placeholder the current version still
+carries.
+
+### 11. Tax
+
+Version 1 sells **without automatic tax**: Mercaria's plan checkout sends no
+`automatic_tax`, Oxy Platforms' Peable Tax settings are not approved
+(owner-only, in Orbit), and enabling it before approval would fail closed
+(`tax_settings_not_active`) and block every sale. Prices are stated
+tax-exclusive and invoices carry no tax. The switch, once the owner approves
+tax in Orbit, is in `runbooks/merchant-plans-live.md` §2 item 6.
 
 ## The domain
 
@@ -376,7 +431,9 @@ randomized mixed currencies pins the balance; another pins that
 ### Merchant — `/admin/stores/:storeId/plan/*`
 
 `GET /` (status, entitlements, usage), `GET /catalog` (the comparison),
-`POST /checkout`, `POST /portal`, `POST /cancel`. All five behind `store:manage`,
+`POST /checkout`, `POST /change`, `POST /portal`, `POST /cancel` — all behind
+`store:manage` — and `GET /capabilities` (which paid tools the store holds, for
+any member; no billing state). The billing routes are `store:manage`
 which is the fee surface's reasoning verbatim: the comparison, the upgrade, the
 portal and the cancellation are one conversation and it is the owner's.
 
@@ -493,9 +550,9 @@ does nothing and a merchant who stops paying never loses what they made:
 - **Another financial rail.** `BillingProvider` remains the boundary, with one
   implementation (Peable). A deployment without `PEABLE_WEBHOOK_SECRET`
   registers no provider.
-- **A downgrade between two paid plans.** Not built, because there is no second
-  paid plan to downgrade to, and designing the proration for one that does not
-  exist would be designing it twice.
+- **Changing between paid plans** is built (§6); a plan version that is
+  RETIRED while merchants are on it keeps billing them at its frozen price until
+  they choose another version — moving them is a decision with notice (terms §10).
 - **Plan-selected fee schedules.** Declined — see §7 above. The mechanism by
   which one could ever arrive is a new scope column on `fee_schedules`, which is
   #88's schema and #88's decision.

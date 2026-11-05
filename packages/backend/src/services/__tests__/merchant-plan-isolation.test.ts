@@ -89,8 +89,19 @@ const PLAN_OWNED_DIRECTORIES = [
   'db/merchantPlans',
 ] as const;
 
-/** The shared flat directories a plan module lives in under a domain NAME. */
-const PLAN_SHARED_DIRECTORIES = ['controllers', 'routes', 'middleware', 'db/schema'] as const;
+/**
+ * The shared flat directories a plan module lives in under a domain NAME.
+ * `scripts` joined with `publish-merchant-plans.ts`, the one-shot that
+ * publishes the reviewed catalogue: it writes plan versions and calls the
+ * billing rail, so every wall applies to it too.
+ */
+const PLAN_SHARED_DIRECTORIES = [
+  'controllers',
+  'routes',
+  'middleware',
+  'db/schema',
+  'scripts',
+] as const;
 
 /**
  * Every module of the plan and billing domain, DERIVED as a function of its

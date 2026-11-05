@@ -47,6 +47,7 @@ import { mapPeableSubscriptionStatus } from './status.js';
 const CUSTOMER_ID = /^cus_[A-Za-z0-9]+$/;
 const SUBSCRIPTION_ID = /^sub_[A-Za-z0-9]+$/;
 const PRICE_ID = /^price_[A-Za-z0-9]+$/;
+const SUBSCRIPTION_ITEM_ID = /^si_[A-Za-z0-9]+$/;
 const INVOICE_ID = /^in_[A-Za-z0-9]+$/;
 /** The SDK's own bound on an `Idempotency-Key`. */
 const IDEMPOTENCY_KEY = /^[A-Za-z0-9:_-]{8,200}$/;
@@ -70,6 +71,8 @@ const subscriptionSchema = z.object({
       .array(
         z
           .object({
+            // Read only to change the price (`changeSubscriptionPrice`).
+            id: z.string().regex(SUBSCRIPTION_ITEM_ID).optional(),
             price: z
               .object({
                 id: z.string().regex(PRICE_ID),
@@ -330,6 +333,50 @@ export class PeableBillingProvider implements BillingProvider {
         amountPaidMinor,
         currency: invoice.currency.toUpperCase(),
       };
+    });
+  }
+
+  async changeSubscriptionPrice(
+    input: Parameters<BillingProvider['changeSubscriptionPrice']>[0],
+  ): Promise<BillingSubscriptionSnapshot> {
+    const key = requireKey(input.idempotencyKey, 'changeSubscriptionPrice');
+    if (
+      !SUBSCRIPTION_ID.test(input.providerSubscriptionId) ||
+      !PRICE_ID.test(input.providerPriceId)
+    ) {
+      malformed('changeSubscriptionPrice', 'The subscription or price is not a Peable id.');
+    }
+    return this.call('changeSubscriptionPrice', async () => {
+      // The item to swap is read live rather than remembered: a merchant plan
+      // subscription holds exactly one item (the schema refuses any other
+      // shape), and its id is the rail's.
+      const current = subscriptionSchema.safeParse(
+        await this.client.subscriptions.retrieve(input.providerSubscriptionId),
+      );
+      if (!current.success) {
+        malformed(
+          'changeSubscriptionPrice',
+          'The gateway answered a subscription Mercaria cannot read.',
+        );
+      }
+      if (current.data.livemode !== this.livemode) {
+        malformed('changeSubscriptionPrice', 'The subscription belongs to the other mode.');
+      }
+      const [item] = current.data.items.data;
+      if (!item?.id)
+        malformed('changeSubscriptionPrice', 'The subscription has no item to change.');
+      return this.snapshot(
+        'changeSubscriptionPrice',
+        await this.client.subscriptions.update(
+          input.providerSubscriptionId,
+          {
+            items: [{ id: item.id, price: input.providerPriceId }],
+            proration_behavior: 'always_invoice',
+            cancel_at_period_end: false,
+          },
+          { idempotencyKey: key },
+        ),
+      );
     });
   }
 

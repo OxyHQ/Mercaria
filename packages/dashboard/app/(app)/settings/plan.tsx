@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import Head from 'expo-router/head';
 import * as WebBrowser from 'expo-web-browser';
 import { ChevronLeft } from 'lucide-react-native';
 import type {
+  BillingInterval,
   MerchantEntitlementView,
   MerchantPlanCatalogEntry,
   MerchantPlanStatusView,
@@ -12,13 +13,22 @@ import type {
 } from '@mercaria/shared-types';
 import { Text, formatDate, useColorScheme, useFormatters } from '@mercaria/ui';
 import { Button } from '@oxy.so/bloom/button';
+import { Dialog } from '@oxy.so/bloom/dialog';
+import {
+  SegmentedControl,
+  SegmentedControlItem,
+  SegmentedControlItemText,
+} from '@oxy.so/bloom/segmented-control';
 import { toast } from '@oxy.so/bloom/toast';
 import { Screen, ScreenLoading, ScreenMessage } from '@/components/shell/Screen';
-import { PlanDesigns } from '@/components/settings/PlanDesigns';
 import { RequireStore } from '@/components/shell/RequireStore';
 import { useTranslation } from '@/lib/i18n';
+import config from '@/lib/config';
+import { useActiveStoreContext } from '@/lib/hooks/use-stores';
+import { CAPABILITY_COPY_KEYS, PLAN_SUMMARY_KEYS } from '@/lib/plan-copy';
 import {
   useCancelPlan,
+  useChangePlan,
   useOpenBillingPortal,
   usePlanCatalog,
   usePlanStatus,
@@ -41,8 +51,9 @@ import {
  *
  * ## The client hides and explains; it never grants
  *
- * Current offers and billing state are RESULTS the server computed. The separate
- * plan-design section is a labelled proposal and never grants entitlements. `billingAvailable`
+ * Current offers and billing state are RESULTS the server computed: the plans,
+ * their prices, limits and terms version all come from `GET /plan/catalog`, and
+ * only their copy is translated here (`lib/plan-copy.ts`). `billingAvailable`
  * decides whether an upgrade button is offered at all, and pressing it anyway
  * would simply be refused — the server re-decides on every write regardless of
  * what this screen believed (#89 entitlement rule 4).
@@ -107,9 +118,8 @@ function PlanBody({ storeId }: { storeId: string }) {
           storeId={storeId}
           plans={catalog.data ?? []}
           loading={catalog.isPending}
-          billingAvailable={status.data.billingAvailable}
+          status={status.data}
         />
-        <PlanDesigns />
       </View>
     </Screen>
   );
@@ -285,7 +295,9 @@ function Entitlements({ entitlements }: { entitlements: readonly MerchantEntitle
     <View className="mt-3 gap-1">
       {entitlements.map((entitlement) => (
         <View key={entitlement.capability} className="flex-row items-center justify-between">
-          <Text className="text-xs text-foreground">{entitlement.capability}</Text>
+          <Text className="text-xs text-foreground">
+            {t(CAPABILITY_COPY_KEYS[entitlement.capability])}
+          </Text>
           <Text className="text-xs text-muted-foreground">
             {entitlement.limitKind === 'flag'
               ? t('settings.plan.usageIncluded')
@@ -302,28 +314,58 @@ function Entitlements({ entitlements }: { entitlements: readonly MerchantEntitle
   );
 }
 
+/** The currencies a store can be billed in, in the order the picker shows them. */
+const BILLING_CURRENCIES = ['USD', 'EUR'] as const;
+
+/** A subscription that still bills — anything but ended. */
+const LIVE: readonly MerchantSubscriptionStatus[] = [
+  'trialing',
+  'active',
+  'past_due',
+  'paused',
+  'cancelled',
+];
+
 /**
- * The comparison. Empty is a real and correct state on this deployment.
+ * The comparison. Empty is a real and correct state on a deployment with
+ * nothing on sale: a plan version whose capabilities are not implemented
+ * cannot be activated at all.
  *
- * A plan version whose capabilities are not implemented cannot be activated at
- * all, so an empty catalogue means there is nothing genuine to sell yet — which
- * is what this says, rather than showing a "coming soon" plan nobody could buy.
+ * Plans are ordered by price, cheapest first, in the chosen currency; every
+ * figure is the server's. A store with a live subscription CHANGES plan (one
+ * subscription, prorated on one invoice now) rather than starting a second
+ * checkout, which the server refuses.
  */
 function PlanComparison({
   storeId,
   plans,
   loading,
-  billingAvailable,
+  status,
 }: {
   storeId: string;
   plans: readonly MerchantPlanCatalogEntry[];
   loading: boolean;
-  billingAvailable: boolean;
+  status: MerchantPlanStatusView;
 }) {
   const { t } = useTranslation();
-  const { formatMoney } = useFormatters();
+  const { store } = useActiveStoreContext();
+  const subscription = status.subscription;
+  const live = subscription !== null && LIVE.includes(subscription.status);
+  const [interval, setBillingInterval] = useState<BillingInterval>(
+    subscription?.interval ?? 'monthly',
+  );
+  const [currency, setCurrency] = useState<string>(
+    store?.defaultCurrency === 'EUR' ? 'EUR' : 'USD',
+  );
+
+  const paid = useMemo(() => {
+    const priceOf = (plan: MerchantPlanCatalogEntry) =>
+      plan.prices.find((price) => price.currency === currency && price.interval === 'monthly')
+        ?.unitPrice.amount ?? Number.MAX_SAFE_INTEGER;
+    return plans.filter((plan) => plan.tier === 'paid').sort((a, b) => priceOf(a) - priceOf(b));
+  }, [plans, currency]);
+
   if (loading) return null;
-  const paid = plans.filter((plan) => plan.tier === 'paid');
   if (paid.length === 0) {
     return (
       <View className="rounded-2xl border border-border bg-surface p-4">
@@ -335,71 +377,193 @@ function PlanComparison({
     );
   }
 
+  const offered = BILLING_CURRENCIES.filter((code) =>
+    paid.some((plan) => plan.prices.some((price) => price.currency === code)),
+  );
+  const termsVersion = paid[0]?.termsVersion;
+
   return (
-    <View className="gap-2">
-      {paid.map((plan) => (
-        <View key={plan.planId} className="rounded-2xl border border-border bg-surface p-4">
-          <Text className="text-sm font-semibold text-foreground">{plan.name}</Text>
-          <Text className="mt-1 text-xs text-muted-foreground">{plan.summary}</Text>
-          <View className="mt-2 gap-1">
-            {plan.prices.map((price) => (
-              <Text key={`${price.currency}-${price.interval}`} className="text-xs text-foreground">
-                {t(
-                  price.interval === 'annual'
-                    ? 'settings.plan.pricePerYear'
-                    : 'settings.plan.pricePerMonth',
-                  { price: formatMoney(price.unitPrice) },
-                )}
-              </Text>
+    <View className="gap-3">
+      <Text className="text-lg font-semibold text-foreground">
+        {t('settings.plan.paidPlansTitle')}
+      </Text>
+      <View className="flex-row flex-wrap items-center gap-3">
+        <SegmentedControl
+          type="radio"
+          value={interval}
+          onValueChange={(value) => setBillingInterval(value as BillingInterval)}
+        >
+          <SegmentedControlItem value="monthly">
+            <SegmentedControlItemText>
+              {t('settings.plan.intervalMonthly')}
+            </SegmentedControlItemText>
+          </SegmentedControlItem>
+          <SegmentedControlItem value="annual">
+            <SegmentedControlItemText>{t('settings.plan.intervalAnnual')}</SegmentedControlItemText>
+          </SegmentedControlItem>
+        </SegmentedControl>
+        {offered.length > 1 ? (
+          <SegmentedControl type="radio" value={currency} onValueChange={setCurrency}>
+            {offered.map((code) => (
+              <SegmentedControlItem key={code} value={code}>
+                <SegmentedControlItemText>{code}</SegmentedControlItemText>
+              </SegmentedControlItem>
             ))}
-          </View>
-          <View className="mt-2 gap-1">
-            {plan.capabilities.map((capability) => (
-              <Text key={capability.key} className="text-xs text-muted-foreground">
-                {capability.limit === null
-                  ? capability.name
-                  : t('settings.plan.capabilityWithLimit', {
-                      name: capability.name,
-                      limit: capability.limit,
-                    })}
+          </SegmentedControl>
+        ) : null}
+        {interval === 'annual' ? (
+          <Text className="text-xs text-muted-foreground">{t('settings.plan.annualSaving')}</Text>
+        ) : null}
+      </View>
+
+      <View className="flex-row flex-wrap gap-4">
+        {paid.map((plan) => (
+          <PlanCard
+            key={plan.planId}
+            storeId={storeId}
+            plan={plan}
+            interval={interval}
+            currency={currency}
+            status={status}
+            live={live}
+          />
+        ))}
+      </View>
+
+      <View className="gap-1">
+        <Text className="text-xs text-muted-foreground">{t('settings.plan.exclTax')}</Text>
+        <Text className="text-xs text-muted-foreground">{t('settings.plan.termsSummary')}</Text>
+        {termsVersion ? (
+          <View className="flex-row flex-wrap items-center gap-1">
+            <Text className="text-xs text-muted-foreground">{t('settings.plan.termsNotice')}</Text>
+            <Pressable
+              accessibilityRole="link"
+              onPress={() => {
+                void WebBrowser.openBrowserAsync(
+                  `${config.apiUrl}/legal/merchant-plan-terms/${encodeURIComponent(termsVersion)}`,
+                );
+              }}
+            >
+              <Text className="text-xs font-medium text-foreground underline">
+                {t('settings.plan.termsLink')}
               </Text>
-            ))}
+            </Pressable>
           </View>
-          {plan.trialDays > 0 ? (
-            <Text className="mt-2 text-xs text-muted-foreground">
-              {t('settings.plan.trialNotice', { count: plan.trialDays })}
+        ) : null}
+        <Text className="text-xs text-muted-foreground">{t('settings.plan.design.ethics')}</Text>
+      </View>
+    </View>
+  );
+}
+
+/** One plan, at the chosen cadence and currency, with the action that fits this store. */
+function PlanCard({
+  storeId,
+  plan,
+  interval,
+  currency,
+  status,
+  live,
+}: {
+  storeId: string;
+  plan: MerchantPlanCatalogEntry;
+  interval: BillingInterval;
+  currency: string;
+  status: MerchantPlanStatusView;
+  live: boolean;
+}) {
+  const { t } = useTranslation();
+  const { formatMoney } = useFormatters();
+  const price = plan.prices.find(
+    (candidate) => candidate.currency === currency && candidate.interval === interval,
+  );
+  const summaryKey = PLAN_SUMMARY_KEYS[plan.planKey];
+  const subscription = status.subscription;
+  const onThisPlan = live && subscription?.planKey === plan.planKey;
+  const current = onThisPlan && subscription?.interval === interval;
+
+  return (
+    <View
+      testID={`merchant-plan-${plan.planKey}`}
+      className="min-w-64 flex-1 gap-3 rounded-2xl border border-border bg-surface p-4"
+    >
+      <View className="gap-1">
+        <Text className="text-base font-semibold text-foreground">{plan.name}</Text>
+        <Text className="text-sm text-muted-foreground">
+          {summaryKey ? t(summaryKey) : plan.summary}
+        </Text>
+      </View>
+      {price ? (
+        <Text className="text-lg font-semibold text-foreground">
+          {t(interval === 'annual' ? 'settings.plan.pricePerYear' : 'settings.plan.pricePerMonth', {
+            price: formatMoney(price.unitPrice),
+          })}
+        </Text>
+      ) : (
+        <Text className="text-sm text-muted-foreground">{t('settings.plan.notInCurrency')}</Text>
+      )}
+      <View className="gap-1">
+        {plan.capabilities.map((capability) => {
+          const name = t(CAPABILITY_COPY_KEYS[capability.key]);
+          return (
+            <Text key={capability.key} className="text-xs text-foreground">
+              {capability.limit === null
+                ? name
+                : t(
+                    capability.limitKind === 'per_period'
+                      ? 'settings.plan.capabilityPerPeriod'
+                      : 'settings.plan.capabilityWithLimit',
+                    { name, limit: capability.limit },
+                  )}
             </Text>
-          ) : null}
-          {billingAvailable ? <UpgradeAction storeId={storeId} plan={plan} /> : null}
-        </View>
-      ))}
+          );
+        })}
+      </View>
+      {plan.trialDays > 0 ? (
+        <Text className="text-xs text-muted-foreground">
+          {t('settings.plan.trialNotice', { count: plan.trialDays })}
+        </Text>
+      ) : null}
+      {current ? (
+        <Text className="text-sm font-medium text-foreground">
+          {t('settings.plan.currentPlan')}
+        </Text>
+      ) : status.billingAvailable && price ? (
+        live ? (
+          <ChangeAction storeId={storeId} plan={plan} interval={interval} currency={currency} />
+        ) : (
+          <UpgradeAction storeId={storeId} plan={plan} interval={interval} currency={currency} />
+        )
+      ) : null}
     </View>
   );
 }
 
 /**
- * The upgrade action, rendered only where the SERVER says billing is available.
- *
- * `billingAvailable` is a result the server computed, so hiding the button is
- * the client explaining rather than deciding: pressing it on a deployment with
- * billing off would simply be refused (#89 entitlement rule 4).
+ * Start a first paid plan, rendered only where the SERVER says billing is
+ * available. Pressing it on a deployment with billing off would simply be
+ * refused (#89 entitlement rule 4).
  */
-function UpgradeAction({ storeId, plan }: { storeId: string; plan: MerchantPlanCatalogEntry }) {
+function UpgradeAction({
+  storeId,
+  plan,
+  interval,
+  currency,
+}: {
+  storeId: string;
+  plan: MerchantPlanCatalogEntry;
+  interval: BillingInterval;
+  currency: string;
+}) {
   const [opening, setOpening] = useState(false);
   const { t } = useTranslation();
   const checkout = useStartPlanCheckout(storeId);
   const refresh = useRefreshPlan(storeId);
-  const price = plan.prices[0];
-  if (!price) return null;
 
   async function upgrade(): Promise<void> {
     try {
       setOpening(true);
-      const session = await checkout.mutateAsync({
-        planId: plan.planId,
-        interval: price.interval,
-        currency: price.currency,
-      });
+      const session = await checkout.mutateAsync({ planId: plan.planId, interval, currency });
       // The SYSTEM browser, never a webview: a hosted provider checkout does not
       // run in one. On web this opens a new tab.
       await WebBrowser.openBrowserAsync(session.url);
@@ -414,10 +578,69 @@ function UpgradeAction({ storeId, plan }: { storeId: string; plan: MerchantPlanC
   }
 
   return (
-    <View className="mt-3">
-      <Button tone="accent" onPress={upgrade} disabled={checkout.isPending || opening}>
-        {t('settings.plan.choosePlan', { plan: plan.name })}
+    <Button tone="accent" onPress={upgrade} disabled={checkout.isPending || opening}>
+      {t('settings.plan.choosePlan', { plan: plan.name })}
+    </Button>
+  );
+}
+
+/**
+ * Move a live subscription to this plan or cadence, after saying exactly what
+ * happens to the money: the change starts now and is settled on one invoice.
+ */
+function ChangeAction({
+  storeId,
+  plan,
+  interval,
+  currency,
+}: {
+  storeId: string;
+  plan: MerchantPlanCatalogEntry;
+  interval: BillingInterval;
+  currency: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const { t } = useTranslation();
+  const change = useChangePlan(storeId);
+
+  return (
+    <>
+      <Button appearance="outline" tone="accent" onPress={() => setOpen(true)}>
+        {t('settings.plan.switchTo', { plan: plan.name })}
       </Button>
-    </View>
+      <Dialog
+        open={open}
+        title={t('settings.plan.changeConfirmTitle', { plan: plan.name })}
+        dismissOnBackdrop={!change.isPending}
+        onClose={() => {
+          if (!change.isPending) setOpen(false);
+        }}
+      >
+        <View className="gap-3">
+          <Text className="text-sm text-foreground">{t('settings.plan.changeConfirmBody')}</Text>
+          <Button appearance="outline" disabled={change.isPending} onPress={() => setOpen(false)}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            tone="accent"
+            loading={change.isPending}
+            onPress={() => {
+              change.mutate(
+                { planId: plan.planId, interval, currency },
+                {
+                  onSuccess: () => {
+                    setOpen(false);
+                    toast.success(t('settings.plan.changed'));
+                  },
+                  onError: () => toast.error(t('settings.plan.changeFailed')),
+                },
+              );
+            }}
+          >
+            {t('settings.plan.changeConfirm')}
+          </Button>
+        </View>
+      </Dialog>
+    </>
   );
 }

@@ -40,7 +40,8 @@ export type BillingProviderStage =
   | 'createPortalSession'
   | 'retrieveSubscription'
   | 'retrieveInvoice'
-  | 'cancelSubscription';
+  | 'cancelSubscription'
+  | 'changeSubscriptionPrice';
 
 /**
  * A billing rail refused or failed.
@@ -175,6 +176,22 @@ export interface BillingProvider {
     providerSubscriptionId: string,
     idempotencyKey?: string,
   ): Promise<BillingSubscriptionSnapshot>;
+
+  /**
+   * Move a live subscription onto another plan price — a change between two
+   * paid plans, or between a plan's monthly and annual price.
+   *
+   * The unused time of the old price is credited and the new price's remaining
+   * time charged ON AN INVOICE NOW (`always_invoice`), so an upgrade is paid
+   * when it is taken rather than at the next renewal, and a downgrade leaves a
+   * credit the next invoices draw down. A pending cancellation is withdrawn: a
+   * merchant who chose a new plan has said they are staying.
+   */
+  changeSubscriptionPrice(input: {
+    providerSubscriptionId: string;
+    providerPriceId: string;
+    idempotencyKey: string;
+  }): Promise<BillingSubscriptionSnapshot>;
 }
 
 const providers = new Map<BillingProviderId, BillingProvider>();

@@ -240,6 +240,32 @@ and no price is approved, so `MERCHANT_BILLING_ENABLED` stays off
 `automatic_tax`, so as built a plan invoice carries no tax. Whether it should is
 an owner decision recorded in that runbook.
 
+**As built: the plans go on sale (2026-11-05).** The owner decided to sell all
+four plans at economical prices and left the rest to engineering
+(`docs/merchant-plans.md` §2–§11 has every decision and its reason):
+
+- Go 4.99, Creator 9.99, Plus 14.99, Ultra 24.99 a month, yearly at ten
+  months, in USD and EUR, tax-exclusive — one Orbit price per (plan, cadence,
+  currency), because Peable prices carry one currency each.
+- No trial (native subscription checkout cannot start one); a 16-day grace,
+  which is Peable's default dunning window (retries after 1, 3, 5 and 7 days).
+- Tax: none on version 1. Oxy Platforms' Peable Tax settings are not approved,
+  and `automatic_tax` before approval fails closed and would block every sale.
+- Every capability a version names was built and moved to `available` first;
+  `ai_catalog_assistance` is not sold, because Mercaria can only call Kaana on
+  its own workload identity, which bills the application's owner rather than the
+  merchant's allowance the design requires.
+- One subscription per store: checkout is refused while one is live, and a plan
+  or cadence change swaps the price on the ONE native subscription with
+  `always_invoice` proration.
+- The Orbit catalog and the plan versions are published by
+  `scripts/publish-merchant-plans.ts` (`.github/workflows/publish-merchant-plans.yml`,
+  a one-shot on the live task definition), from the reviewed catalogue
+  `services/billing/plan-catalogue.ts`.
+- Terms `merchant-plans-2026-11-05` name Oxy Platforms, Inc. as contracting
+  party and seller of record; address and governing law are owner placeholders,
+  and the text awaits the owner's and legal's review.
+
 ### D18. What a new rail has to prove before it carries money
 
 `runPaymentProviderContract` (`services/payments/__tests__/provider-contract.ts`)

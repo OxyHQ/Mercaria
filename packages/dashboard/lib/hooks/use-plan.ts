@@ -8,6 +8,7 @@ import type {
 } from '@mercaria/shared-types';
 import {
   cancelPlan,
+  changePlan,
   fetchPlanCatalog,
   fetchPlanStatus,
   fetchStoreCapabilities,
@@ -92,6 +93,20 @@ export function useCancelPlan(storeId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => cancelPlan(storeId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.plan(storeId) }),
+  });
+}
+
+/**
+ * Change a live subscription's plan or billing period. Invalidates everything
+ * under the store's plan — status, catalogue and the tools' capabilities —
+ * because the answer is the rail's applied state.
+ */
+export function useChangePlan(storeId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { planId: string; interval: 'monthly' | 'annual'; currency: string }) =>
+      changePlan(storeId, input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.plan(storeId) }),
   });
 }
