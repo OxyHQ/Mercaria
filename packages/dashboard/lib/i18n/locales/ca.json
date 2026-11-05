@@ -2465,5 +2465,91 @@
       "saved": "Regla desada",
       "error": "No s'ha pogut desar la regla"
     }
+  },
+  "merchandising": {
+    "documentTitle": "Marxandatge | Wholesale by Mercaria",
+    "title": "Marxandatge",
+    "subtitle": "Organitza la pàgina de la teva botiga: ordre per defecte, productes fixats i aparadors programats",
+    "toolDescription": "Ordena la pàgina de la teva botiga i les seves col·leccions, fixa productes i programa aparadors.",
+    "newRule": "Regla nova",
+    "keptRules": "El teu pla ja no inclou les regles de marxandatge, així que no canvien la pàgina de la teva botiga. Es conserven i les pots eliminar.",
+    "loadError": "No s'han pogut carregar les regles de marxandatge",
+    "empty": {
+      "title": "Encara no hi ha regles",
+      "body": "Les regles només canvien com la pàgina de la teva botiga ordena i destaca els teus productes. La resta queda igual."
+    },
+    "rowMeta": "%{what} · %{target} · %{state}",
+    "applying": "Es mostra ara a la teva botiga",
+    "delete": "Elimina la regla",
+    "deleted": "Regla eliminada",
+    "deleteError": "No s'ha pogut eliminar la regla",
+    "created": "Regla creada",
+    "saved": "Regla desada",
+    "status": {
+      "live": "Activa",
+      "superseded": "Substituïda per una regla posterior",
+      "scheduled": "Programada",
+      "ended": "Acabada",
+      "paused": "En pausa",
+      "detached": "Col·lecció eliminada"
+    },
+    "target": {
+      "store": "Tota la pàgina de la botiga",
+      "collection": "Col·lecció",
+      "deleted": "Col·lecció eliminada"
+    },
+    "kind": {
+      "sort": "Ordre",
+      "spotlight": "Aparador",
+      "sortDescription": "Defineix l'ordre per defecte de la pàgina de la botiga o d'una col·lecció. Els productes fixats van primer. Els compradors poden triar un altre ordre.",
+      "spotlightDescription": "Mostra una fila d'una col·lecció a la part superior de la pàgina de la teva botiga."
+    },
+    "strategy": {
+      "bestSelling": "Més venuts",
+      "newest": "Més recents",
+      "priceAsc": "Preu: de menor a major",
+      "priceDesc": "Preu: de major a menor"
+    },
+    "editor": {
+      "kind": "Tipus de regla",
+      "titlePlaceholder": "p. ex., Més venuts d'estiu",
+      "target": "S'aplica a",
+      "collection": "Col·lecció",
+      "chooseCollection": "Tria una col·lecció",
+      "unpublishedCollection": "%{title} (no publicada)",
+      "strategy": "Ordena per",
+      "window": "Vendes comptades durant",
+      "windowDays": "%{days} dies",
+      "inStockFirst": "Mostra primer els productes amb estoc",
+      "spotlightItems": "Productes a la fila",
+      "schedule": "Programació",
+      "scheduleHint": "Deixa-les buides per aplicar la regla fins que la posis en pausa. L'hora de fi és quan s'atura.",
+      "startsAt": "Comença",
+      "endsAt": "Acaba",
+      "scheduleOpen": "Sense data",
+      "time": "Hora de %{field}",
+      "clear": "Esborra",
+      "windowInvalid": "La fi ha de ser posterior a l'inici.",
+      "enabled": "Activa",
+      "limitReached": "Has fet servir totes les regles que inclou el teu pla. Elimina una regla per afegir-ne una altra.",
+      "notIncluded": "El teu pla actual no inclou regles de marxandatge.",
+      "saveFailed": "No s'ha pogut desar la regla",
+      "save": "Desa"
+    },
+    "preview": {
+      "title": "Previsualització de l'ordre resultant",
+      "hint": "Fixa fins a %{max} productes per mantenir-los a dalt, en l'ordre que triïs.",
+      "failed": "No s'ha pogut carregar la previsualització",
+      "empty": "Encara no hi ha productes per mostrar.",
+      "pinned": "Fixat",
+      "inStock": "Amb estoc",
+      "outOfStock": "Sense estoc",
+      "unitsSold": "%{units} venuts",
+      "moveUp": "Puja",
+      "moveDown": "Baixa",
+      "pin": "Fixa a dalt",
+      "unpin": "Deixa de fixar",
+      "total": "%{total} productes en aquest ordre"
+    }
   }
 }

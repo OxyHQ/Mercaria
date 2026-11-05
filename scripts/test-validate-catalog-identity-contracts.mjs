@@ -416,7 +416,10 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // Measured by the real guard.
     // Automation rules (#89, `automation_rules`) add `automation-rule.ts`: +1
     // module, +9 types, +38 properties. Measured by the real guard.
-    'walked 146 contract module(s), 2438 exported type(s), 8180 property signature(s)',
+    // Advanced merchandising rules (#89, `merchandising-rule.ts`) add one module
+    // with their vocabulary and DTOs, and `MAX_LISTINGS_BY_ID` beside
+    // `ListingQuery`: +1 module, +13 types, +69 properties. Measured by the real guard.
+    'walked 147 contract module(s), 2451 exported type(s), 8249 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });

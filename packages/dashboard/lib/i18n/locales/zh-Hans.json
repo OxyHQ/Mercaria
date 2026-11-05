@@ -2443,5 +2443,91 @@
       "saved": "规则已保存",
       "error": "无法保存规则"
     }
+  },
+  "merchandising": {
+    "documentTitle": "商品陈列 | Wholesale by Mercaria",
+    "title": "商品陈列",
+    "subtitle": "安排你自己的店铺页面：默认排序、置顶商品和定时焦点展示",
+    "toolDescription": "为店铺页面及其系列设置排序、置顶商品并安排焦点展示货架。",
+    "newRule": "新建规则",
+    "keptRules": "你的套餐已不再包含商品陈列规则，因此它们不会改变你的店铺页面。规则已保留，你可以删除它们。",
+    "loadError": "无法加载商品陈列规则",
+    "empty": {
+      "title": "还没有规则",
+      "body": "规则只改变你自己的店铺页面如何排序和突出展示商品，其他一切保持不变。"
+    },
+    "rowMeta": "%{what} · %{target} · %{state}",
+    "applying": "正在店铺中展示",
+    "delete": "删除规则",
+    "deleted": "规则已删除",
+    "deleteError": "无法删除规则",
+    "created": "规则已创建",
+    "saved": "规则已保存",
+    "status": {
+      "live": "生效中",
+      "superseded": "已被之后的规则取代",
+      "scheduled": "已安排",
+      "ended": "已结束",
+      "paused": "已暂停",
+      "detached": "系列已删除"
+    },
+    "target": {
+      "store": "整个店铺页面",
+      "collection": "系列",
+      "deleted": "已删除的系列"
+    },
+    "kind": {
+      "sort": "排序",
+      "spotlight": "焦点展示",
+      "sortDescription": "设置店铺页面或某个系列的默认排序。置顶商品排在最前。顾客仍可选择其他排序方式。",
+      "spotlightDescription": "在店铺页面顶部展示一个系列的货架。"
+    },
+    "strategy": {
+      "bestSelling": "畅销",
+      "newest": "最新",
+      "priceAsc": "价格从低到高",
+      "priceDesc": "价格从高到低"
+    },
+    "editor": {
+      "kind": "规则类型",
+      "titlePlaceholder": "例如：夏季畅销",
+      "target": "适用于",
+      "collection": "系列",
+      "chooseCollection": "选择系列",
+      "unpublishedCollection": "%{title}（未发布）",
+      "strategy": "排序方式",
+      "window": "销量统计周期",
+      "windowDays": "%{days} 天",
+      "inStockFirst": "有货商品优先",
+      "spotlightItems": "货架上的商品数",
+      "schedule": "时间安排",
+      "scheduleHint": "两项都留空则规则一直生效，直到你暂停它。结束时间即规则停止的时间。",
+      "startsAt": "开始",
+      "endsAt": "结束",
+      "scheduleOpen": "不限",
+      "time": "%{field}时间",
+      "clear": "清除",
+      "windowInvalid": "结束时间必须晚于开始时间。",
+      "enabled": "启用",
+      "limitReached": "你已用完套餐包含的所有规则。删除一条规则后才能再添加。",
+      "notIncluded": "你当前的套餐不包含商品陈列规则。",
+      "saveFailed": "无法保存规则",
+      "save": "保存"
+    },
+    "preview": {
+      "title": "排序结果预览",
+      "hint": "最多置顶 %{max} 件商品，按你设定的顺序保持在最前。",
+      "failed": "无法加载预览",
+      "empty": "暂无可展示的商品。",
+      "pinned": "已置顶",
+      "inStock": "有货",
+      "outOfStock": "缺货",
+      "unitsSold": "已售 %{units} 件",
+      "moveUp": "上移",
+      "moveDown": "下移",
+      "pin": "置顶",
+      "unpin": "取消置顶",
+      "total": "此排序中共 %{total} 件商品"
+    }
   }
 }

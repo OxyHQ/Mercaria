@@ -650,6 +650,11 @@ export * from './sell-yours';
 export * from './merchant-plan';
 // Store data exports: the free on-demand CSV and the paid schedule over it.
 export * from './data-export';
+// The paid `advanced_merchandising_rules` tool (#89): store-page ordering and
+// spotlight rules. Beside `./merchant-plan` and referencing nothing but its own
+// tuples — a rule names a listing or collection by id and has no field for a
+// boost, a weight or any surface beyond the store's own page.
+export * from './merchandising-rule';
 // What a buyer is told about who is selling, who is paid and what rights come
 // with the purchase (#129). Downstream of `./fees` (whose `CommercialMode`
 // tuple it reads rather than duplicating — one vocabulary, two readers: the

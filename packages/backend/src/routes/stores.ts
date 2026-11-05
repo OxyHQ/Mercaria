@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { optionalAuth } from '../middleware/auth.js';
 import { makeRateLimiter } from '../lib/rate-limit.js';
-import { getStoreByHandle } from '../controllers/stores.controller.js';
+import { getStoreByHandle, getStoreListingsByIds } from '../controllers/stores.controller.js';
 import { listStoreReviews } from '../controllers/reviews.controller.js';
 import {
   listStorePublicCollections,
@@ -20,6 +20,12 @@ router.use(makeRateLimiter('stores'), optionalAuth);
 
 /** GET /stores/:handle — public store page (merchant summary + active listings). */
 router.get('/:handle', getStoreByHandle);
+
+/**
+ * GET /stores/:handle/listings?ids= — this store's active listings by id, in the
+ * order named. Decides no order of its own.
+ */
+router.get('/:handle/listings', getStoreListingsByIds);
 
 /** GET /stores/:handle/reviews — a store's published reviews (paginated). */
 router.get('/:handle/reviews', listStoreReviews);

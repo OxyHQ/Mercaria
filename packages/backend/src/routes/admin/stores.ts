@@ -23,6 +23,7 @@ import productsRouter from './products.js';
 import ordersRouter from './orders.js';
 import locationsRouter from './locations.js';
 import collectionsRouter from './collections.js';
+import merchandisingRouter from './merchandising.js';
 import discountsRouter from './discounts.js';
 import taxRatesRouter from './tax-rates.js';
 import customersRouter from './customers.js';
@@ -104,6 +105,10 @@ router.use('/:storeId/products', productsRouter);
 router.use('/:storeId/orders', ordersRouter);
 router.use('/:storeId/locations', locationsRouter);
 router.use('/:storeId/collections', collectionsRouter);
+// The paid store-page merchandising rules (#89): beside `/collections`, whose
+// permissions they share, and not inside it — a rule arranges the store page and
+// never changes a collection.
+router.use('/:storeId/merchandising', merchandisingRouter);
 router.use('/:storeId/discounts', discountsRouter);
 router.use('/:storeId/tax-rates', taxRatesRouter);
 router.use('/:storeId/customers', customersRouter);

@@ -2465,5 +2465,91 @@
       "saved": "Règle enregistrée",
       "error": "Impossible d'enregistrer la règle"
     }
+  },
+  "merchandising": {
+    "documentTitle": "Merchandising | Wholesale by Mercaria",
+    "title": "Merchandising",
+    "subtitle": "Organisez la page de votre boutique : ordre par défaut, produits épinglés et vitrines programmées",
+    "toolDescription": "Ordonnez la page de votre boutique et ses collections, épinglez des produits et programmez des vitrines.",
+    "newRule": "Nouvelle règle",
+    "keptRules": "Votre forfait n'inclut plus les règles de merchandising : elles ne modifient donc plus la page de votre boutique. Elles sont conservées et vous pouvez les supprimer.",
+    "loadError": "Impossible de charger vos règles de merchandising",
+    "empty": {
+      "title": "Aucune règle pour l'instant",
+      "body": "Les règles modifient seulement la façon dont la page de votre boutique ordonne et met en avant vos produits. Tout le reste est inchangé."
+    },
+    "rowMeta": "%{what} · %{target} · %{state}",
+    "applying": "Affichée sur votre boutique",
+    "delete": "Supprimer la règle",
+    "deleted": "Règle supprimée",
+    "deleteError": "Impossible de supprimer la règle",
+    "created": "Règle créée",
+    "saved": "Règle enregistrée",
+    "status": {
+      "live": "Active",
+      "superseded": "Remplacée par une règle plus récente",
+      "scheduled": "Programmée",
+      "ended": "Terminée",
+      "paused": "En pause",
+      "detached": "Collection supprimée"
+    },
+    "target": {
+      "store": "Toute la page de la boutique",
+      "collection": "Collection",
+      "deleted": "Collection supprimée"
+    },
+    "kind": {
+      "sort": "Ordre",
+      "spotlight": "Vitrine",
+      "sortDescription": "Définit l'ordre par défaut de la page de votre boutique ou d'une collection. Les produits épinglés passent en premier. Les acheteurs peuvent choisir un autre tri.",
+      "spotlightDescription": "Affiche une rangée d'une collection en haut de la page de votre boutique."
+    },
+    "strategy": {
+      "bestSelling": "Meilleures ventes",
+      "newest": "Plus récents",
+      "priceAsc": "Prix croissant",
+      "priceDesc": "Prix décroissant"
+    },
+    "editor": {
+      "kind": "Type de règle",
+      "titlePlaceholder": "ex. Meilleures ventes de l'été",
+      "target": "S'applique à",
+      "collection": "Collection",
+      "chooseCollection": "Choisissez une collection",
+      "unpublishedCollection": "%{title} (non publiée)",
+      "strategy": "Trier par",
+      "window": "Ventes comptées sur",
+      "windowDays": "%{days} jours",
+      "inStockFirst": "Afficher d'abord les produits en stock",
+      "spotlightItems": "Produits dans la rangée",
+      "schedule": "Programmation",
+      "scheduleHint": "Laissez les deux vides pour appliquer la règle jusqu'à sa mise en pause. L'heure de fin marque son arrêt.",
+      "startsAt": "Début",
+      "endsAt": "Fin",
+      "scheduleOpen": "Sans date",
+      "time": "Heure de %{field}",
+      "clear": "Effacer",
+      "windowInvalid": "La fin doit être après le début.",
+      "enabled": "Active",
+      "limitReached": "Vous avez utilisé toutes les règles incluses dans votre forfait. Supprimez-en une pour en ajouter une autre.",
+      "notIncluded": "Votre forfait actuel n'inclut pas les règles de merchandising.",
+      "saveFailed": "Impossible d'enregistrer la règle",
+      "save": "Enregistrer"
+    },
+    "preview": {
+      "title": "Aperçu de l'ordre obtenu",
+      "hint": "Épinglez jusqu'à %{max} produits pour les garder en haut, dans l'ordre choisi.",
+      "failed": "Impossible de charger l'aperçu",
+      "empty": "Aucun produit à afficher pour l'instant.",
+      "pinned": "Épinglé",
+      "inStock": "En stock",
+      "outOfStock": "Épuisé",
+      "unitsSold": "%{units} vendus",
+      "moveUp": "Monter",
+      "moveDown": "Descendre",
+      "pin": "Épingler en haut",
+      "unpin": "Désépingler",
+      "total": "%{total} produits dans cet ordre"
+    }
   }
 }
