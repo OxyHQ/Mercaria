@@ -120,23 +120,16 @@ const FIRST_EPIC_MIGRATION_IDX = 88;
  * Tables in the derived population that the ownership map deliberately does not
  * carry, each with the reason it does not.
  *
- * Declared rather than omitted: an empty exemption list that exists is a fact
- * the gate reports, where an absent one is a mechanism nobody can tell apart
- * from a mechanism that was never wired. Every table created at or after the
- * boundary was a catalogue table until #89's paid tools, whose tables are a
- * plan tool's own and are named here with that reason; the map still carries
- * the two a NEIGHBOURING issue added (`listing_pin_releases`, #427;
- * `product_variant_images`, #850), because a reader asking "who owns this"
- * does not know which issue number it arrived under.
+ * EMPTY today, and declared rather than omitted: an empty exemption list that
+ * exists is a fact the gate reports, where an absent one is a mechanism nobody
+ * can tell apart from a mechanism that was never wired. Every table created at
+ * or after the boundary is a catalogue table today, including the two a
+ * NEIGHBOURING issue added (`listing_pin_releases`, #427; `product_variant_images`,
+ * #850) — which the map carries for the same reason it carries the rest: a
+ * reader asking "who owns this" does not know which issue number it arrived
+ * under.
  */
-const NOT_IN_THE_MAP: Readonly<Record<string, string>> = {
-  automation_rules:
-    "#89's automation rules — a merchant-plan TOOL's configuration, not a catalogue table; " +
-    'it writes the catalogue only through `catalog-write.service.updateListing`',
-  automation_rule_listing_states:
-    "#89's automation rules — a stock rule's open episode per listing, owned by the rule",
-  automation_rule_runs: "#89's automation rules — the rule's run history, owned by the rule",
-};
+const NOT_IN_THE_MAP: Readonly<Record<string, string>> = {};
 
 /**
  * Tables the document NAMES that predate the boundary, each with the reason it
