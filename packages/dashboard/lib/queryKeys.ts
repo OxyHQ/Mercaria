@@ -68,6 +68,13 @@ export const queryKeys = {
     detail: (storeId: string, id: string) => ['stores', storeId, 'discounts', id] as const,
   },
   taxRates: (storeId: string) => ['stores', storeId, 'tax-rates'] as const,
+  // Named POS registers (the paid `expanded_pos_registers` tool) and their summary.
+  posRegisters: {
+    all: (storeId: string) => ['stores', storeId, 'pos-registers'] as const,
+    list: (storeId: string) => ['stores', storeId, 'pos-registers', 'list'] as const,
+    summary: (storeId: string, from: string, to: string) =>
+      ['stores', storeId, 'pos-registers', 'summary', { from, to }] as const,
+  },
   // Payment onboarding. A sibling of `channels`, never a child of it: a sales
   // channel is where a catalogue is listed and this is where money is settled.
   payments: (storeId: string) => ['stores', storeId, 'payments'] as const,

@@ -118,8 +118,8 @@ export async function deleteLocation(storeId: string, locationId: string): Promi
     // caught by SQLSTATE and everything else rethrows untouched.
     if (isForeignKeyViolation(err)) {
       throw conflict(
-        'This location is still referenced by an open draft order or a channel ' +
-          'sync target. Reassign those first, then delete the location.',
+        'This location is still referenced by a draft order, a POS register or a ' +
+          'channel sync target. Remove or reassign those first, then delete the location.',
       );
     }
     throw err;

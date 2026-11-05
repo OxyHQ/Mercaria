@@ -142,6 +142,7 @@ function orderRow(buyer: {
     storeId: 'store-1',
     customerId: null,
     sourceChannel: 'storefront',
+    posRegisterId: null,
     sourceConnectionId: null,
     sourceProvider: null,
     sourceExternalId: null,

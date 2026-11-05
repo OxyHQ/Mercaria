@@ -2181,5 +2181,42 @@
       "footnote": "仅在观测到足够多的其他卖家时，才会显示该期间的其他卖家价格。",
       "noValue": "—"
     }
+  },
+  "posRegisters": {
+    "documentTitle": "POS 收银台 | Wholesale by Mercaria",
+    "title": "POS 收银台",
+    "subtitle": "为每个地点设置命名收银台，并分别查看每日销售",
+    "toolDescription": "在每个地点的默认收银台之外添加命名收银台，并查看每个收银台的每日销售。",
+    "loadFailed": "无法加载你的收银台",
+    "defaultExplainer": "每个地点都保留默认收银台，任意数量的设备都可以免费使用。命名收银台让每个收银台在销售中拥有自己的标识和每日汇总。",
+    "add": "添加收银台",
+    "defaultName": "默认收银台",
+    "defaultMeta": "所有未选择命名收银台的设备都使用它 · 始终包含",
+    "renameAction": "重命名 %{name}",
+    "removeAction": "移除 %{name}",
+    "archived": "已移除 %{name}。其过往销售仍保留在汇总中。",
+    "deleted": "已移除 %{name}",
+    "removeFailed": "无法移除收银台",
+    "limitReached": "你的套餐所含收银台已全部使用。请先移除一个收银台再添加。",
+    "notIncluded": "你当前的套餐不包含命名收银台。",
+    "nameTaken": "该地点已有同名收银台。",
+    "saveFailed": "无法保存收银台",
+    "nameRequired": "请为收银台命名",
+    "saved": "收银台已保存",
+    "renameTitle": "重命名收银台",
+    "newTitle": "%{location} 的新收银台",
+    "namePlaceholder": "例如：前台",
+    "unknownRegister": "已移除的收银台",
+    "summary": {
+      "title": "按收银台统计的销售",
+      "note": "在收银台完成收款的销售，按 UTC 日期统计。退款单独记录。",
+      "today": "今天",
+      "last7": "7 天",
+      "last30": "30 天",
+      "atLocation": "%{name} · %{location}",
+      "loadFailed": "无法加载销售汇总",
+      "empty": "此期间没有收银台销售。",
+      "sales": "销售笔数：%{count}"
+    }
   }
 }

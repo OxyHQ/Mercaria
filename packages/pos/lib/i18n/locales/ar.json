@@ -55,7 +55,8 @@
     "tender": "طريقة الدفع",
     "tenderCard": "بطاقة",
     "tenderCash": "نقدًا",
-    "title": "التحصيل"
+    "title": "التحصيل",
+    "register": "الصندوق"
   },
   "common": {
     "all": "الكل",
@@ -187,6 +188,11 @@
       "one": "@%{handle} · %{count} منتج",
       "other": "@%{handle} · %{count} منتج"
     },
-    "storesLoadFailed": "تعذّر تحميل متاجرك"
+    "storesLoadFailed": "تعذّر تحميل متاجرك",
+    "changeLocation": "تغيير الموقع",
+    "chooseTillTitle": "أي صندوق هذا؟",
+    "chooseTillSubtitle": "اختر صندوق هذا الجهاز في %{location}",
+    "defaultRegister": "الصندوق الافتراضي",
+    "defaultRegisterMeta": "الصندوق المشترك للموقع"
   }
 }

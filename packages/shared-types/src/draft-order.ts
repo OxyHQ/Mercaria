@@ -121,8 +121,17 @@ export interface UpdateDraftOrderInput {
 }
 
 /**
- * Body for `POST .../complete` — take the POS sale. Empty for now: payment is an
- * Peable seam, so completion reserves stock + converts the draft to a paid order
- * without any additional client input.
+ * Body for `POST .../complete` — take the POS sale. Payment is a Peable seam, so
+ * completion reserves stock + converts the draft to a paid order without any
+ * payment input.
  */
-export type CompleteDraftOrderInput = Record<string, never>;
+export interface CompleteDraftOrderInput {
+  /**
+   * The named POS register the sale was rung up on (a paid plan's
+   * `expanded_pos_registers`). Optional, and never a reason to refuse a sale:
+   * omitted, unknown, archived, at another location, or sent by a store whose
+   * plan no longer includes the tool, the sale is recorded on the location's
+   * default register — which is what every sale was before registers existed.
+   */
+  registerId?: string;
+}

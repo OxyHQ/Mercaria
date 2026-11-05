@@ -11,6 +11,9 @@ import { Screen } from '@/components/shell/Screen';
 import { RequirePos } from '@/components/shell/RequirePos';
 import { useChargeSale } from '@/lib/hooks/use-sale';
 import { useCustomers } from '@/lib/hooks/use-customers';
+import { usePosRegisters } from '@/lib/hooks/use-pos-registers';
+import { activeRegisterFor } from '@/lib/register-choice';
+import { useActiveStore } from '@/lib/stores/active-store';
 import { useRegisterCart } from '@/lib/stores/register-cart';
 import { computeCartSubtotal } from '@/lib/cart-totals';
 import { queryKeys } from '@/lib/queryKeys';
@@ -48,6 +51,12 @@ function Charge({ storeId, locationId }: { storeId: string; locationId: string }
 
   const charge = useChargeSale(storeId);
 
+  // This device's named register, while it is still one the store may use;
+  // otherwise the location's default register (null), as before registers.
+  const rememberedRegisterId = useActiveStore((s) => s.activeRegisterId);
+  const { data: registerList } = usePosRegisters(storeId, locationId);
+  const register = activeRegisterFor(registerList, locationId, rememberedRegisterId);
+
   // Resolve the attached customer's display name (best-effort, from the list cache).
   const { data: customerPage } = useCustomers(storeId, '');
   const customerName = useMemo(() => {
@@ -66,7 +75,7 @@ function Charge({ storeId, locationId }: { storeId: string; locationId: string }
 
   const onCharge = () => {
     charge.mutate(
-      { locationId, customerId, discountCode, lines },
+      { locationId, registerId: register?.id ?? null, customerId, discountCode, lines },
       {
         onSuccess: (order) => {
           // Prime the receipt cache so it renders instantly.
@@ -120,6 +129,14 @@ function Charge({ storeId, locationId }: { storeId: string; locationId: string }
             {customerName ?? t('customer.walkIn')}
           </Text>
         </View>
+
+        {/* Register — shown only when this device rings up on a named one. */}
+        {register ? (
+          <View className="flex-row items-center justify-between rounded-2xl border border-border bg-surface p-4">
+            <Text className="text-sm text-muted-foreground">{t('charge.register')}</Text>
+            <Text className="text-sm font-semibold text-foreground">{register.name}</Text>
+          </View>
+        ) : null}
 
         {/* Tender method (UI-only). */}
         <View className="gap-2">

@@ -55,7 +55,8 @@
     "tender": "付款方式",
     "tenderCard": "银行卡",
     "tenderCash": "现金",
-    "title": "收款"
+    "title": "收款",
+    "register": "收银台"
   },
   "common": {
     "all": "全部",
@@ -187,6 +188,11 @@
       "one": "@%{handle} · %{count} 件商品",
       "other": "@%{handle} · %{count} 件商品"
     },
-    "storesLoadFailed": "无法加载你的店铺"
+    "storesLoadFailed": "无法加载你的店铺",
+    "changeLocation": "更换地点",
+    "chooseTillTitle": "这是哪个收银台？",
+    "chooseTillSubtitle": "选择此设备在 %{location} 使用的收银台",
+    "defaultRegister": "默认收银台",
+    "defaultRegisterMeta": "该地点的共用收银台"
   }
 }

@@ -16,6 +16,8 @@ export const queryKeys = {
   },
   categories: ['categories'] as const,
   locations: (storeId: string) => ['stores', storeId, 'locations'] as const,
+  posRegisters: (storeId: string, locationId: string) =>
+    ['stores', storeId, 'pos-registers', locationId] as const,
   customers: {
     list: (storeId: string, search: string) =>
       ['stores', storeId, 'customers', { search }] as const,

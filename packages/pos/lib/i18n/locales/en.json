@@ -55,7 +55,8 @@
     "tender": "Tender",
     "tenderCard": "Card",
     "tenderCash": "Cash",
-    "title": "Charge"
+    "title": "Charge",
+    "register": "Register"
   },
   "common": {
     "all": "All",
@@ -187,6 +188,11 @@
       "one": "@%{handle} · %{count} product",
       "other": "@%{handle} · %{count} products"
     },
-    "storesLoadFailed": "Couldn't load your stores"
+    "storesLoadFailed": "Couldn't load your stores",
+    "changeLocation": "Change location",
+    "chooseTillTitle": "Which register is this?",
+    "chooseTillSubtitle": "Pick this device's register at %{location}",
+    "defaultRegister": "Default register",
+    "defaultRegisterMeta": "The location's shared register"
   }
 }

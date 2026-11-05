@@ -55,7 +55,8 @@
     "tender": "支払方法",
     "tenderCard": "カード",
     "tenderCash": "現金",
-    "title": "会計"
+    "title": "会計",
+    "register": "レジ"
   },
   "common": {
     "all": "すべて",
@@ -187,6 +188,11 @@
       "one": "@%{handle} · %{count}商品",
       "other": "@%{handle} · %{count}商品"
     },
-    "storesLoadFailed": "ストアを読み込めませんでした"
+    "storesLoadFailed": "ストアを読み込めませんでした",
+    "changeLocation": "ロケーションを変更",
+    "chooseTillTitle": "このデバイスはどのレジですか？",
+    "chooseTillSubtitle": "%{location} でこのデバイスが使うレジを選択",
+    "defaultRegister": "標準レジ",
+    "defaultRegisterMeta": "ロケーション共通のレジ"
   }
 }

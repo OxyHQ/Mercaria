@@ -2181,5 +2181,42 @@
       "footnote": "ほかの販売者の価格は、十分な数が観測された期間にのみ表示されます。",
       "noValue": "—"
     }
+  },
+  "posRegisters": {
+    "documentTitle": "POS レジ | Wholesale by Mercaria",
+    "title": "POS レジ",
+    "subtitle": "ロケーションごとの名前付きレジと、それぞれの日次売上",
+    "toolDescription": "各ロケーションの標準レジに加えて名前付きレジを追加し、レジごとの日次売上を確認できます。",
+    "loadFailed": "レジを読み込めませんでした",
+    "defaultExplainer": "各ロケーションには標準レジがあり、何台のデバイスからでも無料で使えます。名前付きレジを使うと、売上にレジごとの識別が付き、レジごとの日次サマリーを確認できます。",
+    "add": "レジを追加",
+    "defaultName": "標準レジ",
+    "defaultMeta": "名前付きレジを選択していないすべてのデバイスで使用 · 常に含まれます",
+    "renameAction": "%{name} の名前を変更",
+    "removeAction": "%{name} を削除",
+    "archived": "%{name} を削除しました。過去の売上はサマリーに残ります。",
+    "deleted": "%{name} を削除しました",
+    "removeFailed": "レジを削除できませんでした",
+    "limitReached": "プランに含まれるレジをすべて使用しています。追加するにはレジを 1 台削除してください。",
+    "notIncluded": "現在のプランには名前付きレジが含まれていません。",
+    "nameTaken": "このロケーションには同じ名前のレジがすでにあります。",
+    "saveFailed": "レジを保存できませんでした",
+    "nameRequired": "レジの名前を入力してください",
+    "saved": "レジを保存しました",
+    "renameTitle": "レジの名前を変更",
+    "newTitle": "%{location} の新しいレジ",
+    "namePlaceholder": "例: 正面カウンター",
+    "unknownRegister": "削除されたレジ",
+    "summary": {
+      "title": "レジ別売上",
+      "note": "レジで支払いを受け取った売上（UTC の日付別）。返金は別に記録されます。",
+      "today": "今日",
+      "last7": "7 日間",
+      "last30": "30 日間",
+      "atLocation": "%{name} · %{location}",
+      "loadFailed": "売上サマリーを読み込めませんでした",
+      "empty": "この期間のレジ売上はありません。",
+      "sales": "売上件数: %{count}"
+    }
   }
 }

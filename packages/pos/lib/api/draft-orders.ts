@@ -3,6 +3,7 @@ import type {
   DraftOrder,
   CreateDraftOrderInput,
   AddDraftLineInput,
+  CompleteDraftOrderInput,
   Order,
 } from '@mercaria/shared-types';
 import apiClient from './client';
@@ -58,11 +59,19 @@ export async function setDraftCustomer(
   return unwrap(data);
 }
 
-/** POST /:id/complete — take the sale; converts the draft into a paid `Order`. */
-export async function completeDraftOrder(storeId: string, draftId: string): Promise<Order> {
+/**
+ * POST /:id/complete — take the sale; converts the draft into a paid `Order`.
+ * `registerId` names this device's register; without it (or for one the server
+ * will not honour) the sale is recorded on the location's default register.
+ */
+export async function completeDraftOrder(
+  storeId: string,
+  draftId: string,
+  input: CompleteDraftOrderInput = {},
+): Promise<Order> {
   const { data } = await apiClient.post<ApiResponse<Order>>(
     `${base(storeId)}/${draftId}/complete`,
-    {},
+    input,
   );
   return unwrap(data);
 }

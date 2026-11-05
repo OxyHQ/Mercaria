@@ -2203,5 +2203,42 @@
       "footnote": "Un període només mostra els preus d'altres venedors quan se n'han observat prou.",
       "noValue": "—"
     }
+  },
+  "posRegisters": {
+    "documentTitle": "Caixes del TPV | Wholesale by Mercaria",
+    "title": "Caixes del TPV",
+    "subtitle": "Caixes amb nom a cada ubicació, amb les seves pròpies vendes diàries",
+    "toolDescription": "Afegeix caixes amb nom al costat de la caixa predeterminada de cada ubicació i consulta les vendes diàries de cadascuna.",
+    "loadFailed": "No s'han pogut carregar les teves caixes",
+    "defaultExplainer": "Cada ubicació conserva la seva caixa predeterminada, que qualsevol nombre de dispositius pot fer servir gratuïtament. Les caixes amb nom donen a cada caixa la seva pròpia identitat a les vendes i el seu propi resum diari.",
+    "add": "Afegeix una caixa",
+    "defaultName": "Caixa predeterminada",
+    "defaultMeta": "La fa servir qualsevol dispositiu sense una caixa amb nom seleccionada · sempre inclosa",
+    "renameAction": "Canvia el nom de %{name}",
+    "removeAction": "Elimina %{name}",
+    "archived": "S'ha eliminat %{name}. Les seves vendes anteriors continuen al resum.",
+    "deleted": "S'ha eliminat %{name}",
+    "removeFailed": "No s'ha pogut eliminar la caixa",
+    "limitReached": "Ja fas servir totes les caixes que inclou el teu pla. Elimina'n una per afegir-ne una altra.",
+    "notIncluded": "El teu pla actual no inclou caixes amb nom.",
+    "nameTaken": "Aquesta ubicació ja té una caixa amb aquest nom.",
+    "saveFailed": "No s'ha pogut desar la caixa",
+    "nameRequired": "Posa un nom a la caixa",
+    "saved": "Caixa desada",
+    "renameTitle": "Canvia el nom de la caixa",
+    "newTitle": "Nova caixa a %{location}",
+    "namePlaceholder": "p. ex., Taulell principal",
+    "unknownRegister": "Caixa eliminada",
+    "summary": {
+      "title": "Vendes per caixa",
+      "note": "Vendes amb el pagament cobrat a la caixa, per dia UTC. Els reemborsaments es registren a part.",
+      "today": "Avui",
+      "last7": "7 dies",
+      "last30": "30 dies",
+      "atLocation": "%{name} · %{location}",
+      "loadFailed": "No s'ha pogut carregar el resum de vendes",
+      "empty": "No hi ha vendes en caixa en aquest període.",
+      "sales": "Vendes: %{count}"
+    }
   }
 }

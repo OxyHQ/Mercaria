@@ -55,7 +55,8 @@
     "tender": "पेमेंट का तरीका",
     "tenderCard": "कार्ड",
     "tenderCash": "कैश",
-    "title": "चार्ज"
+    "title": "चार्ज",
+    "register": "रजिस्टर"
   },
   "common": {
     "all": "सभी",
@@ -187,6 +188,11 @@
       "one": "@%{handle} · %{count} प्रोडक्ट",
       "other": "@%{handle} · %{count} प्रोडक्ट"
     },
-    "storesLoadFailed": "आपके स्टोर लोड नहीं हो सके"
+    "storesLoadFailed": "आपके स्टोर लोड नहीं हो सके",
+    "changeLocation": "लोकेशन बदलें",
+    "chooseTillTitle": "यह कौन सा रजिस्टर है?",
+    "chooseTillSubtitle": "%{location} पर इस डिवाइस का रजिस्टर चुनें",
+    "defaultRegister": "डिफ़ॉल्ट रजिस्टर",
+    "defaultRegisterMeta": "लोकेशन का साझा रजिस्टर"
   }
 }

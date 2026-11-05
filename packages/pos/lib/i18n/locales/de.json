@@ -55,7 +55,8 @@
     "tender": "Zahlungsart",
     "tenderCard": "Karte",
     "tenderCash": "Bargeld",
-    "title": "Kassieren"
+    "title": "Kassieren",
+    "register": "Kasse"
   },
   "common": {
     "all": "Alle",
@@ -187,6 +188,11 @@
       "one": "@%{handle} · %{count} Produkt",
       "other": "@%{handle} · %{count} Produkte"
     },
-    "storesLoadFailed": "Ihre Shops konnten nicht geladen werden"
+    "storesLoadFailed": "Ihre Shops konnten nicht geladen werden",
+    "changeLocation": "Standort wechseln",
+    "chooseTillTitle": "Welche Kasse ist das?",
+    "chooseTillSubtitle": "Wähle die Kasse dieses Geräts in %{location}",
+    "defaultRegister": "Standardkasse",
+    "defaultRegisterMeta": "Die gemeinsame Kasse des Standorts"
   }
 }

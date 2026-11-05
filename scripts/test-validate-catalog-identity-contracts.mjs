@@ -405,7 +405,10 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // real guard.
     // Competitive price analytics adds `store-price-analytics.ts` (#89): +1
     // module, +13 types, +64 properties. Measured by the real guard.
-    'walked 142 contract module(s), 2402 exported type(s), 8043 property signature(s)',
+    // Named POS registers add `pos-register.ts` and
+    // `CompleteDraftOrderInput.registerId` (#89): +1 module, +7 types, +23
+    // properties. Measured by the real guard.
+    'walked 143 contract module(s), 2409 exported type(s), 8066 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });

@@ -57,6 +57,7 @@ import {
   type NewOrderAppliedDiscount,
   type NewOrderItem,
   type NewOrderTaxLine,
+  type NewOrder,
   type OrderRecord,
 } from '../db/orders/orderRepository.js';
 import {
@@ -78,9 +79,10 @@ import { applyPaymentStatus, ensurePayment } from './payments/payment.service.js
 import { hydrateOrders } from './order-hydration.service.js';
 import { getRates } from './fx.service.js';
 import { multiplyMoney, zeroMoney } from '../utils/money.js';
-import { uuidv7, isUniqueViolation } from '@oxy.so/db';
+import { uuidv7, isForeignKeyViolation, isUniqueViolation } from '@oxy.so/db';
 import { conflict, notFound } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
+import { registerForSale } from './pos-registers.service.js';
 
 /** Settlement currency used when a store has no configured default. */
 const DEFAULT_CURRENCY: CurrencyCode = 'FAIR';
@@ -689,7 +691,7 @@ function buildPickupSnapshot(
 export async function completeDraftOrder(
   storeId: string,
   draftId: string,
-  _input: CompleteDraftOrderInput,
+  input: CompleteDraftOrderInput,
   actorOxyUserId: string,
 ): Promise<OrderDTO> {
   const loaded = await findDraftOrder(storeId, draftId);
@@ -714,6 +716,16 @@ export async function completeDraftOrder(
   const currency = loaded.currency as CurrencyCode;
   const locationId = loaded.locationId ?? undefined;
   const idempotencyKey = `draft:${loaded.id}`;
+  // The named register the sale was rung up on, or the location's default
+  // register (`undefined`). Decided before anything is reserved, and never a
+  // refusal: an unentitled store, an archived register or a stale device
+  // selection all record the sale on the default register, as every sale was
+  // before named registers existed (`pos-registers.service.ts`).
+  let posRegisterId = await registerForSale({
+    storeId,
+    locationId,
+    registerId: input?.registerId,
+  });
 
   // 2. Reserve every line at the register location; roll back on any failure.
   const reserved: Reservation[] = [];
@@ -799,7 +811,7 @@ export async function completeDraftOrder(
     // inside the try so a failure here still rolls the reservations back.
     const orderNumber = await nextOrderNumber();
 
-    order = await insertOrder({
+    const newOrder: NewOrder = {
       orderNumber,
       // A POS sale always resolves a REAL Oxy id (the customer's, else the
       // operator's), so it is an `'oxy'`-origin order like any storefront one.
@@ -812,6 +824,7 @@ export async function completeDraftOrder(
       storeId,
       ...(draft.customerId ? { customerId: draft.customerId } : {}),
       sourceChannel: 'pos',
+      ...(posRegisterId ? { posRegisterId } : {}),
       items,
       shippingAddress,
       shippingMethod: 'pickup',
@@ -845,7 +858,20 @@ export async function completeDraftOrder(
       paymentStatus: 'unpaid',
       checkoutGroupId,
       idempotencyKey,
-    });
+    };
+    try {
+      order = await insertOrder(newOrder);
+    } catch (err) {
+      // The register was removed between `registerForSale` and this insert (a
+      // register with no sales is deleted outright, so the composite foreign key
+      // refuses). The sale is not lost over it: it goes to the default register.
+      if (!posRegisterId || !isForeignKeyViolation(err, 'orders_pos_register_id_store_id_fkey')) {
+        throw err;
+      }
+      posRegisterId = undefined;
+      const { posRegisterId: _removed, ...withoutRegister } = newOrder;
+      order = await insertOrder(withoutRegister);
+    }
   } catch (err) {
     await rollbackReservations(reserved);
     // A duplicate idempotency key means a concurrent/replayed complete already

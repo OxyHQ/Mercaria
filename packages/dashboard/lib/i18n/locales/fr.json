@@ -2203,5 +2203,42 @@
       "footnote": "Une période n'affiche les prix des autres vendeurs que si suffisamment d'entre eux ont été observés.",
       "noValue": "—"
     }
+  },
+  "posRegisters": {
+    "documentTitle": "Caisses du point de vente | Wholesale by Mercaria",
+    "title": "Caisses du point de vente",
+    "subtitle": "Des caisses nommées pour chaque emplacement, avec leurs propres ventes du jour",
+    "toolDescription": "Ajoutez des caisses nommées à côté de la caisse par défaut de chaque emplacement et consultez les ventes quotidiennes de chacune.",
+    "loadFailed": "Impossible de charger vos caisses",
+    "defaultExplainer": "Chaque emplacement garde sa caisse par défaut, utilisable gratuitement par autant d'appareils que nécessaire. Les caisses nommées donnent à chaque caisse sa propre identité sur les ventes et son propre récapitulatif quotidien.",
+    "add": "Ajouter une caisse",
+    "defaultName": "Caisse par défaut",
+    "defaultMeta": "Utilisée par tout appareil sans caisse nommée sélectionnée · toujours incluse",
+    "renameAction": "Renommer %{name}",
+    "removeAction": "Supprimer %{name}",
+    "archived": "%{name} a été supprimée. Ses ventes passées restent dans le récapitulatif.",
+    "deleted": "%{name} a été supprimée",
+    "removeFailed": "Impossible de supprimer la caisse",
+    "limitReached": "Toutes les caisses incluses dans votre offre sont utilisées. Supprimez-en une pour en ajouter une autre.",
+    "notIncluded": "Votre offre actuelle n'inclut pas les caisses nommées.",
+    "nameTaken": "Cet emplacement a déjà une caisse portant ce nom.",
+    "saveFailed": "Impossible d'enregistrer la caisse",
+    "nameRequired": "Donnez un nom à la caisse",
+    "saved": "Caisse enregistrée",
+    "renameTitle": "Renommer la caisse",
+    "newTitle": "Nouvelle caisse à %{location}",
+    "namePlaceholder": "p. ex. Comptoir principal",
+    "unknownRegister": "Caisse supprimée",
+    "summary": {
+      "title": "Ventes par caisse",
+      "note": "Ventes dont le paiement a été encaissé en caisse, par jour UTC. Les remboursements sont enregistrés séparément.",
+      "today": "Aujourd'hui",
+      "last7": "7 jours",
+      "last30": "30 jours",
+      "atLocation": "%{name} · %{location}",
+      "loadFailed": "Impossible de charger le récapitulatif des ventes",
+      "empty": "Aucune vente en caisse sur cette période.",
+      "sales": "Ventes : %{count}"
+    }
   }
 }

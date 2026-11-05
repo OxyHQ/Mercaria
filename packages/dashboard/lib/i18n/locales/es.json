@@ -2203,5 +2203,42 @@
       "footnote": "Un periodo muestra los precios de otros vendedores solo cuando se observaron suficientes.",
       "noValue": "—"
     }
+  },
+  "posRegisters": {
+    "documentTitle": "Cajas del TPV | Wholesale by Mercaria",
+    "title": "Cajas del TPV",
+    "subtitle": "Cajas con nombre en cada ubicación, con sus propias ventas diarias",
+    "toolDescription": "Añade cajas con nombre junto a la caja predeterminada de cada ubicación y consulta las ventas diarias de cada una.",
+    "loadFailed": "No se han podido cargar tus cajas",
+    "defaultExplainer": "Cada ubicación conserva su caja predeterminada, que cualquier número de dispositivos puede usar gratis. Las cajas con nombre dan a cada caja su propia identidad en las ventas y su propio resumen diario.",
+    "add": "Añadir caja",
+    "defaultName": "Caja predeterminada",
+    "defaultMeta": "La usa cualquier dispositivo sin una caja con nombre seleccionada · siempre incluida",
+    "renameAction": "Cambiar el nombre de %{name}",
+    "removeAction": "Eliminar %{name}",
+    "archived": "Se ha eliminado %{name}. Sus ventas anteriores siguen en el resumen.",
+    "deleted": "Se ha eliminado %{name}",
+    "removeFailed": "No se ha podido eliminar la caja",
+    "limitReached": "Ya usas todas las cajas que incluye tu plan. Elimina una para añadir otra.",
+    "notIncluded": "Tu plan actual no incluye cajas con nombre.",
+    "nameTaken": "Esta ubicación ya tiene una caja con ese nombre.",
+    "saveFailed": "No se ha podido guardar la caja",
+    "nameRequired": "Ponle un nombre a la caja",
+    "saved": "Caja guardada",
+    "renameTitle": "Cambiar el nombre de la caja",
+    "newTitle": "Nueva caja en %{location}",
+    "namePlaceholder": "p. ej., Mostrador principal",
+    "unknownRegister": "Caja eliminada",
+    "summary": {
+      "title": "Ventas por caja",
+      "note": "Ventas cuyo pago se cobró en la caja, por día UTC. Los reembolsos se registran por separado.",
+      "today": "Hoy",
+      "last7": "7 días",
+      "last30": "30 días",
+      "atLocation": "%{name} · %{location}",
+      "loadFailed": "No se ha podido cargar el resumen de ventas",
+      "empty": "No hay ventas en caja en este periodo.",
+      "sales": "Ventas: %{count}"
+    }
   }
 }
