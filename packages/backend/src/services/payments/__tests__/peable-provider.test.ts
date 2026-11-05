@@ -104,6 +104,8 @@ let rejectRequests = 0;
 let forcedStatus: number | null = null;
 let dropAfterEffect = false;
 let refundLifecycle: 'pending' | 'failed' | null = null;
+/** Refuse every settlement read with a permanent 400 — the read, not the refund. */
+let refuseSettlementReads = false;
 
 const WEBHOOK_SECRET = 'whsec_contract_peable';
 
@@ -122,6 +124,7 @@ function reset(): void {
   forcedStatus = null;
   dropAfterEffect = false;
   refundLifecycle = null;
+  refuseSettlementReads = false;
 }
 
 interface FakeRequest {
@@ -273,6 +276,48 @@ async function fakeGateway(request: FakeRequest): Promise<unknown> {
     intent.refundedMinor += amount;
     refundsByRef.set(ref, { id, amount: String(amount), intentId: intent.id });
     return renderRefund(id, intent.id);
+  }
+
+  const settlementMatch = /^\/v1\/refunds\/([^/]+)\/settlement$/.exec(request.path);
+  if (request.method === 'GET' && settlementMatch) {
+    if (refuseSettlementReads) {
+      throw new PaymentProviderError({
+        provider: 'peable',
+        stage: request.stage,
+        message: 'settlement read refused',
+        retryable: false,
+      });
+    }
+    const refundId = decodeURIComponent(settlementMatch[1] ?? '');
+    const refund = [...refundsByRef.values()].find((entry) => entry.id === refundId);
+    const references = { payment_intent: refund?.intentId ?? '', refund: refundId, dispute: null };
+    // A failed refund moved nothing: no figure, never a zero.
+    if (!refund || refundLifecycle === 'failed') {
+      return {
+        object: 'settlement',
+        livemode: false,
+        ...references,
+        status: 'unknown',
+        gross: null,
+        fee: null,
+        net: null,
+        currency: null,
+        available_on: null,
+        exchange_rate: null,
+      };
+    }
+    return {
+      object: 'settlement',
+      livemode: false,
+      ...references,
+      status: refundLifecycle === 'pending' ? 'pending' : 'available',
+      gross: refund.amount,
+      fee: '0',
+      net: `-${refund.amount}`,
+      currency: 'EUR',
+      available_on: null,
+      exchange_rate: null,
+    };
   }
 
   if (request.method === 'POST' && request.path === '/v1/transfers') {
@@ -866,8 +911,9 @@ describe('published SDK HTTP parity', () => {
       expect(first.status).toBe('partially_refunded');
       expect(second.providerObjectId).toBe(first.providerObjectId);
       expect(refundsByRef.size).toBe(1);
-      // The refund, then the payment's refund budget it is judged against.
-      expect(wire.slice(-2)).toEqual([
+      // The refund, the payment's refund budget it is judged against, and what
+      // the refund took off the settlement balance.
+      expect(wire.slice(-3)).toEqual([
         {
           method: 'POST',
           path: '/v1/refunds',
@@ -884,7 +930,63 @@ describe('published SDK HTTP parity', () => {
           path: `/v1/payment_intents/${created.providerObjectId}/refunds`,
           stage: 'refund',
         },
+        {
+          method: 'GET',
+          path: `/v1/refunds/${first.providerObjectId}/settlement`,
+          stage: 'getStatus',
+        },
       ]);
+      // A pending refund already has its settled figure; a failed one has none.
+      if (state === 'failed') expect(first.platform).toBeUndefined();
+      else expect(first.platform?.amount).toEqual({ amount: 200, currency: 'EUR' });
     },
   );
+  test("states a succeeded refund's settled figure, at the identity rate when nothing converted", async () => {
+    const provider = new PeablePaymentProvider();
+    const created = await provider.createPayment(request);
+    const intent = intents.get(created.providerObjectId);
+    if (!intent) throw new Error('the fake gateway lost the intent it created');
+    intent.status = 'succeeded';
+
+    const result = await provider.refund({
+      paymentId: request.paymentId,
+      providerObjectId: created.providerObjectId,
+      refundId: 'refund-settled',
+      amount: { amount: 300, currency: 'EUR' as const },
+      idempotencyKey: 're:refund-settled',
+      metadata: {},
+    });
+
+    expect(result.state).toBe('succeeded');
+    expect(result.platform?.amount).toEqual({ amount: 300, currency: 'EUR' });
+    expect(result.platform?.rate).toMatchObject({
+      from: 'EUR',
+      to: 'EUR',
+      rate: 1,
+      provider: 'identity',
+    });
+  });
+  test('answers a refund with NO settled figure, never a refusal, when the settlement read fails', async () => {
+    const provider = new PeablePaymentProvider();
+    const created = await provider.createPayment(request);
+    const intent = intents.get(created.providerObjectId);
+    if (!intent) throw new Error('the fake gateway lost the intent it created');
+    intent.status = 'succeeded';
+    refuseSettlementReads = true;
+
+    const result = await provider.refund({
+      paymentId: request.paymentId,
+      providerObjectId: created.providerObjectId,
+      refundId: 'refund-unread',
+      amount: { amount: 100, currency: 'EUR' as const },
+      idempotencyKey: 're:refund-unread',
+      metadata: {},
+    });
+
+    // The money moved; a PERMANENT refusal of the read must not make the
+    // executor record it as a refund the rail refused. No figure is the answer,
+    // and the executor retries `refund_settlement_unavailable`.
+    expect(result.state).toBe('succeeded');
+    expect(result.platform).toBeUndefined();
+  });
 });

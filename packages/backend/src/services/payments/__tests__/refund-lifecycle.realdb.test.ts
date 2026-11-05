@@ -378,7 +378,15 @@ async function seedSettledOrder(
   const gross = ORDER_TOTAL * orderCount;
   const platformGross = options.platformGross ?? gross;
   const exchangeRate = platformGross === gross ? null : platformGross / gross;
-  gateway.putIntent({ id: intentId, status: 'succeeded', amount: BigInt(gross), currency: 'EUR' });
+  gateway.putIntent({
+    id: intentId,
+    status: 'succeeded',
+    amount: BigInt(gross),
+    currency: 'EUR',
+    // A converted charge's refunds settle at the same rate on the platform
+    // balance, which is what the gateway's refund settlement reports.
+    ...(exchangeRate === null ? {} : { settlementRate: exchangeRate }),
+  });
 
   const payment = await ensurePayment({
     provider: 'peable',
@@ -540,100 +548,81 @@ async function deliver(event: {
   });
 }
 
-/**
- * Whether the Peable adapter states what a refund took off the platform balance.
- *
- * It does not yet: `PeablePaymentProvider.refund` returns no `platform` figure,
- * so `executeRefundAtProvider` refuses — correctly — to book a refund it cannot
- * denominate (`refund_settlement_unavailable`, retried), after the gateway has
- * already refunded the buyer. That is a recorded gap of the Peable rail (ADR
- * 0009 D13 "As built"), not a property of the domain. The cases that need a
- * booked refund are therefore SKIPPED, by name, until the adapter supplies the
- * figure — flip this to `true` in the same change and they must pass unchanged.
- * Asserting today's refusal instead would pin the defect as behaviour.
- */
-const PEABLE_REFUNDS_BOOK = false;
-
 describe('a merchant refund on a settled Peable order', () => {
-  it.skipIf(!PEABLE_REFUNDS_BOOK)(
-    'refunds the buyer, reverses the whole seller share and balances the ledger',
-    async () => {
-      const [fixture] = await seedSettledOrder('full');
-      const transferBefore = await transferFor(fixture.paymentId, fixture.orderId);
-      expect(transferBefore?.amountAmount).toBe(ORDER_TOTAL);
-      const availableBefore = await availableFor(fixture.orderId);
+  it('refunds the buyer, reverses the whole seller share and balances the ledger', async () => {
+    const [fixture] = await seedSettledOrder('full');
+    const transferBefore = await transferFor(fixture.paymentId, fixture.orderId);
+    expect(transferBefore?.amountAmount).toBe(ORDER_TOTAL);
+    const availableBefore = await availableFor(fixture.orderId);
 
-      const refund = await processRefund(
-        fixture.storeId,
-        fixture.orderId,
-        {
-          lineItems: [
-            { variantId: await firstVariant(fixture.orderId), quantity: 1, restock: true },
-          ],
-        },
-        fixture.ownerId,
-      );
+    const refund = await processRefund(
+      fixture.storeId,
+      fixture.orderId,
+      {
+        lineItems: [{ variantId: await firstVariant(fixture.orderId), quantity: 1, restock: true }],
+      },
+      fixture.ownerId,
+    );
 
-      // The rail was asked for exactly the buyer's side, under the ADR's key, as
-      // the gateway's canonical integer string.
-      const refundCalls = gateway.state.refundCalls;
-      expect(refundCalls).toHaveLength(1);
-      expect(refundCalls[0]?.idempotencyKey).toBe(`re:${refund.id}`);
-      expect(refundCalls[0]?.params.amount).toBe(String(ORDER_TOTAL));
-      expect(refundCalls[0]?.params.payment_intent).toBe(fixture.intentId);
-      // Mercaria's own id travels as the refund's `external_ref` — its durable
-      // identity at the gateway, beyond the idempotency key's window.
-      expect(refundCalls[0]?.params.external_ref).toBe(refund.id);
+    // The rail was asked for exactly the buyer's side, under the ADR's key, as
+    // the gateway's canonical integer string.
+    const refundCalls = gateway.state.refundCalls;
+    expect(refundCalls).toHaveLength(1);
+    expect(refundCalls[0]?.idempotencyKey).toBe(`re:${refund.id}`);
+    expect(refundCalls[0]?.params.amount).toBe(String(ORDER_TOTAL));
+    expect(refundCalls[0]?.params.payment_intent).toBe(fixture.intentId);
+    // Mercaria's own id travels as the refund's `external_ref` — its durable
+    // identity at the gateway, beyond the idempotency key's window.
+    expect(refundCalls[0]?.params.external_ref).toBe(refund.id);
 
-      // …and the SELLER's side, in the PLATFORM currency, under its own key —
-      // which is also the reversal's durable identity at the gateway.
-      const reversalCalls = gateway.state.reversalCalls;
-      expect(reversalCalls).toHaveLength(1);
-      expect(reversalCalls[0]?.idempotencyKey).toBe(`trr:${refund.id}:${fixture.orderId}`);
-      expect(reversalCalls[0]?.params.amount).toBe(String(ORDER_TOTAL));
-      expect(reversalCalls[0]?.params.external_ref).toBe(`trr:${refund.id}:${fixture.orderId}`);
+    // …and the SELLER's side, in the PLATFORM currency, under its own key —
+    // which is also the reversal's durable identity at the gateway.
+    const reversalCalls = gateway.state.reversalCalls;
+    expect(reversalCalls).toHaveLength(1);
+    expect(reversalCalls[0]?.idempotencyKey).toBe(`trr:${refund.id}:${fixture.orderId}`);
+    expect(reversalCalls[0]?.params.amount).toBe(String(ORDER_TOTAL));
+    expect(reversalCalls[0]?.params.external_ref).toBe(`trr:${refund.id}:${fixture.orderId}`);
 
-      // The refund's own provider state, which is what a merchant screen reads.
-      const stored = await findRefundById(refund.id);
-      expect(stored?.provider).toBe('peable');
-      expect(stored?.providerState).toBe('succeeded');
-      expect(stored?.reversalState).toBe('succeeded');
-      expect(stored?.reversalAmountAmount).toBe(ORDER_TOTAL);
-      expect(stored?.reversalAmountCurrency).toBe('EUR');
-      expect(refund.providerState).toBe('succeeded');
-      // The operator-only half never reaches the DTO a merchant surface returns.
-      expect(refund).not.toHaveProperty('providerRefundId');
-      expect(refund).not.toHaveProperty('reversalState');
+    // The refund's own provider state, which is what a merchant screen reads.
+    const stored = await findRefundById(refund.id);
+    expect(stored?.provider).toBe('peable');
+    expect(stored?.providerState).toBe('succeeded');
+    expect(stored?.reversalState).toBe('succeeded');
+    expect(stored?.reversalAmountAmount).toBe(ORDER_TOTAL);
+    expect(stored?.reversalAmountCurrency).toBe('EUR');
+    expect(refund.providerState).toBe('succeeded');
+    // The operator-only half never reaches the DTO a merchant surface returns.
+    expect(refund).not.toHaveProperty('providerRefundId');
+    expect(refund).not.toHaveProperty('reversalState');
 
-      // The ledger balances per currency across EVERY transaction this payment
-      // produced — the charge, the transfer, the refund and the reversal.
-      expect(await ledgerBalance(fixture.paymentId)).toEqual({ EUR: 0n });
+    // The ledger balances per currency across EVERY transaction this payment
+    // produced — the charge, the transfer, the refund and the reversal.
+    expect(await ledgerBalance(fixture.paymentId)).toEqual({ EUR: 0n });
 
-      // …and the seller's payable for this order is back to zero: credited by the
-      // charge, settled by the transfer, charged by the refund, recovered by the
-      // reversal. That closure is what a FAILED reversal would leave open.
-      expect(await accountTotal(fixture.paymentId, 'merchant_payable', fixture.orderId)).toBe(0n);
+    // …and the seller's payable for this order is back to zero: credited by the
+    // charge, settled by the transfer, charged by the refund, recovered by the
+    // reversal. That closure is what a FAILED reversal would leave open.
+    expect(await accountTotal(fixture.paymentId, 'merchant_payable', fixture.orderId)).toBe(0n);
 
-      // Commission is zero until #88, so nothing was returned from it. Asserted
-      // rather than assumed: a non-zero value here is the rounding leak
-      // `settlement-shares.ts` exists to prevent.
-      expect(await accountTotal(fixture.paymentId, 'commission_revenue')).toBe(0n);
+    // Commission is zero until #88, so nothing was returned from it. Asserted
+    // rather than assumed: a non-zero value here is the rounding leak
+    // `settlement-shares.ts` exists to prevent.
+    expect(await accountTotal(fixture.paymentId, 'commission_revenue')).toBe(0n);
 
-      // Restock happened exactly ONCE, in the commerce path.
-      expect(await availableFor(fixture.orderId)).toBe(availableBefore + 1);
+    // Restock happened exactly ONCE, in the commerce path.
+    expect(await availableFor(fixture.orderId)).toBe(availableBefore + 1);
 
-      // A full refund of the whole order, so the order is `refunded`.
-      const [order] = await db
-        .select({
-          status: orderSchema.orders.status,
-          paymentStatus: orderSchema.orders.paymentStatus,
-        })
-        .from(orderSchema.orders)
-        .where(eq(orderSchema.orders.id, fixture.orderId));
-      expect(order?.status).toBe('refunded');
-      expect(order?.paymentStatus).toBe('refunded');
-    },
-  );
+    // A full refund of the whole order, so the order is `refunded`.
+    const [order] = await db
+      .select({
+        status: orderSchema.orders.status,
+        paymentStatus: orderSchema.orders.paymentStatus,
+      })
+      .from(orderSchema.orders)
+      .where(eq(orderSchema.orders.id, fixture.orderId));
+    expect(order?.status).toBe('refunded');
+    expect(order?.paymentStatus).toBe('refunded');
+  });
 
   /**
    * Two partial refunds on a CONVERTED charge, which is the only shape in which
@@ -651,91 +640,85 @@ describe('a merchant refund on a settled Peable order', () => {
    * replacing the cumulative difference with an independent proration, which
    * turns this red and leaves the same-currency cases green.
    */
-  it.skipIf(!PEABLE_REFUNDS_BOOK)(
-    'reverses two partial refunds of a CONVERTED charge with no unit stranded',
-    async () => {
-      const platformGross = 3_667;
-      const [fixture] = await seedSettledOrder('two-step', { quantity: 2, platformGross });
-      const variantId = await firstVariant(fixture.orderId);
+  it('reverses two partial refunds of a CONVERTED charge with no unit stranded', async () => {
+    const platformGross = 3_667;
+    const [fixture] = await seedSettledOrder('two-step', { quantity: 2, platformGross });
+    const variantId = await firstVariant(fixture.orderId);
 
-      const first = await processRefund(
-        fixture.storeId,
-        fixture.orderId,
-        { lineItems: [{ variantId, quantity: 1, restock: false }] },
-        fixture.ownerId,
-      );
-      expect((await findRefundById(first.id))?.reversalAmountAmount).toBe(1_833);
-      let transfer = await transferFor(fixture.paymentId, fixture.orderId);
-      expect(transfer?.amountAmount).toBe(platformGross);
-      expect(transfer?.reversedAmount).toBe(1_833);
-      // Half back is not fully reversed — the gateway calls it
-      // `partially_reversed`, which Mercaria's `TransferStatus` folds, and why
-      // `transfers` stores an AMOUNT beside the status.
-      expect(transfer?.status).toBe('paid');
+    const first = await processRefund(
+      fixture.storeId,
+      fixture.orderId,
+      { lineItems: [{ variantId, quantity: 1, restock: false }] },
+      fixture.ownerId,
+    );
+    expect((await findRefundById(first.id))?.reversalAmountAmount).toBe(1_833);
+    let transfer = await transferFor(fixture.paymentId, fixture.orderId);
+    expect(transfer?.amountAmount).toBe(platformGross);
+    expect(transfer?.reversedAmount).toBe(1_833);
+    // Half back is not fully reversed — the gateway calls it
+    // `partially_reversed`, which Mercaria's `TransferStatus` folds, and why
+    // `transfers` stores an AMOUNT beside the status.
+    expect(transfer?.status).toBe('paid');
 
-      const second = await processRefund(
-        fixture.storeId,
-        fixture.orderId,
-        { lineItems: [{ variantId, quantity: 1, restock: false }] },
-        fixture.ownerId,
-      );
-      // The ODD unit lands on the second increment, which is what an independent
-      // proration would have lost.
-      expect((await findRefundById(second.id))?.reversalAmountAmount).toBe(1_834);
+    const second = await processRefund(
+      fixture.storeId,
+      fixture.orderId,
+      { lineItems: [{ variantId, quantity: 1, restock: false }] },
+      fixture.ownerId,
+    );
+    // The ODD unit lands on the second increment, which is what an independent
+    // proration would have lost.
+    expect((await findRefundById(second.id))?.reversalAmountAmount).toBe(1_834);
 
-      transfer = await transferFor(fixture.paymentId, fixture.orderId);
-      // The whole transfer came back, and never more than the whole of it.
-      expect(transfer?.reversedAmount).toBe(platformGross);
-      expect(transfer?.status).toBe('reversed');
-      expect(gateway.state.reversalCalls).toHaveLength(2);
-      expect(
-        gateway.state.reversalCalls.reduce((sum, call) => sum + Number(call.params.amount), 0),
-      ).toBe(platformGross);
+    transfer = await transferFor(fixture.paymentId, fixture.orderId);
+    // The whole transfer came back, and never more than the whole of it.
+    expect(transfer?.reversedAmount).toBe(platformGross);
+    expect(transfer?.status).toBe('reversed');
+    expect(gateway.state.reversalCalls).toHaveLength(2);
+    expect(
+      gateway.state.reversalCalls.reduce((sum, call) => sum + Number(call.params.amount), 0),
+    ).toBe(platformGross);
 
-      // The seller's payable nets to zero: credited by the charge, settled by the
-      // transfer, charged by two refunds and recovered by two reversals.
-      expect(await accountTotal(fixture.paymentId, 'merchant_payable', fixture.orderId)).toBe(0n);
-      expect(await ledgerBalance(fixture.paymentId)).toEqual({ EUR: 0n });
-    },
-  );
+    // The seller's payable nets to zero: credited by the charge, settled by the
+    // transfer, charged by two refunds and recovered by two reversals.
+    expect(await accountTotal(fixture.paymentId, 'merchant_payable', fixture.orderId)).toBe(0n);
+    expect(await ledgerBalance(fixture.paymentId)).toEqual({ EUR: 0n });
+  });
 
-  it.skipIf(!PEABLE_REFUNDS_BOOK)(
-    'never touches inventory from a provider outcome, however many arrive',
-    async () => {
-      const [fixture] = await seedSettledOrder('no-restock');
-      const variantId = await firstVariant(fixture.orderId);
-      const refund = await processRefund(
-        fixture.storeId,
-        fixture.orderId,
-        { lineItems: [{ variantId, quantity: 1, restock: true }] },
-        fixture.ownerId,
-      );
-      const afterCommerce = await availableFor(fixture.orderId);
+  it('never touches inventory from a provider outcome, however many arrive', async () => {
+    const [fixture] = await seedSettledOrder('no-restock');
+    const variantId = await firstVariant(fixture.orderId);
+    const refund = await processRefund(
+      fixture.storeId,
+      fixture.orderId,
+      { lineItems: [{ variantId, quantity: 1, restock: true }] },
+      fixture.ownerId,
+    );
+    const afterCommerce = await availableFor(fixture.orderId);
 
-      const stored = await findRefundById(refund.id);
-      expect(stored?.providerRefundId).toBeTruthy();
+    const stored = await findRefundById(refund.id);
+    expect(stored?.providerRefundId).toBeTruthy();
 
-      // Two deliveries of the gateway's `charge.refunded` — the one refund event
-      // the Peable router acts on, by re-reading the payment through the rail.
-      // Issue #49 invariant 2: a provider outcome moves money and NOTHING else.
-      for (const eventId of ['a', 'b']) {
-        const delivered = await deliver({
-          id: `evt_charge_refunded_${eventId}_${RUN}_${refund.id}`,
-          type: 'charge.refunded',
-          data: {
-            object: { id: `ch_${refund.id}`, object: 'charge', payment_intent: fixture.intentId },
-          },
-        });
-        expect(delivered.outcome).toBe('accepted');
-      }
+    // Two deliveries of the gateway's `charge.refunded` — the one refund event
+    // the Peable router acts on, by re-reading the payment through the rail.
+    // Issue #49 invariant 2: a provider outcome moves money and NOTHING else.
+    for (const eventId of ['a', 'b']) {
+      const delivered = await deliver({
+        id: `evt_charge_refunded_${eventId}_${RUN}_${refund.id}`,
+        type: 'charge.refunded',
+        data: {
+          object: { id: `ch_${refund.id}`, object: 'charge', payment_intent: fixture.intentId },
+        },
+      });
+      expect(delivered.outcome).toBe('accepted');
+    }
 
-      expect(await availableFor(fixture.orderId)).toBe(afterCommerce);
-      // …and the money did not move again either.
-      expect(gateway.state.refundCalls).toHaveLength(1);
-      expect(gateway.state.reversalCalls).toHaveLength(1);
-      expect(await ledgerBalance(fixture.paymentId)).toEqual({ EUR: 0n });
-    },
-  );
+    expect(await availableFor(fixture.orderId)).toBe(afterCommerce);
+    // …and the money did not move again either.
+    expect(gateway.state.refundCalls).toHaveLength(1);
+    expect(gateway.state.reversalCalls).toHaveLength(1);
+    expect(await ledgerBalance(fixture.paymentId)).toEqual({ EUR: 0n });
+  });
 });
 
 describe('a reversal the rail refuses', () => {
@@ -744,91 +727,83 @@ describe('a reversal the rail refuses', () => {
    * ends up out of pocket: the buyer's refund is NOT blocked on the seller-side
    * recovery.
    */
-  it.skipIf(!PEABLE_REFUNDS_BOOK)(
-    'still refunds the buyer, books the gap and raises one operator exception',
-    async () => {
-      const [fixture] = await seedSettledOrder('reversal-fail');
-      const transfer = await transferFor(fixture.paymentId, fixture.orderId);
-      gateway.state.reversalFailures.add(String(transfer?.providerObjectId));
+  it('still refunds the buyer, books the gap and raises one operator exception', async () => {
+    const [fixture] = await seedSettledOrder('reversal-fail');
+    const transfer = await transferFor(fixture.paymentId, fixture.orderId);
+    gateway.state.reversalFailures.add(String(transfer?.providerObjectId));
 
-      const refund = await processRefund(
-        fixture.storeId,
-        fixture.orderId,
-        {
-          lineItems: [
-            { variantId: await firstVariant(fixture.orderId), quantity: 1, restock: true },
-          ],
-        },
-        fixture.ownerId,
+    const refund = await processRefund(
+      fixture.storeId,
+      fixture.orderId,
+      {
+        lineItems: [{ variantId: await firstVariant(fixture.orderId), quantity: 1, restock: true }],
+      },
+      fixture.ownerId,
+    );
+
+    const stored = await findRefundById(refund.id);
+    // The buyer has their money…
+    expect(stored?.providerState).toBe('succeeded');
+    // …and the recovery did not happen.
+    expect(stored?.reversalState).toBe('failed');
+    expect(stored?.providerReversalId).toBeNull();
+
+    // The gap is BOOKED, not hidden: the order's payable sits in DEBIT by
+    // exactly what the seller still owes Mercaria. A positive amount is a debit
+    // under the sign convention.
+    const payable = await accountTotal(fixture.paymentId, 'merchant_payable', fixture.orderId);
+    expect(payable).toBe(BigInt(ORDER_TOTAL));
+
+    // The book still balances per currency — an honest gap, not an unbalanced one.
+    expect(await ledgerBalance(fixture.paymentId)).toEqual({ EUR: 0n });
+
+    // Exactly one operator exception, and it is the reversal's.
+    const types = await outboxTypesFor(fixture.paymentId);
+    expect(types).toContain('reversal_failed');
+    expect(types).not.toContain('refund_failed');
+    const raised = await db
+      .select()
+      .from(paymentSchema.paymentOutboxes)
+      .where(
+        eq(
+          paymentSchema.paymentOutboxes.id,
+          `payment:reversal_failed:${refund.id}:${fixture.orderId}`,
+        ),
       );
+    expect(raised).toHaveLength(1);
+  });
 
-      const stored = await findRefundById(refund.id);
-      // The buyer has their money…
-      expect(stored?.providerState).toBe('succeeded');
-      // …and the recovery did not happen.
-      expect(stored?.reversalState).toBe('failed');
-      expect(stored?.providerReversalId).toBeNull();
+  it('leaves a sibling seller of the same charge completely untouched', async () => {
+    const [first, second] = await seedSettledOrder('siblings', { orders: 2 });
+    const transfer = await transferFor(first.paymentId, first.orderId);
+    gateway.state.reversalFailures.add(String(transfer?.providerObjectId));
 
-      // The gap is BOOKED, not hidden: the order's payable sits in DEBIT by
-      // exactly what the seller still owes Mercaria. A positive amount is a debit
-      // under the sign convention.
-      const payable = await accountTotal(fixture.paymentId, 'merchant_payable', fixture.orderId);
-      expect(payable).toBe(BigInt(ORDER_TOTAL));
+    const siblingPayableBefore = await accountTotal(
+      second.paymentId,
+      'merchant_payable',
+      second.orderId,
+    );
+    const siblingTransferBefore = await transferFor(second.paymentId, second.orderId);
 
-      // The book still balances per currency — an honest gap, not an unbalanced one.
-      expect(await ledgerBalance(fixture.paymentId)).toEqual({ EUR: 0n });
+    await processRefund(
+      first.storeId,
+      first.orderId,
+      {
+        lineItems: [{ variantId: await firstVariant(first.orderId), quantity: 1, restock: true }],
+      },
+      first.ownerId,
+    );
 
-      // Exactly one operator exception, and it is the reversal's.
-      const types = await outboxTypesFor(fixture.paymentId);
-      expect(types).toContain('reversal_failed');
-      expect(types).not.toContain('refund_failed');
-      const raised = await db
-        .select()
-        .from(paymentSchema.paymentOutboxes)
-        .where(
-          eq(
-            paymentSchema.paymentOutboxes.id,
-            `payment:reversal_failed:${refund.id}:${fixture.orderId}`,
-          ),
-        );
-      expect(raised).toHaveLength(1);
-    },
-  );
-
-  it.skipIf(!PEABLE_REFUNDS_BOOK)(
-    'leaves a sibling seller of the same charge completely untouched',
-    async () => {
-      const [first, second] = await seedSettledOrder('siblings', { orders: 2 });
-      const transfer = await transferFor(first.paymentId, first.orderId);
-      gateway.state.reversalFailures.add(String(transfer?.providerObjectId));
-
-      const siblingPayableBefore = await accountTotal(
-        second.paymentId,
-        'merchant_payable',
-        second.orderId,
-      );
-      const siblingTransferBefore = await transferFor(second.paymentId, second.orderId);
-
-      await processRefund(
-        first.storeId,
-        first.orderId,
-        {
-          lineItems: [{ variantId: await firstVariant(first.orderId), quantity: 1, restock: true }],
-        },
-        first.ownerId,
-      );
-
-      // ADR 0001 D4: divergence after funding is per ORDER. The sibling's payable
-      // and its transfer are byte-for-byte where they were.
-      expect(await accountTotal(second.paymentId, 'merchant_payable', second.orderId)).toBe(
-        siblingPayableBefore,
-      );
-      const siblingTransferAfter = await transferFor(second.paymentId, second.orderId);
-      expect(siblingTransferAfter?.reversedAmount).toBe(siblingTransferBefore?.reversedAmount);
-      expect(siblingTransferAfter?.status).toBe(siblingTransferBefore?.status);
-      expect(await ledgerBalance(first.paymentId)).toEqual({ EUR: 0n });
-    },
-  );
+    // ADR 0001 D4: divergence after funding is per ORDER. The sibling's payable
+    // and its transfer are byte-for-byte where they were.
+    expect(await accountTotal(second.paymentId, 'merchant_payable', second.orderId)).toBe(
+      siblingPayableBefore,
+    );
+    const siblingTransferAfter = await transferFor(second.paymentId, second.orderId);
+    expect(siblingTransferAfter?.reversedAmount).toBe(siblingTransferBefore?.reversedAmount);
+    expect(siblingTransferAfter?.status).toBe(siblingTransferBefore?.status);
+    expect(await ledgerBalance(first.paymentId)).toEqual({ EUR: 0n });
+  });
 });
 
 describe('a refund the rail refuses outright', () => {
@@ -961,6 +936,177 @@ describe('refund events from the gateway', () => {
   });
 });
 
+/**
+ * The dispute lifecycle on the Peable rail, through the real signed ingress.
+ * Each delivery carries the dispute as it WAS; the handler re-reads it and its
+ * withdrawal (`disputes.settlement`) from the gateway, which is what decides
+ * the books.
+ */
+describe('the dispute lifecycle, through the real ingress', () => {
+  const DISPUTE_FEE = 1_500n;
+
+  async function deliverDispute(type: string, disputeId: string, suffix: string) {
+    const { renderDispute } = await import('./helpers/fake-peable-gateway.js');
+    const dispute = gateway.dispute(disputeId);
+    return await deliver({
+      id: `evt_${suffix}_${RUN}`,
+      type,
+      data: { object: renderDispute(dispute) },
+    });
+  }
+
+  async function disputeRow(disputeId: string) {
+    const [row] = await db
+      .select()
+      .from(paymentSchema.disputes)
+      .where(eq(paymentSchema.disputes.providerDisputeId, disputeId));
+    return row;
+  }
+
+  function chargeback(
+    disputeId: string,
+    intentId: string,
+    status: 'needs_response' | 'won' | 'lost',
+  ) {
+    return gateway.putDispute({
+      id: disputeId,
+      intentId,
+      amount: BigInt(ORDER_TOTAL),
+      status,
+      reason: 'fraudulent',
+      withdrawal: { gross: BigInt(ORDER_TOTAL), fee: DISPUTE_FEE },
+      dueBy: Math.floor(Date.now() / 1000) + 7 * 86_400,
+    });
+  }
+
+  it('created → lost books the debit, charges the seller and recovers it', async () => {
+    const [fixture] = await seedSettledOrder('dispute-lost');
+    const disputeId = `dp_lost_${RUN}`;
+    chargeback(disputeId, fixture.intentId, 'needs_response');
+
+    await deliverDispute('charge.dispute.created', disputeId, 'dp_created');
+
+    // The platform balance was debited for the amount AND the fee; the principal
+    // sits in the holding account until the outcome is known.
+    expect(await accountTotal(fixture.paymentId, 'disputes')).toBe(BigInt(ORDER_TOTAL));
+    expect(await accountTotal(fixture.paymentId, 'processor_expense')).toBe(
+      BigInt(CHARGE_FEE) + DISPUTE_FEE,
+    );
+
+    // A redelivery of the SAME creation books nothing a second time.
+    await deliverDispute('charge.dispute.created', disputeId, 'dp_created_again');
+    expect(await accountTotal(fixture.paymentId, 'disputes')).toBe(BigInt(ORDER_TOTAL));
+
+    chargeback(disputeId, fixture.intentId, 'lost');
+    await deliverDispute('charge.dispute.closed', disputeId, 'dp_lost');
+
+    // The holding account is closed out, the seller bore it and the recovery
+    // reversed their transfer, so their payable is back to zero.
+    expect(await accountTotal(fixture.paymentId, 'disputes')).toBe(0n);
+    expect(await accountTotal(fixture.paymentId, 'merchant_payable', fixture.orderId)).toBe(0n);
+    expect(gateway.state.reversalCalls).toHaveLength(1);
+    expect(gateway.state.reversalCalls[0]?.idempotencyKey).toContain('trr:dispute:');
+    expect(await ledgerBalance(fixture.paymentId)).toEqual({ EUR: 0n });
+
+    const row = await disputeRow(disputeId);
+    expect(row?.outcome).toBe('lost');
+    expect(row?.recoveryState).toBe('succeeded');
+    expect(row?.orderId).toBe(fixture.orderId);
+    expect(row?.reason).toBe('fraudulent');
+  });
+
+  it('created → won reverses the holding entry and never touches the seller', async () => {
+    const [fixture] = await seedSettledOrder('dispute-won');
+    const disputeId = `dp_won_${RUN}`;
+    chargeback(disputeId, fixture.intentId, 'needs_response');
+    await deliverDispute('charge.dispute.created', disputeId, 'dp_open');
+    const payableBefore = await accountTotal(
+      fixture.paymentId,
+      'merchant_payable',
+      fixture.orderId,
+    );
+
+    chargeback(disputeId, fixture.intentId, 'won');
+    await deliverDispute('charge.dispute.closed', disputeId, 'dp_won');
+
+    expect(await accountTotal(fixture.paymentId, 'disputes')).toBe(0n);
+    expect(await accountTotal(fixture.paymentId, 'merchant_payable', fixture.orderId)).toBe(
+      payableBefore,
+    );
+    expect(gateway.state.reversalCalls).toHaveLength(0);
+    // The FEE is NOT returned: a lost fee on a won dispute is a real cost
+    // Mercaria bore (ADR 0001 D5).
+    expect(await accountTotal(fixture.paymentId, 'processor_expense')).toBe(
+      BigInt(CHARGE_FEE) + DISPUTE_FEE,
+    );
+    expect(await ledgerBalance(fixture.paymentId)).toEqual({ EUR: 0n });
+  });
+
+  it('books nothing for an INQUIRY, and books the withdrawal once it escalates', async () => {
+    const [fixture] = await seedSettledOrder('dispute-inquiry');
+    const disputeId = `dp_inquiry_${RUN}`;
+    // No withdrawal at all — the shape of an inquiry. The dispute's own
+    // `amount` is populated anyway, which is why it is never what is booked.
+    gateway.putDispute({
+      id: disputeId,
+      intentId: fixture.intentId,
+      amount: BigInt(ORDER_TOTAL),
+      status: 'needs_response',
+      reason: 'fraudulent',
+      withdrawal: null,
+      dueBy: Math.floor(Date.now() / 1000) + 86_400,
+    });
+
+    const before = (await ledgerFor(fixture.paymentId)).length;
+    await deliverDispute('charge.dispute.created', disputeId, 'dp_inquiry');
+
+    expect((await ledgerFor(fixture.paymentId)).length).toBe(before);
+    const opened = await disputeRow(disputeId);
+    expect(opened?.openedBookedAt).toBeNull();
+    expect(opened?.amountAmount).toBe(0);
+    expect(opened?.evidenceDueBy).toBeInstanceOf(Date);
+
+    // It escalated: the network withdrew the funds.
+    chargeback(disputeId, fixture.intentId, 'needs_response');
+    await deliverDispute('charge.dispute.funds_withdrawn', disputeId, 'dp_withdrawn');
+
+    expect(await accountTotal(fixture.paymentId, 'disputes')).toBe(BigInt(ORDER_TOTAL));
+    expect((await disputeRow(disputeId))?.openedBookedAt).toBeInstanceOf(Date);
+  });
+
+  it('does not touch a sibling order of the same charge', async () => {
+    const [first, second] = await seedSettledOrder('dispute-siblings', { orders: 2 });
+    const disputeId = `dp_multi_${RUN}`;
+    chargeback(disputeId, first.intentId, 'lost');
+    const siblingPayableBefore = await accountTotal(
+      second.paymentId,
+      'merchant_payable',
+      second.orderId,
+    );
+
+    await deliverDispute('charge.dispute.closed', disputeId, 'dp_multi');
+
+    // A multi-seller charge gives the network no line detail, so the dispute is
+    // recorded UNATTRIBUTED and the principal stays in the holding account.
+    expect((await disputeRow(disputeId))?.orderId).toBeNull();
+    expect(gateway.state.reversalCalls).toHaveLength(0);
+    expect(await accountTotal(second.paymentId, 'merchant_payable', second.orderId)).toBe(
+      siblingPayableBefore,
+    );
+  });
+
+  it("leaves a dispute of a payment that is not the marketplace's alone", async () => {
+    gateway.putIntent({ id: `pi_plan_${RUN}`, status: 'succeeded', amount: 900n, currency: 'EUR' });
+    const disputeId = `dp_plan_${RUN}`;
+    chargeback(disputeId, `pi_plan_${RUN}`, 'needs_response');
+
+    const result = await deliverDispute('charge.dispute.created', disputeId, 'dp_plan');
+
+    expect(result.outcome).toBe('accepted');
+    expect(await disputeRow(disputeId)).toBeUndefined();
+  });
+});
+
 /** The first variant on an order — what a refund line names. */
 async function firstVariant(orderId: string): Promise<string> {
   const [item] = await db
@@ -997,62 +1143,54 @@ describe('the marketplace fee (#88) on the settled money path', () => {
     expect(await ledgerBalance(fixture.paymentId)).toEqual({ EUR: 0n });
   });
 
-  it.skipIf(!PEABLE_REFUNDS_BOOK)(
-    'returns the whole commission on a full refund, per the proportional policy',
-    async () => {
-      const [fixture] = await seedSettledOrder('fee-full-refund', { feeMinorPerOrder: FEE });
+  it('returns the whole commission on a full refund, per the proportional policy', async () => {
+    const [fixture] = await seedSettledOrder('fee-full-refund', { feeMinorPerOrder: FEE });
 
-      await processRefund(
-        fixture.storeId,
-        fixture.orderId,
-        {
-          lineItems: [
-            { variantId: await firstVariant(fixture.orderId), quantity: 1, restock: true },
-          ],
-        },
-        fixture.ownerId,
-      );
+    await processRefund(
+      fixture.storeId,
+      fixture.orderId,
+      {
+        lineItems: [{ variantId: await firstVariant(fixture.orderId), quantity: 1, restock: true }],
+      },
+      fixture.ownerId,
+    );
 
-      // The buyer got the WHOLE order back; the seller bore only their net.
-      expect(gateway.state.refundCalls[0]?.params.amount).toBe(String(ORDER_TOTAL));
-      expect(gateway.state.reversalCalls[0]?.params.amount).toBe(String(ORDER_TOTAL - FEE));
+    // The buyer got the WHOLE order back; the seller bore only their net.
+    expect(gateway.state.refundCalls[0]?.params.amount).toBe(String(ORDER_TOTAL));
+    expect(gateway.state.reversalCalls[0]?.params.amount).toBe(String(ORDER_TOTAL - FEE));
 
-      // The commission came back through the residual: credited at the charge,
-      // debited by the refund, net zero — Mercaria keeps nothing on a fully
-      // refunded order.
-      expect(await accountTotal(fixture.paymentId, 'commission_revenue')).toBe(0n);
-      expect(await accountTotal(fixture.paymentId, 'merchant_payable', fixture.orderId)).toBe(0n);
-      expect(await ledgerBalance(fixture.paymentId)).toEqual({ EUR: 0n });
-    },
-  );
+    // The commission came back through the residual: credited at the charge,
+    // debited by the refund, net zero — Mercaria keeps nothing on a fully
+    // refunded order.
+    expect(await accountTotal(fixture.paymentId, 'commission_revenue')).toBe(0n);
+    expect(await accountTotal(fixture.paymentId, 'merchant_payable', fixture.orderId)).toBe(0n);
+    expect(await ledgerBalance(fixture.paymentId)).toEqual({ EUR: 0n });
+  });
 
-  it.skipIf(!PEABLE_REFUNDS_BOOK)(
-    'returns the commission pro-rata on a partial refund',
-    async () => {
-      const [fixture] = await seedSettledOrder('fee-half-refund', {
-        feeMinorPerOrder: FEE,
-        quantity: 2,
-      });
+  it('returns the commission pro-rata on a partial refund', async () => {
+    const [fixture] = await seedSettledOrder('fee-half-refund', {
+      feeMinorPerOrder: FEE,
+      quantity: 2,
+    });
 
-      await processRefund(
-        fixture.storeId,
-        fixture.orderId,
-        {
-          lineItems: [
-            { variantId: await firstVariant(fixture.orderId), quantity: 1, restock: false },
-          ],
-        },
-        fixture.ownerId,
-      );
+    await processRefund(
+      fixture.storeId,
+      fixture.orderId,
+      {
+        lineItems: [
+          { variantId: await firstVariant(fixture.orderId), quantity: 1, restock: false },
+        ],
+      },
+      fixture.ownerId,
+    );
 
-      // Half the order back: the seller bears half their NET, and Mercaria keeps
-      // exactly half its commission.
-      expect(gateway.state.refundCalls[0]?.params.amount).toBe(String(ORDER_TOTAL / 2));
-      expect(gateway.state.reversalCalls[0]?.params.amount).toBe(String((ORDER_TOTAL - FEE) / 2));
-      expect(await accountTotal(fixture.paymentId, 'commission_revenue')).toBe(-BigInt(FEE / 2));
-      expect(await ledgerBalance(fixture.paymentId)).toEqual({ EUR: 0n });
-    },
-  );
+    // Half the order back: the seller bears half their NET, and Mercaria keeps
+    // exactly half its commission.
+    expect(gateway.state.refundCalls[0]?.params.amount).toBe(String(ORDER_TOTAL / 2));
+    expect(gateway.state.reversalCalls[0]?.params.amount).toBe(String((ORDER_TOTAL - FEE) / 2));
+    expect(await accountTotal(fixture.paymentId, 'commission_revenue')).toBe(-BigInt(FEE / 2));
+    expect(await ledgerBalance(fixture.paymentId)).toEqual({ EUR: 0n });
+  });
 
   it('converts the fee at the charge’s own captured ratio on a converted charge', async () => {
     // 4,000 presentment landed as 3,667 platform. The snapshot fee (400,

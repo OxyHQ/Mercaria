@@ -1,7 +1,7 @@
 /**
  * The marketplace's events beyond a payment's status, as Peable delivers them:
- * a seller's connected account changing, a seller's payout moving, and a
- * refund's money moving after its answer.
+ * a seller's connected account changing, a seller's payout moving, a refund's
+ * money moving after its answer, and a card network disputing a charge.
  *
  * They ride the same signed ingress, dedupe key, lease and replay as the
  * payment events (`event-router.ts` merges this table), and like every handler
@@ -21,6 +21,7 @@ import { findPaymentByProviderObjectId } from '../../../db/payments/paymentRepos
 import { getDb } from '../../../db/postgres.js';
 import { log } from '../../../lib/logger.js';
 import { enqueuePaymentEvent, refundUnmatchedEventId } from '../payment-outbox.service.js';
+import { recordDispute } from '../dispute.service.js';
 import { recordPayout } from '../payout.service.js';
 import { PaymentProviderError } from '../provider.js';
 import { applyRailRefundState } from '../refund-execution.service.js';
@@ -28,6 +29,7 @@ import { peableGateway, redactAccountId, syncPeableAccount } from './accounts.js
 import { fromGatewayAmount } from './amounts.js';
 import { callPeable } from './errors.js';
 import type { PeableEventContext, PeableEventHandler, PeableEventOutcome } from './event-router.js';
+import { settledMovement } from './settlement.js';
 
 /** An event naming an object this handler cannot work from — never retryable. */
 function malformed(message: string): PaymentProviderError {
@@ -202,6 +204,70 @@ async function handleRefund(context: PeableEventContext): Promise<PeableEventOut
   };
 }
 
+/**
+ * A dispute: record where it stands, book what it withdrew, recover on a loss.
+ *
+ * Every `charge.dispute.*` type lands here, because they are observations of
+ * ONE object and nothing orders them — a `closed` can arrive before a
+ * `created` Mercaria never received. `dispute.service` upserts the row and
+ * gates each ledger transition on a compare-and-swap, so any arrival order
+ * converges on the same books (ADR 0001 D7).
+ *
+ * The amount and the fee are the dispute's WITHDRAWAL as the acquirer recorded
+ * it (`disputes.settlement`), never the dispute's own `amount`: that is
+ * populated for an inquiry too, and booking it would debit the ledger for a
+ * chargeback that has not happened. No withdrawal (`unknown`) is recorded as an
+ * inquiry — zero, nothing booked — and the next observation (the
+ * `funds_withdrawn` that follows a real chargeback, an update, the close)
+ * re-reads it and books then.
+ */
+async function handleDispute(context: PeableEventContext): Promise<PeableEventOutcome> {
+  const disputeId = context.objectIds.dispute;
+  const intentId = context.objectIds.payment_intent;
+  if (disputeId === undefined || intentId === undefined) {
+    throw malformed(`Peable event ${context.providerEventId} names no dispute and payment.`);
+  }
+  const payment = await findPaymentByProviderObjectId(getDb(), 'peable', intentId);
+  if (!payment) {
+    // A marketplace dispute always names a payment Mercaria recorded long
+    // before; one that names none is not the marketplace's (a merchant-plan
+    // invoice payment is billing's).
+    return { kind: 'ignored', note: `${intentId} is not a marketplace payment` };
+  }
+
+  const dispute = await callPeable('getStatus', () => peableGateway().disputes.retrieve(disputeId));
+  const settlement = await callPeable('getStatus', () =>
+    peableGateway().disputes.settlement(disputeId),
+  );
+  const disputeCurrency = dispute.currency as CurrencyCode;
+  const withdrawal = settledMovement(settlement, disputeCurrency, 'getStatus');
+  const outcome =
+    dispute.status === 'won' || dispute.status === 'lost' ? dispute.status : undefined;
+
+  const summary = await recordDispute(
+    {
+      provider: 'peable',
+      providerDisputeId: dispute.id,
+      amount: withdrawal?.amount ?? { amount: 0, currency: disputeCurrency },
+      feeMinor: withdrawal?.feeMinor ?? 0,
+      reason: dispute.reason,
+      status: dispute.status,
+      ...(dispute.evidence_details.due_by === null
+        ? {}
+        : { evidenceDueBy: new Date(dispute.evidence_details.due_by * 1_000) }),
+      ...(outcome ? { outcome, closedAt: new Date(dispute.updated_at * 1_000) } : {}),
+    },
+    payment.id,
+  );
+
+  const parts = [`dispute ${summary.disputeId} is '${dispute.status}'`];
+  if (summary.booked) parts.push('opening debit booked');
+  if (summary.closed) parts.push('closed');
+  if (summary.recovery) parts.push(`seller recovery: ${summary.recovery}`);
+  if (!withdrawal) parts.push('no withdrawal on the balance yet — an inquiry, nothing booked');
+  return { kind: 'applied', paymentId: payment.id, note: parts.join('; ') };
+}
+
 /** The marketplace's event types and their handlers. */
 export const PEABLE_MARKETPLACE_EVENT_HANDLERS: Readonly<Record<string, PeableEventHandler>> = {
   'connected_account.updated': handleConnectedAccount,
@@ -213,4 +279,9 @@ export const PEABLE_MARKETPLACE_EVENT_HANDLERS: Readonly<Record<string, PeableEv
   'refund.created': handleRefund,
   'refund.updated': handleRefund,
   'refund.failed': handleRefund,
+  'charge.dispute.created': handleDispute,
+  'charge.dispute.updated': handleDispute,
+  'charge.dispute.closed': handleDispute,
+  'charge.dispute.funds_withdrawn': handleDispute,
+  'charge.dispute.funds_reinstated': handleDispute,
 };

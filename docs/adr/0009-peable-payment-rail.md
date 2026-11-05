@@ -116,20 +116,18 @@ end.** Removing the direct rail did not build these, and each is a gap before
   `PeableProviderFields` need a DOM). Peable's `PeableElement.on` also does not
   type the Express Checkout `confirm` event the wallet sheet waits on, so the
   step widens that one listener. Neither path has confirmed a real payment;
-- dispute events from the gateway — the Peable router handles payment intents,
-  `charge.refunded`, `connected_account.updated`, `payout.*` (re-read as the
-  seller's account into `recordPayout`) and `refund.*` (a refund failing after
-  the fact raises `refund_failed`, one Mercaria never made `refund_unmatched`),
-  so only `disputes` has no writer. `dispute.service` (`recordDispute`,
-  `closeDispute`) is kept as that seam, uncalled and without a test until then
-  (its cases were driven by Stripe events);
-- refund settlement figures — the adapter's refund result carries no
-  platform-currency figure, so `executeRefundAtProvider` refuses to book a
-  Peable refund (`refund_settlement_unavailable`, retried) after the gateway
-  has refunded the buyer; the outbox types only the deleted Stripe router
-  produced (`transfer_changed`, `payout_changed`, `payment_disputed`,
-  `provider_account_changed`, `refund_unmatched`) keep their handlers as the
-  seams the gateway's events plug into;
+- ~~dispute, payout and connected-account events~~ — **built**: the Peable
+  router handles payment intents, `charge.refunded`, `connected_account.updated`,
+  `payout.*` (re-read as the seller's account into `recordPayout`), `refund.*` (a
+  refund failing after the fact raises `refund_failed`, one Mercaria never made
+  `refund_unmatched`) and `charge.dispute.*` (re-read with its withdrawal into
+  `recordDispute`; an inquiry books nothing), each re-read from the gateway;
+- ~~refund settlement figures~~ — **built**: Peable 3.1.0 reports what a refund
+  took and what a dispute withdrew in the settlement currency (Peable ADR 0015
+  "as built"); the adapter books the refund from it, and `PEABLE_REFUNDS_BOOK`
+  and its seven skipped cases are gone. `transfer_changed` keeps a handler and
+  no producer: Peable sends no transfer events, because a transfer and its
+  reversals are Mercaria's own calls, recorded from their answers;
 - a referral payout rail — the port is empty and batches fail
   `rail_not_configured`, retryably;
 - a reconciliation of the gateway's settled movements (the deleted
