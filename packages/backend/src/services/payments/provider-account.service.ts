@@ -22,7 +22,7 @@
  * checkout.
  */
 
-import type { ProviderAccountOwnerType } from '@mercaria/shared-types';
+import type { ProviderAccountOwnerType, ProviderAccountStatus } from '@mercaria/shared-types';
 import { getDb } from '../../db/postgres.js';
 import {
   findProviderAccountByOwner,
@@ -75,6 +75,71 @@ export async function findSellerAccount(
   // a rail off during an incident must not make Mercaria forget the account. The
   // gates above and below DO return early, which is where that property belongs.
   return await findProviderAccountByOwner(getDb(), { provider: NATIVE_RAIL, ...owner });
+}
+
+/**
+ * A stored row as the ONLY thing Mercaria says about a provider account.
+ *
+ * Every field is named explicitly rather than spread, which is the point: the
+ * row carries the gateway's account id and this projection does not, and a
+ * spread would have carried it the day someone added a column. `paymentReady`
+ * is derived here and never stored — see `@mercaria/shared-types`'s
+ * `provider-account.ts` for why there is exactly one verdict.
+ */
+export function toProviderAccountStatus(row: ProviderAccountRow): ProviderAccountStatus {
+  return {
+    provider: row.provider,
+    ownerType: row.ownerType,
+    ownerId: row.ownerId,
+    onboardingState: row.onboardingState,
+    paymentReady: row.onboardingState === 'ready',
+    chargesEnabled: row.chargesEnabled,
+    payoutsEnabled: row.payoutsEnabled,
+    ...(row.transfersCapability ? { transfersCapability: row.transfersCapability } : {}),
+    country: row.country,
+    ...(row.defaultCurrency ? { payoutCurrency: row.defaultCurrency } : {}),
+    requirements: {
+      currentlyDue: row.requirementsCurrentlyDue,
+      eventuallyDue: row.requirementsEventuallyDue,
+      pastDue: row.requirementsPastDue,
+      pendingVerification: row.requirementsPendingVerification,
+      ...(row.requirementsDeadlineAt
+        ? { currentDeadline: row.requirementsDeadlineAt.toISOString() }
+        : {}),
+    },
+    disabledReasonCodes: row.disabledReasonCodes,
+    ...(row.lastSyncedAt ? { lastSyncedAt: row.lastSyncedAt.toISOString() } : {}),
+    ...(row.activatedAt ? { activatedAt: row.activatedAt.toISOString() } : {}),
+  };
+}
+
+/**
+ * What a seller who has never started looks like.
+ *
+ * A real DTO rather than a 404, because "you have no payment account" is the
+ * FIRST state of the onboarding surface, not a missing resource — the screen
+ * renders it as the connect call to action.
+ */
+export function notConnectedStatus(owner: SellerAccountOwner): ProviderAccountStatus {
+  return {
+    provider: NATIVE_RAIL,
+    ownerType: owner.ownerType,
+    ownerId: owner.ownerId,
+    onboardingState: 'not_connected',
+    paymentReady: false,
+    chargesEnabled: false,
+    payoutsEnabled: false,
+    requirements: { currentlyDue: 0, eventuallyDue: 0, pastDue: 0, pendingVerification: 0 },
+    disabledReasonCodes: [],
+  };
+}
+
+/** The seller's account status, or the `not_connected` shape when there is none. */
+export async function readSellerAccountStatus(
+  owner: SellerAccountOwner,
+): Promise<ProviderAccountStatus> {
+  const account = await findSellerAccount(owner);
+  return account ? toProviderAccountStatus(account) : notConnectedStatus(owner);
 }
 
 /**

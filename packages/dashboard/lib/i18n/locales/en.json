@@ -604,6 +604,7 @@
     "new": "New",
     "noAccess": "No access",
     "noAccessBody": "You don't have permission to view this area for the active store.",
+    "none": "None",
     "pageOf": "Page %{current} of %{total}",
     "pleaseTryAgain": "Please try again.",
     "retry": "Try again",
@@ -1794,6 +1795,60 @@
       "subtitle": "Who can act for this store, and the exceptions to their role",
       "title": "People & permissions"
     },
+    "payments": {
+      "beingReviewed": "Being reviewed",
+      "countryHint": "Two-letter code, for example ES. It cannot be changed once payouts are set up.",
+      "countryLabel": "Country your business is registered in",
+      "documentTitle": "Payments & payouts | Wholesale by Mercaria",
+      "dueBy": "Due by",
+      "itemCount": {
+        "one": "%{count} item",
+        "other": "%{count} items"
+      },
+      "loadFailed": "Couldn't load payment settings",
+      "neededNow": "Needed now",
+      "onboardingUnavailable": "Payout setup is not available on this Mercaria deployment yet.",
+      "openFailed": "Couldn't open the payout setup",
+      "outstandingTitle": "Outstanding with Peable",
+      "paidOutIn": "Paid out in",
+      "payoutsTitle": "Payouts",
+      "quoteToSupport": "Quote this to Mercaria support if you need help.",
+      "registeredIn": "Registered in",
+      "reportedByPeable": "Reported by Peable",
+      "requirementsNote": "Peable holds these details and is the only place to complete them. Mercaria never sees them.",
+      "states": {
+        "actionRequired": {
+          "action": "Continue setup",
+          "body": "Peable needs more information before it can pay you out. Until it has everything, buyers cannot check out with your listings.",
+          "heading": "A few details are still needed"
+        },
+        "disabled": {
+          "body": "Peable has closed this connected account, or its connection to Mercaria was removed. Buyers cannot check out with your listings. Contact Mercaria support to look into it.",
+          "heading": "This account can no longer be used"
+        },
+        "notConnected": {
+          "action": "Set up payouts",
+          "body": "Your listings are visible and you can use every other part of Mercaria, but buyers cannot check out with them yet. Setting up payouts takes a few minutes.",
+          "heading": "Not set up yet"
+        },
+        "ready": {
+          "action": "Manage payout details",
+          "body": "Buyers can check out with your listings, and Peable pays your balance out to your bank.",
+          "heading": "Ready to be paid"
+        },
+        "restricted": {
+          "action": "Resolve now",
+          "body": "Something Peable asked for is now overdue, so it has paused payouts and buyers cannot check out with your listings. Finishing it restores both.",
+          "heading": "Payouts are paused"
+        },
+        "underReview": {
+          "body": "Peable has what it asked for and is reviewing it. There is nothing for you to do — this usually takes a day or two. Buyers cannot check out with your listings until it finishes.",
+          "heading": "Under review"
+        }
+      },
+      "subtitle": "How you get paid for orders placed on Mercaria",
+      "title": "Payments & payouts"
+    },
     "plan": {
       "alwaysIncludedBody": "Maintaining your catalogue, receiving and fulfilling orders, issuing refunds, reading your own sales and payout records, and exporting your data are free for every Mercaria store and are never part of a plan. Nothing on this page can change that, and no plan affects how your listings are found or ranked.",
       "alwaysIncludedTitle": "Always included",
@@ -1908,6 +1963,10 @@
       "members": {
         "description": "Who can act for the store, and exceptions to their role",
         "label": "People & permissions"
+      },
+      "payments": {
+        "description": "Get paid for orders placed on Mercaria",
+        "label": "Payments & payouts"
       },
       "plan": {
         "description": "What your store gets, and what you pay for it",

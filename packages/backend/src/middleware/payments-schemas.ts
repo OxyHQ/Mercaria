@@ -1,9 +1,10 @@
 /**
- * Request schemas for the payment operator surface (#50).
+ * Request schemas for the payment surfaces: the operator desk (#50) and the
+ * seller's own payment onboarding.
  *
  * Its own file rather than a section of `schemas.ts`, following
- * `channels-schemas.ts`: the operator routes are a self-contained surface and
- * their validation reads better beside the issue that decides it.
+ * `channels-schemas.ts`: the payment routes are a self-contained surface and
+ * their validation reads better beside the issues that decide them.
  */
 
 import { z } from 'zod';
@@ -203,3 +204,30 @@ export const discrepancyResolutionSchema = z
 
 /** The validated resolution. */
 export type DiscrepancyResolutionInput = z.infer<typeof discrepancyResolutionSchema>;
+
+/**
+ * Starting or resuming the gateway's hosted onboarding.
+ *
+ * `country` is the ONLY thing a client may say, and only the first time: it is
+ * immutable at the acquirer once an account exists, so a later value is
+ * ignored rather than rejected — refusing it would break the ordinary case of a
+ * screen that still has the picker on it when it mints another link.
+ *
+ * Validated for SHAPE here; which countries can be onboarded is the gateway's
+ * answer (ADR 0009), not a list frozen into this schema. Everything else about
+ * a connected account — its id, its capabilities, its requirements — is read
+ * from the gateway, and a body able to carry any of it would be the
+ * mass-assignment surface that turns "open my account" into "attach that
+ * account to my store" (#46, security 3).
+ */
+export const onboardingLinkSchema = z
+  .object({
+    country: z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z]{2}$/, 'Country must be a two-letter ISO-3166-1 code')
+      .optional(),
+  })
+  .strict();
+
+export type OnboardingLinkBody = z.infer<typeof onboardingLinkSchema>;

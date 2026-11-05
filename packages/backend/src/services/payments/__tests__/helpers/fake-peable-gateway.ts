@@ -101,6 +101,26 @@ export interface FakeTransfer {
   reversed: bigint;
 }
 
+/**
+ * One seller's connected account, as the gateway's books hold it — the card
+ * half only (Mercaria never opens a FairCoin half).
+ */
+export interface FakeAccount {
+  id: string;
+  externalRef: string;
+  country: string;
+  defaultCurrency: string | null;
+  payable: boolean;
+  payoutsEnabled: boolean;
+  chargesEnabled: boolean;
+  transfersCapability: 'active' | 'inactive' | 'pending' | null;
+  currentlyDue: string[];
+  eventuallyDue: string[];
+  pastDue: string[];
+  pendingVerification: string[];
+  disabledReason: string | null;
+}
+
 /** What one recorded mutating call carried. */
 export interface FakeCall {
   params: Record<string, unknown>;
@@ -183,6 +203,36 @@ function renderTransfer(transfer: FakeTransfer): Record<string, unknown> {
   };
 }
 
+/** A connected account as the gateway renders it — for API answers and event payloads alike. */
+export function renderAccount(account: FakeAccount): Record<string, unknown> {
+  const now = Math.floor(Date.now() / 1000);
+  return {
+    id: account.id,
+    object: 'connected_account',
+    livemode: false,
+    external_ref: account.externalRef,
+    rails: ['card'],
+    faircoin: null,
+    country: account.country,
+    default_currency: account.defaultCurrency,
+    payable: account.payable,
+    payouts_enabled: account.payoutsEnabled,
+    charges_enabled: account.chargesEnabled,
+    transfers_capability: account.transfersCapability,
+    card_payments_capability: account.chargesEnabled ? 'active' : 'pending',
+    requirements: {
+      currently_due: [...account.currentlyDue],
+      eventually_due: [...account.eventuallyDue],
+      past_due: [...account.pastDue],
+      pending_verification: [...account.pendingVerification],
+      disabled_reason: account.disabledReason,
+    },
+    last_synced_at: now,
+    created: now,
+    updated_at: now,
+  };
+}
+
 /**
  * Sign a raw delivery body the way the GATEWAY does — THE signing helper.
  *
@@ -204,6 +254,7 @@ export function createFakePeableGateway() {
   const tag = randomUUID().replaceAll('-', '').slice(0, 12);
   const intents = new Map<string, FakeIntent>();
   const transfers = new Map<string, FakeTransfer>();
+  const accounts = new Map<string, FakeAccount>();
   /** A create's `Idempotency-Key` → the intent it made, re-rendered on replay. */
   const intentsByKey = new Map<string, string>();
   /** Every other mutating call's `Idempotency-Key` → the answer it produced. */
@@ -220,6 +271,12 @@ export function createFakePeableGateway() {
     refundCalls: [] as FakeCall[],
     transferCalls: [] as FakeCall[],
     reversalCalls: [] as FakeReversalCall[],
+    /** Every `connectedAccounts.create` call, in order. */
+    accountCalls: [] as FakeCall[],
+    /** Every account link minted: which account, and the URLs it carried. */
+    linkCalls: [] as { accountId: string; params: Record<string, unknown> }[],
+    /** Countries the gateway refuses to open a card account in (a 400 on `country`). */
+    refusedCountries: new Set<string>(),
     /** Intents whose refunds the gateway REFUSES (a 400). */
     refundFailures: new Set<string>(),
     /** Transfers whose reversals the gateway REFUSES — per seller, as D7's failure is. */
@@ -243,6 +300,12 @@ export function createFakePeableGateway() {
     const intent = intents.get(id);
     if (!intent) throw refusal(`No such payment_intent: '${id}'`, 'resource_missing');
     return intent;
+  }
+
+  function accountOf(id: string): FakeAccount {
+    const account = accounts.get(id);
+    if (!account) throw refusal(`No such connected_account: '${id}'`, 'resource_missing');
+    return account;
   }
 
   function replay(key: string | undefined): Record<string, unknown> | undefined {
@@ -351,6 +414,58 @@ export function createFakePeableGateway() {
         });
       },
     },
+    connectedAccounts: {
+      create: (
+        params: { external_ref: string; country?: string; business_type?: string },
+        options?: IdempotencyOptions,
+      ) => {
+        state.accountCalls.push({ params, idempotencyKey: options?.idempotencyKey });
+        // The gateway converges on `external_ref`, whatever the key says.
+        const existing = [...accounts.values()].find(
+          (account) => account.externalRef === params.external_ref,
+        );
+        if (existing) return Promise.resolve(renderAccount(existing));
+        const country = (params.country ?? '').toUpperCase();
+        if (state.refusedCountries.has(country)) {
+          return Promise.reject(
+            new PeableInvalidRequestError(`cannot open a card account in ${country}`, {
+              statusCode: 400,
+              code: 'parameter_invalid',
+              param: 'country',
+            }),
+          );
+        }
+        const account: FakeAccount = {
+          id: nextId('ca'),
+          externalRef: params.external_ref,
+          country,
+          defaultCurrency: null,
+          payable: false,
+          payoutsEnabled: false,
+          chargesEnabled: false,
+          transfersCapability: 'inactive',
+          currentlyDue: ['business_profile.url', 'external_account', 'tos_acceptance.date'],
+          eventuallyDue: ['business_profile.url', 'external_account', 'tos_acceptance.date'],
+          pastDue: [],
+          pendingVerification: [],
+          disabledReason: 'requirements.past_due',
+        };
+        accounts.set(account.id, account);
+        return Promise.resolve(renderAccount(account));
+      },
+      retrieve: (id: string) => Promise.resolve(renderAccount(accountOf(id))),
+      refresh: (id: string) => Promise.resolve(renderAccount(accountOf(id))),
+      createAccountLink: (id: string, params: Record<string, unknown>) => {
+        accountOf(id);
+        state.linkCalls.push({ accountId: id, params });
+        return Promise.resolve({
+          object: 'account_link',
+          livemode: false,
+          url: `https://connect.peable.test/onboarding/${id}/${String(state.linkCalls.length)}`,
+          expires_at: Math.floor(Date.now() / 1000) + 300,
+        });
+      },
+    },
     transfers: {
       create: (
         params: { payment_intent: string; connected_account: string; amount: string },
@@ -400,7 +515,7 @@ export function createFakePeableGateway() {
     },
   };
 
-  return {
+  const gateway = {
     state,
 
     /** Register an intent the gateway already holds (a payment opened elsewhere). */
@@ -421,6 +536,59 @@ export function createFakePeableGateway() {
     /** The gateway's record of one intent; throws for one it never made. */
     intent(id: string): FakeIntent {
       return intentOf(id);
+    },
+
+    /** The gateway's record of one connected account; throws for one it never opened. */
+    account(id: string): FakeAccount {
+      return accountOf(id);
+    },
+
+    /** The seller finished the hosted flow and the acquirer enabled everything. */
+    completeOnboarding(id: string, defaultCurrency = 'EUR'): void {
+      Object.assign(accountOf(id), {
+        defaultCurrency,
+        payable: true,
+        payoutsEnabled: true,
+        chargesEnabled: true,
+        transfersCapability: 'active',
+        currentlyDue: [],
+        eventuallyDue: [],
+        pastDue: [],
+        pendingVerification: [],
+        disabledReason: null,
+      } satisfies Partial<FakeAccount>);
+    },
+
+    /** Change what the acquirer reports for one account (a later restriction, a review). */
+    updateAccount(id: string, patch: Partial<Omit<FakeAccount, 'id' | 'externalRef'>>): void {
+      Object.assign(accountOf(id), patch);
+    },
+
+    /**
+     * A signed delivery about any object, as the gateway would send it — the
+     * object already rendered (e.g. {@link renderAccount}).
+     */
+    objectDelivery(input: {
+      eventId: string;
+      type: string;
+      object: Record<string, unknown>;
+      secret: string;
+    }): { payload: Buffer; signature: string } {
+      const created = Math.floor(Date.now() / 1000);
+      const payload = JSON.stringify({
+        id: input.eventId,
+        object: 'event',
+        api_version: PEABLE_API_VERSION,
+        livemode: false,
+        type: input.type,
+        created,
+        request: { id: null, idempotency_key: null },
+        data: { object: input.object },
+      });
+      return {
+        payload: Buffer.from(payload, 'utf8'),
+        signature: signPeablePayload(payload, input.secret, created),
+      };
     },
 
     /** The buyer confirmed and the acquirer captured (ADR 0001 D3: immediately). */
@@ -446,27 +614,19 @@ export function createFakePeableGateway() {
       payload: Buffer;
       signature: string;
     } {
-      const created = Math.floor(Date.now() / 1000);
-      const payload = JSON.stringify({
-        id: input.eventId,
-        object: 'event',
-        api_version: PEABLE_API_VERSION,
-        livemode: false,
+      return gateway.objectDelivery({
+        eventId: input.eventId,
         type: input.type,
-        created,
-        request: { id: null, idempotency_key: null },
-        data: { object: renderIntent(intentOf(input.intentId), { clientAction: false }) },
+        object: renderIntent(intentOf(input.intentId), { clientAction: false }),
+        secret: input.secret,
       });
-      return {
-        payload: Buffer.from(payload, 'utf8'),
-        signature: signPeablePayload(payload, input.secret, created),
-      };
     },
 
     /** Forget every object and every recorded call — between cases, never mid-case. */
     reset(): void {
       intents.clear();
       transfers.clear();
+      accounts.clear();
       intentsByKey.clear();
       byKey.clear();
       state.intentCalls.length = 0;
@@ -475,6 +635,9 @@ export function createFakePeableGateway() {
       state.refundCalls.length = 0;
       state.transferCalls.length = 0;
       state.reversalCalls.length = 0;
+      state.accountCalls.length = 0;
+      state.linkCalls.length = 0;
+      state.refusedCountries.clear();
       state.refundFailures.clear();
       state.reversalFailures.clear();
       state.unreadableIntents.clear();
@@ -497,6 +660,7 @@ export function createFakePeableGateway() {
       };
     },
   };
+  return gateway;
 }
 
 /** The gateway one suite holds. */

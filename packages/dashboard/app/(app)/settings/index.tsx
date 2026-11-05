@@ -8,6 +8,7 @@ import {
   Bell,
   MapPin,
   Plug,
+  CreditCard,
   Sparkles,
   Receipt,
   ChevronRight,
@@ -86,10 +87,22 @@ const ITEMS: SettingsItem[] = [
     href: '/channels',
     permission: 'channels:write',
   },
-  // A money row the store does not choose: "Plan & billing" is what the store
-  // buys, and this is what Mercaria takes from each sale. It sits beside that
-  // row rather than inside it, because accepting these terms is a precondition
-  // of selling at all — an unaccepted schedule refuses the store's checkouts.
+  // Deliberately a separate row from "Sales channels", and worded so the two
+  // cannot be read as the same thing: a sales channel is where a catalogue is
+  // listed, this is where money is settled.
+  {
+    key: 'payments',
+    labelKey: 'settings.sections.payments.label',
+    descriptionKey: 'settings.sections.payments.description',
+    icon: CreditCard,
+    href: '/settings/payments',
+    permission: 'store:manage',
+  },
+  // A money row the store does not choose: "Payments & payouts" is money coming
+  // IN, "Plan & billing" is what the store buys, and this is what Mercaria takes
+  // from each sale. It sits beside them rather than inside either, because
+  // accepting these terms is a precondition of selling at all — an unaccepted
+  // schedule refuses the store's checkouts.
   {
     key: 'fees',
     labelKey: 'settings.sections.fees.label',

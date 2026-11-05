@@ -68,6 +68,9 @@ export const queryKeys = {
     detail: (storeId: string, id: string) => ['stores', storeId, 'discounts', id] as const,
   },
   taxRates: (storeId: string) => ['stores', storeId, 'tax-rates'] as const,
+  // Payment onboarding. A sibling of `channels`, never a child of it: a sales
+  // channel is where a catalogue is listed and this is where money is settled.
+  payments: (storeId: string) => ['stores', storeId, 'payments'] as const,
   // The store's own PLAN: what the store pays Mercaria for tooling, never money
   // the store is paid for orders.
   plan: (storeId: string) => ['stores', storeId, 'plan'] as const,

@@ -74,8 +74,8 @@ every closed value set) · `contracts` (the `/public/v1` zod source; regen
 - **Nothing auto-deletes or rewrites financial history.** Repairs are explicit,
   audited operator actions from a CLOSED set.
 - **Peable is the only card rail** (ADR 0009 D13 deleted direct Stripe): no
-  provider SDK beside `PaymentProvider`. No Peable seller onboarding yet, so
-  `PEABLE_ENABLED` refuses every seller.
+  provider SDK beside `PaymentProvider`. Sellers are Peable connected accounts,
+  synced by READING one, not a payload.
 
 ## PostgreSQL
 

@@ -615,6 +615,7 @@
     "new": "Nouveau",
     "noAccess": "Accès refusé",
     "noAccessBody": "Vous n’avez pas l’autorisation de consulter cette zone pour la boutique active.",
+    "none": "Aucun",
     "pageOf": "Page %{current} sur %{total}",
     "pleaseTryAgain": "Veuillez réessayer.",
     "retry": "Réessayer",
@@ -1812,6 +1813,61 @@
       "subtitle": "Qui peut agir pour cette boutique, et les exceptions à leur rôle",
       "title": "Personnes et autorisations"
     },
+    "payments": {
+      "beingReviewed": "En cours d’examen",
+      "countryHint": "Code à deux lettres, par exemple FR. Il ne peut plus être modifié une fois les versements configurés.",
+      "countryLabel": "Pays d'immatriculation de votre entreprise",
+      "documentTitle": "Paiements et versements | Wholesale by Mercaria",
+      "dueBy": "Échéance",
+      "itemCount": {
+        "many": "%{count} d’éléments",
+        "one": "%{count} élément",
+        "other": "%{count} éléments"
+      },
+      "loadFailed": "Impossible de charger les paramètres de paiement",
+      "neededNow": "Requis maintenant",
+      "onboardingUnavailable": "La configuration des versements n’est pas encore disponible sur ce déploiement Mercaria.",
+      "openFailed": "Impossible d’ouvrir la configuration des versements",
+      "outstandingTitle": "En attente chez Peable",
+      "paidOutIn": "Versé en",
+      "payoutsTitle": "Versements",
+      "quoteToSupport": "Communiquez cette référence au support Mercaria si vous avez besoin d’aide.",
+      "registeredIn": "Enregistré en",
+      "reportedByPeable": "Signalé par Peable",
+      "requirementsNote": "Peable détient ces informations et est le seul endroit où les compléter. Mercaria ne les voit jamais.",
+      "states": {
+        "actionRequired": {
+          "action": "Poursuivre la configuration",
+          "body": "Peable a besoin de plus d’informations avant de pouvoir vous verser vos fonds. Tant qu’il n’a pas tout, les acheteurs ne peuvent pas régler vos annonces.",
+          "heading": "Quelques informations manquent encore"
+        },
+        "disabled": {
+          "body": "Peable a fermé ce compte connecté, ou sa connexion à Mercaria a été supprimée. Les acheteurs ne peuvent pas régler vos annonces. Contactez le support Mercaria pour faire le point.",
+          "heading": "Ce compte ne peut plus être utilisé"
+        },
+        "notConnected": {
+          "action": "Configurer les versements",
+          "body": "Vos annonces sont visibles et vous pouvez utiliser toutes les autres parties de Mercaria, mais les acheteurs ne peuvent pas encore les régler. Configurer les versements ne prend que quelques minutes.",
+          "heading": "Pas encore configuré"
+        },
+        "ready": {
+          "action": "Gérer les informations de versement",
+          "body": "Les acheteurs peuvent régler vos annonces, et Peable verse votre solde sur votre compte bancaire.",
+          "heading": "Prêt à être payé"
+        },
+        "restricted": {
+          "action": "Résoudre maintenant",
+          "body": "Un élément demandé par Peable est désormais en retard : les versements sont suspendus et les acheteurs ne peuvent pas régler vos annonces. Le fournir rétablit les deux.",
+          "heading": "Les versements sont suspendus"
+        },
+        "underReview": {
+          "body": "Peable a reçu ce qu’il demandait et l’examine. Vous n’avez rien à faire — cela prend généralement un jour ou deux. Les acheteurs ne peuvent pas régler vos annonces tant que ce n’est pas terminé.",
+          "heading": "En cours d’examen"
+        }
+      },
+      "subtitle": "Comment vous êtes payé pour les commandes passées sur Mercaria",
+      "title": "Paiements et versements"
+    },
     "plan": {
       "alwaysIncludedBody": "Tenir votre catalogue à jour, recevoir et traiter les commandes, émettre des remboursements, consulter vos propres relevés de ventes et de versements et exporter vos données sont gratuits pour toute boutique Mercaria et ne font jamais partie d’un forfait. Rien sur cette page ne peut changer cela, et aucun forfait n’influe sur la façon dont vos annonces sont trouvées ou classées.",
       "alwaysIncludedTitle": "Toujours inclus",
@@ -1927,6 +1983,10 @@
       "members": {
         "description": "Qui peut agir pour la boutique, et les exceptions à leur rôle",
         "label": "Personnes et autorisations"
+      },
+      "payments": {
+        "description": "Être payé pour les commandes passées sur Mercaria",
+        "label": "Paiements et versements"
       },
       "plan": {
         "description": "Ce que votre boutique obtient, et ce que vous payez pour cela",

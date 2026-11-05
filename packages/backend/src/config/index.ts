@@ -955,6 +955,14 @@ export interface WebConfig {
    * URL on this host would tell the host when its content is under review.
    */
   readonly origin: string;
+  /**
+   * The merchant dashboard's origin (`DASHBOARD_URL`).
+   *
+   * Where a store's seller lands after the gateway's hosted onboarding. Composed
+   * by the SERVER and never accepted from a client: a return address a request
+   * could choose is an open redirect wearing a payment flow's name.
+   */
+  readonly dashboardOrigin: string;
 }
 
 export interface CrowdSourceConfig {
@@ -4067,6 +4075,7 @@ export const config: AppConfig = Object.freeze({
   }),
   web: Object.freeze({
     origin: strEnv('WEB_URL', 'https://mercaria.co'),
+    dashboardOrigin: strEnv('DASHBOARD_URL', 'https://dashboard.mercaria.co').replace(/\/+$/, ''),
   }),
   crowdSource: Object.freeze({
     enabled: resolveCrowdSourceEnabled(),
