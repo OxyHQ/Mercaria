@@ -1074,6 +1074,32 @@ describe('the dispute lifecycle, through the real ingress', () => {
     expect((await disputeRow(disputeId))?.openedBookedAt).toBeInstanceOf(Date);
   });
 
+  it('retries a LOST dispute whose withdrawal the gateway cannot report yet', async () => {
+    const [fixture] = await seedSettledOrder('dispute-lost-unreported');
+    const disputeId = `dp_lost_unreported_${RUN}`;
+    gateway.putDispute({
+      id: disputeId,
+      intentId: fixture.intentId,
+      amount: BigInt(ORDER_TOTAL),
+      status: 'lost',
+      reason: 'fraudulent',
+      withdrawal: null,
+      dueBy: null,
+    });
+
+    const result = await deliverDispute('charge.dispute.closed', disputeId, 'dp_lost_unreported');
+
+    if (result.outcome !== 'accepted') throw new Error(`delivery was ${result.outcome}`);
+    const [event] = await db
+      .select()
+      .from(paymentSchema.paymentProviderEvents)
+      .where(eq(paymentSchema.paymentProviderEvents.id, result.storedEventId));
+    expect(event?.status).not.toBe('processed');
+    expect(event?.nextAttemptAt).toBeInstanceOf(Date);
+    expect(await disputeRow(disputeId)).toBeUndefined();
+    expect(gateway.state.reversalCalls).toHaveLength(0);
+  });
+
   it('does not touch a sibling order of the same charge', async () => {
     const [first, second] = await seedSettledOrder('dispute-siblings', { orders: 2 });
     const disputeId = `dp_multi_${RUN}`;

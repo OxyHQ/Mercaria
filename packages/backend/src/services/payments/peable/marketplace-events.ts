@@ -243,6 +243,17 @@ async function handleDispute(context: PeableEventContext): Promise<PeableEventOu
   const withdrawal = settledMovement(settlement, disputeCurrency, 'getStatus');
   const outcome =
     dispute.status === 'won' || dispute.status === 'lost' ? dispute.status : undefined;
+  if (outcome === 'lost' && !withdrawal) {
+    // A LOST dispute withdrew money — an inquiry never ends lost — so a missing
+    // figure here is the gateway not reaching the acquirer, not a zero. Closing
+    // it now would recover nothing from the seller; retry until it is reported.
+    throw new PaymentProviderError({
+      provider: 'peable',
+      stage: 'verifyEvent',
+      message: `Peable has not reported what lost dispute ${disputeId} withdrew yet`,
+      retryable: true,
+    });
+  }
 
   const summary = await recordDispute(
     {
