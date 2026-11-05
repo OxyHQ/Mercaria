@@ -187,25 +187,27 @@ failure is the control. Flag any edit made outside these steps.
 
 ## 5.5 The Peable card rail — what is left
 
-The direct Stripe rail, and with it ADR 0008's Connect Accounts v2 work and its
-open items (the browser onboarding run, the v2 event endpoint, the ES
-recipient-only question, `transfer.canceled` drift), was deleted on 2026-11-05
-under ADR 0009 D13; it had never carried money. Peable is the only card rail,
-and it is NOT verified end to end. Before `PEABLE_ENABLED` can take a buyer's
-money (ADR 0009 D13 "As built"):
+The direct Stripe rail was deleted on 2026-11-05 under ADR 0009 D13; it had
+never carried money. Peable is the only card rail. **State on 2026-11-05:**
+`PEABLE_ENABLED` is ON in production, card sales are USD only (ADR 0001 D8 as
+amended), and `mercaria.co` is a live wallet domain with Apple Pay and Google
+Pay active — `docs/runbooks/marketplace-card-rail-live.md`. Built: seller
+onboarding (`provider_accounts`), the storefront card step, dispute, payout and
+account events. No seller is `ready`, so every native checkout is refused
+`seller_not_payment_ready` before reserving. Left before the first sale:
 
-- [ ] **Seller onboarding.** Nothing writes `provider_accounts`, so with
-      `PEABLE_ENABLED` on, `assertSellerGroupsPaymentReady` refuses every seller.
-- [ ] **A storefront payer UI.** Checkout says card payments are not available
-      in this app.
-- [ ] **Dispute, payout and connected-account events.** The Peable router
-      handles payment intents and `charge.refunded` only; `disputes`, `payouts`
-      and `provider_accounts` have no writer.
+- [ ] **One seller onboarded to `ready`** through Peable's hosted flow — a real
+      identity (KYC), so only the owner's own store or a consenting seller.
+- [ ] **ADR 0009 D18's three real-world checks**, starting with one real USD
+      sale (`docs/payments.md` §9 "What the first real sale confirms").
+- [ ] **A USD marketplace fee schedule**, if a commission is to be charged:
+      `services/fees/catalog.ts`'s only schedule is EUR-scoped and has never
+      been provisioned, so a USD sale carries no commission until the owner sets
+      a USD rate and it is provisioned, accepted and activated.
 - [ ] **A referral payout rail.** The port is empty; batches fail
       `rail_not_configured`, retryably.
 - [ ] **A reconciliation of the gateway's settled movements** (the deleted
       `provider_objects` sweep had no Peable equivalent).
-- [ ] **ADR 0009 D18's three real-world checks.**
 
 ## 6. Known limitations (code, not blockers)
 - FX static rates for the 15 new currencies are dev defaults — need a real feed for accuracy.

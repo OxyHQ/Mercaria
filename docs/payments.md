@@ -544,14 +544,22 @@ router records no `platform` figure for a charge, so Mercaria books and settles
 a charge in its presentment currency. Refunds and disputes book what Peable
 reports in the SETTLEMENT currency.
 
-The two agree exactly when the charge settled in the currency it was made in —
-which is the case to start live sales with. A charge in a currency the platform
-account converts out of (its default settlement currency is the acquirer
-account's, not recorded here) would need, before it can carry money: the
-charge's own settlement figure booked as `platform` (Peable already reports it,
-`refunds.settlement(intent)`), and Peable transfers denominated in the
-settlement currency of their source charge. Neither exists yet; a refund of such
-a charge is refused `settlement_currency_mismatch` rather than booked wrong.
+The two agree exactly when the charge settled in the currency it was made in.
+**Oxy Platforms' acquirer account (`acct_1USWGhAofUef123L`) settles in USD, so
+marketplace card sales are USD only** (owner decision 2026-11-05, ADR 0001 D8 as
+amended): `PEABLE_PRESENTMENT_CURRENCIES` defaults to `USD`, a cart in any other
+currency is refused before anything is reserved ("Card payments are not
+available in EUR. Switch your currency to USD and try again."), and there is no
+EUR card path. A listing priced natively in another currency still sells: the
+cart converts it to the buyer's USD presentment at hydration, as for any
+currency (`docs/currency.md`), and everything from the charge on is USD.
+
+Widening the set to a currency the platform account converts out of would need,
+before it can carry money: the charge's own settlement figure booked as
+`platform` (Peable already reports it, `refunds.settlement(intent)`), and
+Peable transfers denominated in the settlement currency of their source charge.
+Neither exists; a refund of such a charge is refused
+`settlement_currency_mismatch` rather than booked wrong.
 ---
 
 ## Seller payment readiness (#46)
@@ -709,12 +717,13 @@ downgrade; `mock` (dev only, `MOCK_PAY_ENABLED`, hard-off in production) answers
 
 ### The two currencies, and why the ledger can change currency at success
 
-The buyer is charged in their PRESENTMENT currency (EUR or USD at launch,
-`PEABLE_PRESENTMENT_CURRENCIES`), refused before anything is reserved by
-`assertCheckoutCurrencyEligible`, whose message names the eligible set. That list
-is what Mercaria BELIEVES the gateway can charge; the gateway's own configuration
-is the authority, and a disagreement surfaces as a refusal from Peable rather
-than a silently wrong checkout.
+The buyer is charged in their PRESENTMENT currency (USD only, the
+`PEABLE_PRESENTMENT_CURRENCIES` default — see "The settlement currency"),
+refused before anything is reserved by `assertCheckoutCurrencyEligible`, whose
+message names the eligible set. That list is what Mercaria BELIEVES the gateway
+can charge; the gateway's own configuration is the authority, and a
+disagreement surfaces as a refusal from Peable rather than a silently wrong
+checkout.
 
 When the rail reports a conversion — `payment.platform_*` and its rate snapshot,
 written inside the same compare-and-swap that books the charge — the whole charge
@@ -880,9 +889,13 @@ has not finished), succeeded, cancelled and failed (a decline, recoverable with
 another card). The intent is created with `payment_method_types: ['card']`, so
 the Payment Element offers no asynchronous method ADR 0001 D3 excludes.
 `PeableElement.on` does not type the Express Checkout `confirm` event, so the
-step widens that one listener (ADR 0009 D13 "As built"). Apple Pay on the web
-shows only once `mercaria.co` is a registered Peable wallet domain (`pmd_…`),
-which nothing in this repository does.
+step widens that one listener (ADR 0009 D13 "As built"). Apple Pay and Google
+Pay on the web need `mercaria.co` registered as a Peable wallet domain: it is
+`pmd_de5b5c1648a83fcb9e411c99` (live, registered 2026-11-05 as Mercaria's
+workload, both wallets `active`), and the storefront serves Stripe's Apple Pay
+domain-association file from `packages/frontend/public/.well-known/`
+(`docs/runbooks/marketplace-card-rail-live.md`). `www.mercaria.co` serves
+nothing and is not registered; a new host that renders the card step is.
 
 The handoff is `CheckoutPaymentHandoff` = `{paymentId, provider,
 providerPaymentId, clientSecret, amount, methods}`: `providerPaymentId` is the
@@ -897,8 +910,11 @@ refused rather than silently stripped.
 
 ### Feature flags, honestly
 
-- **Environment** — `PEABLE_ENABLED`. Off (or half-configured) means no card
-  rail: checkouts answer `none` and place orders as before. Merchant billing (#89)
+- **Environment** — `PEABLE_ENABLED`, ON in production since 2026-11-05
+  (`RELEASE_ENVIRONMENT` in `deploy-aws.yml`). Off (or half-configured) means no
+  card rail: checkouts answer `none` and place orders as before. On with no
+  `ready` seller, every native checkout is refused `seller_not_payment_ready`
+  (409, naming the sellers) before any stock is reserved. Merchant billing (#89)
   needs only `PEABLE_WEBHOOK_SECRET` (`docs/merchant-plans.md`).
 - **Country and cohort** — the seller-side readiness gate IS the cohort. Which
   countries a seller may onboard in is the gateway's constraint, deliberately not
@@ -955,7 +971,7 @@ composition, and dropping it silently would let the defect ship.
 **2. A presentment currency that rides the QUERY STRING.** A guest has no
 preferences row, so without a way to say what they were shown their cart prices
 in the marketplace default (FAIR), which ADR 0001 D8 makes unroutable through
-the rail. The carriage is `POST /checkout?currency=EUR`, the same one `/cart`
+the rail. The carriage is `POST /checkout?currency=USD`, the same one `/cart`
 has used since #104, and deliberately NOT a body field: `checkoutSchema` refuses
 `amount`, `paid`, `paymentStatus` and `currency` alike, because a body able to
 carry any of them is the surface on which one would eventually be trusted. What
@@ -1857,7 +1873,7 @@ PEABLE_EVENT_MAX_ATTEMPTS=8            # then dead_letter, awaiting a replay
 PEABLE_EVENT_BATCH_SIZE=50
 PEABLE_EVENT_POLL_INTERVAL_MS=5000
 PEABLE_EVENT_LEASE_MS=60000
-PEABLE_PRESENTMENT_CURRENCIES=EUR,USD  # what a card checkout may be priced in
+PEABLE_PRESENTMENT_CURRENCIES=USD      # what a card checkout may be priced in (USD only: the platform account settles USD)
 
 CHECKOUT_PAYMENT_SURFACE_METHODS=card,apple_pay,google_pay,link  # can only REMOVE; `card` always kept
 HIGH_VALUE_HOLD_THRESHOLDS=            # EUR:100000,USD:110000 (minor units); EMPTY = no hold
@@ -2122,8 +2138,8 @@ Prerequisites, none of which moves money: at least one seller onboarded to
 `ready` through Peable's hosted flow (a real identity, so only with the owner's
 own store or a consenting seller), the platform account's settlement currency
 known (see "The settlement currency" — sell in it), and `PEABLE_ENABLED=true`
-on the task definition. Then one EUR card sale of that seller's listing
-confirms:
+on the task definition (both on since 2026-11-05: USD, and the flag). Then one
+USD card sale of that seller's listing confirms:
 
 - the handoff mounts Peable's Elements and the acquirer takes the charge on
   Oxy Platforms' account (a platform charge: Mercaria's merchant is first-party);
@@ -2140,8 +2156,11 @@ figure and reverses the seller's share. Neither has been run.
 
 **Configuration**
 
-- [ ] `PEABLE_ENABLED`, `PEABLE_BASE_URL` and `PEABLE_WEBHOOK_SECRET` set from SSM
-      `/oxy/mercaria/*`, never a placeholder (`-`, empty, `TODO`).
+- [x] `PEABLE_ENABLED` and `PEABLE_BASE_URL` set as plain values in
+      `deploy-aws.yml`'s `RELEASE_ENVIRONMENT`, and `PEABLE_WEBHOOK_SECRET` from
+      SSM `/oxy/mercaria/PEABLE_WEBHOOK_SECRET` (2026-11-05).
+- [x] `mercaria.co` is a live Peable wallet domain with Apple Pay and Google
+      Pay `active` (`pmd_de5b5c1648a83fcb9e411c99`, 2026-11-05).
 - [ ] The boot log carries no `[Peable] PEABLE_ENABLED is set but the integration
       is incomplete` line.
 - [ ] `payments.operate` is seeded on Mercaria (oxy **Seed Oxy applications**,

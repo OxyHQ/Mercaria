@@ -138,6 +138,10 @@ describe('the deploy workflow and the migrator agree', () => {
       // Merchant plans are on sale; the return URL is where hosted pages return.
       MERCHANT_BILLING_ENABLED: 'true',
       MERCHANT_BILLING_RETURN_URL: 'https://dashboard.mercaria.co/settings/plan',
+      // The marketplace card rail is on; it pays only `ready` sellers and
+      // refuses the rest before reserving (docs/runbooks/marketplace-card-rail-live.md).
+      PEABLE_ENABLED: 'true',
+      PEABLE_BASE_URL: 'https://api.peable.to',
     });
     expect(rollout?.run).toContain('--task-definition');
     expect(catalog?.run).toContain(

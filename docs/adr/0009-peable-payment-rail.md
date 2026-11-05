@@ -366,7 +366,7 @@ Three consequences worth stating, because each was a decision:
   was built with", which is the correct instruction on a rail with no
   server-side key to reconcile against.
 - **Presentment currencies are per rail.** `PEABLE_PRESENTMENT_CURRENCIES`
-  defaults to ADR 0001 D8's launch set. This is Mercaria stating what it
+  defaults to ADR 0001 D8's set — `USD` alone since the 2026-11-05 amendment. This is Mercaria stating what it
   BELIEVES the gateway can charge; the gateway's own configuration is the
   authority, and a disagreement surfaces as a refusal from Peable rather than as
   a silently wrong checkout. The parser is shared between the two rails rather

@@ -79,6 +79,12 @@ The six roles the code distinguishes: **catalog** (what a price is stored in),
   `db/schema/CONVENTIONS.md`.)
 - **External connector orders keep the source platform's amounts verbatim** and
   its own rate; Mercaria FX never re-prices an imported order.
+- **A card checkout is USD.** The Peable rail charges only the currencies in
+  `PEABLE_PRESENTMENT_CURRENCIES`, which defaults to `USD` because Oxy
+  Platforms' acquirer account settles USD (ADR 0001 D8 as amended 2026-11-05).
+  This bounds the PRESENTMENT currency of a card checkout, not the catalog: a
+  listing priced in EUR or FAIR still converts to the buyer's USD at the cart,
+  and a buyer whose display currency is anything else is told to switch to USD.
 - **DISPLAY** goes through `PriceDisplay` and `FxContext` in `@mercaria/ui` (do
   NOT duplicate), converting a native `Money` to the chosen display currency
   (primary is preferred or FAIR, plus an optional secondary fiat).

@@ -113,9 +113,9 @@ export function resolveCheckoutRail(requested: CheckoutPaymentMethod | undefined
 /**
  * Refuse a cart the rail cannot charge — BEFORE anything is reserved.
  *
- * ADR 0001 D8 limits the launch to EUR and USD presentment, and this is checked
- * in the same place and for the same reason as the seller-readiness gate: a
- * question that needs no stock to answer must never have taken any.
+ * ADR 0001 D8 (amended 2026-11-05) limits card presentment to USD, and this is
+ * checked in the same place and for the same reason as the seller-readiness
+ * gate: a question that needs no stock to answer must never have taken any.
  *
  * The message NAMES the eligible set, because the buyer's only remedy is to
  * switch their display currency and the client cannot offer that without knowing

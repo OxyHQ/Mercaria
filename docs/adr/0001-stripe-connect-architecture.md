@@ -233,6 +233,17 @@ Stripe's "skipped transfer" behavior on destination charges.
 
 ### D8. Currencies and countries at launch
 
+> **Amended 2026-11-05 (owner decision): marketplace card sales are USD only.**
+> The rail is Peable (ADR 0009) and every charge is a platform charge on Oxy
+> Platforms, Inc.'s acquirer account (`acct_1USWGhAofUef123L`), which settles
+> in USD; Peable transfers a seller's share only in the payment's own currency.
+> A USD charge therefore settles, transfers and refunds with no conversion
+> Mercaria cannot book. `PEABLE_PRESENTMENT_CURRENCIES` defaults to `USD`, any
+> other cart currency is refused before reservation, and there is no EUR card
+> path. The EUR settlement and Spain bullets below are the original Stripe-era
+> assumption, kept as history. Merchant plans (#89) are a separate product and
+> keep their USD and EUR prices. `docs/payments.md` "The settlement currency".
+
 - **Presentment / charge currencies:** EUR and USD. The charge is created in
   the buyer's presentment currency; Stripe converts non-EUR charges into the
   platform settlement currency at charge time.

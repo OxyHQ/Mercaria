@@ -136,7 +136,7 @@ describe('each requirement refuses on its own fact', () => {
     },
     {
       requirement: 'market_currency_supported',
-      facts: { presentmentCurrencies: ['USD'] },
+      facts: { presentmentCurrencies: ['EUR'] },
       reason: 'currency_not_supported',
     },
     {

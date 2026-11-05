@@ -35,8 +35,8 @@
  *
  * The gateway's events carry no processor fee and no platform conversion
  * (`event-router.ts`'s "fee gap"), so a success books `charge_succeeded` with
- * NO `processor_expense` leg, and a non-EUR charge is booked and settled in the
- * currency it was charged in. The cases below assert exactly that, so the day
+ * NO `processor_expense` leg, and a charge is booked and settled in the USD it
+ * was charged in. The cases below assert exactly that, so the day
  * the ledger decision is made those assertions are where it shows.
  *
  * ## Fixtures are scoped, never truncated
@@ -79,10 +79,10 @@ vi.mock('../payments/peable/client.js', () => gateway.clientModule());
 const WEBHOOK_SECRET = 'pwhsec_checkout_card_not_a_real_one';
 
 /**
- * The high-value hold threshold this file configures, in EUR minor units — far
+ * The high-value hold threshold this file configures, in USD minor units — far
  * above every other case's total, so only the case that means to cross it does.
  */
-const HOLD_THRESHOLD_EUR = 900_000;
+const HOLD_THRESHOLD_USD = 900_000;
 
 /** Unique per run, so parallel files and repeated runs never collide on an id. */
 const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
@@ -135,11 +135,12 @@ beforeAll(async () => {
   process.env.PEABLE_BASE_URL = 'https://api.peable.invalid';
   process.env.PEABLE_WEBHOOK_SECRET = WEBHOOK_SECRET;
   delete process.env.PEABLE_WEBHOOK_SECRET_PREVIOUS;
-  // ADR 0001 D8's launch presentment set, stated rather than inherited so a
-  // change to the default is a failing test here rather than a surprise in
-  // production.
-  process.env.PEABLE_PRESENTMENT_CURRENCIES = 'EUR,USD';
-  process.env.HIGH_VALUE_HOLD_THRESHOLDS = `EUR:${String(HOLD_THRESHOLD_EUR)}`;
+  // Marketplace card sales are USD (owner decision 2026-11-05: Oxy Platforms'
+  // account settles USD and Peable transfers only in the payment's currency),
+  // stated rather than inherited so a change to the default is a failing test
+  // here rather than a surprise in production.
+  process.env.PEABLE_PRESENTMENT_CURRENCIES = 'USD';
+  process.env.HIGH_VALUE_HOLD_THRESHOLDS = `USD:${String(HOLD_THRESHOLD_USD)}`;
   delete process.env.HIGH_VALUE_HOLD_WINDOW_MS;
   delete process.env.CHECKOUT_PAYMENT_SURFACE_METHODS;
   // Deterministic FX for the cart's own native → presentment conversions.
@@ -458,10 +459,10 @@ async function stockOf(variantId: string): Promise<{ available: number; committe
 
 describe('card checkout on the Peable rail — single seller', () => {
   it('creates ONE PaymentIntent carrying everything ADR 0001 D11 requires', async () => {
-    const seller = await seedSeller({ label: 'eur1', priceMinor: 4_500, currency: 'EUR' });
+    const seller = await seedSeller({ label: 'eur1', priceMinor: 4_500, currency: 'USD' });
     const buyer = await seedBuyer({
       label: 'eur1',
-      currency: 'EUR',
+      currency: 'USD',
       lines: [{ listingId: seller.listingId, variantId: seller.variantId, quantity: 1 }],
     });
 
@@ -484,7 +485,7 @@ describe('card checkout on the Peable rail — single seller', () => {
     expect(call.params).toEqual({
       rail: 'card',
       amount: String(order.totalsGrandTotalPresentmentAmount),
-      currency: 'EUR',
+      currency: 'USD',
       // Card (and card wallets) only: ADR 0001 D3 excludes the asynchronous
       // methods the merchant configuration might otherwise offer the payer.
       payment_method_types: ['card'],
@@ -518,7 +519,7 @@ describe('card checkout on the Peable rail — single seller', () => {
       clientSecret: `${payment.providerObjectId}_payer_secret_fixture`,
       amount: {
         amount: order.totalsGrandTotalPresentmentAmount,
-        currency: 'EUR',
+        currency: 'USD',
       },
       methods: ['card', 'apple_pay', 'google_pay', 'link'],
     });
@@ -536,10 +537,10 @@ describe('card checkout on the Peable rail — single seller', () => {
       },
     });
     try {
-      const seller = await seedSeller({ label: 'goway-down', priceMinor: 4_500, currency: 'EUR' });
+      const seller = await seedSeller({ label: 'goway-down', priceMinor: 4_500, currency: 'USD' });
       const buyer = await seedBuyer({
         label: 'goway-down',
-        currency: 'EUR',
+        currency: 'USD',
         lines: [{ listingId: seller.listingId, variantId: seller.variantId, quantity: 1 }],
       });
       const result = await checkout(
@@ -556,10 +557,10 @@ describe('card checkout on the Peable rail — single seller', () => {
   });
 
   it('pays the order, books a balanced ledger and settles the seller', async () => {
-    const seller = await seedSeller({ label: 'eur2', priceMinor: 4_500, currency: 'EUR' });
+    const seller = await seedSeller({ label: 'eur2', priceMinor: 4_500, currency: 'USD' });
     const buyer = await seedBuyer({
       label: 'eur2',
-      currency: 'EUR',
+      currency: 'USD',
       lines: [{ listingId: seller.listingId, variantId: seller.variantId, quantity: 1 }],
     });
 
@@ -593,7 +594,7 @@ describe('card checkout on the Peable rail — single seller', () => {
     // `available` goes back up.
     expect(await stockOf(seller.variantId)).toEqual({ available: 4, committed: 0 });
 
-    // The ledger: the charge, then the transfer that settles it. Both in EUR,
+    // The ledger: the charge, then the transfer that settles it. Both in USD,
     // and the seller's payable closes to zero — which only happens if the two
     // modules agreed on the amount AND the currency.
     const entries = await ledgerEntriesFor(paymentId);
@@ -604,12 +605,12 @@ describe('card checkout on the Peable rail — single seller', () => {
     // the Peable path's stated fee gap (`event-router.ts`), asserted so the day
     // it is closed this is where it shows.
     expect(legsOfKind(entries, 'charge_succeeded')).toEqual([
-      { account: 'merchant_payable', currency: 'EUR', amount: BigInt(-gross) },
-      { account: 'provider_clearing', currency: 'EUR', amount: BigInt(gross) },
+      { account: 'merchant_payable', currency: 'USD', amount: BigInt(-gross) },
+      { account: 'provider_clearing', currency: 'USD', amount: BigInt(gross) },
     ]);
     expect(legsOfKind(entries, 'transfer_created')).toEqual([
-      { account: 'merchant_payable', currency: 'EUR', amount: BigInt(gross) },
-      { account: 'provider_clearing', currency: 'EUR', amount: BigInt(-gross) },
+      { account: 'merchant_payable', currency: 'USD', amount: BigInt(gross) },
+      { account: 'provider_clearing', currency: 'USD', amount: BigInt(-gross) },
     ]);
     expect(entries.some((entry) => entry.account === 'processor_expense')).toBe(false);
     // There is no commission leg: the rate is zero until #88, so the residual
@@ -632,7 +633,7 @@ describe('card checkout on the Peable rail — single seller', () => {
     const [transfer] = await transfersFor(paymentId);
     expect(transfer.status).toBe('paid');
     expect(transfer.amountAmount).toBe(gross);
-    expect(transfer.amountCurrency).toBe('EUR');
+    expect(transfer.amountCurrency).toBe('USD');
     expect(transfer.orderId).toBe(order.id);
     expect(gateway.state.transferCalls).toHaveLength(1);
     expect(gateway.state.transferCalls[0].params).toEqual({
@@ -650,8 +651,11 @@ describe('card checkout on the Peable rail — single seller', () => {
     expect(await outboxTypesFor(paymentId)).toEqual(['payment_succeeded']);
   });
 
-  it('books and settles a USD charge in USD: the gateway converts nothing for Mercaria', async () => {
-    const seller = await seedSeller({ label: 'usd1', priceMinor: 10_000, currency: 'USD' });
+  it('books and settles a EUR-priced listing in USD: the catalogue converts, the gateway converts nothing', async () => {
+    // The catalogue stores NATIVE currency, so a seller pricing in EUR still
+    // sells: the buyer is priced and charged in USD at the cart's rates, and
+    // everything after the charge is USD.
+    const seller = await seedSeller({ label: 'usd1', priceMinor: 10_000, currency: 'EUR' });
     const buyer = await seedBuyer({
       label: 'usd1',
       currency: 'USD',
@@ -706,11 +710,11 @@ describe('card checkout on the Peable rail — single seller', () => {
 
 describe('card checkout on the Peable rail — multi-seller', () => {
   it('funds two sellers with ONE PaymentIntent and settles each separately', async () => {
-    const first = await seedSeller({ label: 'multiA', priceMinor: 3_000, currency: 'EUR' });
-    const second = await seedSeller({ label: 'multiB', priceMinor: 7_000, currency: 'EUR' });
+    const first = await seedSeller({ label: 'multiA', priceMinor: 3_000, currency: 'USD' });
+    const second = await seedSeller({ label: 'multiB', priceMinor: 7_000, currency: 'USD' });
     const buyer = await seedBuyer({
       label: 'multi',
-      currency: 'EUR',
+      currency: 'USD',
       lines: [
         { listingId: first.listingId, variantId: first.variantId, quantity: 1 },
         { listingId: second.listingId, variantId: second.variantId, quantity: 1 },
@@ -770,11 +774,11 @@ describe('card checkout on the Peable rail — multi-seller', () => {
   });
 
   it('withholds ONE seller whose account lapsed, and settles the sibling anyway', async () => {
-    const good = await seedSeller({ label: 'isoA', priceMinor: 2_500, currency: 'EUR' });
-    const lapsed = await seedSeller({ label: 'isoB', priceMinor: 6_500, currency: 'EUR' });
+    const good = await seedSeller({ label: 'isoA', priceMinor: 2_500, currency: 'USD' });
+    const lapsed = await seedSeller({ label: 'isoB', priceMinor: 6_500, currency: 'USD' });
     const buyer = await seedBuyer({
       label: 'iso',
-      currency: 'EUR',
+      currency: 'USD',
       lines: [
         { listingId: good.listingId, variantId: good.variantId, quantity: 1 },
         { listingId: lapsed.listingId, variantId: lapsed.variantId, quantity: 1 },
@@ -858,13 +862,13 @@ describe('card checkout on the Peable rail — multi-seller', () => {
     // One share above `HIGH_VALUE_HOLD_THRESHOLDS`, one far below it.
     const big = await seedSeller({
       label: 'holdA',
-      priceMinor: HOLD_THRESHOLD_EUR + 50_000,
-      currency: 'EUR',
+      priceMinor: HOLD_THRESHOLD_USD + 50_000,
+      currency: 'USD',
     });
-    const small = await seedSeller({ label: 'holdB', priceMinor: 2_000, currency: 'EUR' });
+    const small = await seedSeller({ label: 'holdB', priceMinor: 2_000, currency: 'USD' });
     const buyer = await seedBuyer({
       label: 'hold',
-      currency: 'EUR',
+      currency: 'USD',
       lines: [
         { listingId: big.listingId, variantId: big.variantId, quantity: 1 },
         { listingId: small.listingId, variantId: small.variantId, quantity: 1 },
@@ -939,12 +943,12 @@ describe('card checkout on the Peable rail — idempotency and refusals', () => 
     const seller = await seedSeller({
       label: 'idem',
       priceMinor: 4_000,
-      currency: 'EUR',
+      currency: 'USD',
       available: 5,
     });
     const buyer = await seedBuyer({
       label: 'idem',
-      currency: 'EUR',
+      currency: 'USD',
       lines: [{ listingId: seller.listingId, variantId: seller.variantId, quantity: 2 }],
     });
     const key = `key-${RUN}-idem`;
@@ -979,10 +983,10 @@ describe('card checkout on the Peable rail — idempotency and refusals', () => 
   });
 
   it('re-reads an opened intent on a later replay instead of creating a second one', async () => {
-    const seller = await seedSeller({ label: 'resume', priceMinor: 4_000, currency: 'EUR' });
+    const seller = await seedSeller({ label: 'resume', priceMinor: 4_000, currency: 'USD' });
     const buyer = await seedBuyer({
       label: 'resume',
-      currency: 'EUR',
+      currency: 'USD',
       lines: [{ listingId: seller.listingId, variantId: seller.variantId, quantity: 1 }],
     });
     const key = `key-${RUN}-resume`;
@@ -1015,11 +1019,11 @@ describe('card checkout on the Peable rail — idempotency and refusals', () => 
     expect((await stockOf(seller.variantId)).available).toBe(4);
   });
 
-  it('refuses a cart the rail cannot charge, before taking any stock', async () => {
-    const seller = await seedSeller({ label: 'gbp', priceMinor: 4_000, currency: 'EUR' });
+  it('refuses a EUR cart — marketplace card sales are USD — before taking any stock', async () => {
+    const seller = await seedSeller({ label: 'eur-buyer', priceMinor: 4_000, currency: 'USD' });
     const buyer = await seedBuyer({
-      label: 'gbp',
-      currency: 'GBP',
+      label: 'eur-buyer',
+      currency: 'EUR',
       lines: [{ listingId: seller.listingId, variantId: seller.variantId, quantity: 1 }],
     });
 
@@ -1027,9 +1031,9 @@ describe('card checkout on the Peable rail — idempotency and refusals', () => 
       checkout(
         { kind: 'oxy', oxyUserId: buyer.buyerId },
         { addressId: buyer.addressId },
-        `key-${RUN}-gbp`,
+        `key-${RUN}-eur-buyer`,
       ),
-    ).rejects.toThrow(/not available in GBP.*EUR or USD/is);
+    ).rejects.toThrow(/not available in EUR.*Switch your currency to USD/is);
 
     // Nothing was reserved and no charge was opened: a currency question needs
     // no stock to answer.
@@ -1038,16 +1042,16 @@ describe('card checkout on the Peable rail — idempotency and refusals', () => 
   });
 
   it('refuses a seller with no account on the rail, naming them, before taking any stock', async () => {
-    const ready = await seedSeller({ label: 'gateA', priceMinor: 3_000, currency: 'EUR' });
+    const ready = await seedSeller({ label: 'gateA', priceMinor: 3_000, currency: 'USD' });
     const unready = await seedSeller({
       label: 'gateB',
       priceMinor: 3_000,
-      currency: 'EUR',
+      currency: 'USD',
       paymentReady: false,
     });
     const buyer = await seedBuyer({
       label: 'gate',
-      currency: 'EUR',
+      currency: 'USD',
       lines: [
         { listingId: ready.listingId, variantId: ready.variantId, quantity: 1 },
         { listingId: unready.listingId, variantId: unready.variantId, quantity: 1 },
@@ -1080,10 +1084,10 @@ describe('card checkout on the Peable rail — idempotency and refusals', () => 
   });
 
   it('leaves the reservation clock alone when a payment fails and is retried', async () => {
-    const seller = await seedSeller({ label: 'retry', priceMinor: 5_000, currency: 'EUR' });
+    const seller = await seedSeller({ label: 'retry', priceMinor: 5_000, currency: 'USD' });
     const buyer = await seedBuyer({
       label: 'retry',
-      currency: 'EUR',
+      currency: 'USD',
       lines: [{ listingId: seller.listingId, variantId: seller.variantId, quantity: 1 }],
     });
     const key = `key-${RUN}-retry`;
@@ -1136,10 +1140,10 @@ describe('card checkout on the Peable rail — idempotency and refusals', () => 
   });
 
   it('applies a redelivered success once: one ledger charge, one transfer', async () => {
-    const seller = await seedSeller({ label: 'dup', priceMinor: 3_300, currency: 'EUR' });
+    const seller = await seedSeller({ label: 'dup', priceMinor: 3_300, currency: 'USD' });
     const buyer = await seedBuyer({
       label: 'dup',
-      currency: 'EUR',
+      currency: 'USD',
       lines: [{ listingId: seller.listingId, variantId: seller.variantId, quantity: 1 }],
     });
     const result = await checkout(
@@ -1184,10 +1188,10 @@ describe('card checkout on the Peable rail — abandonment and a late capture', 
    * condition is raised durably for a person.
    */
   async function releaseThenCapture(label: string) {
-    const seller = await seedSeller({ label, priceMinor: 3_500, currency: 'EUR' });
+    const seller = await seedSeller({ label, priceMinor: 3_500, currency: 'USD' });
     const buyer = await seedBuyer({
       label,
-      currency: 'EUR',
+      currency: 'USD',
       lines: [{ listingId: seller.listingId, variantId: seller.variantId, quantity: 1 }],
     });
 
@@ -1256,10 +1260,10 @@ describe('card checkout on the Peable rail — abandonment and a late capture', 
 
 describe('the buyer-facing payment status', () => {
   it('answers from verified state, and only to the buyer who owns the group', async () => {
-    const seller = await seedSeller({ label: 'status', priceMinor: 2_000, currency: 'EUR' });
+    const seller = await seedSeller({ label: 'status', priceMinor: 2_000, currency: 'USD' });
     const buyer = await seedBuyer({
       label: 'status',
-      currency: 'EUR',
+      currency: 'USD',
       lines: [{ listingId: seller.listingId, variantId: seller.variantId, quantity: 1 }],
     });
 
@@ -1316,10 +1320,10 @@ describe('the buyer-facing payment status', () => {
   });
 
   it('refuses a forged delivery and changes nothing', async () => {
-    const seller = await seedSeller({ label: 'forged', priceMinor: 2_000, currency: 'EUR' });
+    const seller = await seedSeller({ label: 'forged', priceMinor: 2_000, currency: 'USD' });
     const buyer = await seedBuyer({
       label: 'forged',
-      currency: 'EUR',
+      currency: 'USD',
       lines: [{ listingId: seller.listingId, variantId: seller.variantId, quantity: 1 }],
     });
     const result = await checkout(
@@ -1471,9 +1475,9 @@ describe('supervised shopping through the existing checkout and payment seam', (
   });
 
   it('operator review → child browse/cart → exact multi-seller guardian evidence → PSP timeout/retry → signed webhook', async () => {
-    const first = await seedSeller({ label: 'kids-a', priceMinor: 1200, currency: 'EUR' });
-    const second = await seedSeller({ label: 'kids-b', priceMinor: 800, currency: 'EUR' });
-    const buyer = await seedBuyer({ label: 'kids-main', currency: 'EUR', lines: [] });
+    const first = await seedSeller({ label: 'kids-a', priceMinor: 1200, currency: 'USD' });
+    const second = await seedSeller({ label: 'kids-b', priceMinor: 800, currency: 'USD' });
+    const buyer = await seedBuyer({ label: 'kids-main', currency: 'USD', lines: [] });
     const token = supervision.token(buyer.buyerId);
     const seller = supervision.token(first.sellerId, false);
     const deniedReview = await shoppingRequest(
@@ -1604,8 +1608,8 @@ describe('supervised shopping through the existing checkout and payment seam', (
     'closes approval only with confirmed cancellation; uncertain PSP=%s',
     async (uncertain) => {
       const label = uncertain ? 'kids-uncertain-cancel' : 'kids-confirmed-cancel';
-      const item = await seedSeller({ label, priceMinor: 1200, currency: 'EUR' });
-      const buyer = await seedBuyer({ label, currency: 'EUR', lines: [{ ...item, quantity: 1 }] });
+      const item = await seedSeller({ label, priceMinor: 1200, currency: 'USD' });
+      const buyer = await seedBuyer({ label, currency: 'USD', lines: [{ ...item, quantity: 1 }] });
       const token = supervision.token(buyer.buyerId);
       await reviewShoppingListing(item.listingId);
       const prepared = await shoppingRequest(
@@ -1662,11 +1666,11 @@ describe('supervised shopping through the existing checkout and payment seam', (
     const item = await seedSeller({
       label: 'kids-gateway-cancel',
       priceMinor: 1300,
-      currency: 'EUR',
+      currency: 'USD',
     });
     const buyer = await seedBuyer({
       label: 'kids-gateway-cancel',
-      currency: 'EUR',
+      currency: 'USD',
       lines: [{ ...item, quantity: 1 }],
     });
     const token = supervision.token(buyer.buyerId);
@@ -1709,10 +1713,10 @@ describe('supervised shopping through the existing checkout and payment seam', (
   });
 
   it('revokes exposed text and prevents charging after the reviewed item changes', async () => {
-    const item = await seedSeller({ label: 'kids-edit', priceMinor: 1400, currency: 'EUR' });
+    const item = await seedSeller({ label: 'kids-edit', priceMinor: 1400, currency: 'USD' });
     const buyer = await seedBuyer({
       label: 'kids-edit',
-      currency: 'EUR',
+      currency: 'USD',
       lines: [{ ...item, quantity: 1 }],
     });
     const token = supervision.token(buyer.buyerId);
@@ -1745,11 +1749,11 @@ describe('supervised shopping through the existing checkout and payment seam', (
   });
 
   it('rolls back every seller order when the second insert fails, then retries without duplicated stock', async () => {
-    const first = await seedSeller({ label: 'kids-atomic-a', priceMinor: 900, currency: 'EUR' });
-    const second = await seedSeller({ label: 'kids-atomic-b', priceMinor: 1100, currency: 'EUR' });
+    const first = await seedSeller({ label: 'kids-atomic-a', priceMinor: 900, currency: 'USD' });
+    const second = await seedSeller({ label: 'kids-atomic-b', priceMinor: 1100, currency: 'USD' });
     const buyer = await seedBuyer({
       label: 'kids-atomic',
-      currency: 'EUR',
+      currency: 'USD',
       lines: [
         { ...first, quantity: 1 },
         { ...second, quantity: 1 },
@@ -1805,10 +1809,10 @@ describe('supervised shopping through the existing checkout and payment seam', (
   });
 
   it('recovers committed orders after approval preparation fails and refuses changed selection under the original key', async () => {
-    const item = await seedSeller({ label: 'kids-recovery', priceMinor: 1500, currency: 'EUR' });
+    const item = await seedSeller({ label: 'kids-recovery', priceMinor: 1500, currency: 'USD' });
     const buyer = await seedBuyer({
       label: 'kids-recovery',
-      currency: 'EUR',
+      currency: 'USD',
       lines: [{ ...item, quantity: 1 }],
     });
     const token = supervision.token(buyer.buyerId);
