@@ -30,6 +30,7 @@ module.exports = {
     android: {
       adaptiveIcon: {
         foregroundImage: './assets/icon-512-maskable.png',
+        backgroundImage: './assets/adaptive-icon-background.png',
         monochromeImage: './assets/adaptive-icon-monochrome.png',
         backgroundColor: '#FFFFFF',
       },
