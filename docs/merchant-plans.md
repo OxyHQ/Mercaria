@@ -140,13 +140,13 @@ each is a `merchant_plan_prices` row. Yearly is ten months: two months free.
 **Why these prices — positioned clearly below the commerce platforms.** A
 Mercaria plan adds tools to a store that already sells for free, so the
 comparison is the entry commerce tier a merchant would otherwise pay just to
-sell (USD list prices, monthly billing, as published in 2026):
+sell (approximate USD list prices as published in 2026; monthly billing unless noted — re-check before quoting them externally):
 
 | Comparable | Entry price | Mercaria |
 |---|---|---|
 | Shopify Basic / Grow | $39 / $105 a month | Ultra $24.99 includes every tool |
-| Wix Core / Business | $29 / $36 a month | Plus $14.99 |
-| Squarespace Commerce (Basic) | from about $28 a month | Plus $14.99 |
+| Wix Core / Business | $29 / $36 a month, billed yearly | Plus $14.99 |
+| Squarespace plans that sell online | from about $23 a month, billed yearly | Plus $14.99 |
 | eBay Store Starter / Basic | $7.95 / $27.95 a month | Go $4.99 |
 | Etsy Plus | $10 a month | Creator $9.99 |
 
