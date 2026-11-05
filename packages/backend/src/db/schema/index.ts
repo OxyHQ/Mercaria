@@ -42,6 +42,9 @@ export * from './connectorPins';
 // encodes, not an alphabetical accident.
 export * from './condition';
 export * from './merchandising';
+// The paid store-page merchandising rules (#89) reference `merchandising`'s
+// collections and `catalog`'s listings, so they follow both.
+export * from './merchandisingRules';
 export * from './orders';
 export * from './fees';
 export * from './payments';

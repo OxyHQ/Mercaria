@@ -72,6 +72,15 @@ export const queryKeys = {
     list: (storeId: string) => ['stores', storeId, 'collections'] as const,
     detail: (storeId: string, id: string) => ['stores', storeId, 'collections', id] as const,
   },
+  // The paid store-page merchandising rules (`advanced_merchandising_rules`).
+  merchandising: {
+    all: (storeId: string) => ['stores', storeId, 'merchandising'] as const,
+    list: (storeId: string) => ['stores', storeId, 'merchandising', 'rules'] as const,
+    detail: (storeId: string, id: string) =>
+      ['stores', storeId, 'merchandising', 'rules', id] as const,
+    preview: (storeId: string, input: unknown) =>
+      ['stores', storeId, 'merchandising', 'preview', input] as const,
+  },
   discounts: {
     list: (storeId: string) => ['stores', storeId, 'discounts'] as const,
     detail: (storeId: string, id: string) => ['stores', storeId, 'discounts', id] as const,

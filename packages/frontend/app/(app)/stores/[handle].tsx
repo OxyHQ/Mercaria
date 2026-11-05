@@ -29,13 +29,24 @@ import {
 } from '@oxy.so/bloom/dropdown-menu';
 import { Switch } from '@oxy.so/bloom/switch';
 import { TextField, TextFieldIcon, TextFieldInput } from '@oxy.so/bloom/text-field';
-import { isOxyFileId, type Listing, type StoreSummary } from '@mercaria/shared-types';
+import {
+  isOxyFileId,
+  type Listing,
+  type StoreSummary,
+  type StorefrontSpotlight,
+} from '@mercaria/shared-types';
 import { ScreenShell } from '@/components/shell/ScreenShell';
 import { StoreFollowButton } from '@/components/store/StoreFollowButton';
 import { StoreMenuSheet } from '@/components/store/StoreMenuSheet';
 import { StoreVisitUs } from '@/components/store/StoreVisitUs';
 import { storeThemeTokens } from '@/lib/store-theme';
-import { useStore, useStoreCollections } from '@/lib/hooks/use-store';
+import {
+  useStore,
+  useStoreCollections,
+  useStoreListingsByIds,
+  useStoreMerchandisedListings,
+  useStoreMerchandising,
+} from '@/lib/hooks/use-store';
 import { REVIEW_SCOPE_HEADING_KEYS } from '@/lib/hooks/use-reviews';
 import { useListings } from '@/lib/hooks/use-listings';
 import { useDebouncedCallback } from '@/lib/hooks/use-debounced-callback';
@@ -205,6 +216,45 @@ function ParallaxCover({ uri, fileId }: { uri?: string; fileId?: string }) {
   );
 }
 
+/**
+ * A spotlight shelf the merchant scheduled for their own store page: the
+ * shelf's title is the merchant's, its products are one of their collections in
+ * the order the server answered. Renders nothing until (and unless) it has
+ * products, so a failed read costs the shelf and never the page.
+ */
+function SpotlightShelf({
+  handle,
+  store,
+  spotlight,
+}: {
+  handle: string;
+  store: StoreSummary;
+  spotlight: StorefrontSpotlight;
+}) {
+  const { data } = useStoreListingsByIds(handle, spotlight.listingIds);
+  const products = useMemo(
+    () => (data ?? []).map((listing) => toProductSummary(listing, store.name)),
+    [data, store.name],
+  );
+  if (products.length === 0) return null;
+  return (
+    <View className="mb-6">
+      <SectionHeader title={spotlight.title} />
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 8 }}
+      >
+        {products.map((product) => (
+          <View key={product.id} className="w-44 p-2 md:w-56">
+            <ProductCard product={product} renderLink={renderListingLink} />
+          </View>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
 /** Body of the store page — only rendered once `store` is present. */
 function StoreBody({
   handle,
@@ -294,15 +344,49 @@ function StoreBody({
       ? undefined
       : activeCollectionId;
 
-  const { data, isLoading, isError } = useListings({
-    storeId: store.id,
-    collectionId: filterCollectionId,
-    q: q || undefined,
-    sort: toQuerySort(sort),
-    inStock: inStockOnly ? true : undefined,
-    page,
-    limit: PAGE_LIMIT,
-  });
+  /**
+   * The store's OWN merchandising (a paid plan tool): when the shopper has not
+   * chosen a sort, a search or a filter, the grid takes the order the merchant
+   * set for this page or collection. It is this page's order only — search and
+   * every other surface never see it — and when no rule applies (none set, the
+   * rule ended, or the plan no longer includes the tool) the grid is exactly
+   * what every store page shows.
+   */
+  const merchandising = useStoreMerchandising(handle);
+  const defaultView = sort === 'best' && !q && !inStockOnly;
+  const merchandisedTarget =
+    defaultView &&
+    merchandising.data !== undefined &&
+    (filterCollectionId === undefined
+      ? merchandising.data.storeSorted
+      : merchandising.data.sortedCollectionIds.includes(filterCollectionId));
+  // Wait for the (prefetched) merchandising answer before the default grid, so a
+  // merchandised page does not first flash the other order.
+  const awaitingMerchandising = defaultView && merchandising.isPending;
+  const merchandised = useStoreMerchandisedListings(
+    handle,
+    { collectionId: filterCollectionId, page, limit: PAGE_LIMIT },
+    merchandisedTarget,
+  );
+  const fallBack = !merchandisedTarget || merchandised.data === null || merchandised.isError;
+  const listingsQuery = useListings(
+    {
+      storeId: store.id,
+      collectionId: filterCollectionId,
+      q: q || undefined,
+      sort: toQuerySort(sort),
+      inStock: inStockOnly ? true : undefined,
+      page,
+      limit: PAGE_LIMIT,
+    },
+    { enabled: fallBack && !awaitingMerchandising },
+  );
+  const data = fallBack ? listingsQuery.data : (merchandised.data ?? undefined);
+  const isLoading =
+    awaitingMerchandising || (fallBack ? listingsQuery.isLoading : merchandised.isLoading);
+  const isError = fallBack ? listingsQuery.isError : false;
+  const spotlights =
+    activeCollectionId === undefined && !q ? (merchandising.data?.spotlights ?? []) : [];
 
   const resolveImage = useImageResolver();
   const logoSource = merchantImageSource(store.logoUrl, resolveImage, store.logoFileId);
@@ -484,6 +568,16 @@ function StoreBody({
           </View>
         ) : null}
 
+        {/* ---- The merchant's own spotlight shelves (paid merchandising) ---- */}
+        {spotlights.map((spotlight) => (
+          <SpotlightShelf
+            key={spotlight.ruleId}
+            handle={handle}
+            store={store}
+            spotlight={spotlight}
+          />
+        ))}
+
         {/* ---- Products section ---- */}
         <SectionHeader title={t('store.products.heading')} />
 
@@ -624,6 +718,9 @@ export default function StoreScreen() {
   // location (#1017): its card is listed first in "Visit us".
   const linkedLocationId = typeof location === 'string' && location !== '' ? location : undefined;
   const { data, isLoading, isError } = useStore(handle ?? '');
+  // Started beside the store read rather than after it, so the grid rarely has
+  // to wait for it (see `StoreBody`).
+  useStoreMerchandising(handle ?? '');
 
   const head = (
     <Head>

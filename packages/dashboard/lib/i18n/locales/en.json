@@ -2444,5 +2444,91 @@
       "saved": "Rule saved",
       "error": "Couldn't save the rule"
     }
+  },
+  "merchandising": {
+    "documentTitle": "Merchandising | Wholesale by Mercaria",
+    "title": "Merchandising",
+    "subtitle": "Arrange your own store page: default orders, pinned products and scheduled spotlights",
+    "toolDescription": "Order your store page and its collections, pin products and schedule spotlight shelves.",
+    "newRule": "New rule",
+    "keptRules": "Your plan no longer includes merchandising rules, so these don't change your store page. They're kept, and you can delete them.",
+    "loadError": "Couldn't load your merchandising rules",
+    "empty": {
+      "title": "No rules yet",
+      "body": "Rules change only how your own store page orders and features your products. Everything else stays as it is."
+    },
+    "rowMeta": "%{what} · %{target} · %{state}",
+    "applying": "Shown on your store page now",
+    "delete": "Delete rule",
+    "deleted": "Rule deleted",
+    "deleteError": "Couldn't delete the rule",
+    "created": "Rule created",
+    "saved": "Rule saved",
+    "status": {
+      "live": "Live",
+      "superseded": "Overridden by a later rule",
+      "scheduled": "Scheduled",
+      "ended": "Ended",
+      "paused": "Paused",
+      "detached": "Collection deleted"
+    },
+    "target": {
+      "store": "Whole store page",
+      "collection": "Collection",
+      "deleted": "Deleted collection"
+    },
+    "kind": {
+      "sort": "Order",
+      "spotlight": "Spotlight",
+      "sortDescription": "Sets the default order of your store page or one collection. Pinned products come first. Shoppers can still choose another sort.",
+      "spotlightDescription": "Shows a shelf of one collection at the top of your store page."
+    },
+    "strategy": {
+      "bestSelling": "Best-selling",
+      "newest": "Newest",
+      "priceAsc": "Price: low to high",
+      "priceDesc": "Price: high to low"
+    },
+    "editor": {
+      "kind": "Rule type",
+      "titlePlaceholder": "e.g. Summer best-sellers",
+      "target": "Applies to",
+      "collection": "Collection",
+      "chooseCollection": "Choose a collection",
+      "unpublishedCollection": "%{title} (not published)",
+      "strategy": "Order by",
+      "window": "Sales counted over",
+      "windowDays": "%{days} days",
+      "inStockFirst": "Show in-stock products first",
+      "spotlightItems": "Products on the shelf",
+      "schedule": "Schedule",
+      "scheduleHint": "Leave both empty to apply the rule until you pause it. The end time is when it stops.",
+      "startsAt": "Starts",
+      "endsAt": "Ends",
+      "scheduleOpen": "Open",
+      "time": "%{field} time",
+      "clear": "Clear",
+      "windowInvalid": "The end must be after the start.",
+      "enabled": "Active",
+      "limitReached": "You've used every rule your plan includes. Delete a rule to add another.",
+      "notIncluded": "Your current plan doesn't include merchandising rules.",
+      "saveFailed": "Couldn't save the rule",
+      "save": "Save"
+    },
+    "preview": {
+      "title": "Preview of the resulting order",
+      "hint": "Pin up to %{max} products to keep them on top, in the order you set.",
+      "failed": "Couldn't load the preview",
+      "empty": "No products to show yet.",
+      "pinned": "Pinned",
+      "inStock": "In stock",
+      "outOfStock": "Out of stock",
+      "unitsSold": "%{units} sold",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "pin": "Pin to top",
+      "unpin": "Unpin",
+      "total": "%{total} products in this order"
+    }
   }
 }

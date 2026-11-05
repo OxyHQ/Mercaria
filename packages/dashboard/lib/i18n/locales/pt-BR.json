@@ -2465,5 +2465,91 @@
       "saved": "Regra salva",
       "error": "Não foi possível salvar a regra"
     }
+  },
+  "merchandising": {
+    "documentTitle": "Merchandising | Wholesale by Mercaria",
+    "title": "Merchandising",
+    "subtitle": "Organize a página da sua loja: ordem padrão, produtos fixados e vitrines programadas",
+    "toolDescription": "Ordene a página da sua loja e suas coleções, fixe produtos e programe vitrines.",
+    "newRule": "Nova regra",
+    "keptRules": "Seu plano não inclui mais regras de merchandising, então elas não alteram a página da sua loja. Elas foram mantidas e você pode excluí-las.",
+    "loadError": "Não foi possível carregar suas regras de merchandising",
+    "empty": {
+      "title": "Nenhuma regra ainda",
+      "body": "As regras mudam apenas como a página da sua própria loja ordena e destaca seus produtos. Todo o resto continua igual."
+    },
+    "rowMeta": "%{what} · %{target} · %{state}",
+    "applying": "Exibida agora na sua loja",
+    "delete": "Excluir regra",
+    "deleted": "Regra excluída",
+    "deleteError": "Não foi possível excluir a regra",
+    "created": "Regra criada",
+    "saved": "Regra salva",
+    "status": {
+      "live": "Ativa",
+      "superseded": "Substituída por uma regra posterior",
+      "scheduled": "Agendada",
+      "ended": "Encerrada",
+      "paused": "Pausada",
+      "detached": "Coleção excluída"
+    },
+    "target": {
+      "store": "Página inteira da loja",
+      "collection": "Coleção",
+      "deleted": "Coleção excluída"
+    },
+    "kind": {
+      "sort": "Ordem",
+      "spotlight": "Vitrine",
+      "sortDescription": "Define a ordem padrão da página da sua loja ou de uma coleção. Produtos fixados vêm primeiro. Os compradores ainda podem escolher outra ordenação.",
+      "spotlightDescription": "Mostra uma fileira de uma coleção no topo da página da sua loja."
+    },
+    "strategy": {
+      "bestSelling": "Mais vendidos",
+      "newest": "Mais recentes",
+      "priceAsc": "Preço: menor para maior",
+      "priceDesc": "Preço: maior para menor"
+    },
+    "editor": {
+      "kind": "Tipo de regra",
+      "titlePlaceholder": "ex.: Mais vendidos do verão",
+      "target": "Aplica-se a",
+      "collection": "Coleção",
+      "chooseCollection": "Escolha uma coleção",
+      "unpublishedCollection": "%{title} (não publicada)",
+      "strategy": "Ordenar por",
+      "window": "Vendas contadas em",
+      "windowDays": "%{days} dias",
+      "inStockFirst": "Mostrar primeiro produtos em estoque",
+      "spotlightItems": "Produtos na fileira",
+      "schedule": "Agendamento",
+      "scheduleHint": "Deixe os dois vazios para aplicar a regra até pausá-la. O horário de término é quando ela para.",
+      "startsAt": "Começa",
+      "endsAt": "Termina",
+      "scheduleOpen": "Sem data",
+      "time": "Horário de %{field}",
+      "clear": "Limpar",
+      "windowInvalid": "O término deve ser depois do início.",
+      "enabled": "Ativa",
+      "limitReached": "Você usou todas as regras que seu plano inclui. Exclua uma regra para adicionar outra.",
+      "notIncluded": "Seu plano atual não inclui regras de merchandising.",
+      "saveFailed": "Não foi possível salvar a regra",
+      "save": "Salvar"
+    },
+    "preview": {
+      "title": "Prévia da ordem resultante",
+      "hint": "Fixe até %{max} produtos para mantê-los no topo, na ordem que você definir.",
+      "failed": "Não foi possível carregar a prévia",
+      "empty": "Ainda não há produtos para mostrar.",
+      "pinned": "Fixado",
+      "inStock": "Em estoque",
+      "outOfStock": "Esgotado",
+      "unitsSold": "%{units} vendidos",
+      "moveUp": "Subir",
+      "moveDown": "Descer",
+      "pin": "Fixar no topo",
+      "unpin": "Desafixar",
+      "total": "%{total} produtos nesta ordem"
+    }
   }
 }

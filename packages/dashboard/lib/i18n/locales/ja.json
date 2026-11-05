@@ -2443,5 +2443,91 @@
       "saved": "ルールを保存しました",
       "error": "ルールを保存できませんでした"
     }
+  },
+  "merchandising": {
+    "documentTitle": "マーチャンダイジング | Wholesale by Mercaria",
+    "title": "マーチャンダイジング",
+    "subtitle": "ストアページを整える：既定の並び順、固定表示する商品、予約したスポットライト",
+    "toolDescription": "ストアページとコレクションの並び順を決め、商品を固定し、スポットライト棚を予約できます。",
+    "newRule": "新しいルール",
+    "keptRules": "ご利用のプランにマーチャンダイジングルールが含まれなくなったため、ストアページは変わりません。ルールは保存されており、削除できます。",
+    "loadError": "マーチャンダイジングルールを読み込めませんでした",
+    "empty": {
+      "title": "ルールはまだありません",
+      "body": "ルールが変えるのは、あなたのストアページでの商品の並び順と見せ方だけです。それ以外は変わりません。"
+    },
+    "rowMeta": "%{what} · %{target} · %{state}",
+    "applying": "ストアに表示中",
+    "delete": "ルールを削除",
+    "deleted": "ルールを削除しました",
+    "deleteError": "ルールを削除できませんでした",
+    "created": "ルールを作成しました",
+    "saved": "ルールを保存しました",
+    "status": {
+      "live": "適用中",
+      "superseded": "後のルールで置き換え",
+      "scheduled": "予約済み",
+      "ended": "終了",
+      "paused": "一時停止中",
+      "detached": "コレクション削除済み"
+    },
+    "target": {
+      "store": "ストアページ全体",
+      "collection": "コレクション",
+      "deleted": "削除されたコレクション"
+    },
+    "kind": {
+      "sort": "並び順",
+      "spotlight": "スポットライト",
+      "sortDescription": "ストアページまたは1つのコレクションの既定の並び順を設定します。固定した商品が先頭に来ます。購入者は別の並び順も選べます。",
+      "spotlightDescription": "ストアページの上部に1つのコレクションの棚を表示します。"
+    },
+    "strategy": {
+      "bestSelling": "売れ筋",
+      "newest": "新着順",
+      "priceAsc": "価格の安い順",
+      "priceDesc": "価格の高い順"
+    },
+    "editor": {
+      "kind": "ルールの種類",
+      "titlePlaceholder": "例：夏の売れ筋",
+      "target": "対象",
+      "collection": "コレクション",
+      "chooseCollection": "コレクションを選択",
+      "unpublishedCollection": "%{title}（非公開）",
+      "strategy": "並び替え",
+      "window": "販売数の集計期間",
+      "windowDays": "%{days}日",
+      "inStockFirst": "在庫ありの商品を先に表示",
+      "spotlightItems": "棚に並べる商品数",
+      "schedule": "スケジュール",
+      "scheduleHint": "両方を空にすると、一時停止するまでルールが適用されます。終了時刻に適用が止まります。",
+      "startsAt": "開始",
+      "endsAt": "終了",
+      "scheduleOpen": "指定なし",
+      "time": "%{field}の時刻",
+      "clear": "クリア",
+      "windowInvalid": "終了は開始より後にしてください。",
+      "enabled": "有効",
+      "limitReached": "プランに含まれるルールをすべて使用しました。追加するにはルールを1つ削除してください。",
+      "notIncluded": "現在のプランにはマーチャンダイジングルールが含まれていません。",
+      "saveFailed": "ルールを保存できませんでした",
+      "save": "保存"
+    },
+    "preview": {
+      "title": "並び順のプレビュー",
+      "hint": "最大%{max}個の商品を固定して、設定した順に先頭へ表示できます。",
+      "failed": "プレビューを読み込めませんでした",
+      "empty": "表示する商品はまだありません。",
+      "pinned": "固定",
+      "inStock": "在庫あり",
+      "outOfStock": "在庫切れ",
+      "unitsSold": "%{units}個販売",
+      "moveUp": "上へ",
+      "moveDown": "下へ",
+      "pin": "先頭に固定",
+      "unpin": "固定を解除",
+      "total": "この並び順の商品：%{total}点"
+    }
   }
 }

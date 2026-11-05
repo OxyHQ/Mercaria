@@ -81,6 +81,7 @@ flowchart LR
         M_Seller_merchandising["Seller merchandising"]
         M_Named_POS_registers___89___expanded_pos_registers__["Named POS registers (#89, `expanded_pos_registers`)"]
         M_Automation_rules___89_paid_tool_["Automation rules (#89 paid tool)"]
+        M_Store_page_merchandising_rules__paid___89_["Store-page merchandising rules (paid, #89)"]
         M_Organization_migration_evidence["Organization migration evidence"]
         M_Taxonomy["Taxonomy"]
         M_Classification["Classification"]
@@ -156,6 +157,9 @@ flowchart LR
     M_Named_POS_registers___89___expanded_pos_registers__ --> X_stores
     M_Automation_rules___89_paid_tool_ --> X_listings
     M_Automation_rules___89_paid_tool_ --> X_stores
+    M_Store_page_merchandising_rules__paid___89_ --> X_collections
+    M_Store_page_merchandising_rules__paid___89_ --> X_listings
+    M_Store_page_merchandising_rules__paid___89_ --> X_stores
     M_Organization_migration_evidence --> X_organizations
     M_Organization_migration_evidence --> X_source_records
     M_Taxonomy --> X_catalog_sources
@@ -240,7 +244,7 @@ Measured, not asserted. Every edge below is a `.insert(…)`, `.update(…)` or 
 the table's drizzle symbol, or a raw-SQL write naming it, found in a non-test module under
 `packages/backend/src`. The node on the left is the **directory** the writing module sits in.
 
-**32 modules**, **27 writing directories**,
+**33 modules**, **27 writing directories**,
 **5 tables written from more than one directory** and
 **5 written by no application code at all**. The exceptions are drawn by name,
 because they are the whole reason to look at this graph: `catalog-table-ownership.md` opens with
@@ -279,6 +283,7 @@ flowchart LR
     M_Seller_merchandising(["Seller merchandising"])
     M_Named_POS_registers___89___expanded_pos_registers__(["Named POS registers (#89, `expanded_pos_registers`)"])
     M_Automation_rules___89_paid_tool_(["Automation rules (#89 paid tool)"])
+    M_Store_page_merchandising_rules__paid___89_(["Store-page merchandising rules (paid, #89)"])
     M_Organization_migration_evidence(["Organization migration evidence"])
     M_Taxonomy(["Taxonomy"])
     M_Classification(["Classification"])
@@ -328,6 +333,7 @@ flowchart LR
     W_db_discovery -->|"2"| M_Discovery
     W_db_feedImport -->|"2"| M_Feed_uploads_and_validations___63_
     W_db_merchandising -->|"1"| M_Seller_merchandising
+    W_db_merchandising -->|"2"| M_Store_page_merchandising_rules__paid___89_
     W_db_navigation -->|"5"| M_Navigation
     W_db_oxyFiles -->|"1"| M_Authoring
     W_db_oxyFiles -->|"6"| M_Oxy_file_usage__Oxy_ADR_0043_
@@ -408,7 +414,7 @@ HTTP-reachability half, which no source scan can answer.
 
 ## 3. Cardinality, by module
 
-All 111 tables created by a migration at or after `0088`
+All 113 tables created by a migration at or after `0088`
 appear below exactly once, each under the module that owns it. Every relationship is a foreign
 key drizzle will emit; the label is the child columns and the `ON DELETE` action.
 
@@ -467,6 +473,27 @@ Also names, from outside the epic: `listings`, `stores`.
 | `automation_rules` | `0188` | `db/automationRules` (delete/insert/update) |
 | `automation_rule_listing_states` | `0188` | `db/automationRules` (delete/insert/update) |
 | `automation_rule_runs` | `0188` | `db/automationRules` (insert/update) |
+
+### Store-page merchandising rules (paid, #89)
+
+```mermaid
+erDiagram
+    merchandising_rules {
+    }
+    merchandising_rule_pins {
+    }
+    listings ||--o{ merchandising_rule_pins : "listing_id · cascade"
+    merchandising_rules ||--o{ merchandising_rule_pins : "rule_id · cascade"
+    collections |o--o{ merchandising_rules : "collection_id · set null"
+    stores ||--o{ merchandising_rules : "store_id · cascade"
+```
+
+Also names, from outside the epic: `collections`, `listings`, `stores`.
+
+| Table | Created by | Written by |
+|---|---|---|
+| `merchandising_rules` | `0189` | `db/merchandising` (delete/insert/update) |
+| `merchandising_rule_pins` | `0189` | `db/merchandising` (delete/insert) |
 
 ### Organization migration evidence
 
@@ -1318,18 +1345,18 @@ moved. Every one of these is re-derived on each run and floored by the gate.
 
 | Fact | Value |
 |---|---|
-| Tables in the population | 111 |
-| Modules they are grouped into | 32 |
-| Foreign keys out of an epic table | 208 |
+| Tables in the population | 113 |
+| Modules they are grouped into | 33 |
+| Foreign keys out of an epic table | 212 |
 | Foreign keys into one, from outside the epic | 3 |
 | Pre-existing tables the epic attaches to | 28 |
 | Relationships the schema proves are 1:1 | 7 |
-| Relationships whose parent is optional (nullable FK) | 86 |
+| Relationships whose parent is optional (nullable FK) | 87 |
 | Directories that write an epic table | 27 |
 | Tables written from more than one directory | 5 |
 | Tables no application code writes | 5 |
 
-`ON DELETE` across those 208 foreign keys: **61** `cascade`, **2** `no action`, **141** `restrict`, **4** `set null`.
+`ON DELETE` across those 212 foreign keys: **64** `cascade`, **2** `no action`, **141** `restrict`, **5** `set null`.
 
 ### The relationships the schema proves are 1:1
 

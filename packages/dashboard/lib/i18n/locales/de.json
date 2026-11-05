@@ -2444,5 +2444,91 @@
       "saved": "Regel gespeichert",
       "error": "Die Regel konnte nicht gespeichert werden"
     }
+  },
+  "merchandising": {
+    "documentTitle": "Merchandising | Wholesale by Mercaria",
+    "title": "Merchandising",
+    "subtitle": "Gestalte deine eigene Shopseite: Standardreihenfolge, angeheftete Produkte und geplante Spotlights",
+    "toolDescription": "Sortiere deine Shopseite und ihre Kollektionen, hefte Produkte an und plane Spotlight-Regale.",
+    "newRule": "Neue Regel",
+    "keptRules": "Dein Tarif enthält keine Merchandising-Regeln mehr, daher ändern sie deine Shopseite nicht. Sie bleiben erhalten und du kannst sie löschen.",
+    "loadError": "Deine Merchandising-Regeln konnten nicht geladen werden",
+    "empty": {
+      "title": "Noch keine Regeln",
+      "body": "Regeln ändern nur, wie deine eigene Shopseite deine Produkte sortiert und hervorhebt. Alles andere bleibt, wie es ist."
+    },
+    "rowMeta": "%{what} · %{target} · %{state}",
+    "applying": "Wird jetzt in deinem Shop angezeigt",
+    "delete": "Regel löschen",
+    "deleted": "Regel gelöscht",
+    "deleteError": "Die Regel konnte nicht gelöscht werden",
+    "created": "Regel erstellt",
+    "saved": "Regel gespeichert",
+    "status": {
+      "live": "Aktiv",
+      "superseded": "Von einer späteren Regel ersetzt",
+      "scheduled": "Geplant",
+      "ended": "Beendet",
+      "paused": "Pausiert",
+      "detached": "Kollektion gelöscht"
+    },
+    "target": {
+      "store": "Gesamte Shopseite",
+      "collection": "Kollektion",
+      "deleted": "Gelöschte Kollektion"
+    },
+    "kind": {
+      "sort": "Reihenfolge",
+      "spotlight": "Spotlight",
+      "sortDescription": "Legt die Standardreihenfolge deiner Shopseite oder einer Kollektion fest. Angeheftete Produkte kommen zuerst. Käufer können weiterhin anders sortieren.",
+      "spotlightDescription": "Zeigt oben auf deiner Shopseite ein Regal mit einer Kollektion."
+    },
+    "strategy": {
+      "bestSelling": "Bestseller",
+      "newest": "Neueste",
+      "priceAsc": "Preis: aufsteigend",
+      "priceDesc": "Preis: absteigend"
+    },
+    "editor": {
+      "kind": "Regeltyp",
+      "titlePlaceholder": "z. B. Sommer-Bestseller",
+      "target": "Gilt für",
+      "collection": "Kollektion",
+      "chooseCollection": "Kollektion auswählen",
+      "unpublishedCollection": "%{title} (nicht veröffentlicht)",
+      "strategy": "Sortieren nach",
+      "window": "Verkäufe gezählt über",
+      "windowDays": "%{days} Tage",
+      "inStockFirst": "Vorrätige Produkte zuerst zeigen",
+      "spotlightItems": "Produkte im Regal",
+      "schedule": "Zeitplan",
+      "scheduleHint": "Lass beide Felder leer, damit die Regel gilt, bis du sie pausierst. Die Endzeit ist, wann sie aufhört.",
+      "startsAt": "Beginnt",
+      "endsAt": "Endet",
+      "scheduleOpen": "Offen",
+      "time": "%{field} – Uhrzeit",
+      "clear": "Leeren",
+      "windowInvalid": "Das Ende muss nach dem Beginn liegen.",
+      "enabled": "Aktiv",
+      "limitReached": "Du hast alle Regeln genutzt, die dein Tarif enthält. Lösche eine Regel, um eine neue hinzuzufügen.",
+      "notIncluded": "Dein aktueller Tarif enthält keine Merchandising-Regeln.",
+      "saveFailed": "Die Regel konnte nicht gespeichert werden",
+      "save": "Speichern"
+    },
+    "preview": {
+      "title": "Vorschau der Reihenfolge",
+      "hint": "Hefte bis zu %{max} Produkte an, damit sie in deiner Reihenfolge oben bleiben.",
+      "failed": "Die Vorschau konnte nicht geladen werden",
+      "empty": "Noch keine Produkte zum Anzeigen.",
+      "pinned": "Angeheftet",
+      "inStock": "Vorrätig",
+      "outOfStock": "Ausverkauft",
+      "unitsSold": "%{units} verkauft",
+      "moveUp": "Nach oben",
+      "moveDown": "Nach unten",
+      "pin": "Oben anheften",
+      "unpin": "Lösen",
+      "total": "%{total} Produkte in dieser Reihenfolge"
+    }
   }
 }

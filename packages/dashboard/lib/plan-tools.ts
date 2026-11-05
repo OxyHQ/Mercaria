@@ -1,6 +1,7 @@
 import {
   Calculator,
   CalendarClock,
+  LayoutList,
   Scale,
   TrendingUp,
   Workflow,
@@ -78,5 +79,13 @@ export const PLAN_TOOLS: readonly PlanTool[] = [
     // a rule that moves an order additionally needs `orders:fulfill`, which the
     // server checks against the rule's action.
     permission: 'products:write',
+  },
+  {
+    capability: 'advanced_merchandising_rules',
+    labelKey: 'merchandising.title',
+    descriptionKey: 'merchandising.toolDescription',
+    icon: LayoutList,
+    href: '/tools/merchandising',
+    permission: 'products:read',
   },
 ];

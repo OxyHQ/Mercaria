@@ -116,6 +116,16 @@ export const queryKeys = {
   stores: {
     detail: (handle: string) => ['stores', handle] as const,
     collections: (handle: string) => ['stores', handle, 'collections'] as const,
+    /** The store's own merchandising: what its page applies right now. */
+    merchandising: (handle: string) => ['stores', handle, 'merchandising'] as const,
+    merchandisedPage: (
+      handle: string,
+      collectionId: string | undefined,
+      page: number,
+      limit: number,
+    ) => ['stores', handle, 'merchandising', 'page', { collectionId, page, limit }] as const,
+    listingsByIds: (handle: string, ids: readonly string[]) =>
+      ['stores', handle, 'listings-by-ids', ids] as const,
     collection: (handle: string, collectionHandle: string) =>
       ['stores', handle, 'collections', collectionHandle] as const,
     reviews: (handle: string, page: number, limit = 20, query = '') =>

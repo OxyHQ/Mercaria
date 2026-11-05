@@ -532,6 +532,15 @@ export type UpdateListingInput = Partial<CreateP2PListingInput> & {
 };
 
 /** Filter/sort parameters accepted by the listing search/browse endpoint. */
+/**
+ * The most listings one by-id read hydrates (`GET /stores/:handle/listings?ids=`).
+ *
+ * That read answers listings in the order the caller NAMED them and decides no
+ * order of its own — a client that has an order (a store page applying its own
+ * merchandising) asks for the ids in pages of at most this many.
+ */
+export const MAX_LISTINGS_BY_ID = 48;
+
 export interface ListingQuery {
   /** Full-text search term. */
   q?: string;

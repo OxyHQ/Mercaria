@@ -29,6 +29,7 @@ import feedRouter from './routes/feed.js';
 import discoveryRouter from './routes/discovery.js';
 import categoriesRouter from './routes/categories.js';
 import storesRouter from './routes/stores.js';
+import storeMerchandisingRouter from './routes/store-merchandising.js';
 import favoritesRouter from './routes/favorites.js';
 import productSavesRouter from './routes/product-saves.js';
 import savedItemsRouter from './routes/saved-items.js';
@@ -417,6 +418,14 @@ export function createApp(): express.Express {
    * a request already submitted still deserves an answer.
    */
   app.use('/internal/catalog-proposals', internalCatalogProposalsRouter);
+  /**
+   * The store page's paid merchandising read (#89), BEFORE `/stores` for the
+   * drafts' reason (that router's `optionalAuth` matches every path under the
+   * prefix) and on a router of its own for a stronger one: `routes/stores.ts` is
+   * in the derived ranking surface, and nothing in that surface may import the
+   * code that applies a merchant plan.
+   */
+  app.use('/stores/:handle/merchandising', storeMerchandisingRouter);
   app.use('/stores', storesRouter);
   app.use('/favorites', favoritesRouter);
   /**

@@ -109,9 +109,14 @@ export const MERCHANT_CAPABILITY_CATALOG: Readonly<
     key: 'advanced_merchandising_rules',
     name: 'Advanced merchandising rules',
     description:
-      'Merchandising rules beyond the manual collections and discounts every store already has.',
+      "Rules for the store's own storefront page beyond the collections, sort orders, featured " +
+      'shelves and discounts every store already has: a default order for the whole page or one ' +
+      'collection (best-selling by units sold over a window, newest, or price, with in-stock ' +
+      'first and pinned listings on top), and spotlight shelves for a collection, each on an ' +
+      'optional start and end time. Rules affect only that store page, never search, ranking ' +
+      'or any other surface. Each rule counts one against the limit.',
     limitKind: 'total',
-    availability: 'postponed',
+    availability: 'available',
   },
   expanded_pos_registers: {
     key: 'expanded_pos_registers',
