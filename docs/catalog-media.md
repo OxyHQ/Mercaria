@@ -234,6 +234,7 @@ like a file id that no entry holds, and on a trigger that disagrees with it.
 | `order_item_image` | `order_items.id` | an Oxy URL in `.image_url` | store / seller | retained — order history is never rewritten |
 | `digital_asset_file` | the storage key itself | `asset_files.storage_key` | the application (adopted or uploaded); the creator only for a row the storage backfill has not moved yet | retained |
 | `feed_upload` | `feed_uploads.id` | `.storage_key` — a feed file the client uploaded straight to storage | application (private) | retained — a run whose file Oxy stopped serving refuses with `upload_missing` |
+| `data_export_file` | `data_export_runs.id` | `.file_id` — a store's on-demand or scheduled CSV export, cleared when its 30-day retention ends | application (private) | retained — the download answers that the file is gone and the merchant exports again |
 
 **How a write becomes a reference.** A trigger of migration `0172` on every
 holding table (`mercaria_oxy_file_reference_touch`) enqueues the ENTITY into

@@ -644,6 +644,8 @@ export * from './sell-yours';
 // refunds, financial records and data export can never become paid-only" a
 // property of the vocabulary rather than a rule in a service.
 export * from './merchant-plan';
+// Store data exports: the free on-demand CSV and the paid schedule over it.
+export * from './data-export';
 // What a buyer is told about who is selling, who is paid and what rights come
 // with the purchase (#129). Downstream of `./fees` (whose `CommercialMode`
 // tuple it reads rather than duplicating — one vocabulary, two readers: the

@@ -11,6 +11,7 @@ import {
   CreditCard,
   Sparkles,
   Receipt,
+  FileDown,
   ChevronRight,
   type LucideIcon,
 } from 'lucide-react-native';
@@ -110,6 +111,16 @@ const ITEMS: SettingsItem[] = [
     icon: Receipt,
     href: '/settings/fees',
     permission: 'store:manage',
+  },
+  // Exporting the store's own data is free for every store and never part of a
+  // plan; the paid tool is only the SCHEDULE over the same file.
+  {
+    key: 'exports',
+    labelKey: 'settings.sections.exports.label',
+    descriptionKey: 'settings.sections.exports.description',
+    icon: FileDown,
+    href: '/settings/exports',
+    permission: 'orders:read',
   },
   // What a store pays Mercaria for tooling — never money coming IN for orders,
   // and worded so a plan cannot read as a condition of getting paid.

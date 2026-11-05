@@ -41,6 +41,7 @@ import referralPartnerRouter from './referral-partner.js';
 import planRouter from './plan.js';
 import analyticsRouter from './analytics.js';
 import priceAnalyticsRouter from './price-benchmark.js';
+import dataExportsRouter from './data-exports.js';
 
 /**
  * Store-admin router, mounted at `/admin/stores`.
@@ -166,5 +167,9 @@ router.use('/:storeId/analytics', analyticsRouter);
 // about a claimed canonical merchant and stays free; this one is about a native
 // store's listings and is gated by plan inside its router.
 router.use('/:storeId/price-analytics', priceAnalyticsRouter);
+// Data exports (`docs/data-exports.md`): the free on-demand CSV of the store's
+// own orders, products and customers, and the paid schedule over it. Permission
+// is per dataset, inside; only creating or keeping a schedule enabled reads the plan.
+router.use('/:storeId/exports', dataExportsRouter);
 
 export default router;

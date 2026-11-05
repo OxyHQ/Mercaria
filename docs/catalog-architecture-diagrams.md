@@ -108,6 +108,7 @@ flowchart LR
         M_Canonical_source_imagery__Oxy_ADR_0043_["Canonical source imagery (Oxy ADR 0043)"]
         M_Oxy_file_usage__Oxy_ADR_0043_["Oxy file usage (Oxy ADR 0043)"]
         M_Feed_uploads_and_validations___63_["Feed uploads and validations (#63)"]
+        M_Store_data_exports__on_demand_and_scheduled_["Store data exports (on demand and scheduled)"]
     end
     subgraph outside["Pre-existing tables the epic attaches to"]
         direction TB
@@ -220,6 +221,7 @@ flowchart LR
     M_Feed_uploads_and_validations___63_ --> X_feed_configurations
     M_Feed_uploads_and_validations___63_ --> X_feed_import_reports
     M_Feed_uploads_and_validations___63_ --> X_feed_uploads
+    M_Store_data_exports__on_demand_and_scheduled_ --> X_stores
 ```
 
 **3 foreign keys point the other way** — from a table outside the epic into
@@ -235,7 +237,7 @@ Measured, not asserted. Every edge below is a `.insert(…)`, `.update(…)` or 
 the table's drizzle symbol, or a raw-SQL write naming it, found in a non-test module under
 `packages/backend/src`. The node on the left is the **directory** the writing module sits in.
 
-**30 modules**, **25 writing directories**,
+**31 modules**, **26 writing directories**,
 **5 tables written from more than one directory** and
 **5 written by no application code at all**. The exceptions are drawn by name,
 because they are the whole reason to look at this graph: `catalog-table-ownership.md` opens with
@@ -252,6 +254,7 @@ flowchart LR
     W_db_catalogLocalization["db/catalogLocalization"]
     W_db_catalogProposals["db/catalogProposals"]
     W_db_compatibility["db/compatibility"]
+    W_db_dataExports["db/dataExports"]
     W_db_digital["db/digital"]
     W_db_digitalRetail["db/digitalRetail"]
     W_db_discovery["db/discovery"]
@@ -299,6 +302,7 @@ flowchart LR
     M_Canonical_source_imagery__Oxy_ADR_0043_(["Canonical source imagery (Oxy ADR 0043)"])
     M_Oxy_file_usage__Oxy_ADR_0043_(["Oxy file usage (Oxy ADR 0043)"])
     M_Feed_uploads_and_validations___63_(["Feed uploads and validations (#63)"])
+    M_Store_data_exports__on_demand_and_scheduled_(["Store data exports (on demand and scheduled)"])
     W_db_canonical -->|"1"| M_Canonical_source_imagery__Oxy_ADR_0043_
     W_db_catalog -->|"1"| M_Connector_pins
     W_db_catalog -->|"1"| M_Native_variant_images
@@ -310,6 +314,7 @@ flowchart LR
     W_db_catalogProposals -->|"4"| M_Proposals
     W_db_catalogProposals -->|"1"| M_Variant_axes_and_claims
     W_db_compatibility -->|"7"| M_Compatibility
+    W_db_dataExports -->|"2"| M_Store_data_exports__on_demand_and_scheduled_
     W_db_digital -->|"7"| M_Digital_deliverables
     W_db_digital -->|"8"| M_Digital_licences_and_buyer_rights
     W_db_digitalRetail -->|"6"| M_Digital_retail_procurement_and_fulfilment
@@ -397,7 +402,7 @@ HTTP-reachability half, which no source scan can answer.
 
 ## 3. Cardinality, by module
 
-All 106 tables created by a migration at or after `0088`
+All 108 tables created by a migration at or after `0088`
 appear below exactly once, each under the module that owns it. Every relationship is a foreign
 key drizzle will emit; the label is the child columns and the `ON DELETE` action.
 
@@ -1255,6 +1260,26 @@ Also names, from outside the epic: `feed_configuration_versions`, `feed_configur
 | `feed_upload_sessions` | `0180` | `db/feedImport` (insert/update) |
 | `feed_validation_jobs` | `0180` | `db/feedImport` (insert/update) |
 
+### Store data exports (on demand and scheduled)
+
+```mermaid
+erDiagram
+    data_export_schedules {
+    }
+    data_export_runs {
+    }
+    data_export_schedules |o--o{ data_export_runs : "schedule_id · set null"
+    stores ||--o{ data_export_runs : "store_id · cascade"
+    stores ||--o{ data_export_schedules : "store_id · cascade"
+```
+
+Also names, from outside the epic: `stores`.
+
+| Table | Created by | Written by |
+|---|---|---|
+| `data_export_schedules` | `0187` | `db/dataExports` (delete/insert/update) |
+| `data_export_runs` | `0187` | `db/dataExports` (insert/update) |
+
 ## 4. What the derivation found
 
 Counts, so that a diagram that quietly stopped measuring anything is visible as a number that
@@ -1262,18 +1287,18 @@ moved. Every one of these is re-derived on each run and floored by the gate.
 
 | Fact | Value |
 |---|---|
-| Tables in the population | 106 |
-| Modules they are grouped into | 30 |
-| Foreign keys out of an epic table | 200 |
+| Tables in the population | 108 |
+| Modules they are grouped into | 31 |
+| Foreign keys out of an epic table | 203 |
 | Foreign keys into one, from outside the epic | 3 |
 | Pre-existing tables the epic attaches to | 28 |
 | Relationships the schema proves are 1:1 | 7 |
-| Relationships whose parent is optional (nullable FK) | 85 |
-| Directories that write an epic table | 25 |
+| Relationships whose parent is optional (nullable FK) | 86 |
+| Directories that write an epic table | 26 |
 | Tables written from more than one directory | 5 |
 | Tables no application code writes | 5 |
 
-`ON DELETE` across those 200 foreign keys: **54** `cascade`, **2** `no action`, **141** `restrict`, **3** `set null`.
+`ON DELETE` across those 203 foreign keys: **56** `cascade`, **2** `no action`, **141** `restrict`, **4** `set null`.
 
 ### The relationships the schema proves are 1:1
 

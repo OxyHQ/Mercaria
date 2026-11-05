@@ -634,6 +634,17 @@ connectPostgres()
       // what removes a past-due merchant's paid extras — the resolver compares
       // it against the clock — so a deployment that never runs this loop still
       // downgrades on time; what the loop adds is the record.
+      // Store data exports: materialize due schedules (one run per occurrence,
+      // each taking one unit of the store's `scheduled_exports` allowance in its
+      // own transaction), produce pending runs, and release files whose 30-day
+      // retention ended. On EVERY task: schedules are locked `FOR UPDATE SKIP
+      // LOCKED` and runs are leased with an owner check. The LOOP is gated by
+      // `DATA_EXPORT_WORKER_ENABLED`; nothing durable is — an on-demand export is
+      // produced inline by the request that asked, whatever the lever says.
+      import('./services/data-exports/data-export.service.js')
+        .then(({ startDataExportWorker }) => startDataExportWorker())
+        .catch((err) => log.general.error({ err }, 'Data export worker import failed'));
+
       import('./services/billing/reconciler.js')
         .then(({ startMerchantSubscriptionReconciler }) => startMerchantSubscriptionReconciler())
         .catch((err) =>
@@ -854,6 +865,10 @@ connectPostgres()
         const { stopFeedStageSweeper } = await import('./services/feed-import/register.js');
         stopFeedStageSweeper();
         stopExpirySweeper();
+        const { stopDataExportWorker } = await import(
+          './services/data-exports/data-export.service.js'
+        );
+        stopDataExportWorker();
         const { stopGuestRetentionLoop } = await import(
           './services/guest-governance/retention.service.js'
         );

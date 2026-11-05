@@ -3460,6 +3460,7 @@ export interface AppConfig {
   readonly retail: MercariaRetailConfig;
   readonly retailReconciliation: RetailReconciliationConfig;
   readonly merchantBilling: MerchantBillingConfig;
+  readonly dataExports: DataExportsConfig;
   readonly connectors: ConnectorsConfig;
   readonly pickup: PickupConfig;
   readonly goway: GoWayConfig;
@@ -3636,6 +3637,24 @@ export interface ConnectorsConfig {
    * secret-swap race the lease exists to prevent.
    */
   readonly webhookReregistrationLeaseMs: number;
+}
+
+/**
+ * Store data exports (`docs/data-exports.md`): one worker LOOP and its tunables.
+ *
+ * `workerEnabled` gates the LOOP and nothing durable: schedules stay readable
+ * and editable, an on-demand export is still recorded (and drained inline when
+ * the request asks for it), and turning the loop back on catches every due
+ * schedule up with ONE run per schedule rather than a burst per missed day.
+ */
+export interface DataExportsConfig {
+  readonly workerEnabled: boolean;
+  /** How often a task looks for due schedules and pending runs. */
+  readonly pollIntervalMs: number;
+  /** Runs one task produces per pass — each reads a whole dataset. */
+  readonly batchSize: number;
+  /** How long a claim holds before another task may take the run. Renewed per page. */
+  readonly leaseMs: number;
 }
 
 /**
@@ -4353,6 +4372,12 @@ export const config: AppConfig = Object.freeze({
     ...(process.env.MERCHANT_BILLING_RETURN_URL?.trim()
       ? { returnUrl: process.env.MERCHANT_BILLING_RETURN_URL.trim() }
       : {}),
+  }),
+  dataExports: Object.freeze({
+    workerEnabled: boolEnv('DATA_EXPORT_WORKER_ENABLED', true),
+    pollIntervalMs: intEnv('DATA_EXPORT_POLL_INTERVAL_MS', 30_000),
+    batchSize: intEnv('DATA_EXPORT_BATCH_SIZE', 2),
+    leaseMs: intEnv('DATA_EXPORT_LEASE_MS', 10 * MINUTE_MS),
   }),
   connectors: Object.freeze({
     webhookReregistrationEnabled: boolEnv('CONNECTOR_WEBHOOK_REREGISTRATION_ENABLED', true),

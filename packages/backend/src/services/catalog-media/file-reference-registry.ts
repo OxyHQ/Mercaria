@@ -427,6 +427,20 @@ const DEFINITIONS: readonly FileReferenceEntityDefinition[] = [
     registration: 'trigger',
     sources: [single('feed_uploads', 'id', 'storage_key', 'file_id')],
   },
+  {
+    // A store's data export (on demand or scheduled), a PRIVATE file of the
+    // Mercaria application (`data_export_runs.file_id`). Referenced while the run
+    // holds it: the export worker clears the column when the file's retention
+    // ends, and the trigger withdraws the reference so Oxy collects it. No
+    // detach: a run whose file Oxy stopped serving answers its download with
+    // the refusal, and the merchant exports again.
+    entityType: 'data_export_file',
+    ownerKind: 'application',
+    owner: 'application',
+    entityId: 'data_export_runs.id',
+    registration: 'trigger',
+    sources: [single('data_export_runs', 'id', 'file_id', 'file_id')],
+  },
 ];
 
 const BY_TYPE = new Map(DEFINITIONS.map((definition) => [definition.entityType, definition]));

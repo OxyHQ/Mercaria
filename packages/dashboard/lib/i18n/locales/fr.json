@@ -652,6 +652,92 @@
     "subtitle": "Les personnes qui achètent dans votre boutique",
     "walkIn": "Client de passage"
   },
+  "dataExports": {
+    "documentTitle": "Exporter les données | Wholesale by Mercaria",
+    "title": "Exporter les données",
+    "subtitle": "Vos commandes, produits et clients en fichiers CSV, quand vous en avez besoin. Gratuit avec tous les forfaits.",
+    "datasets": {
+      "orders": "Commandes",
+      "products": "Produits et stock",
+      "customers": "Clients"
+    },
+    "status": {
+      "pending": "En file d’attente",
+      "running": "En préparation",
+      "succeeded": "Prêt",
+      "failed": "Échec",
+      "skippedLimit": "Ignorée : quota épuisé",
+      "skippedNotEntitled": "Ignorée : hors forfait"
+    },
+    "failure": {
+      "generationFailed": "Le fichier n’a pas pu être préparé",
+      "storageUnavailable": "Le fichier n’a pas pu être enregistré"
+    },
+    "exportNow": "Exporter maintenant",
+    "requested": "Export lancé. Il apparaîtra ci-dessous une fois prêt.",
+    "requestFailed": "Impossible de lancer l’export",
+    "retentionNote": "Chaque fichier peut être téléchargé pendant 30 jours.",
+    "scheduleLinkTitle": "Exports programmés",
+    "scheduleLinkBody": "Recevez les mêmes fichiers chaque jour, semaine ou mois avec un forfait Mercaria.",
+    "historyTitle": "Exports récents",
+    "loadFailed": "Impossible de charger vos exports",
+    "noRuns": "Aucun export pour le moment.",
+    "rows": "Lignes : %{rows}",
+    "truncated": "les 100 000 lignes les plus récentes",
+    "expired": "fichier expiré",
+    "triggerSchedule": "Programmé",
+    "triggerOnDemand": "À la demande",
+    "download": "Télécharger",
+    "downloadFailed": "Impossible d’ouvrir le fichier. Exportez à nouveau les données s’il a expiré."
+  },
+  "scheduledExports": {
+    "documentTitle": "Exports programmés | Wholesale by Mercaria",
+    "title": "Exports programmés",
+    "subtitle": "Des fichiers CSV de vos données de boutique, préparés selon un calendrier",
+    "toolDescription": "Exports CSV quotidiens, hebdomadaires ou mensuels des commandes, produits ou clients",
+    "cadence": {
+      "daily": "Quotidien",
+      "weekly": "Hebdomadaire",
+      "monthly": "Mensuel"
+    },
+    "summary": {
+      "daily": "Chaque jour à %{at} (%{zone})",
+      "weekly": "Chaque %{day} à %{at} (%{zone})",
+      "monthly": "Le %{day} de chaque mois à %{at} (%{zone})"
+    },
+    "newSchedule": "Nouveau calendrier",
+    "newTitle": "Nouvel export programmé",
+    "editTitle": "Modifier l’export programmé",
+    "datasetLabel": "Données",
+    "cadenceLabel": "Fréquence",
+    "weekdayLabel": "Jour de la semaine",
+    "dayOfMonthLabel": "Jour du mois",
+    "hourLabel": "Heure",
+    "timeZoneLabel": "Fuseau horaire",
+    "timeZoneRequired": "Indiquez un fuseau horaire, par exemple Europe/Paris",
+    "allowanceNote": "Chaque export programmé utilise un export de votre forfait sur la période de facturation.",
+    "nextRun": "Prochain export : %{at}",
+    "pausedLabel": "En pause",
+    "enabledLabel": "Calendrier actif",
+    "edit": "Modifier le calendrier",
+    "delete": "Supprimer le calendrier",
+    "deleteTitle": "Supprimer ce calendrier ?",
+    "deleteBody": "Aucun autre fichier ne sera préparé selon ce calendrier. Les fichiers déjà préparés restent disponibles jusqu’à leur expiration.",
+    "deleted": "Calendrier supprimé",
+    "deleteFailed": "Impossible de supprimer le calendrier",
+    "created": "Calendrier créé",
+    "saved": "Calendrier enregistré",
+    "paused": "Calendrier mis en pause",
+    "resumed": "Calendrier relancé",
+    "saveFailed": "Impossible d’enregistrer le calendrier",
+    "refusedCapability": "Les exports programmés ne font pas partie de votre forfait actuel. Vous pouvez toujours mettre en pause ou supprimer des calendriers, et exporter à la demande gratuitement.",
+    "refusedLimit": "Votre forfait n’a plus d’exports programmés sur cette période de facturation.",
+    "loadFailed": "Impossible de charger vos calendriers",
+    "emptyTitle": "Aucun calendrier pour le moment",
+    "emptyBody": "Créez un calendrier pour recevoir automatiquement un CSV de vos commandes, produits ou clients.",
+    "historyTitle": "Historique des exports programmés",
+    "onDemandLink": "Besoin d’un fichier tout de suite ? Exportez vos données à la demande dans Réglages → Exporter les données, gratuit avec tous les forfaits."
+  },
   "discounts": {
     "create": {
       "amountOffLabel": "Montant de la réduction (⊜)",
@@ -2014,6 +2100,10 @@
       "tax": {
         "description": "Taux de taxe et traitement des taxes",
         "label": "Taxes"
+      },
+      "exports": {
+        "label": "Exporter les données",
+        "description": "Téléchargez vos commandes, produits et clients en CSV"
       }
     },
     "store": {

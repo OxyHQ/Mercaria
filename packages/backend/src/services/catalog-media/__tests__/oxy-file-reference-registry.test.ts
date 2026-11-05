@@ -172,6 +172,7 @@ describe('the Oxy file reference registry is complete', () => {
       .sort();
     expect(retained).toEqual(
       [
+        'data_export_file',
         'digital_asset_file',
         'feed_upload',
         'merchant_claim_evidence',

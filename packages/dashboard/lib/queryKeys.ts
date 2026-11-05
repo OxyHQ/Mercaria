@@ -93,6 +93,14 @@ export const queryKeys = {
     trend: (storeId: string, productVariantId: string, windowDays: number, granularity: string) =>
       ['stores', storeId, 'price-analytics', productVariantId, windowDays, granularity] as const,
   },
+  // Data exports: the free on-demand CSV and the paid schedule over it. Runs
+  // and schedules share the prefix so a schedule change refreshes its history.
+  dataExports: {
+    all: (storeId: string) => ['stores', storeId, 'data-exports'] as const,
+    schedules: (storeId: string) => ['stores', storeId, 'data-exports', 'schedules'] as const,
+    runs: (storeId: string, scheduleId: string = 'all') =>
+      ['stores', storeId, 'data-exports', 'runs', scheduleId] as const,
+  },
   // What the store pays Mercaria PER ORDER — a sibling of `plan`, which is a
   // recurring subscription the store chose; this is the marketplace fee applied
   // to every sale, which the store accepts rather than buys. Keyed on its own so accepting the terms invalidates the

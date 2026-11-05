@@ -640,6 +640,92 @@
     "subtitle": "ストアで購入した人",
     "walkIn": "ウォークイン顧客"
   },
+  "dataExports": {
+    "documentTitle": "データのエクスポート | Wholesale by Mercaria",
+    "title": "データのエクスポート",
+    "subtitle": "注文・商品・顧客を CSV ファイルで、必要なときにいつでも。すべてのプランで無料です。",
+    "datasets": {
+      "orders": "注文",
+      "products": "商品と在庫",
+      "customers": "顧客"
+    },
+    "status": {
+      "pending": "待機中",
+      "running": "準備中",
+      "succeeded": "完了",
+      "failed": "失敗",
+      "skippedLimit": "スキップ: 上限に達しました",
+      "skippedNotEntitled": "スキップ: プラン対象外"
+    },
+    "failure": {
+      "generationFailed": "ファイルを準備できませんでした",
+      "storageUnavailable": "ファイルを保存できませんでした"
+    },
+    "exportNow": "今すぐエクスポート",
+    "requested": "エクスポートを開始しました。準備ができると下に表示されます。",
+    "requestFailed": "エクスポートを開始できませんでした",
+    "retentionNote": "各ファイルは 30 日間ダウンロードできます。",
+    "scheduleLinkTitle": "定期エクスポート",
+    "scheduleLinkBody": "Mercaria のプランで、同じファイルを毎日・毎週・毎月受け取れます。",
+    "historyTitle": "最近のエクスポート",
+    "loadFailed": "エクスポートを読み込めませんでした",
+    "noRuns": "まだエクスポートはありません。",
+    "rows": "行数: %{rows}",
+    "truncated": "新しい順に 100,000 行",
+    "expired": "ファイルの期限切れ",
+    "triggerSchedule": "定期",
+    "triggerOnDemand": "手動",
+    "download": "ダウンロード",
+    "downloadFailed": "ファイルを開けませんでした。期限切れの場合はもう一度エクスポートしてください。"
+  },
+  "scheduledExports": {
+    "documentTitle": "定期エクスポート | Wholesale by Mercaria",
+    "title": "定期エクスポート",
+    "subtitle": "ストアのデータを CSV ファイルにして、スケジュールどおりに用意します",
+    "toolDescription": "注文・商品・顧客の CSV を毎日・毎週・毎月エクスポート",
+    "cadence": {
+      "daily": "毎日",
+      "weekly": "毎週",
+      "monthly": "毎月"
+    },
+    "summary": {
+      "daily": "毎日 %{at}（%{zone}）",
+      "weekly": "毎週%{day} %{at}（%{zone}）",
+      "monthly": "毎月 %{day} 日 %{at}（%{zone}）"
+    },
+    "newSchedule": "新しいスケジュール",
+    "newTitle": "新しいエクスポートスケジュール",
+    "editTitle": "エクスポートスケジュールを編集",
+    "datasetLabel": "データ",
+    "cadenceLabel": "頻度",
+    "weekdayLabel": "曜日",
+    "dayOfMonthLabel": "日付",
+    "hourLabel": "時刻",
+    "timeZoneLabel": "タイムゾーン",
+    "timeZoneRequired": "タイムゾーンを入力してください（例: Asia/Tokyo）",
+    "allowanceNote": "定期エクスポートは 1 回ごとに、請求期間中のプランのエクスポートを 1 回分使います。",
+    "nextRun": "次回のエクスポート: %{at}",
+    "pausedLabel": "一時停止中",
+    "enabledLabel": "スケジュールを有効にする",
+    "edit": "スケジュールを編集",
+    "delete": "スケジュールを削除",
+    "deleteTitle": "このスケジュールを削除しますか？",
+    "deleteBody": "このスケジュールではこれ以上ファイルが用意されません。用意済みのファイルは期限まで利用できます。",
+    "deleted": "スケジュールを削除しました",
+    "deleteFailed": "スケジュールを削除できませんでした",
+    "created": "スケジュールを作成しました",
+    "saved": "スケジュールを保存しました",
+    "paused": "スケジュールを一時停止しました",
+    "resumed": "スケジュールを再開しました",
+    "saveFailed": "スケジュールを保存できませんでした",
+    "refusedCapability": "定期エクスポートは現在のプランに含まれていません。スケジュールの一時停止や削除、手動エクスポートは引き続き無料でできます。",
+    "refusedLimit": "この請求期間に利用できる定期エクスポートは残っていません。",
+    "loadFailed": "スケジュールを読み込めませんでした",
+    "emptyTitle": "まだスケジュールはありません",
+    "emptyBody": "スケジュールを作成すると、注文・商品・顧客の CSV を自動で受け取れます。",
+    "historyTitle": "定期エクスポートの履歴",
+    "onDemandLink": "今すぐファイルが必要ですか？ 設定 → データのエクスポートから手動でエクスポートできます。すべてのプランで無料です。"
+  },
   "discounts": {
     "create": {
       "amountOffLabel": "割引額（⊜）",
@@ -1993,6 +2079,10 @@
       "tax": {
         "description": "税率と税の扱い",
         "label": "税金"
+      },
+      "exports": {
+        "label": "データのエクスポート",
+        "description": "注文・商品・顧客を CSV でダウンロード"
       }
     },
     "store": {

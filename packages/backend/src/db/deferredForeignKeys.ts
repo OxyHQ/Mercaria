@@ -2366,4 +2366,16 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       ' Polymorphic by entity_type; it names the row a takedown changed, which may since ' +
       'have been deleted.',
   },
+
+  // ── Store data exports (on demand, and the paid schedule) ─────────────────
+  { column: 'data_export_schedules.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'data_export_schedules.updated_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'data_export_runs.requested_by_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'data_export_runs.file_id',
+    reason:
+      OXY_FILE +
+      ' A PRIVATE file of the Mercaria application, registered as a `data_export_file` ' +
+      'reference while the run holds it and cleared at the end of its retention.',
+  },
 ];

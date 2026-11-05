@@ -463,6 +463,10 @@ describe('the registry the sweeper runs over', () => {
       // it is bounded by traffic, while every other one is bounded by the
       // catalogue and is the audit history a rights suspension must not delete.
       'catalog_source_rejections',
+      // A data export RUN, a year on: its file is released at 30 days by the
+      // export worker (the reference trigger withdraws it); the schedule a
+      // merchant configured is never swept.
+      'data_export_runs',
       // #63's THREE, and the split is the retention argument made visible: the
       // per-record ENTRIES expire first (30 days — a merchant downloads them
       // this week, and they are the only #63 table bounded by traffic), the

@@ -223,7 +223,8 @@ describe('the migrated schema', () => {
     // listing that exists.
     // #63's direct uploads add TWO — the upload session and the validation job,
     // both records that something ran, swept long before what they produced.
-    expect(EXPIRY_TARGETS).toHaveLength(38);
+    // Data exports add ONE — the run, a year on (its file goes at 30 days).
+    expect(EXPIRY_TARGETS).toHaveLength(39);
   });
 });
 

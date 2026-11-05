@@ -400,6 +400,9 @@ export * from './guestGovernance';
 // — two tables with no relation between them is how. It adds no column to any
 // table above it, which is what makes turning billing off a flag flip.
 export * from './merchantPlans';
+// Store data exports (on demand, and the paid schedule over them). References
+// only `./stores`; its file is an Oxy file, registered by the reference trigger.
+export * from './dataExports';
 // Channel onboarding and the channel audit trail (#87) are the last export,
 // downstream of `./connectors` (the connection a session creates), `./feedImport`
 // (the feed configuration a `product_feed` session creates) and `./merchants`

@@ -640,6 +640,92 @@
     "subtitle": "Menschen, die in Ihrem Shop kaufen",
     "walkIn": "Laufkundschaft"
   },
+  "dataExports": {
+    "documentTitle": "Daten exportieren | Wholesale by Mercaria",
+    "title": "Daten exportieren",
+    "subtitle": "Deine Bestellungen, Produkte und Kunden als CSV-Dateien, wann immer du sie brauchst. In jedem Tarif kostenlos.",
+    "datasets": {
+      "orders": "Bestellungen",
+      "products": "Produkte und Bestand",
+      "customers": "Kunden"
+    },
+    "status": {
+      "pending": "In Warteschlange",
+      "running": "Wird vorbereitet",
+      "succeeded": "Bereit",
+      "failed": "Fehlgeschlagen",
+      "skippedLimit": "Übersprungen: Kontingent aufgebraucht",
+      "skippedNotEntitled": "Übersprungen: nicht im Tarif"
+    },
+    "failure": {
+      "generationFailed": "Die Datei konnte nicht erstellt werden",
+      "storageUnavailable": "Die Datei konnte nicht gespeichert werden"
+    },
+    "exportNow": "Jetzt exportieren",
+    "requested": "Export gestartet. Er erscheint unten, sobald er bereit ist.",
+    "requestFailed": "Export konnte nicht gestartet werden",
+    "retentionNote": "Jede Datei kann 30 Tage lang heruntergeladen werden.",
+    "scheduleLinkTitle": "Geplante Exporte",
+    "scheduleLinkBody": "Erhalte dieselben Dateien täglich, wöchentlich oder monatlich mit einem Mercaria-Tarif.",
+    "historyTitle": "Letzte Exporte",
+    "loadFailed": "Exporte konnten nicht geladen werden",
+    "noRuns": "Noch keine Exporte.",
+    "rows": "Zeilen: %{rows}",
+    "truncated": "die neuesten 100.000 Zeilen",
+    "expired": "Datei abgelaufen",
+    "triggerSchedule": "Geplant",
+    "triggerOnDemand": "Auf Abruf",
+    "download": "Herunterladen",
+    "downloadFailed": "Die Datei konnte nicht geöffnet werden. Exportiere die Daten erneut, falls sie abgelaufen ist."
+  },
+  "scheduledExports": {
+    "documentTitle": "Geplante Exporte | Wholesale by Mercaria",
+    "title": "Geplante Exporte",
+    "subtitle": "CSV-Dateien mit deinen Shopdaten, nach Zeitplan für dich vorbereitet",
+    "toolDescription": "Tägliche, wöchentliche oder monatliche CSV-Exporte von Bestellungen, Produkten oder Kunden",
+    "cadence": {
+      "daily": "Täglich",
+      "weekly": "Wöchentlich",
+      "monthly": "Monatlich"
+    },
+    "summary": {
+      "daily": "Jeden Tag um %{at} (%{zone})",
+      "weekly": "Jeden %{day} um %{at} (%{zone})",
+      "monthly": "Am %{day}. jedes Monats um %{at} (%{zone})"
+    },
+    "newSchedule": "Neuer Zeitplan",
+    "newTitle": "Neuer Exportzeitplan",
+    "editTitle": "Exportzeitplan bearbeiten",
+    "datasetLabel": "Daten",
+    "cadenceLabel": "Wie oft",
+    "weekdayLabel": "Wochentag",
+    "dayOfMonthLabel": "Tag des Monats",
+    "hourLabel": "Uhrzeit",
+    "timeZoneLabel": "Zeitzone",
+    "timeZoneRequired": "Gib eine Zeitzone ein, zum Beispiel Europe/Berlin",
+    "allowanceNote": "Jeder geplante Export verbraucht einen Export deines Tarifs im Abrechnungszeitraum.",
+    "nextRun": "Nächster Export: %{at}",
+    "pausedLabel": "Pausiert",
+    "enabledLabel": "Zeitplan aktiv",
+    "edit": "Zeitplan bearbeiten",
+    "delete": "Zeitplan löschen",
+    "deleteTitle": "Diesen Zeitplan löschen?",
+    "deleteBody": "Nach diesem Zeitplan werden keine weiteren Dateien erstellt. Bereits erstellte Dateien bleiben bis zu ihrem Ablauf verfügbar.",
+    "deleted": "Zeitplan gelöscht",
+    "deleteFailed": "Zeitplan konnte nicht gelöscht werden",
+    "created": "Zeitplan erstellt",
+    "saved": "Zeitplan gespeichert",
+    "paused": "Zeitplan pausiert",
+    "resumed": "Zeitplan fortgesetzt",
+    "saveFailed": "Zeitplan konnte nicht gespeichert werden",
+    "refusedCapability": "Geplante Exporte sind nicht Teil deines aktuellen Tarifs. Du kannst Zeitpläne weiterhin pausieren oder löschen und kostenlos auf Abruf exportieren.",
+    "refusedLimit": "Dein Tarif hat in diesem Abrechnungszeitraum keine geplanten Exporte mehr übrig.",
+    "loadFailed": "Zeitpläne konnten nicht geladen werden",
+    "emptyTitle": "Noch keine Zeitpläne",
+    "emptyBody": "Erstelle einen Zeitplan, um automatisch eine CSV deiner Bestellungen, Produkte oder Kunden zu erhalten.",
+    "historyTitle": "Verlauf geplanter Exporte",
+    "onDemandLink": "Brauchst du sofort eine Datei? Exportiere deine Daten auf Abruf unter Einstellungen → Daten exportieren, in jedem Tarif kostenlos."
+  },
   "discounts": {
     "create": {
       "amountOffLabel": "Rabattbetrag (⊜)",
@@ -1994,6 +2080,10 @@
       "tax": {
         "description": "Steuersätze und Steuerverhalten",
         "label": "Steuern"
+      },
+      "exports": {
+        "label": "Daten exportieren",
+        "description": "Bestellungen, Produkte und Kunden als CSV herunterladen"
       }
     },
     "store": {

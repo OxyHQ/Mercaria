@@ -45,6 +45,9 @@ export const OXY_FILE_REFERENCE_ENTITY_TYPES = [
   // A merchant's or the platform's uploaded feed file, held while the upload
   // row lives (Mercaria application-owned, private).
   'feed_upload',
+  // A store's data export file (on demand or scheduled), held while the run's
+  // file is within its retention (Mercaria application-owned, private).
+  'data_export_file',
 ] as const;
 export type OxyFileReferenceEntityType = (typeof OXY_FILE_REFERENCE_ENTITY_TYPES)[number];
 

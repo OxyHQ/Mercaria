@@ -118,10 +118,12 @@ export const MERCHANT_CAPABILITY_CATALOG: Readonly<
     key: 'scheduled_exports',
     name: 'Scheduled exports',
     description:
-      'Recurring, scheduled exports and outbound integrations. A merchant may always export ' +
-      'their own data on demand — that is ungateable — so what this adds is the SCHEDULE.',
+      'Recurring CSV exports of the store’s orders, products or customers — daily, weekly or ' +
+      'monthly at a local hour — each kept downloadable for 30 days. Every scheduled run uses ' +
+      'one export from the billing period’s allowance. A merchant may always export the same ' +
+      'data on demand for free; what this adds is the SCHEDULE.',
     limitKind: 'per_period',
-    availability: 'postponed',
+    availability: 'available',
   },
   ai_catalog_assistance: {
     key: 'ai_catalog_assistance',

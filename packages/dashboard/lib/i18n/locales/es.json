@@ -652,6 +652,92 @@
     "subtitle": "Quienes compran en tu tienda",
     "walkIn": "Cliente ocasional"
   },
+  "dataExports": {
+    "documentTitle": "Exportar datos | Wholesale by Mercaria",
+    "title": "Exportar datos",
+    "subtitle": "Tus pedidos, productos y clientes en archivos CSV, cuando los necesites. Gratis en todos los planes.",
+    "datasets": {
+      "orders": "Pedidos",
+      "products": "Productos e inventario",
+      "customers": "Clientes"
+    },
+    "status": {
+      "pending": "En cola",
+      "running": "Preparando",
+      "succeeded": "Listo",
+      "failed": "Error",
+      "skippedLimit": "Omitida: cupo agotado",
+      "skippedNotEntitled": "Omitida: no incluida en el plan"
+    },
+    "failure": {
+      "generationFailed": "No se pudo preparar el archivo",
+      "storageUnavailable": "No se pudo guardar el archivo"
+    },
+    "exportNow": "Exportar ahora",
+    "requested": "Exportación iniciada. Aparecerá abajo cuando esté lista.",
+    "requestFailed": "No se pudo iniciar la exportación",
+    "retentionNote": "Cada archivo se puede descargar durante 30 días.",
+    "scheduleLinkTitle": "Exportaciones programadas",
+    "scheduleLinkBody": "Recibe los mismos archivos cada día, semana o mes con un plan de Mercaria.",
+    "historyTitle": "Exportaciones recientes",
+    "loadFailed": "No se pudieron cargar tus exportaciones",
+    "noRuns": "Todavía no hay exportaciones.",
+    "rows": "Filas: %{rows}",
+    "truncated": "las 100.000 filas más recientes",
+    "expired": "archivo caducado",
+    "triggerSchedule": "Programada",
+    "triggerOnDemand": "Bajo demanda",
+    "download": "Descargar",
+    "downloadFailed": "No se pudo abrir el archivo. Vuelve a exportar los datos si ha caducado."
+  },
+  "scheduledExports": {
+    "documentTitle": "Exportaciones programadas | Wholesale by Mercaria",
+    "title": "Exportaciones programadas",
+    "subtitle": "Archivos CSV con los datos de tu tienda, preparados según una programación",
+    "toolDescription": "Exportaciones CSV diarias, semanales o mensuales de pedidos, productos o clientes",
+    "cadence": {
+      "daily": "Diaria",
+      "weekly": "Semanal",
+      "monthly": "Mensual"
+    },
+    "summary": {
+      "daily": "Cada día a las %{at} (%{zone})",
+      "weekly": "Cada %{day} a las %{at} (%{zone})",
+      "monthly": "El día %{day} de cada mes a las %{at} (%{zone})"
+    },
+    "newSchedule": "Nueva programación",
+    "newTitle": "Nueva exportación programada",
+    "editTitle": "Editar exportación programada",
+    "datasetLabel": "Datos",
+    "cadenceLabel": "Frecuencia",
+    "weekdayLabel": "Día de la semana",
+    "dayOfMonthLabel": "Día del mes",
+    "hourLabel": "Hora",
+    "timeZoneLabel": "Zona horaria",
+    "timeZoneRequired": "Indica una zona horaria, por ejemplo Europe/Madrid",
+    "allowanceNote": "Cada exportación programada usa una exportación de tu plan en el periodo de facturación.",
+    "nextRun": "Próxima exportación: %{at}",
+    "pausedLabel": "En pausa",
+    "enabledLabel": "Programación activa",
+    "edit": "Editar programación",
+    "delete": "Eliminar programación",
+    "deleteTitle": "¿Eliminar esta programación?",
+    "deleteBody": "No se prepararán más archivos con esta programación. Los archivos ya preparados siguen disponibles hasta que caduquen.",
+    "deleted": "Programación eliminada",
+    "deleteFailed": "No se pudo eliminar la programación",
+    "created": "Programación creada",
+    "saved": "Programación guardada",
+    "paused": "Programación en pausa",
+    "resumed": "Programación reanudada",
+    "saveFailed": "No se pudo guardar la programación",
+    "refusedCapability": "Las exportaciones programadas no forman parte de tu plan actual. Puedes pausar o eliminar programaciones y exportar bajo demanda gratis.",
+    "refusedLimit": "Tu plan no tiene más exportaciones programadas en este periodo de facturación.",
+    "loadFailed": "No se pudieron cargar tus programaciones",
+    "emptyTitle": "Todavía no hay programaciones",
+    "emptyBody": "Crea una programación para recibir automáticamente un CSV de tus pedidos, productos o clientes.",
+    "historyTitle": "Historial de exportaciones programadas",
+    "onDemandLink": "¿Necesitas un archivo ahora? Exporta tus datos bajo demanda en Ajustes → Exportar datos, gratis en todos los planes."
+  },
   "discounts": {
     "create": {
       "amountOffLabel": "Importe de descuento (⊜)",
@@ -2014,6 +2100,10 @@
       "tax": {
         "description": "Tipos impositivos y comportamiento fiscal",
         "label": "Impuestos"
+      },
+      "exports": {
+        "label": "Exportar datos",
+        "description": "Descarga tus pedidos, productos y clientes en CSV"
       }
     },
     "store": {
