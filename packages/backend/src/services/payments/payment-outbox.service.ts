@@ -193,17 +193,12 @@ export function refundUnmatchedEventId(provider: string, providerRefundId: strin
 }
 
 /**
- * `payment:transfer_changed:<transferId>:<status>`.
+ * `payment:payout_changed:<payoutId>:<status>`.
  *
- * The STATUS is in the id: a transfer moves through several of them and each
- * change is its own event. Keying on the transfer alone would announce it once
+ * The STATUS is in the id: a payout moves through several of them and each
+ * change is its own event. Keying on the payout alone would announce it once
  * and never again.
  */
-export function transferChangedEventId(transferId: string, status: string): string {
-  return `payment:transfer_changed:${transferId}:${status}`;
-}
-
-/** `payment:payout_changed:<payoutId>:<status>` — same reasoning as transfers. */
 export function payoutChangedEventId(payoutId: string, status: string): string {
   return `payment:payout_changed:${payoutId}:${status}`;
 }

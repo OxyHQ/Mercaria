@@ -784,7 +784,6 @@ export type PaymentOutboxEventType =
   | 'payment_succeeded_after_release'
   | 'payment_refunded'
   | 'payment_disputed'
-  | 'transfer_changed'
   | 'transfer_withheld'
   | 'payout_changed'
   | 'provider_account_changed'
@@ -805,7 +804,6 @@ export const PAYMENT_OUTBOX_EVENT_TYPES: readonly PaymentOutboxEventType[] = [
   'transfer_withheld',
   'payment_refunded',
   'payment_disputed',
-  'transfer_changed',
   'payout_changed',
   'provider_account_changed',
   // #49's three, all exceptions — see the notes above.

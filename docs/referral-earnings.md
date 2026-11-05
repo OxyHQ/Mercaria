@@ -310,7 +310,8 @@ their ordinary lifecycle to payout.
   `provider_accounts` (and #344's risk facts) at boot, and leaves
   `payout-rail.port.ts` EMPTY: its only rail, a direct Stripe Connect transfer,
   was deleted with the direct Stripe rail (ADR 0009 D13, 2026-11-05), and no
-  Peable payout rail exists yet. The join sits OUTSIDE both walled domains,
+  Peable payout rail exists yet — the program is off in production and Peable
+  has no source-less payout to a connected account (see step 2 below). The join sits OUTSIDE both walled domains,
   because `reward-funding-isolation.test.ts` forbids this domain from reaching
   `services/payments/` and satisfying the join by importing across that wall
   would widen it to admit the reverse edge. A batch that failed
@@ -341,9 +342,13 @@ their ordinary lifecycle to payout.
 2. Register a payout rail (none exists since ADR 0009 D13; batches fail
    `rail_not_configured`, retryably), set `PEABLE_ENABLED` and onboard each
    partner to a payment-ready connected account. With no native rail every
-   partner's identity and payout readiness derives as `unknown`, which BLOCKS —
-   and a partner with no `provider_accounts` row (nothing writes a Peable one
-   yet) has no beneficiary to pay.
+   partner's identity and payout readiness derives as `unknown`, which BLOCKS.
+   A partner onboards exactly as a P2P seller does (`/seller/payments/*`, a
+   Peable connected account, `docs/payments.md` "Onboarding on Peable"). The
+   rail itself waits on Peable: `/v1/transfers` moves money out of one named
+   charge, and a reward is owed from commission across many, so it needs a
+   first-party payout funded from Mercaria's revenue (a Peable ADR 0015
+   decision) before `payout-rail.port.ts` can register one.
 3. Publish a payout minimum for every currency partners can earn in.
    `REFERRAL_PAYOUT_MINIMUM_MINOR_BY_CURRENCY` carries EUR only, and a currency
    without one blocks every batch.

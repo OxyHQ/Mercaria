@@ -125,13 +125,21 @@ end.** Removing the direct rail did not build these, and each is a gap before
 - ~~refund settlement figures~~ — **built**: Peable 3.1.0 reports what a refund
   took and what a dispute withdrew in the settlement currency (Peable ADR 0015
   "as built"); the adapter books the refund from it, and `PEABLE_REFUNDS_BOOK`
-  and its seven skipped cases are gone. `transfer_changed` keeps a handler and
-  no producer: Peable sends no transfer events, because a transfer and its
-  reversals are Mercaria's own calls, recorded from their answers;
-- a referral payout rail — the port is empty and batches fail
-  `rail_not_configured`, retryably;
-- a reconciliation of the gateway's settled movements (the deleted
-  `provider_objects` sweep had no Peable equivalent to read);
+  and its seven skipped cases are gone. `transfer_changed` is removed (migration
+  `0185`): Peable sends no transfer events, because a transfer and its reversals
+  are Mercaria's own calls, recorded from their answers;
+- a referral payout rail — **deliberately not built**: the program is off in
+  production (`REFERRALS_ENABLED` and `REFERRAL_PAYOUT_BATCHES_ENABLED` unset),
+  and Peable's `/v1/transfers` moves money out of one named charge while a
+  referral reward is owed from commission across many; built when the program
+  is switched on, after Peable adds a first-party payout funded from the
+  merchant's revenue (`docs/payments.md`);
+- a reconciliation of the gateway's settled movements — **not buildable on
+  Peable today**: Peable keeps a ledger only for a merchant's own connected
+  account (Peable ADR 0015) and Mercaria's charges are platform charges, so
+  there is no ledger of its movements to compare against; transfers, reversals
+  and refunds are recorded from Peable's answers under durable keys and the
+  events are re-read instead (`docs/payments.md`);
 - D18's three real-world checks.
 
 `external` and `manual_pos` are untouched: they are payments Mercaria RECORDS

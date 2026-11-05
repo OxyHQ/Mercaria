@@ -544,23 +544,6 @@ async function handlePaymentDisputed(event: PaymentOutboxRow): Promise<void> {
 }
 
 /**
- * A transfer moved — created, updated or reversed at the rail.
- *
- * The seller-facing half of settlement health. It changes nothing: the transfer
- * row was already refreshed by the handler that observed the event, because that
- * is a compare-and-swap on an observation rather than work, and doing it here
- * instead would put a provider read behind a retry queue for no gain.
- */
-async function handleTransferChanged(event: PaymentOutboxRow): Promise<void> {
-  const { transferId, paymentId, orderId, status, amountMinor, currency } = readPayload(event);
-  log.general.info(
-    { eventId: event.id, transferId, paymentId, orderId, status, amountMinor, currency },
-    '[Payments] a seller transfer changed state',
-  );
-  return await Promise.resolve();
-}
-
-/**
  * A payout moved — the rail paying a seller's own balance out to their bank.
  *
  * Mercaria is not a party to it (ADR 0001 D6), so this books nothing and
@@ -698,8 +681,6 @@ export async function runPaymentOutboxEvent(event: PaymentOutboxRow): Promise<vo
       return await handlePaymentRefunded(event);
     case 'payment_disputed':
       return await handlePaymentDisputed(event);
-    case 'transfer_changed':
-      return await handleTransferChanged(event);
     case 'payout_changed':
       return await handlePayoutChanged(event);
     case 'refund_failed':

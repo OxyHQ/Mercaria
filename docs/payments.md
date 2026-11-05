@@ -38,10 +38,30 @@ take a buyer's money (ADR 0009 D13):
   and disputes DO book what Peable reports in the settlement currency (below),
   which agrees only while the charge settled in the currency it was made in —
   see "The settlement currency" under the Peable ingress.
-- **No reconciliation of the gateway's settled movements.** The deleted
-  `provider_objects` sweep had nothing on Peable to read.
-- **No referral payout rail.** The payout-rail port is empty and batches fail
-  `rail_not_configured`, retryably (`docs/referral-earnings.md`).
+- **No reconciliation of the gateway's settled movements, by construction.** The
+  deleted `provider_objects` sweep compared the acquirer's balance transactions
+  with Mercaria's transfers, refunds and disputes. Peable keeps a ledger only for
+  a merchant's OWN connected account (Peable ADR 0015: `GET
+  /v1/balance_transactions` answers 404 `account_missing` without one), and
+  Mercaria's charges are platform charges on Oxy Platforms' account, so there is
+  no Peable ledger of Mercaria's movements to compare against. What converges
+  instead: every transfer, reversal and refund is recorded from Peable's own
+  answer under a durable key, `refund.*`, `payout.*` and `charge.dispute.*`
+  re-read on delivery, and `open_payments` re-reads statuses. It is built when
+  Peable exposes a first-party merchant's settled movements (its platform
+  charges' balance transactions), or when Mercaria stops being a first-party
+  platform charge.
+- **No referral payout rail, and the program is off.** The payout-rail port is
+  empty and batches fail `rail_not_configured`, retryably
+  (`docs/referral-earnings.md`). Production sets neither `REFERRALS_ENABLED` nor
+  `REFERRAL_PAYOUT_BATCHES_ENABLED` (task definition `oxy-mercaria:165`,
+  2026-11-05), so nothing is owed through it today. A Peable rail also needs a
+  primitive Peable does not have: `/v1/transfers` moves money out of ONE named
+  charge (`payment_intent`, the `source_transaction`), while a referral reward
+  is owed from Mercaria's commission across many. It is built when the program
+  is switched on, after Peable adds a first-party payout to a connected account
+  funded from the merchant's revenue (a Peable ADR 0015 decision); partners then
+  onboard exactly as sellers do.
 - **ADR 0009 D18's three real-world checks** have not been run.
 
 ---
@@ -367,12 +387,11 @@ column names so the two claim queries are the same query.
 An event type this version does not handle THROWS rather than completing as if
 handled, so during a rolling deploy the task running the newer code claims it.
 Every declared type has a handler, so that branch is reachable only by a row a
-NEWER image wrote — which is exactly the case it exists for. Two declared types
-have a handler and no producer on the current rail: `payment_disputed` (until the
-router handles `charge.dispute.*`) and `transfer_changed`, whose producer was the
-deleted Stripe router's `transfer.*` handler — Peable sends no transfer events,
-because a transfer and its reversals are Mercaria's own calls, recorded from
-their answers.
+NEWER image wrote — which is exactly the case it exists for. Every declared type
+also has a producer on the Peable rail. `transfer_changed` is gone (migration
+`0185`): its only producer was the deleted Stripe router's `transfer.*` handler,
+and Peable sends no transfer events — a transfer and its reversals are
+Mercaria's own calls, recorded from their answers.
 
 ---
 
