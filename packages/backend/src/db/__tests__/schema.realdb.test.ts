@@ -224,7 +224,9 @@ describe('the migrated schema', () => {
     // #63's direct uploads add TWO — the upload session and the validation job,
     // both records that something ran, swept long before what they produced.
     // Data exports add ONE — the run, a year on (its file goes at 30 days).
-    expect(EXPIRY_TARGETS).toHaveLength(39);
+    // #89's automation rules add ONE — the run history — and leave the rule and
+    // a stock rule's open episode unswept.
+    expect(EXPIRY_TARGETS).toHaveLength(40);
   });
 });
 

@@ -2381,5 +2381,89 @@
       "empty": "No hay ventas en caja en este periodo.",
       "sales": "Ventas: %{count}"
     }
+  },
+  "automations": {
+    "title": "Automatizaciones",
+    "documentTitle": "Automatizaciones | Wholesale by Mercaria",
+    "subtitle": "Reglas que cuidan de tu catálogo y tus pedidos por ti",
+    "toolDescription": "Pausa los anuncios agotados, entérate del stock bajo o de los pedidos grandes y marca como en preparación los pedidos pagados.",
+    "new": "Nueva regla",
+    "timing": "Las reglas se comprueban aproximadamente una vez por minuto.",
+    "loadError": "No se han podido cargar tus reglas",
+    "empty": {
+      "title": "Todavía no hay reglas",
+      "body": "Crea una regla para pausar los anuncios agotados, enterarte del stock bajo o marcar como en preparación los pedidos pagados."
+    },
+    "trigger": {
+      "stock": "Cuando el stock de un anuncio baje a %{threshold}",
+      "orderPaid": "Cuando se pague un pedido",
+      "orderPaidMin": "Cuando se pague un pedido de al menos %{amount}"
+    },
+    "action": {
+      "notifyOwner": "avisar al propietario de la tienda",
+      "pauseListing": "pausar el anuncio",
+      "markOrderProcessing": "marcarlo como en preparación"
+    },
+    "ruleSummary": "%{trigger}, %{action}",
+    "tagScope": "Solo artículos con la etiqueta «%{tag}»",
+    "republishNote": "Vuelve a poner el anuncio a la venta cuando se reponga",
+    "enabledLabel": "Regla activada",
+    "edit": "Editar regla",
+    "delete": "Eliminar regla",
+    "deleteConfirmTitle": "¿Eliminar esta regla?",
+    "deleteConfirmBody": "Los anuncios que pausó esta regla seguirán pausados hasta que los publiques. Al eliminarla liberas una regla de tu plan.",
+    "deleted": "Regla eliminada",
+    "deleteError": "No se ha podido eliminar la regla",
+    "updateError": "No se ha podido actualizar la regla",
+    "limitReached": "Has usado todas las reglas que incluye tu plan. Elimina una regla o consulta los planes para tener más.",
+    "notIncluded": "Tu plan no incluye reglas de automatización.",
+    "lapsed": {
+      "title": "Tus reglas",
+      "body": "Estas reglas se conservan, pero no se ejecutan sin un plan que incluya automatizaciones. Puedes desactivarlas o eliminarlas."
+    },
+    "deletedRule": "Regla eliminada",
+    "history": {
+      "title": "Actividad reciente",
+      "empty": "Todavía no se ha ejecutado nada.",
+      "loadError": "No se ha podido cargar la actividad",
+      "row": "%{rule} · %{step}"
+    },
+    "step": {
+      "notifyOwner": "Propietario avisado",
+      "pauseListing": "Anuncio pausado",
+      "republishListing": "Anuncio de nuevo a la venta",
+      "markOrderProcessing": "Pedido marcado como en preparación"
+    },
+    "outcome": {
+      "succeeded": "Hecho",
+      "skipped": "Omitido",
+      "failed": "Error"
+    },
+    "form": {
+      "createTitle": "Nueva regla",
+      "editTitle": "Editar regla",
+      "name": "Nombre",
+      "namePlaceholder": "Pausar anuncios agotados",
+      "nameRequired": "Ponle un nombre a la regla",
+      "trigger": "Cuando",
+      "triggerStock": "El stock baja",
+      "triggerOrder": "Se paga un pedido",
+      "action": "Entonces",
+      "actionNotify": "Avisar al propietario",
+      "actionPause": "Pausar el anuncio",
+      "actionProcess": "Marcar en preparación",
+      "threshold": "Stock igual o inferior a (unidades)",
+      "thresholdInvalid": "Introduce un número entero de unidades, 0 o más",
+      "minTotal": "Importe mínimo del pedido en %{currency} (opcional)",
+      "minTotalInvalid": "Introduce un importe válido",
+      "tag": "Solo artículos con esta etiqueta (opcional)",
+      "tagPlaceholder": "temporada",
+      "republish": "Volver a ponerlo a la venta cuando se reponga",
+      "pauseHint": "Solo se pausan los anuncios activos, y un anuncio en revisión nunca se toca.",
+      "processHint": "Solo se mueven los pedidos con envío estándar o exprés, y nunca un pedido retenido para revisión.",
+      "created": "Regla creada",
+      "saved": "Regla guardada",
+      "error": "No se ha podido guardar la regla"
+    }
   }
 }

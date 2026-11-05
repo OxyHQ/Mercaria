@@ -1,4 +1,4 @@
-import { CalendarClock, Calculator, Scale, TrendingUp, type LucideIcon } from 'lucide-react-native';
+import { Calculator, CalendarClock, Scale, TrendingUp, Workflow, type LucideIcon } from 'lucide-react-native';
 import type { RoutePath } from 'expo-router';
 import type { MerchantEntitlementCapability, StorePermission } from '@mercaria/shared-types';
 
@@ -60,5 +60,16 @@ export const PLAN_TOOLS: readonly PlanTool[] = [
     icon: TrendingUp,
     href: '/tools/demand-analytics',
     permission: 'stats:read',
+  },
+  {
+    capability: 'automation_rules',
+    labelKey: 'automations.title',
+    descriptionKey: 'automations.toolDescription',
+    icon: Workflow,
+    href: '/tools/automations',
+    // What a rule does is catalogue work (pause, republish) or a notification;
+    // a rule that moves an order additionally needs `orders:fulfill`, which the
+    // server checks against the rule's action.
+    permission: 'products:write',
   },
 ];

@@ -90,9 +90,13 @@ export const MERCHANT_CAPABILITY_CATALOG: Readonly<
   automation_rules: {
     key: 'automation_rules',
     name: 'Automation rules',
-    description: 'Rule-driven automation of catalogue and order operations.',
+    description:
+      'Rules that act on your own catalogue and orders: when a listing’s stock falls to a ' +
+      'threshold, notify the store owner or pause the listing (and put it back on sale once ' +
+      'restocked); when an order is paid, notify the store owner or mark a shipped order ' +
+      'as processing. The limit is the number of rules a store has.',
     limitKind: 'total',
-    availability: 'postponed',
+    availability: 'available',
   },
   replenishment_planning: {
     key: 'replenishment_planning',

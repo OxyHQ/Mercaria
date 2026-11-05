@@ -2360,5 +2360,89 @@
       "empty": "Keine Kassenverkäufe in diesem Zeitraum.",
       "sales": "Verkäufe: %{count}"
     }
+  },
+  "automations": {
+    "title": "Automatisierungen",
+    "documentTitle": "Automatisierungen | Wholesale by Mercaria",
+    "subtitle": "Regeln, die sich um deinen Katalog und deine Bestellungen kümmern",
+    "toolDescription": "Ausverkaufte Angebote pausieren, über niedrigen Bestand oder große Bestellungen informiert werden und bezahlte Bestellungen als in Bearbeitung markieren.",
+    "new": "Neue Regel",
+    "timing": "Regeln werden etwa einmal pro Minute geprüft.",
+    "loadError": "Deine Regeln konnten nicht geladen werden",
+    "empty": {
+      "title": "Noch keine Regeln",
+      "body": "Erstelle eine Regel, um ausverkaufte Angebote zu pausieren, über niedrigen Bestand informiert zu werden oder bezahlte Bestellungen als in Bearbeitung zu markieren."
+    },
+    "trigger": {
+      "stock": "Wenn der Bestand eines Angebots auf %{threshold} fällt",
+      "orderPaid": "Wenn eine Bestellung bezahlt wird",
+      "orderPaidMin": "Wenn eine Bestellung über mindestens %{amount} bezahlt wird"
+    },
+    "action": {
+      "notifyOwner": "die Shop-Inhaberin oder den Shop-Inhaber benachrichtigen",
+      "pauseListing": "das Angebot pausieren",
+      "markOrderProcessing": "sie als in Bearbeitung markieren"
+    },
+    "ruleSummary": "%{trigger}: %{action}",
+    "tagScope": "Nur Artikel mit dem Tag „%{tag}“",
+    "republishNote": "Stellt das Angebot wieder online, sobald es nachgefüllt ist",
+    "enabledLabel": "Regel aktiv",
+    "edit": "Regel bearbeiten",
+    "delete": "Regel löschen",
+    "deleteConfirmTitle": "Diese Regel löschen?",
+    "deleteConfirmBody": "Angebote, die diese Regel pausiert hat, bleiben pausiert, bis du sie veröffentlichst. Das Löschen gibt eine Regel in deinem Tarif frei.",
+    "deleted": "Regel gelöscht",
+    "deleteError": "Die Regel konnte nicht gelöscht werden",
+    "updateError": "Die Regel konnte nicht aktualisiert werden",
+    "limitReached": "Du hast alle Regeln deines Tarifs genutzt. Lösche eine Regel oder sieh dir die Tarife für mehr an.",
+    "notIncluded": "Dein Tarif enthält keine Automatisierungsregeln.",
+    "lapsed": {
+      "title": "Deine Regeln",
+      "body": "Diese Regeln bleiben erhalten, laufen aber ohne einen Tarif mit Automatisierungen nicht. Du kannst sie ausschalten oder löschen."
+    },
+    "deletedRule": "Gelöschte Regel",
+    "history": {
+      "title": "Letzte Aktivität",
+      "empty": "Bisher ist nichts gelaufen.",
+      "loadError": "Die Aktivität konnte nicht geladen werden",
+      "row": "%{rule} · %{step}"
+    },
+    "step": {
+      "notifyOwner": "Inhaber benachrichtigt",
+      "pauseListing": "Angebot pausiert",
+      "republishListing": "Angebot wieder online",
+      "markOrderProcessing": "Bestellung als in Bearbeitung markiert"
+    },
+    "outcome": {
+      "succeeded": "Erledigt",
+      "skipped": "Übersprungen",
+      "failed": "Fehlgeschlagen"
+    },
+    "form": {
+      "createTitle": "Neue Regel",
+      "editTitle": "Regel bearbeiten",
+      "name": "Name",
+      "namePlaceholder": "Ausverkaufte Angebote pausieren",
+      "nameRequired": "Gib der Regel einen Namen",
+      "trigger": "Wenn",
+      "triggerStock": "Bestand wird knapp",
+      "triggerOrder": "Eine Bestellung wird bezahlt",
+      "action": "Dann",
+      "actionNotify": "Inhaber benachrichtigen",
+      "actionPause": "Angebot pausieren",
+      "actionProcess": "In Bearbeitung setzen",
+      "threshold": "Bestand höchstens (Stück)",
+      "thresholdInvalid": "Gib eine ganze Stückzahl ab 0 ein",
+      "minTotal": "Mindestbestellwert in %{currency} (optional)",
+      "minTotalInvalid": "Gib einen gültigen Betrag ein",
+      "tag": "Nur Artikel mit diesem Tag (optional)",
+      "tagPlaceholder": "saisonal",
+      "republish": "Wieder online stellen, wenn nachgefüllt",
+      "pauseHint": "Nur aktive Angebote werden pausiert, und ein Angebot in Prüfung wird nie angefasst.",
+      "processHint": "Nur Bestellungen mit Standard- oder Expressversand werden verschoben, eine zur Prüfung zurückgehaltene Bestellung nie.",
+      "created": "Regel erstellt",
+      "saved": "Regel gespeichert",
+      "error": "Die Regel konnte nicht gespeichert werden"
+    }
   }
 }

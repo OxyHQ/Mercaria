@@ -927,3 +927,8 @@ export * from './oxy-file-references';
 
 export { formatMoney } from './money-format';
 export { isolateBidi } from './bidi';
+// Automation rules, the `automation_rules` paid capability (#89). Downstream of
+// `./money` only: a rule's actions are carried out by the catalogue and order
+// services that already exist, so this module names what a rule IS and owns no
+// vocabulary of the listing or order it acts on.
+export * from './automation-rule';

@@ -2381,5 +2381,89 @@
       "empty": "Nenhuma venda no caixa neste período.",
       "sales": "Vendas: %{count}"
     }
+  },
+  "automations": {
+    "title": "Automações",
+    "documentTitle": "Automações | Wholesale by Mercaria",
+    "subtitle": "Regras que cuidam do seu catálogo e dos seus pedidos por você",
+    "toolDescription": "Pause anúncios esgotados, fique sabendo de estoque baixo ou de pedidos grandes e marque pedidos pagos como em preparação.",
+    "new": "Nova regra",
+    "timing": "As regras são verificadas cerca de uma vez por minuto.",
+    "loadError": "Não foi possível carregar suas regras",
+    "empty": {
+      "title": "Ainda não há regras",
+      "body": "Crie uma regra para pausar anúncios esgotados, saber de estoque baixo ou marcar pedidos pagos como em preparação."
+    },
+    "trigger": {
+      "stock": "Quando o estoque de um anúncio cair para %{threshold}",
+      "orderPaid": "Quando um pedido for pago",
+      "orderPaidMin": "Quando um pedido de pelo menos %{amount} for pago"
+    },
+    "action": {
+      "notifyOwner": "avisar o proprietário da loja",
+      "pauseListing": "pausar o anúncio",
+      "markOrderProcessing": "marcá-lo como em preparação"
+    },
+    "ruleSummary": "%{trigger}, %{action}",
+    "tagScope": "Somente itens com a tag “%{tag}”",
+    "republishNote": "Coloca o anúncio à venda de novo quando for reabastecido",
+    "enabledLabel": "Regra ativada",
+    "edit": "Editar regra",
+    "delete": "Excluir regra",
+    "deleteConfirmTitle": "Excluir esta regra?",
+    "deleteConfirmBody": "Os anúncios que esta regra pausou continuam pausados até você publicá-los. Excluir libera uma regra do seu plano.",
+    "deleted": "Regra excluída",
+    "deleteError": "Não foi possível excluir a regra",
+    "updateError": "Não foi possível atualizar a regra",
+    "limitReached": "Você usou todas as regras que seu plano inclui. Exclua uma regra ou veja os planos para ter mais.",
+    "notIncluded": "Seu plano não inclui regras de automação.",
+    "lapsed": {
+      "title": "Suas regras",
+      "body": "Estas regras são mantidas, mas não são executadas sem um plano que inclua automações. Você pode desativá-las ou excluí-las."
+    },
+    "deletedRule": "Regra excluída",
+    "history": {
+      "title": "Atividade recente",
+      "empty": "Nada foi executado ainda.",
+      "loadError": "Não foi possível carregar a atividade",
+      "row": "%{rule} · %{step}"
+    },
+    "step": {
+      "notifyOwner": "Proprietário avisado",
+      "pauseListing": "Anúncio pausado",
+      "republishListing": "Anúncio à venda de novo",
+      "markOrderProcessing": "Pedido marcado como em preparação"
+    },
+    "outcome": {
+      "succeeded": "Concluído",
+      "skipped": "Ignorado",
+      "failed": "Falhou"
+    },
+    "form": {
+      "createTitle": "Nova regra",
+      "editTitle": "Editar regra",
+      "name": "Nome",
+      "namePlaceholder": "Pausar anúncios esgotados",
+      "nameRequired": "Dê um nome à regra",
+      "trigger": "Quando",
+      "triggerStock": "O estoque fica baixo",
+      "triggerOrder": "Um pedido é pago",
+      "action": "Então",
+      "actionNotify": "Avisar o proprietário",
+      "actionPause": "Pausar o anúncio",
+      "actionProcess": "Marcar em preparação",
+      "threshold": "Estoque igual ou abaixo de (unidades)",
+      "thresholdInvalid": "Informe um número inteiro de unidades, 0 ou mais",
+      "minTotal": "Valor mínimo do pedido em %{currency} (opcional)",
+      "minTotalInvalid": "Informe um valor válido",
+      "tag": "Somente itens com esta tag (opcional)",
+      "tagPlaceholder": "sazonal",
+      "republish": "Colocar à venda de novo quando reabastecido",
+      "pauseHint": "Somente anúncios ativos são pausados, e um anúncio em análise nunca é alterado.",
+      "processHint": "Somente pedidos com envio padrão ou expresso são movidos, e nunca um pedido retido para análise.",
+      "created": "Regra criada",
+      "saved": "Regra salva",
+      "error": "Não foi possível salvar a regra"
+    }
   }
 }

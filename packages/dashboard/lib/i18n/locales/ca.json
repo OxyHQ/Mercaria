@@ -2381,5 +2381,89 @@
       "empty": "No hi ha vendes en caixa en aquest període.",
       "sales": "Vendes: %{count}"
     }
+  },
+  "automations": {
+    "title": "Automatitzacions",
+    "documentTitle": "Automatitzacions | Wholesale by Mercaria",
+    "subtitle": "Regles que tenen cura del teu catàleg i de les teves comandes per tu",
+    "toolDescription": "Posa en pausa els anuncis esgotats, assabenta't de l'estoc baix o de les comandes grans i marca com a en preparació les comandes pagades.",
+    "new": "Nova regla",
+    "timing": "Les regles es comproven aproximadament un cop per minut.",
+    "loadError": "No s'han pogut carregar les teves regles",
+    "empty": {
+      "title": "Encara no hi ha regles",
+      "body": "Crea una regla per posar en pausa els anuncis esgotats, assabentar-te de l'estoc baix o marcar com a en preparació les comandes pagades."
+    },
+    "trigger": {
+      "stock": "Quan l'estoc d'un anunci baixi a %{threshold}",
+      "orderPaid": "Quan es pagui una comanda",
+      "orderPaidMin": "Quan es pagui una comanda d'almenys %{amount}"
+    },
+    "action": {
+      "notifyOwner": "avisar el propietari de la botiga",
+      "pauseListing": "posar l'anunci en pausa",
+      "markOrderProcessing": "marcar-la com a en preparació"
+    },
+    "ruleSummary": "%{trigger}, %{action}",
+    "tagScope": "Només articles amb l'etiqueta «%{tag}»",
+    "republishNote": "Torna a posar l'anunci a la venda quan es reposi",
+    "enabledLabel": "Regla activada",
+    "edit": "Edita la regla",
+    "delete": "Elimina la regla",
+    "deleteConfirmTitle": "Vols eliminar aquesta regla?",
+    "deleteConfirmBody": "Els anuncis que aquesta regla ha posat en pausa continuaran en pausa fins que els publiquis. En eliminar-la alliberes una regla del teu pla.",
+    "deleted": "Regla eliminada",
+    "deleteError": "No s'ha pogut eliminar la regla",
+    "updateError": "No s'ha pogut actualitzar la regla",
+    "limitReached": "Has fet servir totes les regles que inclou el teu pla. Elimina una regla o consulta els plans per tenir-ne més.",
+    "notIncluded": "El teu pla no inclou regles d'automatització.",
+    "lapsed": {
+      "title": "Les teves regles",
+      "body": "Aquestes regles es conserven, però no s'executen sense un pla que inclogui automatitzacions. Les pots desactivar o eliminar."
+    },
+    "deletedRule": "Regla eliminada",
+    "history": {
+      "title": "Activitat recent",
+      "empty": "Encara no s'ha executat res.",
+      "loadError": "No s'ha pogut carregar l'activitat",
+      "row": "%{rule} · %{step}"
+    },
+    "step": {
+      "notifyOwner": "Propietari avisat",
+      "pauseListing": "Anunci en pausa",
+      "republishListing": "Anunci de nou a la venda",
+      "markOrderProcessing": "Comanda marcada com a en preparació"
+    },
+    "outcome": {
+      "succeeded": "Fet",
+      "skipped": "Omès",
+      "failed": "Error"
+    },
+    "form": {
+      "createTitle": "Nova regla",
+      "editTitle": "Edita la regla",
+      "name": "Nom",
+      "namePlaceholder": "Posar en pausa els anuncis esgotats",
+      "nameRequired": "Posa un nom a la regla",
+      "trigger": "Quan",
+      "triggerStock": "L'estoc baixa",
+      "triggerOrder": "Es paga una comanda",
+      "action": "Llavors",
+      "actionNotify": "Avisar el propietari",
+      "actionPause": "Posar l'anunci en pausa",
+      "actionProcess": "Marcar en preparació",
+      "threshold": "Estoc igual o inferior a (unitats)",
+      "thresholdInvalid": "Introdueix un nombre enter d'unitats, 0 o més",
+      "minTotal": "Import mínim de la comanda en %{currency} (opcional)",
+      "minTotalInvalid": "Introdueix un import vàlid",
+      "tag": "Només articles amb aquesta etiqueta (opcional)",
+      "tagPlaceholder": "temporada",
+      "republish": "Tornar-lo a posar a la venda quan es reposi",
+      "pauseHint": "Només es posen en pausa els anuncis actius, i mai no es toca un anunci en revisió.",
+      "processHint": "Només es mouen les comandes amb enviament estàndard o exprés, i mai una comanda retinguda per a revisió.",
+      "created": "Regla creada",
+      "saved": "Regla desada",
+      "error": "No s'ha pogut desar la regla"
+    }
   }
 }

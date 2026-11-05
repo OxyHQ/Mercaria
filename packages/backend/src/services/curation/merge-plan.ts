@@ -2142,6 +2142,11 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
     reason: BARE_CENSUS_OWNS_IT,
   },
   {
+    table: 'automation_rule_runs',
+    disposition: 'not_an_entity_reference',
+    reason: POLYMORPHIC_OUTSIDE_THE_SEVEN,
+  },
+  {
     table: 'automotive_fitments',
     disposition: 'not_an_entity_reference',
     reason:

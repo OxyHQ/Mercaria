@@ -39,6 +39,7 @@ import feesRouter from './fees.js';
 import merchantActivationRouter from './merchant-activation.js';
 import referralPartnerRouter from './referral-partner.js';
 import planRouter from './plan.js';
+import automationsRouter from './automations.js';
 import analyticsRouter from './analytics.js';
 import priceAnalyticsRouter from './price-benchmark.js';
 import dataExportsRouter from './data-exports.js';
@@ -150,6 +151,9 @@ if (config.referrals.partnerEnrollmentEnabled) {
 // two versioned policies with different lifecycles, and no plan selects a fee
 // schedule — which is easier to keep true when the two surfaces are separate.
 router.use('/:storeId/plan', planRouter);
+// Automation rules (#89, `automation_rules`): the paid tool's own surface.
+// Mounted unconditionally — reading and deleting one's own rules is never gated.
+router.use('/:storeId/automations', automationsRouter);
 // The product-feed importer (#63), behind `channels:write` — a feed is a sales
 // channel's inventory arriving by file, which is the same permission connecting
 // a Shopify shop needs. Deliberately NOT under `/channels`: a connector pushes

@@ -2359,5 +2359,89 @@
       "empty": "この期間のレジ売上はありません。",
       "sales": "売上件数: %{count}"
     }
+  },
+  "automations": {
+    "title": "自動化",
+    "documentTitle": "自動化 | Wholesale by Mercaria",
+    "subtitle": "カタログと注文を代わりに管理するルール",
+    "toolDescription": "売り切れた出品を一時停止し、在庫の減少や大口注文を知らせ、支払い済みの注文を処理中にします。",
+    "new": "新しいルール",
+    "timing": "ルールは約 1 分ごとに確認されます。",
+    "loadError": "ルールを読み込めませんでした",
+    "empty": {
+      "title": "まだルールはありません",
+      "body": "売り切れた出品の一時停止、在庫減少の通知、支払い済み注文の処理中への変更を行うルールを作成しましょう。"
+    },
+    "trigger": {
+      "stock": "出品の在庫が %{threshold} 以下になったら",
+      "orderPaid": "注文が支払われたら",
+      "orderPaidMin": "%{amount} 以上の注文が支払われたら"
+    },
+    "action": {
+      "notifyOwner": "ストアのオーナーに通知",
+      "pauseListing": "出品を一時停止",
+      "markOrderProcessing": "処理中にする"
+    },
+    "ruleSummary": "%{trigger}、%{action}",
+    "tagScope": "タグ「%{tag}」の商品のみ",
+    "republishNote": "在庫が補充されると出品を販売に戻します",
+    "enabledLabel": "ルールをオン",
+    "edit": "ルールを編集",
+    "delete": "ルールを削除",
+    "deleteConfirmTitle": "このルールを削除しますか？",
+    "deleteConfirmBody": "このルールが一時停止した出品は、公開するまで一時停止のままです。削除するとプランのルール枠が 1 つ空きます。",
+    "deleted": "ルールを削除しました",
+    "deleteError": "ルールを削除できませんでした",
+    "updateError": "ルールを更新できませんでした",
+    "limitReached": "プランに含まれるルールをすべて使用しています。ルールを削除するか、プランを確認してください。",
+    "notIncluded": "ご利用のプランには自動化ルールが含まれていません。",
+    "lapsed": {
+      "title": "あなたのルール",
+      "body": "これらのルールは保持されますが、自動化を含むプランがないと実行されません。オフにするか削除できます。"
+    },
+    "deletedRule": "削除されたルール",
+    "history": {
+      "title": "最近のアクティビティ",
+      "empty": "まだ何も実行されていません。",
+      "loadError": "アクティビティを読み込めませんでした",
+      "row": "%{rule} · %{step}"
+    },
+    "step": {
+      "notifyOwner": "オーナーに通知しました",
+      "pauseListing": "出品を一時停止しました",
+      "republishListing": "出品を販売に戻しました",
+      "markOrderProcessing": "注文を処理中にしました"
+    },
+    "outcome": {
+      "succeeded": "完了",
+      "skipped": "スキップ",
+      "failed": "失敗"
+    },
+    "form": {
+      "createTitle": "新しいルール",
+      "editTitle": "ルールを編集",
+      "name": "名前",
+      "namePlaceholder": "売り切れた出品を一時停止",
+      "nameRequired": "ルールに名前を付けてください",
+      "trigger": "条件",
+      "triggerStock": "在庫が少なくなった",
+      "triggerOrder": "注文が支払われた",
+      "action": "アクション",
+      "actionNotify": "オーナーに通知",
+      "actionPause": "出品を一時停止",
+      "actionProcess": "処理中にする",
+      "threshold": "在庫がこの数以下（個）",
+      "thresholdInvalid": "0 以上の整数を入力してください",
+      "minTotal": "最低注文金額（%{currency}、任意）",
+      "minTotalInvalid": "有効な金額を入力してください",
+      "tag": "このタグの商品のみ（任意）",
+      "tagPlaceholder": "季節",
+      "republish": "補充されたら販売に戻す",
+      "pauseHint": "一時停止されるのは公開中の出品のみで、審査中の出品には一切触れません。",
+      "processHint": "移動するのは通常配送と速達の注文のみで、審査のため保留中の注文は対象外です。",
+      "created": "ルールを作成しました",
+      "saved": "ルールを保存しました",
+      "error": "ルールを保存できませんでした"
+    }
   }
 }

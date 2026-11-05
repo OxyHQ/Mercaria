@@ -2381,5 +2381,89 @@
       "empty": "Aucune vente en caisse sur cette période.",
       "sales": "Ventes : %{count}"
     }
+  },
+  "automations": {
+    "title": "Automatisations",
+    "documentTitle": "Automatisations | Wholesale by Mercaria",
+    "subtitle": "Des règles qui s'occupent de votre catalogue et de vos commandes à votre place",
+    "toolDescription": "Mettez en pause les annonces épuisées, soyez prévenu d'un stock bas ou d'une grosse commande, et passez les commandes payées en préparation.",
+    "new": "Nouvelle règle",
+    "timing": "Les règles sont vérifiées environ une fois par minute.",
+    "loadError": "Impossible de charger vos règles",
+    "empty": {
+      "title": "Aucune règle pour l'instant",
+      "body": "Créez une règle pour mettre en pause les annonces épuisées, être prévenu d'un stock bas ou passer les commandes payées en préparation."
+    },
+    "trigger": {
+      "stock": "Quand le stock d'une annonce descend à %{threshold}",
+      "orderPaid": "Quand une commande est payée",
+      "orderPaidMin": "Quand une commande d'au moins %{amount} est payée"
+    },
+    "action": {
+      "notifyOwner": "prévenir le propriétaire de la boutique",
+      "pauseListing": "mettre l'annonce en pause",
+      "markOrderProcessing": "la passer en préparation"
+    },
+    "ruleSummary": "%{trigger}, %{action}",
+    "tagScope": "Uniquement les articles avec l'étiquette « %{tag} »",
+    "republishNote": "Remet l'annonce en vente une fois réapprovisionnée",
+    "enabledLabel": "Règle activée",
+    "edit": "Modifier la règle",
+    "delete": "Supprimer la règle",
+    "deleteConfirmTitle": "Supprimer cette règle ?",
+    "deleteConfirmBody": "Les annonces mises en pause par cette règle le restent jusqu'à ce que vous les publiiez. La supprimer libère une règle de votre offre.",
+    "deleted": "Règle supprimée",
+    "deleteError": "Impossible de supprimer la règle",
+    "updateError": "Impossible de mettre à jour la règle",
+    "limitReached": "Vous avez utilisé toutes les règles de votre offre. Supprimez une règle ou consultez les offres pour en avoir plus.",
+    "notIncluded": "Votre offre n'inclut pas les règles d'automatisation.",
+    "lapsed": {
+      "title": "Vos règles",
+      "body": "Ces règles sont conservées, mais elles ne s'exécutent pas sans une offre qui inclut les automatisations. Vous pouvez les désactiver ou les supprimer."
+    },
+    "deletedRule": "Règle supprimée",
+    "history": {
+      "title": "Activité récente",
+      "empty": "Rien ne s'est encore exécuté.",
+      "loadError": "Impossible de charger l'activité",
+      "row": "%{rule} · %{step}"
+    },
+    "step": {
+      "notifyOwner": "Propriétaire prévenu",
+      "pauseListing": "Annonce mise en pause",
+      "republishListing": "Annonce remise en vente",
+      "markOrderProcessing": "Commande passée en préparation"
+    },
+    "outcome": {
+      "succeeded": "Fait",
+      "skipped": "Ignoré",
+      "failed": "Échec"
+    },
+    "form": {
+      "createTitle": "Nouvelle règle",
+      "editTitle": "Modifier la règle",
+      "name": "Nom",
+      "namePlaceholder": "Mettre en pause les annonces épuisées",
+      "nameRequired": "Donnez un nom à la règle",
+      "trigger": "Quand",
+      "triggerStock": "Le stock baisse",
+      "triggerOrder": "Une commande est payée",
+      "action": "Alors",
+      "actionNotify": "Prévenir le propriétaire",
+      "actionPause": "Mettre l'annonce en pause",
+      "actionProcess": "Passer en préparation",
+      "threshold": "Stock inférieur ou égal à (unités)",
+      "thresholdInvalid": "Saisissez un nombre entier d'unités, 0 ou plus",
+      "minTotal": "Montant minimum de la commande en %{currency} (facultatif)",
+      "minTotalInvalid": "Saisissez un montant valide",
+      "tag": "Uniquement les articles avec cette étiquette (facultatif)",
+      "tagPlaceholder": "saisonnier",
+      "republish": "Remettre en vente une fois réapprovisionné",
+      "pauseHint": "Seules les annonces actives sont mises en pause, et une annonce en cours d'examen n'est jamais modifiée.",
+      "processHint": "Seules les commandes en livraison standard ou express sont déplacées, et jamais une commande retenue pour examen.",
+      "created": "Règle créée",
+      "saved": "Règle enregistrée",
+      "error": "Impossible d'enregistrer la règle"
+    }
   }
 }

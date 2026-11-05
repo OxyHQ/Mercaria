@@ -2360,5 +2360,89 @@
       "empty": "No register sales in this period.",
       "sales": "Sales: %{count}"
     }
+  },
+  "automations": {
+    "title": "Automations",
+    "documentTitle": "Automations | Wholesale by Mercaria",
+    "subtitle": "Rules that look after your catalogue and orders for you",
+    "toolDescription": "Pause sold-out listings, hear about low stock or big orders, and mark paid orders as processing.",
+    "new": "New rule",
+    "timing": "Rules are checked about once a minute.",
+    "loadError": "Couldn't load your rules",
+    "empty": {
+      "title": "No rules yet",
+      "body": "Create a rule to pause sold-out listings, hear about low stock or mark paid orders as processing."
+    },
+    "trigger": {
+      "stock": "When a listing's stock falls to %{threshold}",
+      "orderPaid": "When an order is paid",
+      "orderPaidMin": "When an order of at least %{amount} is paid"
+    },
+    "action": {
+      "notifyOwner": "notify the store owner",
+      "pauseListing": "pause the listing",
+      "markOrderProcessing": "mark it as processing"
+    },
+    "ruleSummary": "%{trigger}, %{action}",
+    "tagScope": "Only items tagged “%{tag}”",
+    "republishNote": "Puts the listing back on sale once it's restocked",
+    "enabledLabel": "Rule on",
+    "edit": "Edit rule",
+    "delete": "Delete rule",
+    "deleteConfirmTitle": "Delete this rule?",
+    "deleteConfirmBody": "Listings this rule paused stay paused until you publish them. Deleting frees a rule in your plan.",
+    "deleted": "Rule deleted",
+    "deleteError": "Couldn't delete the rule",
+    "updateError": "Couldn't update the rule",
+    "limitReached": "You've used every rule your plan includes. Delete a rule, or see plans for more.",
+    "notIncluded": "Your plan doesn't include automation rules.",
+    "lapsed": {
+      "title": "Your rules",
+      "body": "These rules are kept, but they don't run without a plan that includes automations. You can turn them off or delete them."
+    },
+    "deletedRule": "Deleted rule",
+    "history": {
+      "title": "Recent activity",
+      "empty": "Nothing has run yet.",
+      "loadError": "Couldn't load the activity",
+      "row": "%{rule} · %{step}"
+    },
+    "step": {
+      "notifyOwner": "Owner notified",
+      "pauseListing": "Listing paused",
+      "republishListing": "Listing back on sale",
+      "markOrderProcessing": "Order marked as processing"
+    },
+    "outcome": {
+      "succeeded": "Done",
+      "skipped": "Skipped",
+      "failed": "Failed"
+    },
+    "form": {
+      "createTitle": "New rule",
+      "editTitle": "Edit rule",
+      "name": "Name",
+      "namePlaceholder": "Pause sold-out listings",
+      "nameRequired": "Give the rule a name",
+      "trigger": "When",
+      "triggerStock": "Stock runs low",
+      "triggerOrder": "An order is paid",
+      "action": "Then",
+      "actionNotify": "Notify the owner",
+      "actionPause": "Pause the listing",
+      "actionProcess": "Mark as processing",
+      "threshold": "Stock at or below (units)",
+      "thresholdInvalid": "Enter a whole number of units, 0 or more",
+      "minTotal": "Minimum order total in %{currency} (optional)",
+      "minTotalInvalid": "Enter a valid amount",
+      "tag": "Only items with this tag (optional)",
+      "tagPlaceholder": "seasonal",
+      "republish": "Put it back on sale when restocked",
+      "pauseHint": "Only active listings are paused, and a listing under review is never touched.",
+      "processHint": "Only standard and express orders are moved, and an order held for review never is.",
+      "created": "Rule created",
+      "saved": "Rule saved",
+      "error": "Couldn't save the rule"
+    }
   }
 }

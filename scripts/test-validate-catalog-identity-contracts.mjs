@@ -414,7 +414,9 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // The checkout conversion report (`advanced_demand_analytics`) adds one
     // module, `conversion-report.ts`: +1 module, +9 types, +34 properties.
     // Measured by the real guard.
-    'walked 145 contract module(s), 2429 exported type(s), 8142 property signature(s)',
+    // Automation rules (#89, `automation_rules`) add `automation-rule.ts`: +1
+    // module, +9 types, +38 properties. Measured by the real guard.
+    'walked 144 contract module(s), 2418 exported type(s), 8104 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });

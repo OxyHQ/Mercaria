@@ -441,6 +441,16 @@ connectPostgres()
           log.general.error({ err }, 'Buyer-request reconciler import failed'),
         );
 
+      // Automation rules (#89, `automation_rules`): a periodic evaluator over
+      // committed stock and paid orders, so no rule sits inside a commerce write
+      // path. The LOOP is gated by `AUTOMATION_RULES_EVALUATOR_ENABLED`; the
+      // rules and their history stay readable and editable while it is off.
+      import('./services/automation-rules/evaluator.js')
+        .then(({ startAutomationRuleEvaluator }) => startAutomationRuleEvaluator())
+        .catch((err: unknown) =>
+          log.general.error({ err }, 'Automation rule evaluator import failed'),
+        );
+
       // Merchant activation observation (#85). Most activation transitions have
       // NO actor and no hook: a rail restricts an account, a connector stops
       // delivering, a jury restricts a catalogue — and not one of those domains

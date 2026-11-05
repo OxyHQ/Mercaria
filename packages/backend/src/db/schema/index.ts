@@ -637,3 +637,4 @@ export * from './oxyFiles';
 // External imagery copied into the canonical catalogue (Oxy ADR 0043): the
 // queue a source-link trigger fills and a bounded dispatcher drains.
 export * from './canonicalSourceMedia';
+export * from './automationRules';
