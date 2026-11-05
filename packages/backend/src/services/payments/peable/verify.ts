@@ -137,15 +137,26 @@ function billingIdsOf(event: WebhookEvent): Record<string, string> {
 }
 
 /**
- * The ids a seller-side event names: the connected account an
- * `connected_account.updated` is about, the payout and the account it is FROM,
- * and the dispute or refund a payment event carries. Stored unredacted beside
+ * The ids a marketplace event names: Mercaria's own payment marker on an
+ * intent, the connected account an `connected_account.updated` is about, the
+ * payout and the account it is FROM, and the dispute or refund a payment event
+ * carries. Stored unredacted beside
  * the payload for the same reason as the intent id — every handler correlates
  * from these and re-reads the gateway, never the redacted summary.
  */
 function sellerIdsOf(event: WebhookEvent): Record<string, string> {
   const object = event.data.object;
   switch (object.object) {
+    case 'payment_intent': {
+      // Mercaria's OWN marketplace payment, as `createPayment` marked it. The
+      // marker is what lets the router tell "not visible yet" (retry) from
+      // "not a marketplace payment at all" — a merchant-plan invoice's payment
+      // on the same Peable merchant — which must not retry into a dead letter.
+      // Read defensively: the body is verified bytes, not a validated shape.
+      const metadata: Readonly<Record<string, string>> | undefined = object.metadata;
+      const marker = metadata?.mercaria_payment_id;
+      return typeof marker === 'string' && marker !== '' ? { mercaria_payment: marker } : {};
+    }
     case 'connected_account':
       return { connected_account: object.id };
     case 'payout':

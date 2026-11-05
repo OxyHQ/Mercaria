@@ -187,7 +187,7 @@
         "@oxy.so/core": "7.23.0",
         "@oxy.so/moovo-sdk": "0.3.0",
         "@oxy.so/services": "14.3.8",
-        "@peable.to/sdk": "3.0.0",
+        "@peable.to/sdk": "3.1.0",
         "@react-native-async-storage/async-storage": "^2.2.0",
         "@react-native-community/hooks": "^100.1.0",
         "@react-native-community/netinfo": "^12.0.1",
@@ -2990,6 +2990,8 @@
 
     "@oxy.so/expo-splash/xml2js": ["xml2js@0.6.2", "", { "dependencies": { "sax": ">=0.6.0", "xmlbuilder": "~11.0.0" } }, "sha512-T4rieHaC1EXcES0Kxxj4JWgaUQHDk+qwHcYOCFHfiwKz7tOVPLq7Hjq9dM1WCMhylqMEfP7hMcOIChvotiZegA=="],
 
+    "@oxy.so/services/@peable.to/sdk": ["@peable.to/sdk@3.0.0", "", { "dependencies": { "@peable.to/contracts": "3.0.0", "@peable.to/shared-types": "3.0.0", "qrcode-generator": "^2.0.4", "socket.io-client": "^4.8.3" }, "peerDependencies": { "@oxy.so/bloom": ">=16.10.0", "react": ">=19.0.0 <20.0.0", "react-native": ">=0.86.0 <1.0.0" }, "optionalPeers": ["@oxy.so/bloom", "react", "react-native"] }, "sha512-jArnYqXN+5yyZ6l0lJVmq3Lh3Pqr/vUPtoJBrsqPWp6qpv7ruowhxWGMfkutqKucs1Z2wJDbS+G6fktpjsJjbw=="],
+
     "@parcel/watcher/picomatch": ["picomatch@4.0.3", "", {}, ""],
 
     "@radix-ui/react-collection/@radix-ui/react-slot": ["@radix-ui/react-slot@1.2.3", "", { "dependencies": { "@radix-ui/react-compose-refs": "1.1.2" }, "peerDependencies": { "@types/react": "*", "react": "^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc" } }, "sha512-aeNmHnBxbi2St0au6VBVC7JXFlhLlOnvIIlePNniyUNAClzmtAUEY8/pBiK3iHjufOlwA+c20/8jngo7xcrg8A=="],
@@ -3485,6 +3487,10 @@
     "@oxy.so/app-preset/parse5/entities": ["entities@9.0.0", "", {}, "sha512-oJFNDJg3kTPwAD1cNn2+WmUq4wFoo09npc3Ydf1D7ED4smRiWrsKnaLxykrTWgyGEcusc87P5dxlAleol9kpkg=="],
 
     "@oxy.so/expo-splash/@expo/image-utils/semver": ["semver@7.8.5", "", { "bin": { "semver": "bin/semver.js" } }, "sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA=="],
+
+    "@oxy.so/services/@peable.to/sdk/@peable.to/contracts": ["@peable.to/contracts@3.0.0", "", { "dependencies": { "zod": "^4.6.7" } }, "sha512-Sg0zCav+6xpr1paBBRGrkt8FkxwxKg7UH3TniP0tJcumnI3NVY2waeJasjCCDd/dZP8BRrO2ncHAUKlyuUM7nw=="],
+
+    "@oxy.so/services/@peable.to/sdk/@peable.to/shared-types": ["@peable.to/shared-types@3.0.0", "", { "dependencies": { "@peable.to/contracts": "3.0.0" } }, "sha512-V6Ig0itCXFdGiuP6pbWpCqV59NCY8sVtUSETYMXLpLrsWGLH0zEzG9k+PwMno1ZjjqyDEGPyn9dBO2773kLvfQ=="],
 
     "@react-native/community-cli-plugin/@react-native/dev-middleware/@react-native/debugger-frontend": ["@react-native/debugger-frontend@0.88.0", "", {}, "sha512-v5cnBaaWhDRPcQv8EC20zj53jOAKH7u2wnzzXS4JTNu+diPC+cA2+kC7rq3eKI5vGhlAcG2kDPoViRuC0AY0oA=="],
 

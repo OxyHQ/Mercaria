@@ -1107,6 +1107,65 @@ describe('the dispute lifecycle, through the real ingress', () => {
   });
 });
 
+/**
+ * The one endpoint also carries merchant-plan invoice payments (#89) from the
+ * same Peable merchant. Only an intent Mercaria made — marked with its own
+ * payment id — may be retried as "not visible yet"; anything else is ignored
+ * rather than retried into a dead letter.
+ */
+describe('payment intent events that are not marketplace payments', () => {
+  async function storedEvent(storedEventId: string) {
+    const [row] = await db
+      .select()
+      .from(paymentSchema.paymentProviderEvents)
+      .where(eq(paymentSchema.paymentProviderEvents.id, storedEventId));
+    return row;
+  }
+
+  it("ignores an intent Mercaria did not make, so an invoice's payment never dead-letters", async () => {
+    const { renderIntent } = await import('./helpers/fake-peable-gateway.js');
+    const invoicePayment = gateway.putIntent({
+      id: `pi_invoice_paid_${RUN}`,
+      status: 'succeeded',
+      amount: 1_900n,
+      currency: 'EUR',
+    });
+
+    const result = await deliver({
+      id: `evt_invoice_paid_${RUN}`,
+      type: 'payment_intent.succeeded',
+      data: { object: renderIntent(invoicePayment, { clientAction: false }) },
+    });
+
+    if (result.outcome !== 'accepted') throw new Error(`delivery was ${result.outcome}`);
+    const row = await storedEvent(result.storedEventId);
+    expect(row?.status).toBe('processed');
+    expect(row?.processingNote).toContain('not a marketplace payment');
+  });
+
+  it('retries an intent Mercaria made whose payment row is not visible yet', async () => {
+    const { renderIntent } = await import('./helpers/fake-peable-gateway.js');
+    const ours = gateway.putIntent({
+      id: `pi_ours_early_${RUN}`,
+      status: 'succeeded',
+      amount: 1_900n,
+      currency: 'EUR',
+      metadata: { mercaria_payment_id: `pay_not_yet_${RUN}` },
+    });
+
+    const result = await deliver({
+      id: `evt_ours_early_${RUN}`,
+      type: 'payment_intent.succeeded',
+      data: { object: renderIntent(ours, { clientAction: false }) },
+    });
+
+    if (result.outcome !== 'accepted') throw new Error(`delivery was ${result.outcome}`);
+    const row = await storedEvent(result.storedEventId);
+    expect(row?.status).not.toBe('processed');
+    expect(row?.nextAttemptAt).toBeInstanceOf(Date);
+  });
+});
+
 /** The first variant on an order — what a refund line names. */
 async function firstVariant(orderId: string): Promise<string> {
   const [item] = await db

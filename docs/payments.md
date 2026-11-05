@@ -503,6 +503,17 @@ refusal before any database access, and a duplicate costing one conflicting
 indexed insert.
 
 
+### Not every intent on the endpoint is a marketplace payment
+
+Merchant-plan invoices (#89) are paid on the same Peable merchant and their
+`payment_intent.*` events arrive on the same endpoint. `verify.ts` stores
+Mercaria's own marker (`metadata.mercaria_payment_id`, set by `createPayment`)
+as `objectIds.mercaria_payment`, and the router retries a missing payment only
+for a marked intent — the race with the transaction that wrote the row. An
+unmarked intent is `ignored` ("not a marketplace payment"), as is a refund or
+dispute of a payment Mercaria has no row for: retrying either would only
+dead-letter it.
+
 ### The settlement currency
 
 A Peable charge is a PLATFORM charge on Oxy Platforms, Inc.'s acquirer account
@@ -2098,9 +2109,19 @@ nothing below has been done against live money.
 
 **Webhooks**
 
-- [ ] The endpoint is registered at Peable at `https://<api>/webhooks/peable`,
-      subscribed to `payment_intent.*` and `charge.refunded` (plus the billing
-      types `docs/merchant-plans.md` lists).
+- [ ] ONE endpoint, `we_82b5f363eb495108b252e607` at
+      `https://api.mercaria.co/webhooks/peable` (the billing endpoint;
+      `docs/runbooks/merchant-plans-live.md` §4), carries the marketplace types
+      beside the billing ones: `payment_intent.requires_action`,
+      `payment_intent.processing`, `payment_intent.succeeded`,
+      `payment_intent.payment_failed`, `payment_intent.canceled`,
+      `charge.refunded`, `refund.created`, `refund.updated`, `refund.failed`,
+      `charge.dispute.created`, `charge.dispute.updated`, `charge.dispute.closed`,
+      `charge.dispute.funds_withdrawn`, `charge.dispute.funds_reinstated`,
+      `connected_account.updated`, `payout.created`, `payout.updated`,
+      `payout.paid`, `payout.failed`, `payout.canceled`. As of 2026-11-05 it
+      carries only the seven billing types; add these (`POST
+      /v1/webhook_endpoints/:id` with the FULL list) before `PEABLE_ENABLED`.
 - [ ] `POST /webhooks/peable` with no signature answers 400 `missing_signature`,
       not 404. A 404 means the secret is unset and the endpoint is unmounted.
 
