@@ -155,6 +155,7 @@ const NON_PUBLIC_SCREENS: readonly string[] = [
   'app/(app)/settings/general.tsx',
   'app/(app)/settings/addresses.tsx',
   'app/(app)/settings/feedback.tsx',
+  'app/(app)/settings/payments.tsx',
 ];
 
 interface Screen {
