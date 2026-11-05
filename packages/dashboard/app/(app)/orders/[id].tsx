@@ -105,6 +105,7 @@ function OrderContent({ storeId, order }: { storeId: string; order: MerchantOrde
         <View className="min-w-0 gap-4 lg:flex-1" testID="merchant-order-main">
           <ItemsCard items={order.items} />
           <TotalsCard order={order} />
+          <MarketplaceFeeCard order={order} />
           {/* Collection is an existing handover path; it must remain distinct from shipping. */}
           <PickupDeskCard storeId={storeId} orderId={order.id} />
           <RefundsCard storeId={storeId} order={order} />
@@ -241,6 +242,68 @@ function TotalsCard({ order }: { order: MerchantOrder }) {
           }
         />
       </View>
+    </View>
+  );
+}
+
+/**
+ * What Mercaria took from this sale and what the seller is paid (ADR 0018).
+ *
+ * Every figure is the order's IMMUTABLE fee snapshot (`marketplaceFee`, from
+ * `GET /admin/stores/:storeId/orders/:id`), never today's schedule, so this is
+ * the fee the settlement deducted. The payout is the order's total in the
+ * currency it was charged in less that fee — the same subtraction
+ * `deriveSellerNetShares` makes — and is shown only when the two share a
+ * currency; a figure converted here would be a second FX authority.
+ *
+ * `not_applicable` (an order Mercaria itself sold) and an order with no
+ * snapshot (POS, connector import) show nothing: no marketplace fee concept
+ * applies to them.
+ */
+function MarketplaceFeeCard({ order }: { order: MerchantOrder }) {
+  const { t } = useTranslation();
+  const fee = order.marketplaceFee;
+  if (!fee || fee.result === 'not_applicable') return null;
+  const charged = order.totals.grandTotal.presentment;
+
+  return (
+    <View className="rounded-xl border border-border bg-white p-4 dark:bg-surface">
+      <Text className="mb-3 text-sm font-semibold text-foreground">{t('orders.fee.heading')}</Text>
+      {fee.result === 'calculated' && fee.fee ? (
+        <View className="gap-2">
+          <TotalRow
+            label={t('orders.fee.fee')}
+            amount={<PriceDisplay price={fee.fee} primaryClassName="text-sm" />}
+          />
+          <TotalRow
+            label={t('orders.fee.processing')}
+            amount={
+              <Text className="text-sm text-foreground">{t('orders.fee.processingIncluded')}</Text>
+            }
+          />
+          {fee.fee.currency === charged.currency ? (
+            <>
+              <View className="my-1 h-px bg-border" />
+              <TotalRow
+                label={t('orders.fee.net')}
+                bold
+                amount={
+                  <PriceDisplay
+                    price={{
+                      amount: Math.max(0, charged.amount - fee.fee.amount),
+                      currency: charged.currency,
+                    }}
+                    primaryClassName="text-base font-bold"
+                  />
+                }
+              />
+            </>
+          ) : null}
+          <Text className="mt-1 text-xs text-muted-foreground">{t('orders.fee.refundNote')}</Text>
+        </View>
+      ) : (
+        <Text className="text-xs text-muted-foreground">{t('orders.fee.none')}</Text>
+      )}
     </View>
   );
 }

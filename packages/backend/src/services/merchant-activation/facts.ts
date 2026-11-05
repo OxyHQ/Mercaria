@@ -49,7 +49,7 @@ import { deriveChannelReadiness } from '../channels/channel-readiness.js';
 import { locationCollectionBlockers } from '../pickup/eligibility.js';
 import { readPlaces } from '../goway/places.js';
 import { placeLinkGaps } from '../goway/place-facts.js';
-import { findApplicableSchedule } from '../fees/order-fees.service.js';
+import { findApplicableStoreSchedule } from '../fees/order-fees.service.js';
 import { isSellerPaymentReady } from '../payments/provider-account.service.js';
 import { nativeRailPresentmentCurrencies, resolveNativeRail } from '../payments/native-rail.js';
 import { hasGuestMessageTransport } from '../guest-portal/transport.js';
@@ -197,11 +197,12 @@ export async function readMerchantActivationFacts(
 
   const merchant = link ? await findMerchantById(getDb(), link.merchantId) : undefined;
 
-  // #88's schedule selection, run for THIS store's seller type and settlement
-  // currency. No applicable schedule is the honest zero and is not a failure.
-  const schedule = await findApplicableSchedule({
-    sellerType: 'store',
-    currency: store.defaultCurrency as CurrencyCode,
+  // #88's schedule selection for THIS store's sales: its own currency, then the
+  // card rail's presentment currencies, exactly as its fees screen asks. No
+  // applicable schedule is the honest zero and is not a failure.
+  const schedule = await findApplicableStoreSchedule({
+    defaultCurrency: store.defaultCurrency as CurrencyCode,
+    saleCurrencies: nativeRailPresentmentCurrencies(),
   });
   const acceptance = schedule
     ? await findFeeScheduleAcceptance(getDb(), {

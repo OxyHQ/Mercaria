@@ -1145,6 +1145,15 @@
       "subtotal": "小计",
       "tax": "税费",
       "total": "总计"
+    },
+    "fee": {
+      "heading": "平台佣金与结算",
+      "fee": "平台佣金",
+      "processing": "银行卡处理",
+      "processingIncluded": "已包含",
+      "net": "您将收到",
+      "refundNote": "未计退款。如果您为此订单退款，退款金额对应的佣金将按比例退还给您。",
+      "none": "此订单未收取平台佣金。"
     }
   },
   "products": {
@@ -1672,7 +1681,9 @@
         "taxExclusive": "税费在此佣金之外另行收取。",
         "taxInclusive": "税费已包含在此佣金内。",
         "version": "条款版本 %{version}",
-        "effectiveFrom": "自 %{date} 起生效"
+        "effectiveFrom": "自 %{date} 起生效",
+        "processingIncluded": "已包含银行卡处理费用，不另收处理费。",
+        "cardSalesOnly": "适用于以 %{currency} 进行的银行卡销售。以 FairCoin 支付的销售不收费。"
       },
       "preview": {
         "title": "实际花费",
@@ -2070,7 +2081,16 @@
         }
       },
       "subtitle": "你如何收到 Mercaria 上订单的货款",
-      "title": "收款与结算"
+      "title": "收款与结算",
+      "fee": {
+        "title": "平台佣金",
+        "summary": "银行卡销售按商品小计的 %{percent} 收取，另加每笔订单 %{fixed}。已包含银行卡处理费用。",
+        "summaryPercentOnly": "银行卡销售按商品小计的 %{percent} 收取。已包含银行卡处理费用。",
+        "faircoin": "以 FairCoin 支付的销售不收费。",
+        "pending": "请先接受佣金条款，您的店铺才能接收银行卡订单。",
+        "none": "目前您的销售不收取平台佣金。",
+        "action": "查看佣金条款"
+      }
     },
     "plan": {
       "alwaysIncludedBody": "维护商品目录、接收并履行订单、发起退款、查看你自己的销售与结算记录，以及导出你的数据，对每一家 Mercaria 店铺都是免费的，永远不会成为套餐的一部分。本页面上的任何内容都不会改变这一点，任何套餐也不会影响你的商品如何被发现或排序。",

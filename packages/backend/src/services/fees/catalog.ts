@@ -69,19 +69,40 @@ export interface FeeScheduleDefinition {
  * `termsVersion`, accepted afresh.
  */
 export const FEE_SCHEDULE_CATALOG: readonly FeeScheduleDefinition[] = [
+  /**
+   * The marketplace commission on card sales (ADR 0018).
+   *
+   * 5% + $0.30 per order, ALL-IN: Oxy Platforms, Inc. is the platform on
+   * separate charges and transfers (ADR 0001 D3), so it already pays the card
+   * processor, and the seller sees one fee with no processing line beside it.
+   *
+   * Scoped to USD because card checkout presents only in USD (ADR 0001 D8 as
+   * amended): every card sale is a USD order, and nothing else is. A sale in
+   * FAIR matches no schedule and records the honest `no_active_schedule` zero,
+   * which is how "0% on FairCoin" is expressed — the scope set has no
+   * payment-method column, deliberately, and does not need one.
+   *
+   * Scoped to STORES because there is no P2P acceptance surface yet
+   * (`merchant-activation/checkout-gate.ts`): a schedule reaching `user`
+   * sellers would take every individual's card checkout offline rather than
+   * bill it. ADR 0018 records that gap and what closes it.
+   */
   {
-    scheduleKey: 'marketplace-standard',
+    scheduleKey: 'marketplace-card',
     version: 1,
-    name: 'Marketplace standard commission',
+    name: 'Marketplace fee on card sales',
     merchantSummary:
-      'Mercaria charges 10% of the item subtotal after discounts, plus €0.30 per order. ' +
-      'Delivery and tax are never included. If you refund an order, the commission on the ' +
-      'refunded amount is returned to you in proportion.',
-    effectiveStart: new Date('2026-01-01T00:00:00.000Z'),
-    eligibleCurrency: 'EUR',
-    percentageBps: 1_000,
-    fixedFee: { amount: 30, currency: 'EUR' },
+      'Mercaria charges 5% of the item subtotal after discounts, plus $0.30 per order, on ' +
+      'card sales in US dollars. Card processing is included: there is no separate ' +
+      'processing fee. Delivery and tax are never included. Sales paid in FairCoin carry ' +
+      'no fee. If you refund an order, the fee on the refunded amount is returned to you ' +
+      'in proportion.',
+    effectiveStart: new Date('2026-11-06T00:00:00.000Z'),
+    eligibleSellerType: 'store',
+    eligibleCurrency: 'USD',
+    percentageBps: 500,
+    fixedFee: { amount: 30, currency: 'USD' },
     taxTreatment: 'unknown',
-    termsVersion: 'marketplace-standard-v1',
+    termsVersion: 'marketplace-card-v1',
   },
 ];

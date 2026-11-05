@@ -211,6 +211,11 @@ const DISPATCH_ONLY_WITH_CREDENTIALS: Record<string, string> = {
   // ships no code, and a merge sets nothing off.
   'publish-merchant-plans.yml':
     'workflow_dispatch one-shot on the live task definition, ships nothing',
+  // The marketplace fee catalogue publish (ADR 0018): an operator-dispatched
+  // one-shot on the image ALREADY live, writing `fee_schedules` rows. It ships
+  // no code, and a merge sets nothing off.
+  'publish-fee-schedules.yml':
+    'workflow_dispatch one-shot on the live task definition, ships nothing',
 };
 
 describe('the coverage check watches every workflow that can ship', () => {

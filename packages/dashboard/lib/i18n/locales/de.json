@@ -1145,6 +1145,15 @@
       "subtotal": "Zwischensumme",
       "tax": "Steuern",
       "total": "Gesamt"
+    },
+    "fee": {
+      "heading": "Marktplatzgebühr und Auszahlung",
+      "fee": "Marktplatzgebühr",
+      "processing": "Kartenabwicklung",
+      "processingIncluded": "Inbegriffen",
+      "net": "Du erhältst",
+      "refundNote": "Vor etwaigen Erstattungen. Wenn du diese Bestellung erstattest, erhältst du die Gebühr auf den erstatteten Betrag anteilig zurück.",
+      "none": "Für diese Bestellung wurde keine Marktplatzgebühr berechnet."
     }
   },
   "products": {
@@ -1672,7 +1681,9 @@
         "taxExclusive": "Die Steuer wird zusätzlich zu dieser Gebühr berechnet.",
         "taxInclusive": "Die Steuer ist in dieser Gebühr enthalten.",
         "version": "Bedingungen Version %{version}",
-        "effectiveFrom": "Gültig seit %{date}"
+        "effectiveFrom": "Gültig seit %{date}",
+        "processingIncluded": "Die Kartenabwicklung ist inbegriffen. Es gibt keine separate Abwicklungsgebühr.",
+        "cardSalesOnly": "Gilt für Kartenverkäufe in %{currency}. Verkäufe, die in FairCoin bezahlt werden, sind gebührenfrei."
       },
       "preview": {
         "title": "Was das kostet",
@@ -2071,7 +2082,16 @@
         }
       },
       "subtitle": "Wie Sie für Bestellungen auf Mercaria bezahlt werden",
-      "title": "Zahlungen und Auszahlungen"
+      "title": "Zahlungen und Auszahlungen",
+      "fee": {
+        "title": "Marktplatzgebühr",
+        "summary": "%{percent} der Artikelzwischensumme plus %{fixed} pro Bestellung bei Kartenverkäufen. Die Kartenabwicklung ist inbegriffen.",
+        "summaryPercentOnly": "%{percent} der Artikelzwischensumme bei Kartenverkäufen. Die Kartenabwicklung ist inbegriffen.",
+        "faircoin": "Verkäufe, die in FairCoin bezahlt werden, sind gebührenfrei.",
+        "pending": "Akzeptiere die Gebührenbedingungen, damit dein Shop Kartenbestellungen annehmen kann.",
+        "none": "Für deine Verkäufe fällt derzeit keine Marktplatzgebühr an.",
+        "action": "Gebührenbedingungen ansehen"
+      }
     },
     "plan": {
       "alwaysIncludedBody": "Ihren Katalog zu pflegen, Bestellungen anzunehmen und auszuführen, Rückerstattungen auszustellen, Ihre eigenen Verkaufs- und Auszahlungsdaten einzusehen und Ihre Daten zu exportieren, ist für jeden Mercaria-Shop kostenlos und nie Teil eines Tarifs. Nichts auf dieser Seite kann daran etwas ändern, und kein Tarif beeinflusst, wie Ihre Angebote gefunden oder platziert werden.",

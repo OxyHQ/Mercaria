@@ -1160,6 +1160,15 @@
       "subtotal": "Subtotal",
       "tax": "Impostos",
       "total": "Total"
+    },
+    "fee": {
+      "heading": "Taxa do marketplace e repasse",
+      "fee": "Taxa do marketplace",
+      "processing": "Processamento de cartão",
+      "processingIncluded": "Incluído",
+      "net": "Você recebe",
+      "refundNote": "Antes de qualquer reembolso. Se você reembolsar este pedido, a taxa sobre o valor reembolsado é devolvida a você proporcionalmente.",
+      "none": "Nenhuma taxa do marketplace foi cobrada neste pedido."
     }
   },
   "products": {
@@ -1690,7 +1699,9 @@
         "taxExclusive": "O imposto é cobrado além desta comissão.",
         "taxInclusive": "O imposto está incluído nesta comissão.",
         "version": "Termos versão %{version}",
-        "effectiveFrom": "Em vigor desde %{date}"
+        "effectiveFrom": "Em vigor desde %{date}",
+        "processingIncluded": "O processamento de cartão está incluído. Não há taxa de processamento separada.",
+        "cardSalesOnly": "Aplica-se a vendas com cartão em %{currency}. Vendas pagas em FairCoin não têm taxa."
       },
       "preview": {
         "title": "Quanto isso custa",
@@ -2090,7 +2101,16 @@
         }
       },
       "subtitle": "Como você recebe pelos pedidos feitos na Mercaria",
-      "title": "Pagamentos e repasses"
+      "title": "Pagamentos e repasses",
+      "fee": {
+        "title": "Taxa do marketplace",
+        "summary": "%{percent} do subtotal dos itens mais %{fixed} por pedido em vendas com cartão. O processamento de cartão está incluído.",
+        "summaryPercentOnly": "%{percent} do subtotal dos itens em vendas com cartão. O processamento de cartão está incluído.",
+        "faircoin": "Vendas pagas em FairCoin não têm taxa.",
+        "pending": "Aceite os termos da taxa para que sua loja possa receber pedidos com cartão.",
+        "none": "Nenhuma taxa do marketplace se aplica às suas vendas hoje.",
+        "action": "Ver os termos da taxa"
+      }
     },
     "plan": {
       "alwaysIncludedBody": "Manter seu catálogo, receber e processar pedidos, emitir reembolsos, consultar seus próprios registros de vendas e de repasses e exportar seus dados são gratuitos para toda loja da Mercaria e nunca fazem parte de um plano. Nada nesta página muda isso, e nenhum plano afeta como seus anúncios são encontrados ou classificados.",

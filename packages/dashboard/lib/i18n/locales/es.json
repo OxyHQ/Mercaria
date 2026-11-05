@@ -1160,6 +1160,15 @@
       "subtotal": "Subtotal",
       "tax": "Impuestos",
       "total": "Total"
+    },
+    "fee": {
+      "heading": "Comisión del marketplace y pago",
+      "fee": "Comisión del marketplace",
+      "processing": "Procesamiento de tarjetas",
+      "processingIncluded": "Incluido",
+      "net": "Recibes",
+      "refundNote": "Antes de cualquier reembolso. Si reembolsas este pedido, se te devuelve la parte proporcional de la comisión sobre el importe reembolsado.",
+      "none": "No se cobró ninguna comisión del marketplace en este pedido."
     }
   },
   "products": {
@@ -1690,7 +1699,9 @@
         "taxExclusive": "Los impuestos se cobran aparte de esta comisión.",
         "taxInclusive": "Los impuestos están incluidos en esta comisión.",
         "version": "Versión de las condiciones %{version}",
-        "effectiveFrom": "En vigor desde el %{date}"
+        "effectiveFrom": "En vigor desde el %{date}",
+        "processingIncluded": "El procesamiento de tarjetas está incluido. No hay una comisión de procesamiento aparte.",
+        "cardSalesOnly": "Se aplica a las ventas con tarjeta en %{currency}. Las ventas pagadas en FairCoin no tienen comisión."
       },
       "preview": {
         "title": "Cuánto cuesta",
@@ -2090,7 +2101,16 @@
         }
       },
       "subtitle": "Cómo cobras los pedidos realizados en Mercaria",
-      "title": "Pagos y cobros"
+      "title": "Pagos y cobros",
+      "fee": {
+        "title": "Comisión del marketplace",
+        "summary": "%{percent} del subtotal de los artículos más %{fixed} por pedido en ventas con tarjeta. El procesamiento de tarjetas está incluido.",
+        "summaryPercentOnly": "%{percent} del subtotal de los artículos en ventas con tarjeta. El procesamiento de tarjetas está incluido.",
+        "faircoin": "Las ventas pagadas en FairCoin no tienen comisión.",
+        "pending": "Acepta las condiciones de la comisión para que tu tienda pueda recibir pedidos con tarjeta.",
+        "none": "Hoy no se aplica ninguna comisión del marketplace a tus ventas.",
+        "action": "Ver las condiciones de la comisión"
+      }
     },
     "plan": {
       "alwaysIncludedBody": "Mantener tu catálogo, recibir y preparar pedidos, emitir reembolsos, consultar tus propios registros de ventas y cobros y exportar tus datos son gratis para toda tienda de Mercaria y nunca forman parte de un plan. Nada de esta página puede cambiarlo, y ningún plan influye en cómo se encuentran ni cómo se ordenan tus productos.",

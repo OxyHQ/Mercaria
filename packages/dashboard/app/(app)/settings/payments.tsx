@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { View, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import Head from 'expo-router/head';
 import * as WebBrowser from 'expo-web-browser';
 import { ChevronLeft } from 'lucide-react-native';
 import type { ProviderOnboardingState, SellerPaymentSettings } from '@mercaria/shared-types';
-import { Text, formatDate, formatRegionName, useColorScheme } from '@mercaria/ui';
+import { Text, formatDate, formatRegionName, useColorScheme, useFormatters } from '@mercaria/ui';
 import { Button } from '@oxy.so/bloom/button';
 import { Field } from '@oxy.so/bloom/field';
 import { TextFieldInput } from '@oxy.so/bloom/text-field';
@@ -13,6 +13,7 @@ import { toast } from '@oxy.so/bloom/toast';
 import { Screen, ScreenLoading, ScreenMessage } from '@/components/shell/Screen';
 import { RequireStore } from '@/components/shell/RequireStore';
 import { useTranslation } from '@/lib/i18n';
+import { useFeeSchedule } from '@/lib/hooks/use-fees';
 import {
   usePaymentSettings,
   useCreateOnboardingLink,
@@ -251,9 +252,64 @@ function PaymentsPanel({
         ) : null}
       </View>
 
+      <MarketplaceFeeCard storeId={storeId} />
       <RequirementsCard settings={settings} />
       <PayoutDetailsCard settings={settings} />
       <ReasonCodesCard settings={settings} />
+    </View>
+  );
+}
+
+/**
+ * What Mercaria takes from each sale, stated where a seller sets up being paid
+ * (ADR 0018). Read from the SAME schedule the fees screen shows and checkout
+ * charges — never a figure written into this screen — and linked to the full
+ * terms, which is where they are accepted.
+ *
+ * A failed read renders nothing rather than a guess: the fees screen behind the
+ * link says what the terms are, and a wrong number here would be worse than none.
+ */
+function MarketplaceFeeCard({ storeId }: { storeId: string }) {
+  const { t } = useTranslation();
+  const { formatMoney, formatPercent } = useFormatters();
+  const { data } = useFeeSchedule(storeId);
+  if (!data) return null;
+  const { schedule, acceptance } = data;
+
+  return (
+    <View className="rounded-2xl border border-border bg-surface p-4">
+      <Text className="mb-1 text-sm font-semibold text-foreground">
+        {t('settings.payments.fee.title')}
+      </Text>
+      {schedule ? (
+        <>
+          <Text className="text-xs text-foreground">
+            {schedule.fixedFee
+              ? t('settings.payments.fee.summary', {
+                  percent: formatPercent(schedule.percentageBps),
+                  fixed: formatMoney(schedule.fixedFee),
+                })
+              : t('settings.payments.fee.summaryPercentOnly', {
+                  percent: formatPercent(schedule.percentageBps),
+                })}
+          </Text>
+          <Text className="mt-1 text-xs text-muted-foreground">
+            {t('settings.payments.fee.faircoin')}
+          </Text>
+          {acceptance ? null : (
+            <Text className="mt-1 text-xs text-muted-foreground">
+              {t('settings.payments.fee.pending')}
+            </Text>
+          )}
+        </>
+      ) : (
+        <Text className="text-xs text-muted-foreground">{t('settings.payments.fee.none')}</Text>
+      )}
+      <Link href={{ pathname: '/settings/fees' }} className="mt-3 self-start">
+        <Text className="text-xs font-medium text-primary">
+          {t('settings.payments.fee.action')}
+        </Text>
+      </Link>
     </View>
   );
 }

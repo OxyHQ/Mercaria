@@ -16,7 +16,7 @@ The owner approved: register `mercaria.co` as a wallet domain and sell in USD.
 | Wallet domain | `mercaria.co` = `pmd_de5b5c1648a83fcb9e411c99`, live, enabled, `apple_pay` and `google_pay` both `active` | Registered and validated as Mercaria's workload (§3) |
 | Apple Pay file | `https://mercaria.co/.well-known/apple-developer-merchantid-domain-association`, Stripe's file, from `packages/frontend/public/.well-known/` | Byte-identical to `https://stripe.com/files/apple-pay/apple-developer-merchantid-domain-association` |
 | Sellers | **None `ready`.** `provider_accounts` was empty when the rail went on | Read-only count, 2026-11-05 |
-| Commission | None. `services/fees/catalog.ts` has one EUR-scoped schedule, never provisioned | `fee_schedules` empty, 2026-11-05 |
+| Commission | 5% + $0.30 per order on store card sales in USD, processing included; none on FairCoin or P2P sales (ADR 0018). The unpublished EUR schedule is retired | `services/fees/catalog.ts` `marketplace-card` v1; published by `publish-fee-schedules.yml` (§5) |
 
 `www.mercaria.co` does not resolve, so it is not registered. Register any new
 host that renders the card step (§3), or Apple Pay and Google Pay do not show
@@ -87,10 +87,33 @@ path has no extension, and the worker only treats an HTML request as a page.
    until the store's default currency is USD. Change it in the dashboard under
    Settings → Store. Listings in other currencies still sell, because the cart
    converts them.
-3. **Commission, if any.** Decide a USD rate. Engineering then adds it as a new
-   version in `services/fees/catalog.ts` and provisions it; every live store
-   accepts it, and then it is activated. Until then a sale carries no
-   commission.
+3. **Commission.** Decided in ADR 0018 and published through §5. Once it is
+   active, the store's owner accepts it under Settings → Marketplace fees
+   before its first card order; until they do, checkout refuses that store
+   with `seller_not_activated`.
 4. **One real USD sale**, then a refund of it, as `docs/payments.md` §9 "What
    the first real sale confirms" lists. Nothing short of that verifies the
    rail end to end.
+
+## 5. Publishing the commission (ADR 0018)
+
+The rate is `packages/backend/src/services/fees/catalog.ts`; a change is a pull
+request and a new `version`. It reaches `fee_schedules` only through
+**Actions → Publish fee schedules** (`.github/workflows/publish-fee-schedules.yml`),
+a one-shot on the live task definition that records the live image's commit as
+the author. Never write `fee_schedules` by hand.
+
+1. Merge the catalogue change and wait for **Deploy to AWS** to finish: the task
+   runs the LIVE image's catalogue.
+2. Run it with `mode: preview`. It lists every published version and which
+   catalogue versions `draft` would add. It writes nothing.
+3. Run it with `mode: draft`. Each new version becomes a DRAFT, which charges
+   nobody. A second run changes nothing.
+4. Run it with `mode: activate`. It refuses, and activates nothing, while any
+   payment-ready seller the schedule reaches has not accepted it, because
+   activation would refuse that seller's checkout. With no seller `ready` it
+   activates, and each store meets the terms as pending under Settings →
+   Marketplace fees before its first card sale.
+
+From a terminal: `gh workflow run publish-fee-schedules.yml -R OxyHQ/Mercaria -f mode=preview`
+(then `draft`, then `activate`), and `gh run watch` the run it starts.

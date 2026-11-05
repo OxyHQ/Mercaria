@@ -43,6 +43,11 @@ await esbuild.build({
    * run from a task on the live task definition
    * (`.github/workflows/publish-merchant-plans.yml`; preview unless `--apply`).
    *
+   * `src/scripts/provision-fee-schedule.ts` publishes the reviewed marketplace
+   * fee catalogue (`services/fees/catalog.ts`) into the production database —
+   * preview, draft, or the guarded activation — so it runs from a task on the
+   * live task definition too (`.github/workflows/publish-fee-schedules.yml`).
+   *
    * `src/scripts/seed.ts` is deliberately NOT an entry point and must not
    * become one. It opens by DELETING every listing, store, order, review and
    * category in the database it is pointed at, so putting it in the production
@@ -76,6 +81,7 @@ await esbuild.build({
     'src/scripts/backfill-application-media.ts',
     'src/scripts/backfill-digital-asset-storage.ts',
     'src/scripts/publish-merchant-plans.ts',
+    'src/scripts/provision-fee-schedule.ts',
   ],
   bundle: true,
   platform: 'node',
