@@ -216,6 +216,27 @@ describe('opening a seller account', () => {
     expect(await rowFor(owner)).toBeUndefined();
   });
 
+  it('onboards with PEABLE_ENABLED off — sellers come first, buyers after', async () => {
+    const { config } = await import('../../../../config/index.js');
+    const peable = config.payments.peable as { enabled: boolean; webhooksEnabled: boolean };
+    peable.enabled = false;
+    try {
+      const owner = store();
+      await accounts.createSellerOnboardingLink({ owner, country: 'ES' });
+      expect((await rowFor(owner))?.onboardingState).toBe('action_required');
+      expect((await accounts.readSellerPaymentSettings(owner)).onboardingAvailable).toBe(true);
+
+      // Without the webhook secret the account's events could never be heard.
+      peable.webhooksEnabled = false;
+      await expect(
+        accounts.createSellerOnboardingLink({ owner: store(), country: 'ES' }),
+      ).rejects.toMatchObject({ httpStatus: 503 });
+    } finally {
+      peable.enabled = true;
+      peable.webhooksEnabled = true;
+    }
+  });
+
   it('reports a not-connected seller as a real settings answer, not an error', async () => {
     const owner = store();
     const settings = await accounts.readSellerPaymentSettings(owner);
@@ -322,5 +343,105 @@ describe('readiness comes from a READ of the account', () => {
       paymentReady: false,
       requirements: { currentlyDue: 0, pendingVerification: 1 },
     });
+  });
+});
+
+describe("a seller's payouts", () => {
+  let renderPayout: typeof import('../../__tests__/helpers/fake-peable-gateway.js').renderPayout;
+  beforeAll(async () => {
+    ({ renderPayout } = await import('../../__tests__/helpers/fake-peable-gateway.js'));
+  });
+
+  async function deliverPayout(type: string, object: Record<string, unknown>) {
+    sequence += 1;
+    const result = await ingestPeableDelivery(
+      gateway.objectDelivery({
+        eventId: `evt_${RUN}_${String(sequence)}`,
+        type,
+        object,
+        secret: WEBHOOK_SECRET,
+      }),
+    );
+    if (result.outcome !== 'accepted') throw new Error(`delivery was ${result.outcome}`);
+    const [event] = await db
+      .select()
+      .from(paymentSchema.paymentProviderEvents)
+      .where(eq(paymentSchema.paymentProviderEvents.id, result.storedEventId));
+    return event;
+  }
+
+  async function payoutRow(providerObjectId: string) {
+    const [row] = await db
+      .select()
+      .from(paymentSchema.payouts)
+      .where(
+        and(
+          eq(paymentSchema.payouts.provider, 'peable'),
+          eq(paymentSchema.payouts.providerObjectId, providerObjectId),
+        ),
+      );
+    return row;
+  }
+
+  it('records the payout as READ from the seller account and announces it to the seller', async () => {
+    const owner = store();
+    await accounts.createSellerOnboardingLink({ owner, country: 'ES' });
+    const accountId = String((await rowFor(owner))?.providerAccountId);
+    const payout = gateway.putPayout({
+      account: accountId,
+      amount: 12_500n,
+      currency: 'EUR',
+      status: 'in_transit',
+      arrivalDate: 1_741_996_800,
+      failureCode: null,
+    });
+    // The body says `pending`; the gateway, read as the seller, says `in_transit`.
+    const staleBody = { ...renderPayout(payout), status: 'pending' };
+
+    const event = await deliverPayout('payout.created', staleBody);
+
+    expect(event?.status).toBe('processed');
+    const row = await payoutRow(payout.id);
+    expect(row).toMatchObject({
+      providerAccountRef: accountId,
+      status: 'in_transit',
+      amountAmount: 12_500,
+      amountCurrency: 'EUR',
+    });
+    expect(row?.arrivalAt?.toISOString()).toBe('2025-03-15T00:00:00.000Z');
+    const [announced] = await db
+      .select()
+      .from(paymentSchema.paymentOutboxes)
+      .where(
+        eq(
+          paymentSchema.paymentOutboxes.id,
+          `payment:payout_changed:${String(row?.id)}:in_transit`,
+        ),
+      );
+    expect(announced?.payload).toMatchObject({ sellerKey: `store:${owner.ownerId}` });
+  });
+
+  it('records a failure with its safe code only, and converges on redelivery', async () => {
+    const owner = store();
+    await accounts.createSellerOnboardingLink({ owner, country: 'ES' });
+    const accountId = String((await rowFor(owner))?.providerAccountId);
+    const payout = gateway.putPayout({
+      account: accountId,
+      amount: 3_000n,
+      currency: 'EUR',
+      status: 'failed',
+      arrivalDate: null,
+      failureCode: 'account_closed',
+    });
+
+    await deliverPayout('payout.failed', renderPayout(payout));
+    await deliverPayout('payout.failed', renderPayout(payout));
+
+    const rows = await db
+      .select()
+      .from(paymentSchema.payouts)
+      .where(eq(paymentSchema.payouts.providerObjectId, payout.id));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ status: 'failed', failureCode: 'account_closed' });
   });
 });

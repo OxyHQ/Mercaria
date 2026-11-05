@@ -227,10 +227,11 @@ export interface SellerPaymentSettings {
   /**
    * Whether hosted onboarding can be started or resumed here at all.
    *
-   * False on a deployment with the rail switched off or half-configured. The
-   * client disables its connect action; it does not hide the section, because a
-   * seller asking "where do I get paid" deserves to be told rather than to find
-   * nothing.
+   * False on a deployment that cannot hear the gateway's account events (no
+   * Peable webhook secret). Independent of `PEABLE_ENABLED`: sellers onboard
+   * before buyers can pay. The client disables its connect action; it does not
+   * hide the section, because a seller asking "where do I get paid" deserves to
+   * be told rather than to find nothing.
    */
   onboardingAvailable: boolean;
 }

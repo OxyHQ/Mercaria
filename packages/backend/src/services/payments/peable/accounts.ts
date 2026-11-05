@@ -68,13 +68,22 @@ import {
   type SellerAccountOwner,
   sellerKeyFor,
 } from '../provider-account.service.js';
-import { createPeableClient } from './client.js';
 import { callPeable } from './errors.js';
+import { createPeableClient } from './client.js';
 
 let client: Peable | undefined;
 
-/** The one client, built on first use so a deployment without the rail never builds it. */
-function peable(): Peable {
+/**
+ * The one Peable client the marketplace's non-payment calls share — seller
+ * accounts here, and the event handlers that re-read payouts, refunds and
+ * disputes (`marketplace-events.ts`).
+ *
+ * Built on first use from `createPeableClient()` (the one module that reaches
+ * the gateway, which suites replace with the fake gateway), so a deployment
+ * without the rail never builds it. `PeablePaymentProvider` holds its own
+ * instance from the same factory.
+ */
+export function peableGateway(): Peable {
   client ??= createPeableClient();
   return client;
 }
@@ -229,7 +238,7 @@ async function ensureSellerAccount(
 
   let account: ConnectedAccount;
   try {
-    account = await peable().connectedAccounts.create(
+    account = await peableGateway().connectedAccounts.create(
       {
         external_ref: sellerKeyFor(owner),
         country: normalized,
@@ -272,11 +281,15 @@ async function ensureSellerAccount(
 /**
  * Whether this deployment can start or resume onboarding at all.
  *
- * The rail must be on: an account opened on a deployment that cannot charge
- * would show the seller "ready" for a checkout that does not exist.
+ * It needs the gateway's account events to be HEARD — a webhook secret, which
+ * mounts `/webhooks/peable` — and NOT `PEABLE_ENABLED`. The rollout order is
+ * the point: sellers onboard and reach `ready` first, and only then does
+ * `PEABLE_ENABLED` let a buyer pay them. Gating onboarding on the buyer lever
+ * would make the first seller impossible to onboard before the first buyer can
+ * pay, and with that lever off no buyer is charged whatever a seller's state.
  */
 function onboardingAvailable(): boolean {
-  return config.payments.peable.enabled;
+  return config.payments.peable.webhooksEnabled;
 }
 
 /** The seller-facing payments settings: their standing plus what this deployment can do. */
@@ -303,12 +316,12 @@ export async function createSellerOnboardingLink(input: {
   country?: string;
 }): Promise<ProviderOnboardingLink> {
   if (!onboardingAvailable()) {
-    throw serviceUnavailable('Card payments are not available on this deployment yet.');
+    throw serviceUnavailable('Payment onboarding is not available on this deployment yet.');
   }
   const row = await ensureSellerAccount(input.owner, input.country);
   const url = returnUrlFor(input.owner);
   try {
-    const link = await peable().connectedAccounts.createAccountLink(
+    const link = await peableGateway().connectedAccounts.createAccountLink(
       row.providerAccountId,
       { refresh_url: url, return_url: url, rail: 'card' },
       // Deliberately NO durable key: a link is single-use, so a retry must mint
@@ -342,7 +355,7 @@ export async function refreshSellerAccount(
   if (row && onboardingAvailable()) {
     let account: ConnectedAccount;
     try {
-      account = await peable().connectedAccounts.refresh(row.providerAccountId, {});
+      account = await peableGateway().connectedAccounts.refresh(row.providerAccountId, {});
     } catch (error) {
       throw refusal(error);
     }
@@ -369,7 +382,7 @@ export async function syncPeableAccount(
   const row = await findProviderAccountByProviderId(getDb(), 'peable', providerAccountId);
   if (!row) return undefined;
   const account = await callPeable('getStatus', () =>
-    peable().connectedAccounts.retrieve(providerAccountId),
+    peableGateway().connectedAccounts.retrieve(providerAccountId),
   );
   // Read AFTER the call returns, so the ordering key never claims an
   // observation is fresher than it is.
