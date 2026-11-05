@@ -487,12 +487,9 @@ The billing transport is Peable's native engine. A new paid offer still
 requires the following commercial readiness checks; transport registration
 alone does not prove an offer exists.
 
-State on 2026-11-05: step 5's endpoint and secret are done (endpoint
-`we_82b5f363eb495108b252e607`, test delivery verified in production), and the
-ADR 0015 routing in step 4 is decided: Mercaria's merchant is `first_party`, so
-plan revenue is Oxy Platforms, Inc.'s. Steps 1–4, 6 and 7 are open. The order
-and the decisions the owner owes are in
-[`runbooks/merchant-plans-live.md`](runbooks/merchant-plans-live.md).
+State on 2026-11-05: **every step is done and the plans are on sale** — the
+evidence (PRs, Orbit ids, the publish and probe runs) is in
+[`runbooks/merchant-plans-live.md`](runbooks/merchant-plans-live.md) §1.
 
 1. A paid capability is actually implemented, and its
    `MERCHANT_CAPABILITY_CATALOG` entry moves to `available` in the same change.
@@ -543,10 +540,10 @@ does nothing and a merchant who stops paying never loses what they made:
 
 ## Seams left, each failing closed
 
-- **A capability's own enforcement.** `checkCapability` and `consumeCapability`
-  are complete, tested against a real server, and called by NOTHING — because
-  nothing is gated. The day a paid feature ships, the only new code is the
-  feature itself.
+- **A capability's own enforcement** is each tool's: every built tool calls
+  `services/entitlements/enforce.ts` (see "Building a paid tool"). A capability
+  that is still `postponed` (`ai_catalog_assistance`) has no caller and no
+  plan can name it.
 - **Another financial rail.** `BillingProvider` remains the boundary, with one
   implementation (Peable). A deployment without `PEABLE_WEBHOOK_SECRET`
   registers no provider.

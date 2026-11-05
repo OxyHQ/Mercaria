@@ -275,9 +275,12 @@ jobs:
       #   (CANONICAL_SOURCE_MEDIA_MAX_IMPORT_CALLS_PER_MINUTE) plus refunded 429
       #   deferrals keep Oxy's 30-requests/min application budget intact, so a
       #   larger batch raises throughput without raising request count.
-      # - MERCHANT_BILLING_RETURN_URL: where Peable's hosted plan checkout and
-      #   portal send a merchant back (the dashboard plan screen). Inert until
-      #   MERCHANT_BILLING_ENABLED is set (docs/runbooks/merchant-plans-live.md).
+      # - MERCHANT_BILLING_ENABLED / MERCHANT_BILLING_RETURN_URL: merchant plans
+      #   are ON SALE (owner decision 2026-11-05; docs/runbooks/merchant-plans-live.md).
+      #   The flag opens checkout, plan change, portal and cancellation; the
+      #   return URL is where Peable's hosted pages send a merchant back. It is
+      #   the incident lever: removing it stops new sales and leaves every
+      #   subscription, entitlement and invoice booking running.
       #
       # Values are JSON strings; the resolve step refuses anything else.
       RELEASE_ENVIRONMENT: |
@@ -290,6 +293,7 @@ jobs:
           "CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED": "true",
           "CANONICAL_SOURCE_MEDIA_BATCH_SIZE": "30",
           "CANONICAL_SOURCE_MEDIA_MAX_IN_FLIGHT": "60",
+          "MERCHANT_BILLING_ENABLED": "true",
           "MERCHANT_BILLING_RETURN_URL": "https://dashboard.mercaria.co/settings/plan"
         }
     # Native arm64, matching the image this job builds.

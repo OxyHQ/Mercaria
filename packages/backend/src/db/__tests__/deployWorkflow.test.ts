@@ -135,7 +135,8 @@ describe('the deploy workflow and the migrator agree', () => {
       // per-application request budget (docs/catalog-media.md).
       CANONICAL_SOURCE_MEDIA_BATCH_SIZE: '30',
       CANONICAL_SOURCE_MEDIA_MAX_IN_FLIGHT: '60',
-      // Where a hosted plan checkout returns; inert until billing is enabled.
+      // Merchant plans are on sale; the return URL is where hosted pages return.
+      MERCHANT_BILLING_ENABLED: 'true',
       MERCHANT_BILLING_RETURN_URL: 'https://dashboard.mercaria.co/settings/plan',
     });
     expect(rollout?.run).toContain('--task-definition');
