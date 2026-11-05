@@ -403,7 +403,9 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // The paid-tool foundation adds `StoreCapabilityView` and
     // `StoreCapabilitiesView` (#89): +2 types, +10 properties. Measured by the
     // real guard.
-    'walked 141 contract module(s), 2389 exported type(s), 7979 property signature(s)',
+    // Competitive price analytics adds `store-price-analytics.ts` (#89): +1
+    // module, +13 types, +64 properties. Measured by the real guard.
+    'walked 142 contract module(s), 2402 exported type(s), 8043 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });
