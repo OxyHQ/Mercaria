@@ -426,7 +426,10 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // `PriceSampleShortfallReason` in `price-signals.ts` and states
     // `StorePriceAnalyticsSemantics.minCoverageDays`: +1 type, +1 property.
     // Measured by the real guard.
-    'walked 148 contract module(s), 2463 exported type(s), 8310 property signature(s)',
+    // Checkout refusal details (`common.ts`: `ApiResponse.details`,
+    // `RefusedCheckoutSeller`, `SellersNotPaymentReadyErrorDetails`,
+    // `ApiErrorDetails`): +3 types, +5 properties. Measured by the real guard.
+    'walked 148 contract module(s), 2466 exported type(s), 8315 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });

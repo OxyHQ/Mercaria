@@ -219,10 +219,10 @@ export async function readSellerPaymentReadiness(
  * so the refusal names the seller exactly as the line above the items does.
  * Read only on the refusal path: an admitted checkout never pays for it.
  *
- * A name that cannot be read is ABSENT, never replaced by the key. Oxy not
- * answering for a person is the only way that happens (a listing's store row is
- * behind a foreign key), and the buyer is then told "a seller" — the key
- * stays in `sellerKey`, the machine field.
+ * A name that cannot be read is ABSENT, never replaced by the key. That happens
+ * only for a person — Oxy did not answer, or its answer fell back to the bare
+ * account id (a listing's store row is behind a foreign key) — and the buyer is
+ * then told "a seller"; the key stays in `sellerKey`, the machine field.
  */
 async function nameRefusedSellers(sellerKeys: readonly string[]): Promise<RefusedCheckoutSeller[]> {
   const owners = sellerKeys.map((sellerKey) => ({ sellerKey, owner: parseSellerKey(sellerKey) }));
@@ -242,7 +242,9 @@ async function nameRefusedSellers(sellerKeys: readonly string[]): Promise<Refuse
         : owner?.ownerType === 'user'
           ? profiles.get(owner.ownerId)?.displayName.trim()
           : undefined;
-    return name ? { sellerKey, name } : { sellerKey };
+    // `toOxyProfile` ends its fallback chain at the account id; an id is not a
+    // name, so it is treated exactly like no answer.
+    return name && name !== owner?.ownerId ? { sellerKey, name } : { sellerKey };
   });
 }
 

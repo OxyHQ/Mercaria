@@ -247,15 +247,25 @@ describe('the refusal names each seller the way the cart does', () => {
 
   it('says "A seller" — never the id — when Oxy cannot name a private seller', async () => {
     rails.peable = true;
-    const person = `user:native-rail-unknown-${uuidv7()}`;
-
-    const refusal = await refusalOf([person]);
-
-    expect(refusal?.message).toMatch(/^A seller cannot accept payment right now\./);
-    expect(refusal?.message).not.toContain(person);
-    expect(refusal?.details).toEqual({
-      reason: 'seller_not_payment_ready',
-      sellers: [{ sellerKey: person }],
+    const unknownId = `native-rail-unknown-${uuidv7()}`;
+    // Oxy's own fallback chain ends at the account id: that is not a name either.
+    const handlelessId = `native-rail-handleless-${uuidv7()}`;
+    oxyProfiles.set(handlelessId, {
+      id: handlelessId,
+      username: handlelessId,
+      displayName: handlelessId,
     });
+
+    for (const oxyUserId of [unknownId, handlelessId]) {
+      const person = `user:${oxyUserId}`;
+      const refusal = await refusalOf([person]);
+
+      expect(refusal?.message).toMatch(/^A seller cannot accept payment right now\./);
+      expect(refusal?.message).not.toContain(oxyUserId);
+      expect(refusal?.details).toEqual({
+        reason: 'seller_not_payment_ready',
+        sellers: [{ sellerKey: person }],
+      });
+    }
   });
 });
