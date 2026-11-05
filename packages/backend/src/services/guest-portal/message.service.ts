@@ -650,13 +650,9 @@ export async function dispatchGuestPortalMessages(): Promise<number> {
 let dispatcherTimer: NodeJS.Timeout | undefined;
 
 /**
- * Start the dispatcher on this task.
- *
- * Gated by `GUEST_PORTAL_MESSAGE_DELIVERY_ENABLED`, which stops the LOOP and
- * never the row: messages keep being enqueued while it is off and drain when it
- * is switched back on. That is the incident lever — mail must sometimes stop
- * going out — and losing the record of what was owed would turn a two-hour
- * pause into a permanent gap.
+ * Start the dispatcher on this task. Always on; a message is enqueued by the
+ * transaction that owes it, so one queued while no task was draining is
+ * delivered by the next pass.
  *
  * `.unref?.()` immediately after `setInterval`, the house rule: a housekeeping
  * interval that keeps the event loop alive non-deterministically hangs a Jest
@@ -664,14 +660,6 @@ let dispatcherTimer: NodeJS.Timeout | undefined;
  */
 export function startGuestPortalMessageDispatcher(): void {
   if (dispatcherTimer !== undefined) return;
-  if (!config.guest.portal.deliveryEnabled) {
-    log.guest.info(
-      {},
-      '[GuestPortal] message dispatcher not started (GUEST_PORTAL_MESSAGE_DELIVERY_ENABLED=false); ' +
-        'messages continue to be enqueued durably',
-    );
-    return;
-  }
   dispatcherTimer = setInterval(() => {
     void dispatchGuestPortalMessages().catch((err: unknown) => {
       log.guest.error({ err }, '[GuestPortal] message dispatcher pass failed');

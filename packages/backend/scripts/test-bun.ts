@@ -114,6 +114,7 @@ const EXCLUDED: Readonly<Record<string, readonly string[]>> = {
   ],
   // `vi.stubGlobal`, `vi.stubEnv`, `vi.unstubAllGlobals`, `vi.unstubAllEnvs`.
   'global and environment stubs (vi.stubGlobal / vi.stubEnv)': [
+    'src/config/__tests__/node-env.test.ts',
     'src/db/__tests__/deployCoverage.test.ts',
     'src/middleware/__tests__/commerce-actor.test.ts',
     'src/services/__tests__/fx.service.test.ts',

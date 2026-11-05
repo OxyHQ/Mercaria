@@ -201,22 +201,12 @@ async function recordFailure(job: GuestClaimOutboxRow, err: unknown): Promise<vo
 }
 
 /**
- * Start the dispatcher on this task.
- *
- * Gated by `GUEST_CLAIM_PROJECTION_ENABLED`, which stops the LOOP and never the
- * row: claims made while it is off leave their work queued and it drains when
- * the lever comes back.
+ * Start the dispatcher on this task. Always on; the row is written by the claim
+ * itself, so work queued while no task was draining is delivered by the next
+ * pass.
  */
 export function startGuestClaimDispatcher(): void {
   if (dispatcherTimer !== undefined) return;
-  if (!config.guest.claim.projectionEnabled) {
-    log.guest.info(
-      {},
-      '[GuestClaim] follow-up dispatcher not started (GUEST_CLAIM_PROJECTION_ENABLED=false); ' +
-        'claims continue to enqueue their work durably',
-    );
-    return;
-  }
   dispatcherTimer = setInterval(() => {
     void dispatchGuestClaimJobs().catch((err: unknown) => {
       log.guest.error({ err }, '[GuestClaim] follow-up dispatcher pass failed');

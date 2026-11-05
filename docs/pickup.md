@@ -348,11 +348,11 @@ removing the predicate turns exactly the three acceptance-14 cases red.
 
 #93 lists ten conditions. Seven are covered by the discoverability derivation
 (publication, activation, pickup switches, freshness, moderation, the store, the
-listing). The three that are genuinely guest-specific:
+listing). The ones that are genuinely guest-specific:
 
 | Condition | How it is answered |
 |---|---|
-| The store passes #85 guest checkout readiness | #107's EXISTING `GUEST_SELLER_ACTIVATION_REQUIRED`. `guestSellerActivated` cannot be `true` today, so turning it on refuses EVERY guest collection by name — the fail-closed direction |
+| The store passes #85 guest checkout readiness | Not a pickup clause. The opt-in `GUEST_SELLER_ACTIVATION_REQUIRED` gate it reused was removed (default OFF, ADR 0006 G14), so guest collection asks exactly what guest checkout asks |
 | The guest portal and transactional notifications are operational | `GUEST_PICKUP_REQUIRE_NOTIFICATION_TRANSPORT`, default OFF |
 | Collection verification is implemented | No clause needed: `STORE_PICKUP_ENABLED` demands `PICKUP_COLLECTION_CODE_KEY` |
 

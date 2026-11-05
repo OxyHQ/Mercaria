@@ -435,11 +435,6 @@ function readLevers() {
   return {
     storePickupEnabled: config.pickup.storePickupEnabled,
     guestPickupEnabled: config.pickup.guestPickupEnabled,
-    // #85 has not landed and there is no table to read: `false` is
-    // `unrecorded`, and whether that blocks is the flag's decision. Shared with
-    // #107's gate rather than duplicated — see `eligibility.ts`.
-    guestSellerActivated: false,
-    guestSellerActivationRequired: config.guest.checkoutRollout.sellerActivationRequired,
     guestNotificationTransportAvailable: hasGuestMessageTransport(),
     guestNotificationTransportRequired: config.pickup.guestPickupRequiresNotificationTransport,
   };

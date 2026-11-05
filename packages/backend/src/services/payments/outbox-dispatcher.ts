@@ -6,12 +6,9 @@
  * work without contending and a dead task's lease is reclaimed rather than
  * stranding the row.
  *
- * The LOOP is gated by configuration; the durable record never is. Rows are
- * written whatever `config.payments.outboxEnabled` says, so switching the
- * dispatcher off during an incident parks the work and switching it back on
- * delivers the backlog. Exactly the rule the moderation dispatcher follows, and
- * for the same reason it was written down there: gating the record instead is
- * the change that looks equivalent and silently loses work.
+ * Always on: there is no switch for it. A row written while no task is draining
+ * (a deploy, a crash) is simply delivered by the next tick, because the durable
+ * record is written by the transaction that produced it and never by this loop.
  */
 
 import { config } from '../../config/index.js';
@@ -48,13 +45,6 @@ async function tick(): Promise<void> {
 /** Begin draining. Idempotent — a second call is a no-op. */
 export function startPaymentOutboxDispatcher(): void {
   if (timer !== undefined) return;
-  if (!config.payments.outboxEnabled) {
-    log.general.warn(
-      '[Payments] outbox dispatcher is DISABLED; payment events are recorded and will ' +
-        'deliver once it is enabled',
-    );
-    return;
-  }
 
   timer = setInterval(() => {
     void tick();

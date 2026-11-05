@@ -125,13 +125,6 @@ export async function resolvePickupForCheckout(input: {
   const levers = {
     storePickupEnabled: config.pickup.storePickupEnabled,
     guestPickupEnabled: config.pickup.guestPickupEnabled,
-    // #85 has not landed and there is no table to read. `false` is
-    // `unrecorded`; whether that refuses is
-    // `GUEST_SELLER_ACTIVATION_REQUIRED`'s decision, and reusing #107's flag
-    // rather than adding a parallel one is deliberate — "is this merchant
-    // activated for guest checkout" already has exactly one answer.
-    guestSellerActivated: false,
-    guestSellerActivationRequired: config.guest.checkoutRollout.sellerActivationRequired,
     guestNotificationTransportAvailable: hasGuestMessageTransport(),
     guestNotificationTransportRequired: config.pickup.guestPickupRequiresNotificationTransport,
   };

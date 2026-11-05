@@ -47,8 +47,8 @@ appearing where an Oxy id is expected.
 - **Flags (M8):** `GUEST_COMMERCE_ENABLED` (default false) gates the MOUNT and
   requires BOTH `GUEST_PII_ENCRYPTION_KEY` and `GUEST_EMAIL_HASH_KEY` (the
   half-configuration rule; keys are consumed by #105+/#108 but demanded now).
-  `GUEST_SESSION_ISSUANCE_ENABLED` (default true) is the incident kill switch:
-  stops NEW sessions only — existing ones keep resolving/rotating/revoking.
+  There is no separate issuance kill switch: while guest commerce is on,
+  issuance is on (behind the per-IP `rl:guest-issue:` limit).
   `GUEST_SESSION_IDLE_DAYS=30`, `GUEST_SESSION_ABSOLUTE_DAYS=90`. Production
   stays OFF until the M8 security + privacy review clears.
 - **Conversion is a SEAM here:** `converted_at`/`converted_to_oxy_user_id` are
@@ -206,13 +206,11 @@ widening on `db/schema/orders.ts`. Schema decisions:
   contact the orders reference by FK and it must commit with them, or an
   idempotency converge would strand one. `placeOrders` is the same body either
   way (ADR 0003 I9).
-- **Flags are FOUR independent levers**, and the interaction matters:
-  `GUEST_COMMERCE_ENABLED` off = no credential resolves at all (decommission);
-  `GUEST_CART_ENABLED` off = a session resolves but owns no cart, so there is
-  nothing to check out; `GUEST_INLINE_DESTINATION_ENABLED` off (the #105 lever,
-  default true) = the cart survives and checkout is refused with
-  "temporarily unavailable"; placed guest orders and their payments are never
-  gated (ADR 0006 G17). `CHECKOUT_DESTINATION_COUNTRIES` is empty by default,
+- **Levers:** `GUEST_COMMERCE_ENABLED` off = no credential resolves at all
+  (decommission); `GUEST_CHECKOUT_BLOCKED_PLATFORMS=web,native` = the cart
+  survives and every guest checkout is refused with `guest_rollout_blocked`
+  (the #105 inline-destination lever was merged into it). Placed guest orders
+  and their payments are never gated (ADR 0006 G17). `CHECKOUT_DESTINATION_COUNTRIES` is empty by default,
   which means unrestricted — today's behaviour exactly.
 - **Privacy:** three encrypted/hashed columns are in `PROTECTED_COLUMNS` (the
   hash too — it is an exact-match ORACLE, not merely irreversible); no refusal

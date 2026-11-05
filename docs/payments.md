@@ -361,9 +361,9 @@ column names so the two claim queries are the same query.
 - **Backoff is exponential, capped at six hours**, and after 25 attempts (or on a
   non-retryable failure) the row becomes a VISIBLE `dead_letter` rather than
   accumulating attempts nobody reads.
-- **The LOOP is gated, never the record.** Rows are written whatever
-  `PAYMENT_OUTBOX_ENABLED` says, so switching the dispatcher off during an
-  incident parks work and switching it on delivers the backlog.
+- **The dispatcher always runs; the record is written by the transaction that
+  produced it.** A row written while no task was draining (a deploy, a crash) is
+  delivered by the next tick.
 
 An event type this version does not handle THROWS rather than completing as if
 handled, so during a rolling deploy the task running the newer code claims it.
@@ -980,7 +980,7 @@ intent is open drains to a terminal state exactly as it would have.
 paths learns to read `config.guest`. **`PEABLE_ENABLED=false` is NOT a guest
 rollback lever**: it disables the whole card rail for every buyer.
 
-### The #85 gate, CLOSED
+### The #85 gate, REMOVED
 
 `readGuestSellerActivation` is the ONE function that decides whether a seller
 may sell to a guest beyond what payment readiness already decided. It shipped as
@@ -1784,8 +1784,7 @@ never carry a payload or a secret.
 Read in `packages/backend/src/config/index.ts` (`config.payments`).
 
 ```
-PAYMENT_OUTBOX_ENABLED=true            # gates the LOOP, never the durable record
-PAYMENT_OUTBOX_BATCH_SIZE=50
+PAYMENT_OUTBOX_BATCH_SIZE=50           # the dispatcher always runs
 PAYMENT_OUTBOX_POLL_INTERVAL_MS=5000
 PAYMENT_OUTBOX_LEASE_MS=60000
 
