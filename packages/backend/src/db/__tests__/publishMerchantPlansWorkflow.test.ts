@@ -70,7 +70,7 @@ describe('publish-merchant-plans.yml', () => {
   it('defaults to preview, has no other input, and pins Mercaria’s merchant', () => {
     expect(Object.keys(inputs)).toEqual(['mode']);
     expect(inputs.mode?.default).toBe('preview');
-    expect(inputs.mode?.options).toEqual(['preview', 'apply']);
+    expect(inputs.mode?.options).toEqual(['preview', 'apply', 'probe']);
     expect(workflow.env?.PEABLE_MERCHANT).toMatch(/^merch_[a-z0-9]+$/);
   });
 

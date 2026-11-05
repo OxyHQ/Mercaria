@@ -4,8 +4,10 @@
 # versions bound to them. A one-shot ECS task on the LIVE task definition,
 # because it needs Mercaria's workload identity and the production database.
 #
-# `preview` reads only and prints what it would do; `apply` writes. Neither
-# turns billing on — that is `MERCHANT_BILLING_ENABLED` in deploy-aws.yml.
+# `preview` reads only and prints what it would do; `apply` writes; `probe` is
+# the live no-money check (a subscription Checkout Session per published price,
+# its page fetched, then expired). None turns billing on — that is
+# `MERCHANT_BILLING_ENABLED` in deploy-aws.yml.
 # Runbook: docs/runbooks/merchant-plans-live.md.
 name: Publish merchant plans
 
@@ -13,13 +15,14 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: preview reads and writes nothing; apply writes
+        description: preview reads and writes nothing; apply writes; probe opens and expires one live checkout per price (no money)
         type: choice
         required: true
         default: preview
         options:
           - preview
           - apply
+          - probe
 
 concurrency:
   group: publish-merchant-plans
@@ -55,7 +58,7 @@ jobs:
         run: |
           set -euo pipefail
           case "$MODE" in
-            preview | apply) ;;
+            preview | apply | probe) ;;
             *) echo "::error::unknown mode '$MODE'"; exit 1 ;;
           esac
           command=$(jq -nc --arg mode "$MODE" --arg merchant "$PEABLE_MERCHANT" \
