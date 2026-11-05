@@ -58,7 +58,8 @@
     "tender": "Mode de paiement",
     "tenderCard": "Carte",
     "tenderCash": "Espèces",
-    "title": "Encaissement"
+    "title": "Encaissement",
+    "register": "Caisse"
   },
   "common": {
     "all": "Tous",
@@ -192,6 +193,11 @@
       "other": "@%{handle} · %{count} produits",
       "many": "@%{handle} · %{count} de produits"
     },
-    "storesLoadFailed": "Impossible de charger vos boutiques"
+    "storesLoadFailed": "Impossible de charger vos boutiques",
+    "changeLocation": "Changer d'emplacement",
+    "chooseTillTitle": "Quelle caisse est-ce ?",
+    "chooseTillSubtitle": "Choisissez la caisse de cet appareil à %{location}",
+    "defaultRegister": "Caisse par défaut",
+    "defaultRegisterMeta": "La caisse partagée de l'emplacement"
   }
 }

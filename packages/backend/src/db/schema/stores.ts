@@ -27,6 +27,7 @@ import {
   integer,
   pgTable,
   text,
+  unique,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
@@ -241,6 +242,9 @@ export const locations = pgTable(
   },
   (t) => [
     checkOneOf('locations_type_check', t.type, LOCATION_TYPES),
+    // The parent half of `pos_registers`' composite key: a register sits at one
+    // of ITS OWN store's locations.
+    unique('locations_id_store_id_key').on(t.id, t.storeId),
     uniqueIndex('locations_go_way_place_id_store_id_key')
       .on(t.goWayPlaceId, t.storeId)
       .where(sql`${t.goWayPlaceId} is not null`),

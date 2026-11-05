@@ -2193,5 +2193,42 @@
       "footnote": "Um período só mostra os preços de outros vendedores quando foram observados vendedores suficientes.",
       "noValue": "—"
     }
+  },
+  "posRegisters": {
+    "documentTitle": "Caixas do PDV | Wholesale by Mercaria",
+    "title": "Caixas do PDV",
+    "subtitle": "Caixas com nome em cada local, com suas próprias vendas diárias",
+    "toolDescription": "Adicione caixas com nome ao lado do caixa padrão de cada local e veja as vendas diárias de cada um.",
+    "loadFailed": "Não foi possível carregar seus caixas",
+    "defaultExplainer": "Cada local mantém seu caixa padrão, que qualquer número de dispositivos pode usar gratuitamente. Caixas com nome dão a cada caixa sua própria identidade nas vendas e seu próprio resumo diário.",
+    "add": "Adicionar caixa",
+    "defaultName": "Caixa padrão",
+    "defaultMeta": "Usado por qualquer dispositivo sem um caixa com nome selecionado · sempre incluído",
+    "renameAction": "Renomear %{name}",
+    "removeAction": "Remover %{name}",
+    "archived": "%{name} foi removido. As vendas anteriores continuam no resumo.",
+    "deleted": "%{name} foi removido",
+    "removeFailed": "Não foi possível remover o caixa",
+    "limitReached": "Você já usa todos os caixas que seu plano inclui. Remova um para adicionar outro.",
+    "notIncluded": "Seu plano atual não inclui caixas com nome.",
+    "nameTaken": "Este local já tem um caixa com esse nome.",
+    "saveFailed": "Não foi possível salvar o caixa",
+    "nameRequired": "Dê um nome ao caixa",
+    "saved": "Caixa salvo",
+    "renameTitle": "Renomear caixa",
+    "newTitle": "Novo caixa em %{location}",
+    "namePlaceholder": "ex.: Balcão principal",
+    "unknownRegister": "Caixa removido",
+    "summary": {
+      "title": "Vendas por caixa",
+      "note": "Vendas cujo pagamento foi recebido no caixa, por dia UTC. Reembolsos são registrados separadamente.",
+      "today": "Hoje",
+      "last7": "7 dias",
+      "last30": "30 dias",
+      "atLocation": "%{name} · %{location}",
+      "loadFailed": "Não foi possível carregar o resumo de vendas",
+      "empty": "Nenhuma venda no caixa neste período.",
+      "sales": "Vendas: %{count}"
+    }
   }
 }

@@ -79,6 +79,7 @@ flowchart LR
     subgraph epic["#367 catalog modules"]
         direction TB
         M_Seller_merchandising["Seller merchandising"]
+        M_Named_POS_registers___89___expanded_pos_registers__["Named POS registers (#89, `expanded_pos_registers`)"]
         M_Organization_migration_evidence["Organization migration evidence"]
         M_Taxonomy["Taxonomy"]
         M_Classification["Classification"]
@@ -126,6 +127,7 @@ flowchart LR
         X_feed_uploads[("feed_uploads")]
         X_listing_images[("listing_images")]
         X_listings[("listings")]
+        X_locations[("locations")]
         X_order_items[("order_items")]
         X_orders[("orders")]
         X_organizations[("organizations")]
@@ -148,6 +150,8 @@ flowchart LR
     M_Digital_licences_and_buyer_rights --> M_Digital_deliverables
     M_Digital_retail_procurement_and_fulfilment --> M_Digital_retail_supply
     M_Seller_merchandising --> X_collections
+    M_Named_POS_registers___89___expanded_pos_registers__ --> X_locations
+    M_Named_POS_registers___89___expanded_pos_registers__ --> X_stores
     M_Organization_migration_evidence --> X_organizations
     M_Organization_migration_evidence --> X_source_records
     M_Taxonomy --> X_catalog_sources
@@ -218,11 +222,12 @@ flowchart LR
     M_Feed_uploads_and_validations___63_ --> X_feed_uploads
 ```
 
-**2 foreign keys point the other way** — from a table outside the epic into
+**3 foreign keys point the other way** — from a table outside the epic into
 one the epic added. They are the edges that make an epic table impossible to drop quietly:
 
 - `catalog_merge_conflicts.collapsing_relation_id` → `generic_compatibility_relations` (`ON DELETE restrict`)
 - `listings.product_type_definition_id` → `product_type_definitions` (`ON DELETE restrict`)
+- `orders.pos_register_id + store_id` → `pos_registers` (`ON DELETE restrict`)
 
 ## 2. Write ownership
 
@@ -230,7 +235,7 @@ Measured, not asserted. Every edge below is a `.insert(…)`, `.update(…)` or 
 the table's drizzle symbol, or a raw-SQL write naming it, found in a non-test module under
 `packages/backend/src`. The node on the left is the **directory** the writing module sits in.
 
-**29 modules**, **24 writing directories**,
+**30 modules**, **25 writing directories**,
 **5 tables written from more than one directory** and
 **5 written by no application code at all**. The exceptions are drawn by name,
 because they are the whole reason to look at this graph: `catalog-table-ownership.md` opens with
@@ -254,6 +259,7 @@ flowchart LR
     W_db_merchandising["db/merchandising"]
     W_db_navigation["db/navigation"]
     W_db_oxyFiles["db/oxyFiles"]
+    W_db_pos["db/pos"]
     W_db_productTypes["db/productTypes"]
     W_db_reviews["db/reviews"]
     W_db_stores["db/stores"]
@@ -264,6 +270,7 @@ flowchart LR
     W_services_materials["services/materials"]
     W_services_supervised_shopping["services/supervised-shopping"]
     M_Seller_merchandising(["Seller merchandising"])
+    M_Named_POS_registers___89___expanded_pos_registers__(["Named POS registers (#89, `expanded_pos_registers`)"])
     M_Organization_migration_evidence(["Organization migration evidence"])
     M_Taxonomy(["Taxonomy"])
     M_Classification(["Classification"])
@@ -314,6 +321,7 @@ flowchart LR
     W_db_oxyFiles -->|"1"| M_Authoring
     W_db_oxyFiles -->|"6"| M_Oxy_file_usage__Oxy_ADR_0043_
     W_db_oxyFiles -->|"1"| M_Review_attachments
+    W_db_pos -->|"1"| M_Named_POS_registers___89___expanded_pos_registers__
     W_db_productTypes -->|"5"| M_Product_types
     W_db_reviews -->|"1"| M_Review_attachments
     W_db_reviews -->|"1"| M_Review_helpfulness
@@ -389,7 +397,7 @@ HTTP-reachability half, which no source scan can answer.
 
 ## 3. Cardinality, by module
 
-All 105 tables created by a migration at or after `0088`
+All 106 tables created by a migration at or after `0088`
 appear below exactly once, each under the module that owns it. Every relationship is a foreign
 key drizzle will emit; the label is the child columns and the `ON DELETE` action.
 
@@ -407,6 +415,22 @@ Also names, from outside the epic: `collections`.
 | Table | Created by | Written by |
 |---|---|---|
 | `store_featured_collections` | `0181` | `db/merchandising` (delete/insert) |
+
+### Named POS registers (#89, `expanded_pos_registers`)
+
+```mermaid
+erDiagram
+    pos_registers {
+    }
+    locations ||--o{ pos_registers : "location_id + store_id · restrict"
+    stores ||--o{ pos_registers : "store_id · cascade"
+```
+
+Also names, from outside the epic: `locations`, `stores`.
+
+| Table | Created by | Written by |
+|---|---|---|
+| `pos_registers` | `0186` | `db/pos` (delete/insert/update) |
 
 ### Organization migration evidence
 
@@ -1238,18 +1262,18 @@ moved. Every one of these is re-derived on each run and floored by the gate.
 
 | Fact | Value |
 |---|---|
-| Tables in the population | 105 |
-| Modules they are grouped into | 29 |
-| Foreign keys out of an epic table | 198 |
-| Foreign keys into one, from outside the epic | 2 |
-| Pre-existing tables the epic attaches to | 27 |
+| Tables in the population | 106 |
+| Modules they are grouped into | 30 |
+| Foreign keys out of an epic table | 200 |
+| Foreign keys into one, from outside the epic | 3 |
+| Pre-existing tables the epic attaches to | 28 |
 | Relationships the schema proves are 1:1 | 7 |
 | Relationships whose parent is optional (nullable FK) | 85 |
-| Directories that write an epic table | 24 |
+| Directories that write an epic table | 25 |
 | Tables written from more than one directory | 5 |
 | Tables no application code writes | 5 |
 
-`ON DELETE` across those 198 foreign keys: **53** `cascade`, **2** `no action`, **140** `restrict`, **3** `set null`.
+`ON DELETE` across those 200 foreign keys: **54** `cascade`, **2** `no action`, **141** `restrict`, **3** `set null`.
 
 ### The relationships the schema proves are 1:1
 

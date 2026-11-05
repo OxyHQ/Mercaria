@@ -14,6 +14,8 @@ import type { RegisterCartLine } from '../stores/register-cart';
 export interface ChargeSaleInput {
   /** The register/location the sale commits stock at. */
   locationId: string;
+  /** This device's named register, or null for the location's default register. */
+  registerId: string | null;
   /** Attached customer id, or null for a walk-in. */
   customerId: string | null;
   /** Discount code to apply, or null for none. */
@@ -61,7 +63,7 @@ export function useChargeSale(storeId: string) {
   const queryClient = useQueryClient();
 
   return useMutation<Order, Error, ChargeSaleInput>({
-    mutationFn: async ({ locationId, customerId, discountCode, lines }) => {
+    mutationFn: async ({ locationId, registerId, customerId, discountCode, lines }) => {
       const draft = await createDraftOrder(storeId, {
         locationId,
         ...(customerId ? { customerId } : {}),
@@ -80,7 +82,7 @@ export function useChargeSale(storeId: string) {
           await applyDraftDiscounts(storeId, draft.id, [discountCode]);
         }
 
-        return await completeDraftOrder(storeId, draft.id);
+        return await completeDraftOrder(storeId, draft.id, registerId ? { registerId } : {});
       } catch (error) {
         await cancelDraftOrder(storeId, draft.id).catch((cleanupErr: unknown) => {
           if (__DEV__) {

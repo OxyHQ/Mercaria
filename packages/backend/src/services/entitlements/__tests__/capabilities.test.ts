@@ -199,6 +199,8 @@ describe('the code catalogue', () => {
     const BUILT: readonly string[] = [
       // `services/store-price-benchmark/`, `/admin/stores/:storeId/price-analytics`.
       'competitive_price_analytics',
+      // `services/pos-registers.service.ts`, `/admin/stores/:storeId/pos-registers`.
+      'expanded_pos_registers',
     ];
     for (const definition of Object.values(MERCHANT_CAPABILITY_CATALOG)) {
       expect(

@@ -106,9 +106,13 @@ export const MERCHANT_CAPABILITY_CATALOG: Readonly<
   expanded_pos_registers: {
     key: 'expanded_pos_registers',
     name: 'Expanded POS registers',
-    description: 'Point-of-sale capacity beyond one register per location.',
+    description:
+      'Named point-of-sale registers beyond the one default register every location has: ' +
+      "sales rung up on a named register carry its identity and appear in that register's " +
+      'daily sales summary. The limit counts named registers; the default register, used by ' +
+      'any number of devices, stays free.',
     limitKind: 'total',
-    availability: 'postponed',
+    availability: 'available',
   },
   scheduled_exports: {
     key: 'scheduled_exports',

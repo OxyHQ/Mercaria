@@ -55,7 +55,8 @@
     "tender": "পেমেন্ট মাধ্যম",
     "tenderCard": "কার্ড",
     "tenderCash": "নগদ",
-    "title": "চার্জ"
+    "title": "চার্জ",
+    "register": "রেজিস্টার"
   },
   "common": {
     "all": "সব",
@@ -187,6 +188,11 @@
       "one": "@%{handle} · %{count}টি পণ্য",
       "other": "@%{handle} · %{count}টি পণ্য"
     },
-    "storesLoadFailed": "আপনার স্টোর লোড করা যায়নি"
+    "storesLoadFailed": "আপনার স্টোর লোড করা যায়নি",
+    "changeLocation": "লোকেশন বদলান",
+    "chooseTillTitle": "এটি কোন রেজিস্টার?",
+    "chooseTillSubtitle": "%{location}-এ এই ডিভাইসের রেজিস্টার বেছে নিন",
+    "defaultRegister": "ডিফল্ট রেজিস্টার",
+    "defaultRegisterMeta": "লোকেশনের শেয়ার করা রেজিস্টার"
   }
 }

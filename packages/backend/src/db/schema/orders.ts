@@ -50,6 +50,7 @@ import {
   boolean,
   check,
   doublePrecision,
+  foreignKey,
   index,
   integer,
   pgTable,
@@ -93,6 +94,7 @@ import {
 import { connections } from './connectors';
 import { guestCheckouts } from './guests';
 import { DISCOUNT_VALUE_TYPES } from './merchandising';
+import { posRegisters } from './posRegisters';
 import { customers, stores } from './stores';
 
 /**
@@ -297,6 +299,15 @@ export const orders = pgTable(
     sourceChannel: text({ enum: asEnumValues(ORDER_SOURCE_CHANNELS) })
       .notNull()
       .default('storefront'),
+    /**
+     * The NAMED register a POS sale was rung up on (`expanded_pos_registers`,
+     * #89); NULL is the location's default register — every sale before named
+     * registers existed and every sale a free store takes. Constrained with
+     * `store_id` by a composite key so an order can only name its own store's
+     * register, and RESTRICT because a register is part of the sale's record:
+     * one with sales is archived, never deleted (`schema/posRegisters.ts`).
+     */
+    posRegisterId: text(),
 
     // `source` — connector provenance, flattened. Only on externally-synced orders.
     sourceConnectionId: text().references(() => connections.id, { onDelete: 'restrict' }),
@@ -455,6 +466,22 @@ export const orders = pgTable(
     checkOneOf('orders_seller_type_check', t.sellerType, ORDER_SELLER_TYPES),
     checkOneOf('orders_commercial_role_check', t.commercialRole, ORDER_COMMERCIAL_ROLES),
     checkOneOf('orders_source_channel_check', t.sourceChannel, ORDER_SOURCE_CHANNELS),
+    // Only a store's POS sale is rung up on a register — and a store id is what
+    // makes the composite key below bite (MATCH SIMPLE skips a NULL column).
+    check(
+      'orders_pos_register_channel_check',
+      sql`${t.posRegisterId} is null or (${t.sourceChannel} = 'pos' and ${t.storeId} is not null)`,
+    ),
+    foreignKey({
+      name: 'orders_pos_register_id_store_id_fkey',
+      columns: [t.posRegisterId, t.storeId],
+      foreignColumns: [posRegisters.id, posRegisters.storeId],
+    }).onDelete('restrict'),
+    // Removing a register asks whether any sale names it, and the summary reads
+    // a register's sales; both probe this. Partial: almost every order is NULL.
+    index('orders_pos_register_id_idx')
+      .on(t.posRegisterId)
+      .where(sql`${t.posRegisterId} is not null`),
     checkOneOf('orders_source_provider_check', t.sourceProvider, CONNECTOR_PROVIDER_IDS),
     checkOneOf('orders_shipping_method_check', t.shippingMethod, SHIPPING_METHODS),
     checkOneOf('orders_status_check', t.status, ORDER_STATUSES),

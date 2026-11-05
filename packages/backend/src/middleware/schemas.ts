@@ -956,8 +956,14 @@ export const updateDraftOrderSchema = z
   })
   .refine((obj) => Object.keys(obj).length > 0, { message: 'At least one field is required' });
 
-/** Body for `POST .../draft-orders/:id/complete` (CompleteDraftOrderInput — empty). */
-export const completeDraftOrderSchema = z.object({});
+/**
+ * Body for `POST .../draft-orders/:id/complete` (CompleteDraftOrderInput). The
+ * register is optional, and an old POS build that sends `{}` takes the sale on
+ * the location's default register exactly as before.
+ */
+export const completeDraftOrderSchema = z.object({
+  registerId: z.string().trim().min(1).max(64).optional(),
+});
 
 /** Query for `GET /admin/stores/:storeId/draft-orders` (`page`/`limit` + optional `status`). */
 export const draftOrderListQuerySchema = z

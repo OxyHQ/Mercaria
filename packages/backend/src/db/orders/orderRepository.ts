@@ -296,6 +296,11 @@ export interface NewOrder {
   storeId?: string;
   customerId?: string;
   sourceChannel?: OrderSourceChannel;
+  /**
+   * The named POS register (`pos_registers`) a register sale was rung up on;
+   * absent for every other order and for the location's default register.
+   */
+  posRegisterId?: string;
   source?: NewOrderSource;
   /**
    * The destination snapshot, ABSENT on a digital order (#1015, ADR 0010 D8).
@@ -1181,6 +1186,7 @@ export async function insertOrder(
         storeId: input.storeId ?? null,
         customerId: input.customerId ?? null,
         sourceChannel: input.sourceChannel ?? 'storefront',
+        posRegisterId: input.posRegisterId ?? null,
 
         sourceConnectionId: input.source?.connectionId ?? null,
         sourceProvider: input.source?.provider ?? null,

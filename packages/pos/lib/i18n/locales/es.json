@@ -58,7 +58,8 @@
     "tender": "Forma de pago",
     "tenderCard": "Tarjeta",
     "tenderCash": "Efectivo",
-    "title": "Cobro"
+    "title": "Cobro",
+    "register": "Caja"
   },
   "common": {
     "all": "Todos",
@@ -192,6 +193,11 @@
       "other": "@%{handle} · %{count} productos",
       "many": "@%{handle} · %{count} de productos"
     },
-    "storesLoadFailed": "No se han podido cargar tus tiendas"
+    "storesLoadFailed": "No se han podido cargar tus tiendas",
+    "changeLocation": "Cambiar ubicación",
+    "chooseTillTitle": "¿Qué caja es esta?",
+    "chooseTillSubtitle": "Elige la caja de este dispositivo en %{location}",
+    "defaultRegister": "Caja predeterminada",
+    "defaultRegisterMeta": "La caja compartida de la ubicación"
   }
 }

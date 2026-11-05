@@ -1,4 +1,4 @@
-import { Scale, type LucideIcon } from 'lucide-react-native';
+import { Calculator, Scale, type LucideIcon } from 'lucide-react-native';
 import type { RoutePath } from 'expo-router';
 import type { MerchantEntitlementCapability, StorePermission } from '@mercaria/shared-types';
 
@@ -34,5 +34,13 @@ export const PLAN_TOOLS: readonly PlanTool[] = [
     // "What is the market doing around my products" (`STORE_PERMISSIONS`), the
     // permission the API route requires.
     permission: 'analytics:read',
+  },
+  {
+    capability: 'expanded_pos_registers',
+    labelKey: 'posRegisters.title',
+    descriptionKey: 'posRegisters.toolDescription',
+    icon: Calculator,
+    href: '/tools/pos-registers',
+    permission: 'locations:write',
   },
 ];

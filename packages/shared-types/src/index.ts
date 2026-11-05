@@ -136,6 +136,9 @@ export * from './customer';
 // Draft order DTOs (DraftOrder, DraftOrderLineItem, DraftOrderStatus, POS inputs).
 export * from './draft-order';
 
+// Named POS registers and their sales summary (the paid `expanded_pos_registers` tool).
+export * from './pos-register';
+
 // Refund/Return DTOs (Refund, RefundLineItem, RefundStatus, CreateRefundInput).
 export * from './refund';
 

@@ -2172,5 +2172,42 @@
       "footnote": "Ein Zeitraum zeigt die Preise anderer Verkäufer nur, wenn genug von ihnen erfasst wurden.",
       "noValue": "—"
     }
+  },
+  "posRegisters": {
+    "documentTitle": "POS-Kassen | Wholesale by Mercaria",
+    "title": "POS-Kassen",
+    "subtitle": "Benannte Kassen pro Standort, mit eigenen Tagesumsätzen",
+    "toolDescription": "Füge neben der Standardkasse jedes Standorts benannte Kassen hinzu und sieh die Tagesumsätze jeder einzelnen.",
+    "loadFailed": "Deine Kassen konnten nicht geladen werden",
+    "defaultExplainer": "Jeder Standort behält seine Standardkasse, die beliebig viele Geräte kostenlos nutzen können. Benannte Kassen geben einer Kasse eine eigene Kennung bei Verkäufen und eine eigene Tagesübersicht.",
+    "add": "Kasse hinzufügen",
+    "defaultName": "Standardkasse",
+    "defaultMeta": "Wird von jedem Gerät ohne ausgewählte benannte Kasse genutzt · immer enthalten",
+    "renameAction": "%{name} umbenennen",
+    "removeAction": "%{name} entfernen",
+    "archived": "%{name} wurde entfernt. Ihre bisherigen Verkäufe bleiben in der Übersicht.",
+    "deleted": "%{name} wurde entfernt",
+    "removeFailed": "Die Kasse konnte nicht entfernt werden",
+    "limitReached": "Das Kassenkontingent deines Tarifs ist ausgeschöpft. Entferne eine Kasse, um eine weitere hinzuzufügen.",
+    "notIncluded": "Dein aktueller Tarif enthält keine benannten Kassen.",
+    "nameTaken": "An diesem Standort gibt es bereits eine Kasse mit diesem Namen.",
+    "saveFailed": "Die Kasse konnte nicht gespeichert werden",
+    "nameRequired": "Gib der Kasse einen Namen",
+    "saved": "Kasse gespeichert",
+    "renameTitle": "Kasse umbenennen",
+    "newTitle": "Neue Kasse in %{location}",
+    "namePlaceholder": "z. B. Vordere Theke",
+    "unknownRegister": "Entfernte Kasse",
+    "summary": {
+      "title": "Umsätze nach Kasse",
+      "note": "Verkäufe, deren Zahlung an der Kasse entgegengenommen wurde, nach UTC-Tag. Erstattungen werden separat erfasst.",
+      "today": "Heute",
+      "last7": "7 Tage",
+      "last30": "30 Tage",
+      "atLocation": "%{name} · %{location}",
+      "loadFailed": "Die Umsatzübersicht konnte nicht geladen werden",
+      "empty": "Keine Kassenverkäufe in diesem Zeitraum.",
+      "sales": "Verkäufe: %{count}"
+    }
   }
 }

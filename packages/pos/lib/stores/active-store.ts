@@ -17,11 +17,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 interface ActiveStoreState {
   activeStoreId: string | null;
   activeLocationId: string | null;
+  /**
+   * The NAMED register this device rings up on (a paid plan's
+   * `expanded_pos_registers`), or `null` for the location's default register —
+   * every device's register before named ones existed. Cleared whenever the
+   * store or location changes, because a register belongs to one location.
+   */
+  activeRegisterId: string | null;
   hydrated: boolean;
   /** Set the active store; selecting a NEW store clears the active location. */
   setActiveStoreId: (storeId: string | null) => void;
   /** Set the active register location for the current store. */
   setActiveLocationId: (locationId: string | null) => void;
+  /** Set this device's named register, or `null` for the default register. */
+  setActiveRegisterId: (registerId: string | null) => void;
 }
 
 export const useActiveStore = create<ActiveStoreState>()(
@@ -29,16 +38,22 @@ export const useActiveStore = create<ActiveStoreState>()(
     (set, get) => ({
       activeStoreId: null,
       activeLocationId: null,
+      activeRegisterId: null,
       hydrated: false,
       setActiveStoreId: (storeId) => {
         // Changing store invalidates the previously-picked register location.
         const changed = storeId !== get().activeStoreId;
         set({
           activeStoreId: storeId,
-          ...(changed ? { activeLocationId: null } : {}),
+          ...(changed ? { activeLocationId: null, activeRegisterId: null } : {}),
         });
       },
-      setActiveLocationId: (locationId) => set({ activeLocationId: locationId }),
+      setActiveLocationId: (locationId) =>
+        set((state) => ({
+          activeLocationId: locationId,
+          ...(locationId !== state.activeLocationId ? { activeRegisterId: null } : {}),
+        })),
+      setActiveRegisterId: (registerId) => set({ activeRegisterId: registerId }),
     }),
     {
       name: 'mercaria.pos.active-store',
@@ -46,6 +61,7 @@ export const useActiveStore = create<ActiveStoreState>()(
       partialize: (state) => ({
         activeStoreId: state.activeStoreId,
         activeLocationId: state.activeLocationId,
+        activeRegisterId: state.activeRegisterId,
       }),
       onRehydrateStorage: () => () => {
         useActiveStore.setState({ hydrated: true });

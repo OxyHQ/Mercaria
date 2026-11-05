@@ -27,6 +27,7 @@ import discountsRouter from './discounts.js';
 import taxRatesRouter from './tax-rates.js';
 import customersRouter from './customers.js';
 import draftOrdersRouter from './draft-orders.js';
+import posRegistersRouter from './pos-registers.js';
 import refundsRouter from './refunds.js';
 import reportsRouter from './reports.js';
 import channelsRouter from './channels.js';
@@ -104,6 +105,9 @@ router.use('/:storeId/discounts', discountsRouter);
 router.use('/:storeId/tax-rates', taxRatesRouter);
 router.use('/:storeId/customers', customersRouter);
 router.use('/:storeId/draft-orders', draftOrdersRouter);
+// Named POS registers (the paid `expanded_pos_registers` tool); the default
+// register every location has is not a row and needs no route.
+router.use('/:storeId/pos-registers', posRegistersRouter);
 router.use('/:storeId/refunds', refundsRouter);
 router.use('/:storeId/reports', reportsRouter);
 router.use('/:storeId/channels', channelsRouter);

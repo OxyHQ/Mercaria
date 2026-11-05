@@ -321,6 +321,7 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'carts.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'customers.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'draft_orders.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'pos_registers.created_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'fee_schedule_acceptances.accepted_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'favorites.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'feedback.oxy_user_id', reason: OXY_ACCOUNT },

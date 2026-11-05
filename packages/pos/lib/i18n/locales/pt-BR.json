@@ -58,7 +58,8 @@
     "tender": "Forma de pagamento",
     "tenderCard": "Cartão",
     "tenderCash": "Dinheiro",
-    "title": "Cobrança"
+    "title": "Cobrança",
+    "register": "Caixa"
   },
   "common": {
     "all": "Todos",
@@ -192,6 +193,11 @@
       "other": "@%{handle} · %{count} produtos",
       "many": "@%{handle} · %{count} de produtos"
     },
-    "storesLoadFailed": "Não foi possível carregar suas lojas"
+    "storesLoadFailed": "Não foi possível carregar suas lojas",
+    "changeLocation": "Trocar local",
+    "chooseTillTitle": "Qual caixa é este?",
+    "chooseTillSubtitle": "Escolha o caixa deste dispositivo em %{location}",
+    "defaultRegister": "Caixa padrão",
+    "defaultRegisterMeta": "O caixa compartilhado do local"
   }
 }

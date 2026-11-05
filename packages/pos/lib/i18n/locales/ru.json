@@ -61,7 +61,8 @@
     "tender": "Способ оплаты",
     "tenderCard": "Карта",
     "tenderCash": "Наличные",
-    "title": "Оплата"
+    "title": "Оплата",
+    "register": "Касса"
   },
   "common": {
     "all": "Все",
@@ -197,6 +198,11 @@
       "many": "@%{handle} · %{count} товаров",
       "few": "@%{handle} · %{count} товара"
     },
-    "storesLoadFailed": "Не удалось загрузить ваши магазины"
+    "storesLoadFailed": "Не удалось загрузить ваши магазины",
+    "changeLocation": "Сменить точку",
+    "chooseTillTitle": "Какая это касса?",
+    "chooseTillSubtitle": "Выберите кассу этого устройства: %{location}",
+    "defaultRegister": "Основная касса",
+    "defaultRegisterMeta": "Общая касса точки"
   }
 }

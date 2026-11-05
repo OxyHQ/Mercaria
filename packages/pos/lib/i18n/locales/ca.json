@@ -58,7 +58,8 @@
     "tender": "Forma de pagament",
     "tenderCard": "Targeta",
     "tenderCash": "Efectiu",
-    "title": "Cobrament"
+    "title": "Cobrament",
+    "register": "Caixa"
   },
   "common": {
     "all": "Tot",
@@ -192,6 +193,11 @@
       "other": "@%{handle} · %{count} productes",
       "many": "@%{handle} · %{count} de productes"
     },
-    "storesLoadFailed": "No s'han pogut carregar les teves botigues"
+    "storesLoadFailed": "No s'han pogut carregar les teves botigues",
+    "changeLocation": "Canvia d'ubicació",
+    "chooseTillTitle": "Quina caixa és aquesta?",
+    "chooseTillSubtitle": "Tria la caixa d'aquest dispositiu a %{location}",
+    "defaultRegister": "Caixa predeterminada",
+    "defaultRegisterMeta": "La caixa compartida de la ubicació"
   }
 }

@@ -25,6 +25,10 @@
  * with them, and its repair rows reference the discrepancies they answer.
  */
 export * from './stores';
+// Named POS registers (#89, `expanded_pos_registers`) follow `stores`, whose
+// `locations` they sit at, and PRECEDE `orders`, whose `pos_register_id` is a
+// composite foreign key onto them.
+export * from './posRegisters';
 export * from './connectors';
 export * from './catalog';
 // Connector field-pin RELEASES (#427) follow `catalog`: the one table records
