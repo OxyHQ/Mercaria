@@ -2408,7 +2408,8 @@
       "currencyNotComparable": "A moeda deste anúncio não pode ser comparada.",
       "conditionUnknown": "A condição deste anúncio não pode ser comparada.",
       "tooFewOffers": "Ainda não há outras ofertas suficientes para comparar.",
-      "tooFewSellers": "Ainda não há outros vendedores suficientes para comparar."
+      "tooFewSellers": "Ainda não há outros vendedores suficientes para comparar.",
+      "tooShortHistory": "Os outros vendedores ainda não foram observados por tempo suficiente para comparar."
     },
     "trend": {
       "title": "Ao longo do tempo",

@@ -37,13 +37,21 @@ Nothing is re-derived here (`services/store-price-benchmark/`):
 - **History** is #78's `derivePriceSeries`, run per seller so each contributes its own
   lowest admitted price per bucket.
 - **Statistics and floors** are #82's: one price per seller, the modified-z-score outlier
-  method, the lower median, and the ACTIVE price-signal policy's `minObservations`,
-  `minDistinctSellers` and `minDistinctOffers`. With no active policy nothing is measured,
-  which is the same honest empty state every #82 surface has — so **a price-signal policy
-  must be published and activated for the tool to show figures**
+  method, the lower median, and ALL FOUR of the ACTIVE price-signal policy's floors —
+  `minObservations`, `minDistinctSellers`, `minDistinctOffers` and `minCoverageDays` —
+  checked by #82's own `priceSampleShortfall`, the function the free surface and the
+  shopper's badge call. There is no second floor check here. With no active policy nothing
+  is measured, which is the same honest empty state every #82 surface has — so **a
+  price-signal policy must be published and activated for the tool to show figures**
   (`docs/price-signals.md` §Production-readiness).
-- `minCoverageDays` is not applied to a cross-section: an instant's sample spans zero days
-  and the CHECK holds the floor at ≥ 1, so applying it would refuse every comparison.
+- **Time coverage is the other sellers' own observation record.** Each current offer is
+  evidenced from its first sighting (clamped to the policy's recent window) to the read of
+  its current terms, so the comparison's `coverageDays` is how long that market has been
+  watched (`docs/price-signals.md` §"Time coverage"). A market of offers first seen today
+  is `insufficient_time_coverage` ("Other sellers haven't been observed for long enough to
+  compare yet"), not a median. The trend's buckets use the same rule, from each offer's
+  first sighting to the observation in the bucket. `semantics.minCoverageDays` states the
+  floor beside the others.
 - The store itself is never its own market: its other listings and the canonical merchant
   it is verifiably linked to (`native_store_links`) are excluded.
 

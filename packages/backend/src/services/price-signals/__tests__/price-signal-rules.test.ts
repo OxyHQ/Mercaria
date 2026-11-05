@@ -42,6 +42,7 @@ import {
   deduplicateBySeller,
   lowerMedianIndex,
   nearestRankIndex,
+  observationSpanStart,
   partitionOutliers,
   sellerDedupKey,
   type PriceSampleEntry,
@@ -249,6 +250,41 @@ describe('quantiles name an observation and never interpolate', () => {
       },
     ];
     expect(coverageDays(sorted)).toBe(6);
+  });
+
+  it("a cross-section spans its offers' observation RECORDS, not the instant it was read", () => {
+    const now = new Date(BASE.getTime() + 40 * DAY);
+    // Every current offer read at the same instant: alone, that spans nothing.
+    const instant = ['a', 'b', 'c'].map((key) => ({
+      ...entry(key, 1_000, `merchant:${key}`),
+      observedAt: now,
+    }));
+    expect(coverageDays(instant)).toBe(0);
+    // The same offers, each evidenced since its first sighting (clamped to the
+    // recent window): the market has been watched for as long as its oldest
+    // record reaches.
+    const recorded = instant.map((item, index) => ({
+      ...item,
+      observedFrom: observationSpanStart(
+        new Date(now.getTime() - (index + 1) * 5 * DAY),
+        now,
+        POLICY.recentWindowDays,
+      ),
+    }));
+    expect(coverageDays(recorded)).toBe(15);
+    // A first sighting AFTER the read the source dated never makes a negative span.
+    expect(
+      coverageDays([
+        { ...instant[0], observedFrom: new Date(now.getTime() + DAY) } as PriceSampleEntry,
+      ]),
+    ).toBe(0);
+  });
+
+  it('the span start is clamped to the recent window, so both families mean one thing by days', () => {
+    const now = new Date(BASE.getTime() + 400 * DAY);
+    expect(observationSpanStart(BASE, now, 30).getTime()).toBe(now.getTime() - 30 * DAY);
+    const recent = new Date(now.getTime() - 3 * DAY);
+    expect(observationSpanStart(recent, now, 30)).toEqual(recent);
   });
 });
 

@@ -2387,7 +2387,8 @@
       "currencyNotComparable": "Die Währung dieses Angebots kann nicht verglichen werden.",
       "conditionUnknown": "Der Zustand dieses Angebots kann nicht verglichen werden.",
       "tooFewOffers": "Noch nicht genug andere Angebote zum Vergleichen.",
-      "tooFewSellers": "Noch nicht genug andere Verkäufer zum Vergleichen."
+      "tooFewSellers": "Noch nicht genug andere Verkäufer zum Vergleichen.",
+      "tooShortHistory": "Andere Verkäufer werden noch nicht lange genug beobachtet, um zu vergleichen."
     },
     "trend": {
       "title": "Im Zeitverlauf",

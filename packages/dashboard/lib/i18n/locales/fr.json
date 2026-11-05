@@ -2408,7 +2408,8 @@
       "currencyNotComparable": "La devise de cette annonce ne peut pas être comparée.",
       "conditionUnknown": "L'état de cette annonce ne peut pas être comparé.",
       "tooFewOffers": "Pas encore assez d'autres offres pour comparer.",
-      "tooFewSellers": "Pas encore assez d'autres vendeurs pour comparer."
+      "tooFewSellers": "Pas encore assez d'autres vendeurs pour comparer.",
+      "tooShortHistory": "Les autres vendeurs ne sont pas encore observés depuis assez longtemps pour comparer."
     },
     "trend": {
       "title": "Dans le temps",

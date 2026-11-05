@@ -13,9 +13,10 @@
  *   {@link STORE_PRICE_ANALYTICS_FORBIDDEN_FIELDS} is walked against a REAL
  *   response by the backend suite.
  * - **A market, not a rival.** The aggregate is published only when the other
- *   sellers clear the active price-signal policy's floors (observations,
- *   distinct sellers, distinct offers), which can never be fewer sellers than
- *   `PRICE_SIGNAL_MIN_DISTINCT_SELLERS_FLOOR`.
+ *   sellers clear ALL FOUR of the active price-signal policy's floors
+ *   (observations, distinct sellers, distinct offers, days of observation) —
+ *   #82's `priceSampleShortfall`, the same check the free surface applies — which
+ *   can never be fewer sellers than `PRICE_SIGNAL_MIN_DISTINCT_SELLERS_FLOOR`.
  * - **Every offer behind it is already public**: only offers the public
  *   comparison admits (#74's eligibility) enter the sample.
  *
@@ -71,6 +72,8 @@ export const STORE_PRICE_UNMEASURED_REASONS = [
   'insufficient_distinct_sellers',
   /** Too few other offers behind those sellers. */
   'insufficient_distinct_offers',
+  /** The other sellers have not been observed for the policy's minimum number of days. */
+  'insufficient_time_coverage',
 ] as const;
 
 export type StorePriceUnmeasuredReason = (typeof STORE_PRICE_UNMEASURED_REASONS)[number];
@@ -150,6 +153,8 @@ export interface StorePriceAnalyticsSemantics {
   readonly minObservations: number;
   readonly minDistinctSellers: number;
   readonly minDistinctOffers: number;
+  /** Days the other sellers' observation records must span (#82's fourth floor). */
+  readonly minCoverageDays: number;
   readonly nearLowestBps: number;
   readonly deduplication: 'one_offer_per_distinct_seller';
   readonly medianMethod: 'lower_median_over_observed_values';

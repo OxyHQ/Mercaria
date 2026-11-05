@@ -2387,7 +2387,8 @@
       "currencyNotComparable": "This listing's currency can't be compared.",
       "conditionUnknown": "This listing's condition can't be compared.",
       "tooFewOffers": "Not enough other offers to compare yet.",
-      "tooFewSellers": "Not enough other sellers to compare yet."
+      "tooFewSellers": "Not enough other sellers to compare yet.",
+      "tooShortHistory": "Other sellers haven't been observed for long enough to compare yet."
     },
     "trend": {
       "title": "Over time",

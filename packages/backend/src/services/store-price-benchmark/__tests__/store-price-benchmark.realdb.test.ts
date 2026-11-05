@@ -18,6 +18,9 @@
  *     as a key OR as a value.
  *  8. The trend: one admitted price per seller per bucket, the floors per
  *     bucket, and the same exclusions as now.
+ *  9. All four of #82's floors, time coverage included: a market of offers first
+ *     seen today is `insufficient_time_coverage`, now and in the trend, while
+ *     the established market above clears it on the offers' own records.
  *
  * Every row this file writes is scoped by a per-run suffix and torn down by id —
  * the database is shared across parallel files.
@@ -258,10 +261,19 @@ async function mintRivalOffer(input: {
   currency?: string;
   retired?: boolean;
   stale?: boolean;
+  /**
+   * How long ago the offer was first seen. Twenty days by default — an
+   * ESTABLISHED seller, whose record clears the fixture policy's seven-day
+   * coverage floor; `0` mints a seller who appeared today.
+   */
+  firstSeenDaysAgo?: number;
 }): Promise<string> {
   const sourceRecordId = await mintSourceRecord(`${input.merchantId}-${input.priceAmount}`);
   const now = new Date();
   const seen = input.stale ? new Date(now.getTime() - 30 * DAY) : now;
+  const firstSeen = new Date(
+    Math.min(seen.getTime(), now.getTime() - (input.firstSeenDaysAgo ?? 20) * DAY),
+  );
   const [row] = await db
     .insert(offers)
     .values({
@@ -279,7 +291,7 @@ async function mintRivalOffer(input: {
       priceCurrency: input.currency ?? 'EUR',
       availability: 'in_stock',
       observedAt: seen,
-      firstSeenAt: seen,
+      firstSeenAt: firstSeen,
       lastSeenAt: seen,
       lastConfirmedAt: seen,
       staleAt: input.stale ? new Date(now.getTime() - DAY) : new Date(now.getTime() + DAY),
@@ -469,6 +481,7 @@ describe('the overview, now', () => {
     expect(response.coverage).toEqual({ listingsTotal: 5, listingsAnalysed: 5, truncated: false });
     expect(response.rows).toHaveLength(5);
     expect(response.semantics?.policyVersion).toBe(POLICY.version);
+    expect(response.semantics?.minCoverageDays).toBe(POLICY.minCoverageDays);
   });
 
   it('compares against the OTHER sellers only — four, lowest 9 500, median 10 500', () => {
@@ -550,6 +563,62 @@ describe('the overview, now', () => {
       expect(row).toMatchObject({ state: 'unmeasured', reason: 'no_active_policy' });
     }
     expect(empty.summary.measured).toBe(0);
+  });
+
+  it('a market of sellers first seen TODAY is not a market yet — now and in the trend', async () => {
+    // The floor the old "now" stamp made unanswerable, and that this tool used
+    // to skip: three sellers, every other floor cleared, observed for no time.
+    const storeId = await mintStore('minted');
+    const { variantId } = await mintCanonicalVariant('minted');
+    const own = await mintStoreListing({
+      storeId,
+      canonicalVariantId: variantId,
+      priceAmount: 10_000,
+      title: `Minted ${RUN}`,
+    });
+    const rivals: string[] = [];
+    for (const [label, priceAmount] of [
+      ['minted-a', 9_500],
+      ['minted-b', 10_500],
+      ['minted-c', 11_000],
+    ] as const) {
+      rivals.push(
+        await mintRivalOffer({
+          canonicalVariantId: variantId,
+          merchantId: await mintMerchant(label),
+          priceAmount,
+          firstSeenDaysAgo: 0,
+        }),
+      );
+    }
+
+    const overview = await readStorePriceAnalytics({ storeId, policy: POLICY });
+    expect(overview.rows).toHaveLength(1);
+    expect(overview.rows[0]).toMatchObject({
+      state: 'unmeasured',
+      reason: 'insufficient_time_coverage',
+    });
+    expect(overview.rows[0]?.market).toBeUndefined();
+
+    // The same floor, from the same span rule, in the trend: an observation an
+    // hour old from an offer first seen just now spans nothing.
+    const now = new Date();
+    const anHourAgo = new Date(now.getTime() - 60 * 60 * 1_000);
+    for (const [index, offerId] of rivals.entries()) {
+      await seedObservation(offerId, 9_500 + index * 500, anHourAgo);
+    }
+    const trend = await readStorePriceTrend({
+      storeId,
+      productVariantId: own.productVariantId,
+      windowDays: 30,
+      granularity: 'day',
+      policy: POLICY,
+      now,
+    });
+    const bucket = trend.points.find(
+      (point) => point.bucketStart.slice(0, 10) === anHourAgo.toISOString().slice(0, 10),
+    );
+    expect(bucket).toMatchObject({ market: null, marketReason: 'insufficient_time_coverage' });
   });
 
   it('a store with nothing matched answers an empty, honest overview', async () => {

@@ -57,7 +57,7 @@ import { derivePriceSignalRecommendations } from './recommendations.js';
 import { buildSample, EMPTY_PRICE_SIGNAL_SAMPLE } from './sample.js';
 import { resolveProductDemand } from './seams.js';
 import { derivePriceSignals, subjectFor } from './signals.js';
-import type { PriceSampleEntry } from './statistics.js';
+import { coverageDays, type PriceSampleEntry } from './statistics.js';
 
 export interface MerchantCompetitivenessRequest {
   readonly merchantId: string;
@@ -69,6 +69,13 @@ export interface MerchantCompetitivenessRequest {
   readonly limit: number;
   readonly afterOfferId?: string;
   readonly now?: Date;
+  /**
+   * The policy to judge against. Production omits it and the ACTIVE version is
+   * read. A realdb suite passes a fixture version instead of activating one,
+   * because the active version is a single global row a parallel file would see
+   * — the store price-analytics tool's device, for the same reason.
+   */
+  readonly policy?: PriceSignalPolicy | null;
 }
 
 /**
@@ -111,8 +118,7 @@ export async function readMerchantCompetitiveness(
   }
 
   const now = request.now ?? new Date();
-  const active = await findActivePriceSignalPolicy();
-  const policy = active === undefined ? undefined : toPriceSignalPolicy(active);
+  const policy = await resolvePolicy(request.policy);
 
   const subjects = await listMerchantOfferSubjects({
     merchantId: request.merchantId,
@@ -171,6 +177,15 @@ export async function readMerchantCompetitiveness(
       subjectsUnmeasured: unmeasured,
     },
   };
+}
+
+async function resolvePolicy(
+  given: PriceSignalPolicy | null | undefined,
+): Promise<PriceSignalPolicy | undefined> {
+  if (given === null) return undefined;
+  if (given !== undefined) return given;
+  const active = await findActivePriceSignalPolicy();
+  return active === undefined ? undefined : toPriceSignalPolicy(active);
 }
 
 /**
@@ -547,7 +562,10 @@ function ownPriceMovementRow(
     observations: history.length,
     distinctSellers: new Set(history.map((entry) => entry.sellerKey)).size,
     distinctOffers: new Set(history.map((entry) => entry.offerId)).size,
-    coverageDays: 0,
+    // The span the merchant's own history really covers. It gates nothing here
+    // (no floor is applied to a seller compared with themselves), and a constant
+    // zero would tell the merchant their record is a day old whatever it holds.
+    coverageDays: coverageDays(history),
     outliersExcluded: 0,
     deduplicated: 0,
   };

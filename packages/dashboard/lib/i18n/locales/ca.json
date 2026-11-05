@@ -2408,7 +2408,8 @@
       "currencyNotComparable": "La moneda d'aquest anunci no es pot comparar.",
       "conditionUnknown": "L'estat d'aquest anunci no es pot comparar.",
       "tooFewOffers": "Encara no hi ha prou altres ofertes per comparar.",
-      "tooFewSellers": "Encara no hi ha prou altres venedors per comparar."
+      "tooFewSellers": "Encara no hi ha prou altres venedors per comparar.",
+      "tooShortHistory": "Encara no s'han observat altres venedors durant prou temps per comparar."
     },
     "trend": {
       "title": "Al llarg del temps",
