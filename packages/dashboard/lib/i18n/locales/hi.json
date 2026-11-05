@@ -890,7 +890,8 @@
     "closeNavigation": "नेविगेशन बंद करें",
     "searchNavigation": "नेविगेशन में खोजें",
     "clearSearch": "नेविगेशन खोज मिटाएँ",
-    "noResults": "कोई मिलते हुए पृष्ठ नहीं"
+    "noResults": "कोई मिलते हुए पृष्ठ नहीं",
+    "tools": "टूल"
   },
   "orders": {
     "detail": {
@@ -2080,5 +2081,26 @@
     "saved": "समीक्षा सहेजी गई",
     "allow": "समीक्षित पाठ की अनुमति दें",
     "withhold": "न दिखाएँ"
+  },
+  "planTools": {
+    "title": "टूल",
+    "documentTitle": "टूल | Wholesale by Mercaria",
+    "subtitle": "Mercaria प्लान से आपके स्टोर में जुड़ने वाले अतिरिक्त टूल",
+    "loadFailed": "आपके टूल लोड नहीं हो सके",
+    "unavailableTitle": "यह टूल उपलब्ध नहीं है",
+    "unavailableBody": "Mercaria अभी इसे उपलब्ध नहीं कराता।",
+    "gateTitle": "आपके मौजूदा प्लान में शामिल नहीं है",
+    "gateIncludedIn": "यह टूल %{plans} में शामिल है।",
+    "gateNoPlan": "अभी बिक्री पर मौजूद कोई भी प्लान इस टूल को शामिल नहीं करता।",
+    "gateFreeReminder": "आपका कैटलॉग, ऑर्डर, रिफ़ंड, रिकॉर्ड और डेटा एक्सपोर्ट किसी भी प्लान में मुफ़्त रहते हैं।",
+    "seePlans": "प्लान देखें",
+    "askOwner": "अगर आपको इसकी ज़रूरत है तो स्टोर के मालिक से इसे जोड़ने के लिए कहें।",
+    "usageIncluded": "शामिल",
+    "usageNoLimit": "%{used} इस्तेमाल · कोई सीमा नहीं",
+    "usageOfLimit": "%{limit} में से %{used} इस्तेमाल",
+    "usageOfLimitPeriod": "इस बिलिंग अवधि में %{limit} में से %{used} इस्तेमाल",
+    "notIncluded": "आपके प्लान में नहीं",
+    "emptyTitle": "अभी कोई टूल नहीं",
+    "emptyBody": "प्लान से जुड़ने वाले टूल यहाँ दिखेंगे।"
   }
 }

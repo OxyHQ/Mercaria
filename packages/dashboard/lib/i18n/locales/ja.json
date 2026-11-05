@@ -890,7 +890,8 @@
     "closeNavigation": "ナビゲーションを閉じる",
     "searchNavigation": "ナビゲーションを検索",
     "clearSearch": "ナビゲーション検索をクリア",
-    "noResults": "一致するページはありません"
+    "noResults": "一致するページはありません",
+    "tools": "ツール"
   },
   "orders": {
     "detail": {
@@ -2079,5 +2080,26 @@
     "saved": "確認を保存しました",
     "allow": "確認済みの文章を許可",
     "withhold": "表示しない"
+  },
+  "planTools": {
+    "title": "ツール",
+    "documentTitle": "ツール | Wholesale by Mercaria",
+    "subtitle": "Mercaria のプランでストアに追加されるツール",
+    "loadFailed": "ツールを読み込めませんでした",
+    "unavailableTitle": "このツールは利用できません",
+    "unavailableBody": "Mercaria ではまだ提供していません。",
+    "gateTitle": "現在のプランには含まれていません",
+    "gateIncludedIn": "このツールは %{plans} に含まれています。",
+    "gateNoPlan": "現在販売中のプランにはこのツールが含まれていません。",
+    "gateFreeReminder": "カタログ、注文、返金、記録、データのエクスポートは、どのプランでも無料のままです。",
+    "seePlans": "プランを見る",
+    "askOwner": "追加したい場合はストアのオーナーに依頼してください。",
+    "usageIncluded": "含まれています",
+    "usageNoLimit": "%{used} 件使用 · 上限なし",
+    "usageOfLimit": "%{limit} 件中 %{used} 件使用",
+    "usageOfLimitPeriod": "この請求期間に %{limit} 件中 %{used} 件使用",
+    "notIncluded": "プランに含まれていません",
+    "emptyTitle": "まだツールはありません",
+    "emptyBody": "プランで追加されるツールがここに表示されます。"
   }
 }

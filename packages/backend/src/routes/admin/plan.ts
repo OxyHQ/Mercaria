@@ -5,6 +5,7 @@ import { merchantPlanCheckoutSchema } from '../../middleware/merchant-plans-sche
 import {
   cancelStorePlanHandler,
   getPlanCatalogHandler,
+  getStoreCapabilitiesHandler,
   getStorePlanHandler,
   openPlanPortalHandler,
   startPlanCheckoutHandler,
@@ -18,7 +19,7 @@ import {
  * (`admin/index.ts` runs `authenticateToken`, `admin/stores.ts` runs
  * `loadStore`), so this router only adds the permission.
  *
- * ## `store:manage` on all five, like the fee surface and for its reason
+ * ## `store:manage` on all five billing routes, like the fee surface and for its reason
  *
  * The comparison, the upgrade, the portal and the cancellation are one
  * conversation — "what does Mercaria charge this store, and do we agree" — and
@@ -37,6 +38,12 @@ const router = Router({ mergeParams: true });
 
 /** This store's plan, effective entitlements and usage. */
 router.get('/', requireStorePermission('store:manage'), getStorePlanHandler);
+
+/**
+ * Which paid tools this store holds — any MEMBER (`loadStore` already proved
+ * membership). It carries no billing state, so it needs no `store:manage`.
+ */
+router.get('/capabilities', getStoreCapabilitiesHandler);
 
 /** The plan comparison, with exact current capabilities. */
 router.get('/catalog', requireStorePermission('store:manage'), getPlanCatalogHandler);

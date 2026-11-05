@@ -400,7 +400,10 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // `ProviderOnboardingLink`, `ProviderAccountStatus` without `revokedAt` or a
     // payout schedule, `ProviderAccountRequirements`): +4 types, +23
     // properties. Measured by the real guard.
-    'walked 141 contract module(s), 2387 exported type(s), 7969 property signature(s)',
+    // The paid-tool foundation adds `StoreCapabilityView` and
+    // `StoreCapabilitiesView` (#89): +2 types, +10 properties. Measured by the
+    // real guard.
+    'walked 141 contract module(s), 2389 exported type(s), 7979 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });

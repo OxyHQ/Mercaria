@@ -890,7 +890,8 @@
     "closeNavigation": "إغلاق التنقل",
     "searchNavigation": "البحث في التنقل",
     "clearSearch": "مسح بحث التنقل",
-    "noResults": "لا توجد صفحات مطابقة"
+    "noResults": "لا توجد صفحات مطابقة",
+    "tools": "الأدوات"
   },
   "orders": {
     "detail": {
@@ -2084,5 +2085,26 @@
     "saved": "تم حفظ المراجعة",
     "allow": "السماح بالنص المراجع",
     "withhold": "عدم العرض"
+  },
+  "planTools": {
+    "title": "الأدوات",
+    "documentTitle": "الأدوات | Wholesale by Mercaria",
+    "subtitle": "أدوات إضافية تضيفها خطة Mercaria إلى متجرك",
+    "loadFailed": "تعذّر تحميل أدواتك",
+    "unavailableTitle": "هذه الأداة غير متاحة",
+    "unavailableBody": "لا تقدّمها Mercaria بعد.",
+    "gateTitle": "غير مضمّنة في خطتك الحالية",
+    "gateIncludedIn": "هذه الأداة جزء من %{plans}.",
+    "gateNoPlan": "لا توجد حاليًا خطة معروضة للبيع تتضمّن هذه الأداة.",
+    "gateFreeReminder": "يبقى كتالوجك وطلباتك والمبالغ المستردة وسجلاتك وتصدير بياناتك مجانيًا مهما كانت خطتك.",
+    "seePlans": "عرض الخطط",
+    "askOwner": "اطلب من مالك المتجر إضافتها إذا كنت تحتاجها.",
+    "usageIncluded": "مضمّنة",
+    "usageNoLimit": "تم استخدام %{used} · بلا حدّ",
+    "usageOfLimit": "تم استخدام %{used} من %{limit}",
+    "usageOfLimitPeriod": "تم استخدام %{used} من %{limit} في فترة الفوترة هذه",
+    "notIncluded": "ليست في خطتك",
+    "emptyTitle": "لا توجد أدوات بعد",
+    "emptyBody": "ستظهر هنا الأدوات التي تضيفها الخطة."
   }
 }

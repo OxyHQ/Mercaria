@@ -457,6 +457,33 @@ and the decisions the owner owes are in
 
 ---
 
+## Building a paid tool
+
+Every paid tool is built the same way, so a plan can never sell a screen that
+does nothing and a merchant who stops paying never loses what they made:
+
+- **Backend.** The tool's create/extend path calls
+  `consumeCapabilityOrThrow(tx, { storeId, capability })` in the SAME
+  transaction as the row it counts, and its delete calls `releaseCapability` (a
+  `total` allowance only). A `flag` tool's route, and a background run of
+  something already created, call `requireCapability`
+  (`services/entitlements/enforce.ts`). A refusal is a `PlanCapabilityRefusal`:
+  403 `PLAN_CAPABILITY_REQUIRED` (the plan lacks the tool) or 403
+  `PLAN_LIMIT_REACHED` (the allowance is spent). At the ceiling a store still
+  RUNS what it created; only creating more is refused.
+- **What a refusal never touches.** Rows a tool created stay readable and
+  exportable for free (`data_export` is ungateable). What stops when a plan
+  ends is the tool's NEW work: new rules, new runs, new reports.
+- **Dashboard.** The tool's screen lives under `app/(app)/tools/`, has one
+  entry in `lib/plan-tools.ts`, and wraps its body in `PlanToolGate`, which
+  reads `GET /admin/stores/:storeId/plan/capabilities` (any member; no billing
+  state) and explains, without urgency, which plans on sale include the tool.
+  A write the server refuses is recognised with `planRefusalOf(error)`.
+- **Tests.** `services/entitlements/__tests__/entitle-store.ts` entitles a store
+  through a grant, so a realdb suite needs no plan version or subscription.
+- **Availability.** The capability's `MERCHANT_CAPABILITY_CATALOG` entry moves
+  to `available` in the same change as the tool.
+
 ## Seams left, each failing closed
 
 - **A capability's own enforcement.** `checkCapability` and `consumeCapability`

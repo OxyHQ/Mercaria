@@ -890,7 +890,8 @@
     "closeNavigation": "নেভিগেশন বন্ধ করুন",
     "searchNavigation": "নেভিগেশনে খুঁজুন",
     "clearSearch": "নেভিগেশন অনুসন্ধান মুছুন",
-    "noResults": "কোনো মিল থাকা পৃষ্ঠা নেই"
+    "noResults": "কোনো মিল থাকা পৃষ্ঠা নেই",
+    "tools": "টুল"
   },
   "orders": {
     "detail": {
@@ -2080,5 +2081,26 @@
     "saved": "পর্যালোচনা সংরক্ষিত",
     "allow": "পর্যালোচিত লেখা অনুমোদন করুন",
     "withhold": "দেখাবেন না"
+  },
+  "planTools": {
+    "title": "টুল",
+    "documentTitle": "টুল | Wholesale by Mercaria",
+    "subtitle": "Mercaria প্ল্যান আপনার স্টোরে যে অতিরিক্ত টুল যোগ করে",
+    "loadFailed": "আপনার টুল লোড করা যায়নি",
+    "unavailableTitle": "এই টুলটি উপলভ্য নয়",
+    "unavailableBody": "Mercaria এখনও এটি দেয় না।",
+    "gateTitle": "আপনার বর্তমান প্ল্যানে অন্তর্ভুক্ত নয়",
+    "gateIncludedIn": "এই টুলটি %{plans}-এর অংশ।",
+    "gateNoPlan": "এই মুহূর্তে বিক্রয়ে থাকা কোনো প্ল্যানে এই টুল নেই।",
+    "gateFreeReminder": "যে প্ল্যানই থাকুক, আপনার ক্যাটালগ, অর্ডার, রিফান্ড, রেকর্ড ও ডেটা এক্সপোর্ট বিনামূল্যে থাকে।",
+    "seePlans": "প্ল্যান দেখুন",
+    "askOwner": "প্রয়োজন হলে স্টোরের মালিককে এটি যোগ করতে বলুন।",
+    "usageIncluded": "অন্তর্ভুক্ত",
+    "usageNoLimit": "%{used} ব্যবহৃত · কোনো সীমা নেই",
+    "usageOfLimit": "%{limit}-এর মধ্যে %{used} ব্যবহৃত",
+    "usageOfLimitPeriod": "এই বিলিং সময়ে %{limit}-এর মধ্যে %{used} ব্যবহৃত",
+    "notIncluded": "আপনার প্ল্যানে নেই",
+    "emptyTitle": "এখনও কোনো টুল নেই",
+    "emptyBody": "প্ল্যান যে টুল যোগ করে সেগুলো এখানে দেখা যাবে।"
   }
 }

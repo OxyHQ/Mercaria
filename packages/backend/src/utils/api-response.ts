@@ -136,6 +136,20 @@ export const ErrorCodes = {
    * about who belongs to the owning account. Retrying later is correct.
    */
   SERVICE_UNAVAILABLE: 'SERVICE_UNAVAILABLE',
+  /**
+   * The store's plan does not include the paid capability this action needs
+   * (#89). Its own code rather than `FORBIDDEN`, because the client's correct
+   * response is specific: explain which plans include the tool and link to the
+   * plan screen, never "you do not have permission". Nothing a store needs to
+   * trade can answer this — those capabilities have no key.
+   */
+  PLAN_CAPABILITY_REQUIRED: 'PLAN_CAPABILITY_REQUIRED',
+  /**
+   * The store's plan includes the capability, and this action would take it past
+   * the plan's limit (#89). The client says how much is used and what a larger
+   * plan allows; deleting something the limit counts frees room again.
+   */
+  PLAN_LIMIT_REACHED: 'PLAN_LIMIT_REACHED',
 } as const;
 
 /** Union of the supported error code literals. */

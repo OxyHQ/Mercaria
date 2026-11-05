@@ -49,6 +49,10 @@ const DEFAULT_HTTP_STATUS: Record<ErrorCode, number> = {
   [ErrorCodes.WATCHLIST_VERSION_CONFLICT]: 409,
   // 503: an upstream the answer depends on is down; the request itself is fine.
   [ErrorCodes.SERVICE_UNAVAILABLE]: 503,
+  // 403 for both: the request is well formed and the caller is a member; what
+  // refuses it is the store's plan, which retrying does not change.
+  [ErrorCodes.PLAN_CAPABILITY_REQUIRED]: 403,
+  [ErrorCodes.PLAN_LIMIT_REACHED]: 403,
 };
 
 export interface MercariaErrorParams {

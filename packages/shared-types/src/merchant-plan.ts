@@ -589,6 +589,34 @@ export interface MerchantEntitlementView {
   readonly used: number;
 }
 
+/**
+ * One paid tool as any member of a store sees it: whether the store holds it now,
+ * and which plans on sale include it.
+ *
+ * Separate from {@link MerchantPlanStatusView} on purpose: that view is the
+ * OWNER's (`store:manage`, it carries billing state), while every member who can
+ * open a tool needs to know whether it works for this store. This one carries no
+ * subscription, no price and no billing state — only the capability.
+ */
+export interface StoreCapabilityView {
+  readonly capability: MerchantEntitlementCapability;
+  /** True when the store may use the tool now (a plan, a grant, or grace). */
+  readonly entitled: boolean;
+  readonly limitKind: EntitlementLimitKind;
+  /** The effective limit; NULL for a `flag` or an unlimited allowance, and when not entitled. */
+  readonly limit: number | null;
+  /** How much of a quantified limit is used in the current period. */
+  readonly used: number;
+  /** The paid plans on sale that include it, in catalogue order. */
+  readonly includedIn: readonly { readonly planKey: string; readonly name: string }[];
+}
+
+/** Every implemented paid tool, for one store. */
+export interface StoreCapabilitiesView {
+  readonly storeId: string;
+  readonly capabilities: readonly StoreCapabilityView[];
+}
+
 /** A merchant's subscription as the dashboard renders it. No provider ids. */
 export interface MerchantSubscriptionView {
   readonly status: MerchantSubscriptionStatus;

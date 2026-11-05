@@ -904,7 +904,8 @@
     "closeNavigation": "Fermer la navigation",
     "searchNavigation": "Rechercher dans la navigation",
     "clearSearch": "Effacer la recherche de navigation",
-    "noResults": "Aucune page correspondante"
+    "noResults": "Aucune page correspondante",
+    "tools": "Outils"
   },
   "orders": {
     "detail": {
@@ -2101,5 +2102,26 @@
     "saved": "Vérification enregistrée",
     "allow": "Autoriser le texte vérifié",
     "withhold": "Ne pas afficher"
+  },
+  "planTools": {
+    "title": "Outils",
+    "documentTitle": "Outils | Wholesale by Mercaria",
+    "subtitle": "Les outils supplémentaires qu'une offre Mercaria ajoute à votre boutique",
+    "loadFailed": "Impossible de charger vos outils",
+    "unavailableTitle": "Cet outil n'est pas disponible",
+    "unavailableBody": "Mercaria ne le propose pas encore.",
+    "gateTitle": "Non inclus dans votre offre actuelle",
+    "gateIncludedIn": "Cet outil fait partie de %{plans}.",
+    "gateNoPlan": "Aucune offre en vente n'inclut cet outil pour le moment.",
+    "gateFreeReminder": "Votre catalogue, vos commandes, vos remboursements, vos registres et l'export de vos données restent gratuits, quelle que soit votre offre.",
+    "seePlans": "Voir les offres",
+    "askOwner": "Demandez au propriétaire de la boutique de l'ajouter si vous en avez besoin.",
+    "usageIncluded": "Inclus",
+    "usageNoLimit": "%{used} utilisés · sans limite",
+    "usageOfLimit": "%{used} sur %{limit} utilisés",
+    "usageOfLimitPeriod": "%{used} sur %{limit} utilisés sur cette période de facturation",
+    "notIncluded": "Pas dans votre offre",
+    "emptyTitle": "Aucun outil pour l'instant",
+    "emptyBody": "Les outils qu'ajoute une offre apparaîtront ici."
   }
 }

@@ -904,7 +904,8 @@
     "closeNavigation": "Tanca la navegació",
     "searchNavigation": "Cerca a la navegació",
     "clearSearch": "Esborra la cerca de navegació",
-    "noResults": "No hi ha pàgines coincidents"
+    "noResults": "No hi ha pàgines coincidents",
+    "tools": "Eines"
   },
   "orders": {
     "detail": {
@@ -2101,5 +2102,26 @@
     "saved": "Revisió desada",
     "allow": "Permetre text revisat",
     "withhold": "No mostrar"
+  },
+  "planTools": {
+    "title": "Eines",
+    "documentTitle": "Eines | Wholesale by Mercaria",
+    "subtitle": "Eines addicionals que un pla de Mercaria afegeix a la teva botiga",
+    "loadFailed": "No s'han pogut carregar les teves eines",
+    "unavailableTitle": "Aquesta eina no està disponible",
+    "unavailableBody": "Mercaria encara no l'ofereix.",
+    "gateTitle": "No està inclosa en el teu pla actual",
+    "gateIncludedIn": "Aquesta eina forma part de %{plans}.",
+    "gateNoPlan": "Ara mateix cap pla a la venda inclou aquesta eina.",
+    "gateFreeReminder": "El teu catàleg, les comandes, els reemborsaments, els registres i l'exportació de dades continuen sent gratuïts tinguis el pla que tinguis.",
+    "seePlans": "Veure plans",
+    "askOwner": "Demana al propietari de la botiga que l'afegeixi si la necessites.",
+    "usageIncluded": "Inclòs",
+    "usageNoLimit": "%{used} utilitzats · sense límit",
+    "usageOfLimit": "%{used} de %{limit} utilitzats",
+    "usageOfLimitPeriod": "%{used} de %{limit} utilitzats aquest període de facturació",
+    "notIncluded": "No és al teu pla",
+    "emptyTitle": "Encara no hi ha eines",
+    "emptyBody": "Aquí apareixeran les eines que afegeix un pla."
   }
 }
