@@ -1,28 +1,33 @@
 /**
  * The storefront analytics client (#111).
  *
- * ## Why this exists at all
+ * ## Why this exists at all, and why it is #111's rather than #107's or #109's
  *
- * Some event types are facts only a browser knows — whether a claim screen was
- * RENDERED, and whether it was explicitly dismissed. #109 declined to fabricate
- * server-side substitutes for them and said so; what they were waiting for is a
- * client, and building one is rollout instrumentation rather than claim work.
+ * Six event types were deferred across two issues because they are facts only a
+ * browser or a payment sheet knows: which methods a sheet OFFERED, which one
+ * was pressed, whether the issuer demanded a step-up, whether the confirmation
+ * failed on the client, whether a claim screen was RENDERED, and whether it was
+ * explicitly dismissed. #107 and #109 declined to fabricate server-side
+ * substitutes for them and said so; what they were waiting for is a client, and
+ * building one is rollout instrumentation rather than payment or claim work.
  *
  * ## It cannot block anything, and the SIGNATURE is the guarantee
  *
  * `track()` returns `void`, not a promise — the backend sink's device, applied
  * one layer out. A caller has nothing to await, so an analytics call can never
- * join the path between a buyer's press and what it opens, and a caller who
- * tried would get a `tsc` error. The POST is fire-and-forget with its rejection
- * swallowed: an analytics beacon that failed is worth nothing at all to the
- * person using the screen.
+ * join the path between a buyer pressing "Pay" and the payment sheet opening,
+ * and a caller who tried would get a `tsc` error. The POST is fire-and-forget
+ * with its rejection swallowed: an analytics beacon that failed is worth
+ * nothing at all to the person whose payment is in flight.
  *
  * ## It sends BOUNDED values and nothing else
  *
- * There is no `properties` parameter and no way to add one: the input names an
- * event and nothing more. A wallet identity and an email have no field here —
- * and would be refused by the server's allow-list even if one were invented,
- * because `analytics_events` has no column for either.
+ * There is no `properties` parameter and no way to add one: the input type
+ * names an event, an optional bounded payment-method CATEGORY, an optional
+ * bounded reason code, and nothing more. A card brand, a last four, a provider
+ * customer, a wallet identity and an email have no field here — and would be
+ * refused by the server's allow-list even if one were invented, because
+ * `analytics_events` has no column for any of them.
  *
  * The endpoint answers 202 and the events may be dropped. That is the contract
  * (#77), and it is why nothing here retries: an analytics write that failed
@@ -30,6 +35,7 @@
  * growing buffer on somebody's phone.
  */
 
+import type { GuestPaymentMethodCategory } from '@mercaria/shared-types';
 import apiClient from './api/client';
 
 /**
@@ -42,7 +48,27 @@ import apiClient from './api/client';
  * means a typo names a type that does not compile rather than one the server
  * silently counts as rejected.
  */
-export type StorefrontAnalyticsEvent = 'guest_claim_offered' | 'guest_claim_declined';
+export type StorefrontAnalyticsEvent =
+  | 'guest_payment_methods_shown'
+  | 'guest_payment_method_selected'
+  | 'guest_payment_action_required'
+  | 'guest_payment_client_failed'
+  | 'guest_claim_offered'
+  | 'guest_claim_declined';
+
+/** What a call site may say. There is deliberately no open property bag. */
+export interface StorefrontAnalyticsInput {
+  /** The bounded method category, on the four payment events only. */
+  readonly paymentMethodCategory?: GuestPaymentMethodCategory;
+  /**
+   * How many methods a sheet offered, on `guest_payment_methods_shown`.
+   *
+   * `itemCount` is one of the five typed MEASURES the envelope admits. A sixth
+   * measure is a schema change with a migration, which is the friction that
+   * keeps this from becoming a property bag by accretion.
+   */
+  readonly itemCount?: number;
+}
 
 /**
  * Emit one event. Returns immediately, whatever happens.
@@ -53,10 +79,22 @@ export type StorefrontAnalyticsEvent = 'guest_claim_offered' | 'guest_claim_decl
  * is what makes "a client cannot forge an identity" a property of the payload
  * rather than of a check on the far side.
  */
-export function track(event: StorefrontAnalyticsEvent): void {
-  void apiClient.post('/analytics/events', { events: [{ eventType: event }] }).catch(() => {
-    // Deliberately silent. The endpoint answers 202 precisely because these
-    // events may be dropped, and a console line on every offline beacon
-    // would train everybody to ignore the console.
-  });
+export function track(event: StorefrontAnalyticsEvent, input: StorefrontAnalyticsInput = {}): void {
+  void apiClient
+    .post('/analytics/events', {
+      events: [
+        {
+          eventType: event,
+          ...(input.paymentMethodCategory === undefined
+            ? {}
+            : { paymentMethodCategory: input.paymentMethodCategory }),
+          ...(input.itemCount === undefined ? {} : { measures: { itemCount: input.itemCount } }),
+        },
+      ],
+    })
+    .catch(() => {
+      // Deliberately silent. The endpoint answers 202 precisely because these
+      // events may be dropped, and a console line on every offline beacon
+      // would train everybody to ignore the console.
+    });
 }

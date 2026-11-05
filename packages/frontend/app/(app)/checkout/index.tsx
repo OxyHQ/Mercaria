@@ -44,6 +44,7 @@ import { useAddresses } from '@/lib/hooks/use-addresses';
 import { useCheckout, useCheckoutPaymentStatus } from '@/lib/hooks/use-checkout';
 import { usePortalConfirmation } from '@/lib/hooks/use-guest-portal';
 import { useTranslation } from '@/lib/i18n';
+import { CardPaymentStep } from '@/components/payment/CardPaymentStep';
 
 /** The stable seller-group key, matching the backend (`store:<id>` / `user:<id>`). */
 function groupKey(group: CartGroup): string {
@@ -233,33 +234,42 @@ function OrderSummaryCard({ groups }: { groups: CartGroup[] }) {
  * ## Every state here is REPORTED, never assumed
  *
  * `status` comes from the server's payment-status endpoint, which answers from
- * the payment aggregate — a value only a verified provider webhook can move. That
- * is why a client cannot forge a paid order, and it is why "we are confirming
- * your payment" is a real state with its own screen rather than an optimistic
- * success message.
+ * the payment aggregate — a value only a verified provider webhook can move. The
+ * card step's own result decides only whether to show an error or keep asking.
+ * That is why a client cannot forge a paid order, and it is why "we are
+ * confirming your payment" is a real state with its own screen rather than an
+ * optimistic success message.
  *
  * `requires_action` and `processing` are shown as the same honest sentence: from
  * the buyer's side both mean the bank has not finished, and inventing a
  * difference would be describing a provider's internals to somebody who cannot
  * act on them.
  *
- * ## This app cannot take the payment yet, and says so
- *
- * The storefront has no payer UI for the configured card rail (ADR 0009), so an
- * open payment renders its total and a plain notice rather than a form. The
- * orders stay reserved and payable until the reservation expires; leaving is the
- * one action offered, and the poll keeps reporting whatever the server learns.
+ * A `failed` payment is a declined attempt the buyer can recover from: the
+ * gateway returns the intent to "needs a payment method", so the card step
+ * renders again under the error.
  */
 function PaymentStep({
   payment,
+  checkoutGroupId,
   status,
+  awaiting,
+  error,
   isGuest,
   orderNumbers,
+  onCompleted,
+  onFailed,
   onLeave,
   onDone,
 }: {
   payment: CheckoutPaymentHandoff;
+  checkoutGroupId: string;
   status: CheckoutPaymentStatus['status'];
+  /** The buyer finished the card step and the server has not answered yet. */
+  awaiting: boolean;
+  error: string | null;
+  onCompleted: () => void;
+  onFailed: (message: string) => void;
   /** Whether this purchase was placed without an Oxy account (#107 client rule 8). */
   isGuest: boolean;
   /** The placed orders' numbers — what a guest keeps instead of a link. */
@@ -346,13 +356,19 @@ function PaymentStep({
     );
   }
 
-  if (status === 'requires_action' || status === 'processing') {
+  if (
+    status === 'requires_action' ||
+    status === 'processing' ||
+    (awaiting && status !== 'failed')
+  ) {
     return (
       <View className="px-4" accessibilityLiveRegion="polite">
         <SectionHeader title={t('payment.confirming.title')} />
         <View className="gap-4">
           <Text className="text-sm text-muted-foreground">
-            {t('payment.confirming.bankStillCompleting')}
+            {status === 'requires_action' || status === 'processing'
+              ? t('payment.confirming.bankStillCompleting')
+              : t('payment.confirming.checkingWithBank')}
           </Text>
           <Button appearance="outline" tone="neutral" onPress={onDone}>
             {isGuest ? t('checkout.keepShopping') : t('checkout.checkLaterFromOrders')}
@@ -377,12 +393,23 @@ function PaymentStep({
           */}
           <Text className="text-lg font-bold text-foreground">{formatMoney(payment.amount)}</Text>
         </View>
-        <View className="rounded-2xl border border-border bg-card p-4">
-          <Text className="text-sm text-muted-foreground">{t('payment.notConfigured')}</Text>
-        </View>
-        <Button appearance="outline" tone="neutral" onPress={onLeave}>
-          {t('common.back')}
-        </Button>
+        {error ? (
+          <View
+            accessibilityRole="alert"
+            accessibilityLiveRegion="assertive"
+            className="rounded-2xl border border-destructive/40 bg-destructive/10 p-4"
+          >
+            <Text className="text-sm text-foreground">{error}</Text>
+          </View>
+        ) : null}
+        <CardPaymentStep
+          payment={payment}
+          checkoutGroupId={checkoutGroupId}
+          onCompleted={onCompleted}
+          onCancelled={onLeave}
+          onFailed={onFailed}
+        />
+        <Text className="text-xs text-muted-foreground">{t('payment.cardDetailsNotice')}</Text>
       </View>
       <View className="h-24" />
     </View>
@@ -443,6 +470,8 @@ function CheckoutBody() {
     orderNumbers: string[];
     payment: CheckoutPaymentHandoff;
   } | null>(null);
+  const [awaitingPayment, setAwaitingPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   /**
    * ONE `Idempotency-Key` per "place order" press, stable across retries.
@@ -625,6 +654,8 @@ function CheckoutBody() {
             leaveCheckout(first?.id, result.checkoutGroupId);
             return;
           }
+          setPaymentError(null);
+          setAwaitingPayment(false);
           setPlaced({
             checkoutGroupId: result.checkoutGroupId,
             firstOrderId: first?.id,
@@ -643,14 +674,35 @@ function CheckoutBody() {
   // the contact are already snapshotted onto them, and editing either would
   // change nothing.
   if (placed) {
+    const status = paymentStatus.data?.status;
     return (
       <PaymentStep
         payment={placed.payment}
-        status={paymentStatus.data?.status}
+        checkoutGroupId={placed.checkoutGroupId}
+        status={status}
+        awaiting={awaitingPayment}
+        // A decline the server learned of after the step handed over is shown
+        // the same way as one the step saw itself.
+        error={
+          paymentError ??
+          (status === 'failed' && awaitingPayment ? t('payment.card.notCompleted') : null)
+        }
         isGuest={!isAuthenticated}
         orderNumbers={placed.orderNumbers}
+        onCompleted={() => {
+          // The buyer finished the step. Nothing is marked paid here — the
+          // poll asks the server, which answers from a verified event.
+          idempotencyKey.current = null;
+          setPaymentError(null);
+          setAwaitingPayment(true);
+        }}
+        onFailed={(message) => {
+          setAwaitingPayment(false);
+          setPaymentError(message);
+        }}
         onLeave={() => {
           setPlaced(null);
+          setAwaitingPayment(false);
           toast.info(
             isAuthenticated
               ? t('checkout.toast.reservedSignedIn')

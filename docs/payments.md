@@ -30,8 +30,11 @@ take a buyer's money (ADR 0009 D13):
 - **No seller onboarding.** Nothing writes `provider_accounts`, so with
   `PEABLE_ENABLED` on, `assertSellerGroupsPaymentReady` refuses every seller and
   no card checkout can be placed.
-- **No payer UI in the storefront.** An open payment renders its total and a
-  notice that card payments are not available in this app.
+- **No native card form, and the web payer UI is unverified end to end.** The
+  web checkout pays with Peable's Elements; iOS and Android open Peable's hosted
+  pay page in the system browser, because Peable's payer SDK has no native card
+  path (see "The storefront's card step"). Neither has confirmed a real
+  payment (ADR 0009 D18).
 - **No dispute, payout or account events.** The Peable router applies
   `payment_intent.*` and `charge.refunded` only, so `disputes`, `payouts` and
   `provider_accounts` have no writer, and `transfer_changed`, `payout_changed`,
@@ -583,7 +586,7 @@ onboarding.
 The path from a full cart to a paid order and a settled seller. Everything below
 is ADR 0001 D3/D4/D8/D11 in code; the ADRs are the decision, this is where it
 lives. The sequence is the designed one; on today's rail it stops at the gate
-(no ready sellers) and at the storefront (no payer UI).
+(no ready sellers).
 
 ```mermaid
 sequenceDiagram
@@ -595,10 +598,10 @@ sequenceDiagram
     API->>API: reserve ALL groups (all-or-nothing) · one order per seller
     API->>API: Payment record (UNIQUE checkout_group_id)
     API->>P: paymentIntents.create (pi:<paymentId>, rail card, metadata)
-    P-->>API: client_secret
+    P-->>API: pi_… + its client_secret
     API->>API: empty the cart (AFTER the payment, so a retry can work)
-    API-->>B: orders + {paymentId, provider, clientSecret, amount, methods}
-    B->>P: payer confirms (no storefront UI yet)
+    API-->>B: orders + {paymentId, provider, providerPaymentId, clientSecret, amount, methods}
+    B->>P: Peable Elements: client_action, then confirm (web; hosted page on native)
     B->>API: GET /checkout/:groupId/payment-status (poll)
     P->>API: webhook payment_intent.succeeded (signed)
     API->>API: CAS to succeeded · ledger charge_succeeded · outbox
@@ -767,22 +770,39 @@ which the sweep never selects again.
 
 ### Client integration
 
-**The storefront has no payer UI for the card rail.** The direct rail's
-`CardPaymentStep{,.native}.tsx` (Stripe's Payment Element and PaymentSheet), the
-`/checkout/return` route and the `@stripe/*` client packages were deleted with
-it. `app/(app)/checkout/index.tsx` renders an open payment's total, a notice
-that card payments are not available in this app, and a way back; the orders
-stay reserved and payable until the reservation expires, and the screen keeps
-polling `GET /checkout/:groupId/payment-status`, which answers from the payment
+**The storefront's card step** is `components/payment/CardPaymentStep{,.native}.tsx`
+behind one contract (`types.ts`), used by the checkout and the supervised-shopping
+checkout alike, for guests and account buyers alike (ADR 0006 G1/G2). On the WEB
+it mounts Peable's Elements from `@peable.to/sdk/checkout` (the browser entry
+only): the Express Checkout element, narrowed to the wallets the handoff's
+`methods` permit, above the Payment Element, styled from the Bloom theme, and
+`confirmPayment` with a redirect only when the bank insists — back to
+`/checkout/return`, which strips the acquirer's return parameters and only polls.
+The SDK exchanges the handoff's PaymentIntent and secret for the acquirer's
+credential and publishable key at the gateway itself; nothing of the acquirer's
+passes through Mercaria. On iOS and Android there is no native card path in
+Peable's SDK (its Elements and `checkout/ui`'s `PeableProviderFields` are DOM
+fields; the latter renders "unavailable" without a `document`), so the step opens
+Peable's hosted page, `checkout.peable.to/i/:pi#client_secret=…`, in the system
+browser and never reads the browser closing as an outcome. Either way the screen
+polls `GET /checkout/:groupId/payment-status`, which answers from the payment
 aggregate — a value only a verified webhook (or a live rail read) moves. The
 states it renders are the honest ones: confirming (`requires_action` and
 `processing` as one sentence, because from the buyer's side both mean the bank
-has not finished), succeeded, cancelled and failed. ADR 0009's consequences
-record the native gap: Peable's payer SDK mounts onto the DOM and has no
-PaymentSheet equivalent yet.
+has not finished), succeeded, cancelled and failed (a decline, recoverable with
+another card). The intent is created with `payment_method_types: ['card']`, so
+the Payment Element offers no asynchronous method ADR 0001 D3 excludes.
+`PeableElement.on` does not type the Express Checkout `confirm` event, so the
+step widens that one listener (ADR 0009 D13 "As built"). Apple Pay on the web
+shows only once `mercaria.co` is a registered Peable wallet domain (`pmd_…`),
+which nothing in this repository does.
 
-The handoff is `CheckoutPaymentHandoff` = `{paymentId, provider, clientSecret,
-amount, methods}`. There is no `publishableKey` (a server credential must never
+The handoff is `CheckoutPaymentHandoff` = `{paymentId, provider,
+providerPaymentId, clientSecret, amount, methods}`: `providerPaymentId` is the
+gateway PaymentIntent (`pi_…`) and `clientSecret` ITS `client_secret` — exactly
+the `{ id, client_secret }` the payer SDK mounts on — never the acquirer's
+confirmation secret in the intent's `client_action`. A resumed payment hands back
+the same pair. There is no `publishableKey` (a server credential must never
 reach a buyer's browser, and Mercaria reaches Peable with its Oxy workload
 identity and holds no Peable key at all) and no `returnUrl`. The checkout
 request schema is `.strict()`, so a client that sent a card field would be
@@ -822,7 +842,7 @@ Code: `services/payments/guest-correlation.ts` (the one seam onto
 the #85 seam), the `guestCheckoutId` metadata key and the payment-surface set in
 `services/payments/checkout-payment.service.ts`, and the
 `guest_portal_initialization` outbox type. There is no guest-specific client
-payment surface, because there is no client payment surface at all yet.
+payment surface: the card step above is one component for both.
 
 ### The four things that ARE guest-specific
 
@@ -1979,7 +1999,8 @@ nothing below has been done against live money.
 
 - [ ] Peable seller onboarding writes `provider_accounts`, so a seller can reach
       `ready`.
-- [ ] A storefront payer UI confirms the intent from the handoff.
+- [ ] The storefront card step (web Elements, native hosted page) confirms a
+      real test-mode payment end to end.
 - [ ] The adapter reports a refund's settled figure, so refunds book.
 - [ ] Dispute, payout and account events are routed (or deliberately declared
       out of scope with their tables).

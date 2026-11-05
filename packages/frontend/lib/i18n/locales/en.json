@@ -499,6 +499,10 @@
     },
     "backToOrders": "Back to your orders",
     "checkLaterFromOrders": "Check later from your orders",
+    "claim": {
+      "optional": "Optional. Your order is confirmed either way.",
+      "saveToOxy": "Save these orders to Oxy"
+    },
     "deliverElsewhere": "Deliver somewhere else",
     "destination": {
       "collectInPerson": "Collect in person",
@@ -585,24 +589,53 @@
       "reservedSignedIn": "Your order is reserved. You can pay for it from your orders."
     },
     "useSavedAddress": "Use a saved address",
-    "viewOrder": "View your order"
+    "viewOrder": "View your order",
+    "viewOrders": "View your orders"
   },
   "payment": {
     "cancelled": {
+      "body": "This payment was cancelled and nothing was charged.",
       "bodyItemsReturned": "This payment was cancelled and nothing was charged. Your items have been returned to the shop.",
       "title": "Payment cancelled"
     },
+    "card": {
+      "browserIntro": "You will pay on Peable's secure page in your browser. Come back here when you are done — this screen updates on its own.",
+      "browserReopen": "Open the payment page again",
+      "browserReturned": "If you completed the payment, this screen updates as soon as it is confirmed. If not, you can open the payment page again.",
+      "browserUnavailable": "The payment page could not be opened. Please try again.",
+      "expressHeading": "Pay in one tap",
+      "loading": "Loading the secure payment form…",
+      "notCompleted": "Your payment could not be completed.",
+      "orPayByCard": "or pay by card",
+      "payNow": "Pay now",
+      "unavailable": "The payment form could not be loaded."
+    },
+    "cardDetailsNotice": "Your card details go straight to our payment provider and never reach Mercaria.",
     "confirming": {
       "bankStillCompleting": "Your bank is still completing this payment. This can take a moment.",
+      "checkingWithBank": "We are confirming this with your bank. Your order is reserved meanwhile.",
+      "continueWithoutWaiting": "Continue without waiting",
+      "pageTitle": "Confirming your payment — Mercaria",
+      "returnBody": "Your bank has sent you back to us and we are confirming the payment. This usually takes a few seconds.",
       "title": "Confirming your payment"
     },
-    "notConfigured": "Card payments are not configured for this app yet.",
+    "continue": "Continue",
+    "notCompleted": {
+      "title": "Payment not completed"
+    },
     "received": {
       "body": "Thank you. Your order is confirmed and the seller has been notified.",
       "title": "Payment received"
     },
+    "return": {
+      "missingGroup": "This link is missing the checkout it belongs to. If you completed a payment, your order is safe — nothing here changes it."
+    },
     "title": "Payment",
-    "totalToPay": "Total to pay"
+    "totalToPay": "Total to pay",
+    "unreadable": {
+      "body": "We could not check this payment from here. If it went through, your order is safe — this page cannot change it either way.",
+      "title": "We could not read this payment"
+    }
   },
   "sellers": {
     "fallbackName": "Seller",

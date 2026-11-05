@@ -502,6 +502,10 @@
     },
     "backToOrders": "Torna a les teves comandes",
     "checkLaterFromOrders": "Consulta-ho més tard des de les teves comandes",
+    "claim": {
+      "optional": "Opcional. La teva comanda està confirmada igualment.",
+      "saveToOxy": "Desa aquestes comandes a Oxy"
+    },
     "deliverElsewhere": "Envia-ho a una altra adreça",
     "destination": {
       "collectInPerson": "Recollir en persona",
@@ -588,24 +592,53 @@
       "reservedSignedIn": "La teva comanda queda reservada. La pots pagar des de les teves comandes."
     },
     "useSavedAddress": "Fes servir una adreça desada",
-    "viewOrder": "Mostra la comanda"
+    "viewOrder": "Mostra la comanda",
+    "viewOrders": "Mostra les teves comandes"
   },
   "payment": {
     "cancelled": {
+      "body": "Aquest pagament s'ha cancel·lat i no s'ha cobrat res.",
       "bodyItemsReturned": "Aquest pagament s'ha cancel·lat i no s'ha cobrat res. Els teus articles han tornat a la botiga.",
       "title": "Pagament cancel·lat"
     },
+    "card": {
+      "browserIntro": "Pagaràs a la pàgina segura de Peable al navegador. Torna aquí quan acabis: aquesta pantalla s’actualitza sola.",
+      "browserReopen": "Torna a obrir la pàgina de pagament",
+      "browserReturned": "Si has completat el pagament, aquesta pantalla s’actualitzarà tan bon punt es confirmi. Si no, pots tornar a obrir la pàgina de pagament.",
+      "browserUnavailable": "No s’ha pogut obrir la pàgina de pagament. Torna-ho a provar.",
+      "expressHeading": "Paga amb un toc",
+      "loading": "S’està carregant el formulari de pagament segur…",
+      "notCompleted": "No s'ha pogut completar el teu pagament.",
+      "orPayByCard": "o paga amb targeta",
+      "payNow": "Paga ara",
+      "unavailable": "No s’ha pogut carregar el formulari de pagament."
+    },
+    "cardDetailsNotice": "Les dades de la teva targeta van directament al nostre proveïdor de pagaments i no arriben mai a Mercaria.",
     "confirming": {
       "bankStillCompleting": "El teu banc encara està completant aquest pagament. Pot trigar un moment.",
+      "checkingWithBank": "Ho estem confirmant amb el teu banc. Mentrestant, la teva comanda queda reservada.",
+      "continueWithoutWaiting": "Continua sense esperar",
+      "pageTitle": "Confirmant el teu pagament — Mercaria",
+      "returnBody": "El teu banc t'ha tornat aquí i estem confirmant el pagament. Sol trigar uns segons.",
       "title": "Confirmant el teu pagament"
     },
-    "notConfigured": "Els pagaments amb targeta encara no estan configurats en aquesta aplicació.",
+    "continue": "Continua",
+    "notCompleted": {
+      "title": "Pagament no completat"
+    },
     "received": {
       "body": "Gràcies. La teva comanda està confirmada i hem avisat el venedor.",
       "title": "Pagament rebut"
     },
+    "return": {
+      "missingGroup": "A aquest enllaç li falta la compra a la qual pertany. Si has completat un pagament, la teva comanda és fora de perill: aquí no canvia res."
+    },
     "title": "Pagament",
-    "totalToPay": "Total a pagar"
+    "totalToPay": "Total a pagar",
+    "unreadable": {
+      "body": "No hem pogut comprovar aquest pagament des d'aquí. Si s'ha fet, la teva comanda és fora de perill: aquesta pàgina no la pot canviar.",
+      "title": "No hem pogut llegir aquest pagament"
+    }
   },
   "sellers": {
     "fallbackName": "Venedor",

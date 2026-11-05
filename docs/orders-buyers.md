@@ -307,7 +307,7 @@ for the same reason it applies to a ledger entry.
 
 | Owner | What is left | What exists now |
 |---|---|---|
-| **#107** | LANDED — see below | The card client surfaces (the storefront's Stripe card step was deleted with the direct rail, ADR 0009 D13; no Peable payer UI yet), the `guestCheckoutId` metadata key, the rollout kill switches, and the `guest_portal_initialization` outbox row #108 consumes |
+| **#107** | LANDED — see below | The card client surfaces (the storefront's Stripe card step was deleted with the direct rail, ADR 0009 D13; the Peable card step replaced it — `docs/payments.md`), the `guestCheckoutId` metadata key, the rollout kill switches, and the `guest_portal_initialization` outbox row #108 consumes |
 | **#108** | `guest_order_access_grants`, magic links, transactional mail, the portal ROUTE | `GuestOrderPortalGrant`'s contract, the grant branch of `authorizeOrderAccess`, `resolveGuestPortalSubject` (returns `null`), `GuestOrderPortalView` and `buildGuestOrderPortalView`, `setGuestCheckoutVerificationStage`'s timestamp, and #107's durable `guest_portal_initialization` row (keyed on the checkout GROUP, carrying `{checkoutGroupId, guestCheckoutId, orderIds}`) |
 | **#109** | The claim service — the ONLY writer of `claimed_by_oxy_user_id` | The columns, the CHECK, the trigger's two permitted transitions, the claim-aware reads, the review-eligibility guard that becomes one comparison |
 | **#110** | Guest cancellations, returns, support | The claimant's own cancel path (an Oxy account acting on its own order) |

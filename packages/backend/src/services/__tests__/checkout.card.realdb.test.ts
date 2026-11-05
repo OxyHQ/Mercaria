@@ -485,6 +485,9 @@ describe('card checkout on the Peable rail — single seller', () => {
       rail: 'card',
       amount: String(order.totalsGrandTotalPresentmentAmount),
       currency: 'EUR',
+      // Card (and card wallets) only: ADR 0001 D3 excludes the asynchronous
+      // methods the merchant configuration might otherwise offer the payer.
+      payment_method_types: ['card'],
       // ADR 0001 D11's metadata, plus the adapter's own two correlation keys —
       // server-issued ids only, nothing about the buyer or the seller.
       metadata: {
@@ -508,7 +511,11 @@ describe('card checkout on the Peable rail — single seller', () => {
     expect(result.payment).toEqual({
       paymentId: payment.id,
       provider: 'peable',
-      clientSecret: `${payment.providerObjectId}_secret_fixture`,
+      // The gateway PaymentIntent and the PAYER's secret over it — exactly what
+      // `createPeableElements({ paymentIntent })` mounts on — and never the
+      // acquirer's confirmation secret in `client_action.value`.
+      providerPaymentId: payment.providerObjectId,
+      clientSecret: `${payment.providerObjectId}_payer_secret_fixture`,
       amount: {
         amount: order.totalsGrandTotalPresentmentAmount,
         currency: 'EUR',
@@ -997,7 +1004,11 @@ describe('card checkout on the Peable rail — idempotency and refusals', () => 
     const later = await checkout(actor, { addressId: buyer.addressId }, key);
 
     expect(later.checkoutGroupId).toBe(first.checkoutGroupId);
+    // The SAME payment, payer material and all: the resume reads the intent
+    // and hands back its own `client_secret` again.
+    expect(later.payment?.providerPaymentId).toBe(first.payment?.providerPaymentId);
     expect(later.payment?.clientSecret).toBe(first.payment?.clientSecret);
+    expect(later.payment?.clientSecret).toMatch(/_payer_secret_fixture$/);
     expect(gateway.state.intentCalls).toHaveLength(1);
     expect(gateway.state.intents.size).toBe(1);
     // …and the loser's reservation was rolled back: stock was taken once.

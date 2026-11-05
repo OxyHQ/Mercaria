@@ -16,6 +16,7 @@ import {
   cleanAddress,
   isDraftComplete,
 } from '@/components/checkout/CheckoutDestinationForm';
+import { CardPaymentStep } from '@/components/payment/CardPaymentStep';
 import { useTranslation } from '@/lib/i18n';
 import {
   prepareSupervisedPurchase,
@@ -33,6 +34,8 @@ export default function SupervisedCheckoutScreen() {
     typeof params.checkoutGroupId === 'string' ? params.checkoutGroupId : undefined;
   const [draft, setDraft] = useState(EMPTY_CHECKOUT_DRAFT);
   const attempt = useRef<{ key: string; input: CheckoutInput } | undefined>(undefined);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [stepDone, setStepDone] = useState(false);
   const purchase = useQuery({
     queryKey: ['supervised-shopping', user?.id, 'checkout', checkoutGroupId],
     queryFn: () => {
@@ -79,6 +82,8 @@ export default function SupervisedCheckoutScreen() {
       return resumeSupervisedPurchase(checkoutGroupId);
     },
     onSuccess: () => {
+      setStepDone(false);
+      setPaymentError(null);
       void purchase.refetch();
     },
   });
@@ -192,18 +197,36 @@ export default function SupervisedCheckoutScreen() {
               </Button>
             ) : null}
             {/*
-              This app has no payer UI for the configured card rail yet
-              (ADR 0009): the purchase stays reserved and the poll above keeps
-              reporting what the server learns.
+              The same card step as the storefront checkout (ADR 0006 G2). Its
+              result only decides whether to keep asking: the poll above reads
+              the purchase, which only a verified gateway event marks paid.
             */}
-            {!paid && resume.data?.payment ? (
-              <View className="rounded-2xl border border-border bg-card p-4">
-                <Text className="text-sm text-muted-foreground">{t('payment.notConfigured')}</Text>
-              </View>
+            {!paid && checkoutGroupId && resume.data?.payment && !stepDone ? (
+              <CardPaymentStep
+                payment={resume.data.payment}
+                checkoutGroupId={checkoutGroupId}
+                onCompleted={() => {
+                  setStepDone(true);
+                  void purchase.refetch();
+                }}
+                onFailed={(message) => setPaymentError(message)}
+              />
+            ) : null}
+            {!paid && stepDone ? (
+              <Button
+                tone="neutral"
+                onPress={() => {
+                  resume.reset();
+                  setStepDone(false);
+                }}
+              >
+                {t('supervisedShopping.continuePayment')}
+              </Button>
             ) : null}
             {resume.isError ? (
               <Text accessibilityRole="alert">{t('supervisedShopping.paymentError')}</Text>
             ) : null}
+            {paymentError ? <Text accessibilityRole="alert">{paymentError}</Text> : null}
             {approval.status === 'pending' ? (
               <Text className="text-muted-foreground">{t('supervisedShopping.pendingBody')}</Text>
             ) : null}

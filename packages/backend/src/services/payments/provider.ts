@@ -109,10 +109,15 @@ export function isRetryableProviderError(error: unknown): boolean {
 /**
  * What a buyer's client must do next, when the rail needs it to do anything.
  *
- * Opaque on purpose: `value` is whatever the rail's own SDK consumes (a client
- * secret, a redirect URL, a payment request payload). Mercaria never interprets
- * it and never stores it — it is handed to the client in the same response and
- * forgotten, so it cannot become a credential sitting in a database.
+ * Opaque on purpose: `value` is whatever the rail's own PAYER SDK consumes (a
+ * client secret, a redirect URL, a payment request payload). Mercaria never
+ * interprets it and never stores it — it is handed to the client in the same
+ * response and forgotten, so it cannot become a credential sitting in a database.
+ *
+ * A `client_secret` is the payer's capability over the rail's own payment object
+ * (`ProviderPaymentResult.providerObjectId`) — on Peable, the gateway
+ * PaymentIntent's `client_secret`, never the acquirer's confirmation secret
+ * behind it (ADR 0009 D13 "As built").
  */
 export interface PaymentClientAction {
   kind: 'client_secret' | 'redirect';
