@@ -1145,6 +1145,15 @@
       "subtotal": "Subtotal",
       "tax": "Tax",
       "total": "Total"
+    },
+    "fee": {
+      "heading": "Marketplace fee and payout",
+      "fee": "Marketplace fee",
+      "processing": "Card processing",
+      "processingIncluded": "Included",
+      "net": "You receive",
+      "refundNote": "Before any refund. If you refund this order, the fee on the refunded amount is returned to you in proportion.",
+      "none": "No marketplace fee was charged on this order."
     }
   },
   "products": {
@@ -1672,7 +1681,9 @@
         "taxExclusive": "Tax is charged on top of this fee.",
         "taxInclusive": "Tax is included in this fee.",
         "version": "Terms version %{version}",
-        "effectiveFrom": "In force since %{date}"
+        "effectiveFrom": "In force since %{date}",
+        "processingIncluded": "Card processing is included. There is no separate processing fee.",
+        "cardSalesOnly": "Applies to card sales in %{currency}. Sales paid in FairCoin carry no fee."
       },
       "preview": {
         "title": "What this costs",
@@ -2071,7 +2082,16 @@
         }
       },
       "subtitle": "How you get paid for orders placed on Mercaria",
-      "title": "Payments & payouts"
+      "title": "Payments & payouts",
+      "fee": {
+        "title": "Marketplace fee",
+        "summary": "%{percent} of the item subtotal plus %{fixed} per order on card sales. Card processing is included.",
+        "summaryPercentOnly": "%{percent} of the item subtotal on card sales. Card processing is included.",
+        "faircoin": "Sales paid in FairCoin carry no fee.",
+        "pending": "Accept the fee terms before your store can take card orders.",
+        "none": "No marketplace fee applies to your sales today.",
+        "action": "View the fee terms"
+      }
     },
     "plan": {
       "alwaysIncludedBody": "Maintaining your catalogue, receiving and fulfilling orders, issuing refunds, reading your own sales and payout records, and exporting your data are free for every Mercaria store and are never part of a plan. Nothing on this page can change that, and no plan affects how your listings are found or ranked.",

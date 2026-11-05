@@ -36,6 +36,7 @@ import type { ConnectorProviderId } from './integration';
 import type { OrderItemConditionSnapshot } from './condition';
 import type { DigitalLicenceUpdatePolicy } from './digital-licence';
 import type { DigitalSupplyEvidenceKind, DigitalWithdrawalBasis } from './digital-supply';
+import type { OrderFeeSummary } from './fees';
 
 /**
  * Lifecycle status of an order.
@@ -626,6 +627,11 @@ export interface OrderSummary {
 export interface MerchantOrder extends Omit<Order, 'buyer' | 'buyerOxyUserId' | 'buyerContact'> {
   /** The display label and, for an `oxy` order only, the account id. */
   buyer: MerchantBuyerLabel;
+  /**
+   * The order's immutable marketplace-fee snapshot (#88), on the single-order
+   * read only, and absent for an order that has none (POS, connector import).
+   */
+  marketplaceFee?: OrderFeeSummary;
 }
 
 /** {@link MerchantOrder}'s list projection — {@link OrderSummary} plus the label. */

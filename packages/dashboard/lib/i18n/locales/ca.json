@@ -1160,6 +1160,15 @@
       "subtotal": "Subtotal",
       "tax": "Impostos",
       "total": "Total"
+    },
+    "fee": {
+      "heading": "Comissió del marketplace i pagament",
+      "fee": "Comissió del marketplace",
+      "processing": "Processament de targetes",
+      "processingIncluded": "Inclòs",
+      "net": "Reps",
+      "refundNote": "Abans de qualsevol reemborsament. Si reemborses aquesta comanda, se't retorna la part proporcional de la comissió sobre l'import reemborsat.",
+      "none": "No s'ha cobrat cap comissió del marketplace en aquesta comanda."
     }
   },
   "products": {
@@ -1690,7 +1699,9 @@
         "taxExclusive": "Els impostos es cobren a part d'aquesta comissió.",
         "taxInclusive": "Els impostos estan inclosos en aquesta comissió.",
         "version": "Versió de les condicions %{version}",
-        "effectiveFrom": "En vigor des del %{date}"
+        "effectiveFrom": "En vigor des del %{date}",
+        "processingIncluded": "El processament de targetes està inclòs. No hi ha cap comissió de processament a part.",
+        "cardSalesOnly": "S'aplica a les vendes amb targeta en %{currency}. Les vendes pagades en FairCoin no tenen comissió."
       },
       "preview": {
         "title": "Quant costa",
@@ -2090,7 +2101,16 @@
         }
       },
       "subtitle": "Com cobres les comandes fetes a Mercaria",
-      "title": "Pagaments i liquidacions"
+      "title": "Pagaments i liquidacions",
+      "fee": {
+        "title": "Comissió del marketplace",
+        "summary": "%{percent} del subtotal dels articles més %{fixed} per comanda en vendes amb targeta. El processament de targetes està inclòs.",
+        "summaryPercentOnly": "%{percent} del subtotal dels articles en vendes amb targeta. El processament de targetes està inclòs.",
+        "faircoin": "Les vendes pagades en FairCoin no tenen comissió.",
+        "pending": "Accepta les condicions de la comissió perquè la teva botiga pugui rebre comandes amb targeta.",
+        "none": "Avui no s'aplica cap comissió del marketplace a les teves vendes.",
+        "action": "Veure les condicions de la comissió"
+      }
     },
     "plan": {
       "alwaysIncludedBody": "Mantenir el teu catàleg, rebre i preparar comandes, fer reemborsaments, consultar els teus registres de vendes i de liquidacions i exportar les teves dades són gratuïts per a totes les botigues de Mercaria i mai no formen part d'un pla. Res d'aquesta pàgina no ho pot canviar, i cap pla no afecta com es troben ni com es classifiquen els teus productes.",

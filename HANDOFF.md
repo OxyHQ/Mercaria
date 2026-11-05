@@ -200,10 +200,12 @@ account events. No seller is `ready`, so every native checkout is refused
       identity (KYC), so only the owner's own store or a consenting seller.
 - [ ] **ADR 0009 D18's three real-world checks**, starting with one real USD
       sale (`docs/payments.md` §9 "What the first real sale confirms").
-- [ ] **A USD marketplace fee schedule**, if a commission is to be charged:
-      `services/fees/catalog.ts`'s only schedule is EUR-scoped and has never
-      been provisioned, so a USD sale carries no commission until the owner sets
-      a USD rate and it is provisioned, accepted and activated.
+- [x] **A USD marketplace fee schedule** — ADR 0018: 5% + $0.30 per order on
+      store card sales, processing included; none on FairCoin. Published by
+      `publish-fee-schedules.yml` (`docs/runbooks/marketplace-card-rail-live.md` §5).
+- [ ] **A P2P fee acceptance surface.** ADR 0018 D3: the schedule reaches stores
+      only, so an individual seller's card sale carries no commission until
+      storefront Settings → Payments can record a `user` acceptance.
 - [ ] **A referral payout rail.** The port is empty; batches fail
       `rail_not_configured`, retryably.
 - [ ] **A reconciliation of the gateway's settled movements** (the deleted

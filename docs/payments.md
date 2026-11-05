@@ -1275,10 +1275,19 @@ trigger freezes every economic column from `active` on and refuses DELETE
 outright — and a partial unique index allows ONE active version per key, so
 activation supersedes atomically. Policy changes are new versions, always.
 
-Operators manage schedules at `/internal/payments/fee-schedules*` (same gate as
-the repair surface; nothing there moves money). Merchants read, accept and
-preview at `/admin/stores/:storeId/fees/*` behind `store:manage`, because
-agreeing to what a store pays Mercaria is the owner's decision.
+The rate is code: `services/fees/catalog.ts`, published by
+`.github/workflows/publish-fee-schedules.yml` (preview, draft, then a guarded
+activate — runbook `runbooks/marketplace-card-rail-live.md` §5). There is no
+operator route. Merchants read, accept and preview at
+`/admin/stores/:storeId/fees/*` behind `store:manage`, because agreeing to what
+a store pays Mercaria is the owner's decision; the schedule shown is selected in
+the store's currency and then in the card rail's presentment currencies
+(`findApplicableStoreSchedule`), because that is what its card sales select.
+
+**The published rate (ADR 0018):** `marketplace-card` v1, 5% of the item
+subtotal + $0.30 per order on store card sales in USD, card processing included;
+no fee on FairCoin sales (no schedule covers FAIR) and none yet on P2P sales
+(no P2P acceptance surface).
 
 ### The calculation, and the snapshot it becomes
 

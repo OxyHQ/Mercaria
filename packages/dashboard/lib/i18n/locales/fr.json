@@ -1160,6 +1160,15 @@
       "subtotal": "Sous-total",
       "tax": "Taxes",
       "total": "Total"
+    },
+    "fee": {
+      "heading": "Commission de la marketplace et versement",
+      "fee": "Commission de la marketplace",
+      "processing": "Traitement des cartes",
+      "processingIncluded": "Inclus",
+      "net": "Vous recevez",
+      "refundNote": "Avant tout remboursement. Si vous remboursez cette commande, la commission sur le montant remboursé vous est restituée au prorata.",
+      "none": "Aucune commission de la marketplace n'a été prélevée sur cette commande."
     }
   },
   "products": {
@@ -1690,7 +1699,9 @@
         "taxExclusive": "La taxe s'ajoute à cette commission.",
         "taxInclusive": "La taxe est comprise dans cette commission.",
         "version": "Conditions version %{version}",
-        "effectiveFrom": "En vigueur depuis le %{date}"
+        "effectiveFrom": "En vigueur depuis le %{date}",
+        "processingIncluded": "Le traitement des cartes est inclus. Il n'y a pas de frais de traitement séparés.",
+        "cardSalesOnly": "S'applique aux ventes par carte en %{currency}. Les ventes payées en FairCoin sont sans frais."
       },
       "preview": {
         "title": "Ce que cela coûte",
@@ -2090,7 +2101,16 @@
         }
       },
       "subtitle": "Comment vous êtes payé pour les commandes passées sur Mercaria",
-      "title": "Paiements et versements"
+      "title": "Paiements et versements",
+      "fee": {
+        "title": "Commission de la marketplace",
+        "summary": "%{percent} du sous-total des articles plus %{fixed} par commande sur les ventes par carte. Le traitement des cartes est inclus.",
+        "summaryPercentOnly": "%{percent} du sous-total des articles sur les ventes par carte. Le traitement des cartes est inclus.",
+        "faircoin": "Les ventes payées en FairCoin sont sans frais.",
+        "pending": "Acceptez les conditions de la commission pour que votre boutique puisse recevoir des commandes par carte.",
+        "none": "Aucune commission de la marketplace ne s'applique à vos ventes aujourd'hui.",
+        "action": "Voir les conditions de la commission"
+      }
     },
     "plan": {
       "alwaysIncludedBody": "Tenir votre catalogue à jour, recevoir et traiter les commandes, émettre des remboursements, consulter vos propres relevés de ventes et de versements et exporter vos données sont gratuits pour toute boutique Mercaria et ne font jamais partie d’un forfait. Rien sur cette page ne peut changer cela, et aucun forfait n’influe sur la façon dont vos annonces sont trouvées ou classées.",

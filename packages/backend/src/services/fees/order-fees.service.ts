@@ -222,6 +222,40 @@ export async function findApplicableSchedule(input: {
 }
 
 /**
+ * The schedule a STORE's sales are charged under, for its fees screen, its
+ * acceptance and its activation checklist.
+ *
+ * Checkout selects in the ORDER's presentment currency, and a card order is
+ * presented only in the card rail's currencies (USD) whatever the store's own
+ * currency is — the cart converts. So asking in `stores.default_currency` alone
+ * would show a FAIR-priced store "no marketplace fee applies" while every one of
+ * its card sales selected the USD schedule, and the checkout gate refused them
+ * for terms the screen never offered. The store's own currency is asked first
+ * (a schedule in it governs the store's direct sales), then each currency the
+ * card rail presents in, in the rail's order.
+ *
+ * `saleCurrencies` is passed in rather than read here so this module keeps no
+ * dependency on the payment rail.
+ */
+export async function findApplicableStoreSchedule(input: {
+  defaultCurrency: CurrencyCode;
+  saleCurrencies: readonly CurrencyCode[];
+  at?: Date;
+}): Promise<FeeScheduleRow | undefined> {
+  const at = input.at ?? new Date();
+  const schedules = await listActiveFeeSchedules(getDb(), at);
+  for (const currency of new Set([input.defaultCurrency, ...input.saleCurrencies])) {
+    const schedule = selectFeeSchedule({
+      schedules,
+      facts: { sellerType: 'store', currency },
+      at,
+    });
+    if (schedule) return schedule;
+  }
+  return undefined;
+}
+
+/**
  * Preview the fee and the merchant's net on a hypothetical basis — the same
  * pure arithmetic checkout will apply, so what the preview promises is what an
  * order will get (merchant experience 3, trust rule 3).

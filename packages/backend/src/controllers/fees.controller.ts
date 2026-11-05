@@ -26,9 +26,11 @@ import {
 } from '../db/fees/feeScheduleRepository.js';
 import {
   findApplicableSchedule,
+  findApplicableStoreSchedule,
   previewFee,
   toFeeScheduleSummary,
 } from '../services/fees/order-fees.service.js';
+import { nativeRailPresentmentCurrencies } from '../services/payments/native-rail.js';
 import { sendSuccess } from '../utils/api-response.js';
 import { conflict, notFound, respondWithError } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
@@ -45,16 +47,17 @@ function loadedStore(req: Request): { id: string; defaultCurrency: CurrencyCode 
 
 /**
  * GET /admin/stores/:storeId/fees/schedule — the schedule currently applicable
- * to this store (selected exactly as checkout selects it, at "now", for
- * `sellerType: 'store'` in the store's own currency), plus this store's
+ * to this store's sales (selected exactly as checkout selects it, at "now", for
+ * `sellerType: 'store'` in the store's own currency and then in the card rail's
+ * presentment currencies — `findApplicableStoreSchedule`), plus this store's
  * acceptance of that exact version when one exists.
  */
 export async function getStoreFeeScheduleHandler(req: Request, res: Response): Promise<void> {
   try {
     const store = loadedStore(req);
-    const schedule = await findApplicableSchedule({
-      sellerType: 'store',
-      currency: store.defaultCurrency,
+    const schedule = await findApplicableStoreSchedule({
+      defaultCurrency: store.defaultCurrency,
+      saleCurrencies: nativeRailPresentmentCurrencies(),
     });
     if (!schedule) {
       sendSuccess<StoreFeeScheduleView>(res, {});
@@ -102,9 +105,9 @@ export async function acceptStoreFeeScheduleHandler(req: Request, res: Response)
   try {
     const store = loadedStore(req);
     const body = req.body as AcceptFeeScheduleBody;
-    const schedule = await findApplicableSchedule({
-      sellerType: 'store',
-      currency: store.defaultCurrency,
+    const schedule = await findApplicableStoreSchedule({
+      defaultCurrency: store.defaultCurrency,
+      saleCurrencies: nativeRailPresentmentCurrencies(),
     });
     if (!schedule) {
       throw conflict('No fee schedule is currently applicable to this store.');

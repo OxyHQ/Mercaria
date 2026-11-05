@@ -212,6 +212,24 @@ function ScheduleTerms({ schedule }: { schedule: FeeScheduleSummary }) {
           </Text>
         ) : null}
         {/*
+          True of every schedule under the charge model (ADR 0001 D3, ADR 0018):
+          Mercaria is the platform and pays the card processor itself, so the
+          fee above is the whole of what a seller pays per sale.
+        */}
+        <Text className="text-xs text-foreground">
+          {t('settings.fees.terms.processingIncluded')}
+        </Text>
+        {/*
+          A schedule pinned to a fiat currency is a card-sales schedule: card
+          checkout presents only in fiat, and no schedule covers FAIR, so a
+          sale paid in FairCoin selects none and carries no fee.
+        */}
+        {currency !== undefined && currency !== 'FAIR' ? (
+          <Text className="text-xs text-foreground">
+            {t('settings.fees.terms.cardSalesOnly', { currency })}
+          </Text>
+        ) : null}
+        {/*
           A clamp is an amount, so it can only be rendered in the currency the
           schedule pinned. The type allows the currency to be absent (a pure
           percentage applies in any), and the database refuses that combination

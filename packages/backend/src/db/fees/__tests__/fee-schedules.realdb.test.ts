@@ -36,7 +36,10 @@ import {
   type NewOrder,
   type NewOrderFeeSnapshot,
 } from '../../orders/orderRepository.js';
-import { planConnectedMarketplaceFee } from '../../../services/fees/order-fees.service.js';
+import {
+  findApplicableStoreSchedule,
+  planConnectedMarketplaceFee,
+} from '../../../services/fees/order-fees.service.js';
 import { findOrdersInCheckoutGroup } from '../../../services/payments/order-linkage.js';
 
 let db: Database;
@@ -429,6 +432,37 @@ describe('order fee snapshots persist with the order and are append-only', () =>
       seedOrderWithSnapshot(calculatedSnapshot(4_100)),
       /order_fee_snapshots_fee_within_basis_check/,
     );
+  });
+});
+
+describe('findApplicableStoreSchedule', () => {
+  it('finds the card currency’s schedule for a store priced in another currency', async () => {
+    // CHF: no other realdb suite prices in it, so this active schedule can make
+    // nobody else's selection ambiguous.
+    const currency = 'CHF' as const;
+    const row = await insertFeeSchedule(
+      db,
+      draft(currency, { eligibleSellerType: 'store', percentageBps: 500 }),
+    );
+    await activateFeeSchedule(db, {
+      id: row.id,
+      approvedBy: { authority: 'deployment', ref: 'op' },
+    });
+
+    // A FAIR-priced store whose card sales present in CHF is charged under the
+    // CHF schedule, so that is the one its fees screen must show and accept.
+    const found = await findApplicableStoreSchedule({
+      defaultCurrency: 'FAIR',
+      saleCurrencies: [currency],
+    });
+    expect(found?.scheduleKey).toBe(row.scheduleKey);
+
+    // With no card rail, only the store's own currency is asked.
+    const withoutRail = await findApplicableStoreSchedule({
+      defaultCurrency: 'FAIR',
+      saleCurrencies: [],
+    });
+    expect(withoutRail?.scheduleKey).not.toBe(row.scheduleKey);
   });
 });
 

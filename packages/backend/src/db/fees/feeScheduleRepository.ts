@@ -17,7 +17,7 @@
  * that never reach this file; this repository is merely the polite writer.
  */
 
-import { and, asc, eq, gt, isNull, lte, or } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, isNull, lte, notExists, or } from 'drizzle-orm';
 import type {
   CurrencyCode,
   FeeDecisionAuthority,
@@ -27,6 +27,7 @@ import type {
   ProviderAccountOwnerType,
 } from '@mercaria/shared-types';
 import { feeScheduleAcceptances, feeSchedules } from '../schema/fees.js';
+import { providerAccounts } from '../schema/payments.js';
 import type { DatabaseOrTransaction } from '../postgres.js';
 
 /** One row of `fee_schedules`. */
@@ -310,4 +311,50 @@ export async function findFeeScheduleAcceptance(
     )
     .limit(1);
   return row;
+}
+
+/**
+ * The payment-ready sellers that have NOT accepted one schedule version — the
+ * sellers activating it would take offline.
+ *
+ * `merchant-activation/checkout-gate.ts` refuses `seller_not_activated` for a
+ * seller with no acceptance of the schedule its order selects, so this is the
+ * question activation must ask first. Only a `ready` provider account can take
+ * a card payment at all, so a seller still onboarding is not taken offline by
+ * activation: it meets the terms on its fees screen before its first sale.
+ *
+ * Owner ids only — no figures, nothing about the account beyond who owns it.
+ */
+export async function listReadySellersWithoutAcceptance(
+  db: DatabaseOrTransaction,
+  input: {
+    scheduleKey: string;
+    scheduleVersion: number;
+    ownerTypes: readonly ProviderAccountOwnerType[];
+  },
+): Promise<{ ownerType: ProviderAccountOwnerType; ownerId: string }[]> {
+  if (input.ownerTypes.length === 0) return [];
+  return await db
+    .select({ ownerType: providerAccounts.ownerType, ownerId: providerAccounts.ownerId })
+    .from(providerAccounts)
+    .where(
+      and(
+        eq(providerAccounts.onboardingState, 'ready'),
+        inArray(providerAccounts.ownerType, [...input.ownerTypes]),
+        notExists(
+          db
+            .select({ id: feeScheduleAcceptances.id })
+            .from(feeScheduleAcceptances)
+            .where(
+              and(
+                eq(feeScheduleAcceptances.ownerType, providerAccounts.ownerType),
+                eq(feeScheduleAcceptances.ownerId, providerAccounts.ownerId),
+                eq(feeScheduleAcceptances.scheduleKey, input.scheduleKey),
+                eq(feeScheduleAcceptances.scheduleVersion, input.scheduleVersion),
+              ),
+            ),
+        ),
+      ),
+    )
+    .orderBy(asc(providerAccounts.ownerType), asc(providerAccounts.ownerId));
 }

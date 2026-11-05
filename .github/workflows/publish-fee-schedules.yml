@@ -1,0 +1,139 @@
+# Publish the reviewed marketplace fee catalogue (ADR 0018):
+# packages/backend/src/services/fees/catalog.ts → `fee_schedules` in the
+# production database. A one-shot ECS task on the LIVE task definition, because
+# only the VPC reaches the database; the catalogue is the live image's, and the
+# rows record that image's commit as their author.
+#
+# `preview` reads only; `draft` publishes each unpublished version as a DRAFT,
+# which charges nobody; `activate` makes each draft the schedule checkout
+# charges, and REFUSES while any payment-ready seller it reaches has not
+# accepted it (activation would refuse their checkout).
+# Runbook: docs/runbooks/marketplace-card-rail-live.md §5.
+name: Publish fee schedules
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: preview reads and writes nothing; draft publishes drafts (no charge); activate starts charging (refused while a ready seller has not accepted)
+        type: choice
+        required: true
+        default: preview
+        options:
+          - preview
+          - draft
+          - activate
+
+concurrency:
+  group: publish-fee-schedules
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-west-2
+  APP: mercaria
+  CLUSTER: oxy-cluster
+
+jobs:
+  publish:
+    name: Publish fee schedules (${{ inputs.mode }})
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Configure AWS credentials (OIDC, no stored keys)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::237343248947:role/oxy-github-deploy
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve the live task definition
+        id: ecs
+        run: |
+          set -euo pipefail
+          service=$(aws ecs describe-services --cluster "$CLUSTER" --services "$APP" \
+            --query 'services[0]' --output json)
+          status=$(jq -r '.status // "MISSING"' <<<"$service")
+          if [ "$status" != ACTIVE ]; then
+            echo "::error::service $APP on $CLUSTER is $status, not ACTIVE"
+            exit 1
+          fi
+          deployments=$(jq '[.deployments[]] | length' <<<"$service")
+          rollout=$(jq -r '.deployments[] | select(.status == "PRIMARY") | .rolloutState // "COMPLETED"' <<<"$service")
+          if [ "$deployments" != 1 ] || [ "$rollout" != COMPLETED ]; then
+            echo "::error::a rollout of $APP is in flight ($deployments deployments, primary $rollout); run again once it settles"
+            exit 1
+          fi
+          task_definition=$(jq -er '.taskDefinition' <<<"$service")
+          definition=$(aws ecs describe-task-definition --task-definition "$task_definition" \
+            --query taskDefinition --output json)
+          if [ "$(jq '.containerDefinitions | length' <<<"$definition")" != 1 ]; then
+            echo "::error::expected exactly one container in $task_definition"
+            exit 1
+          fi
+          container=$(jq -er '.containerDefinitions[0].name' <<<"$definition")
+          image=$(jq -er '.containerDefinitions[0].image' <<<"$definition")
+          echo "task_definition=$task_definition" >> "$GITHUB_OUTPUT"
+          echo "container=$container" >> "$GITHUB_OUTPUT"
+          echo "network=$(jq -c '.networkConfiguration' <<<"$service")" >> "$GITHUB_OUTPUT"
+          # The commit the live image was built from: the catalogue the task runs
+          # is THAT commit's, so it is the reviewed change the rows record as
+          # their author. The image is pinned by digest; deploy-aws.yml tags it
+          # with its commit, so the digest's tags name it.
+          digest=${image##*@}
+          if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::the live image is not pinned by digest: $image"
+            exit 1
+          fi
+          ref=$(aws ecr describe-images --repository-name "oxy/$APP" \
+            --image-ids "imageDigest=$digest" --query 'imageDetails[0].imageTags' --output json \
+            | jq -r '[.[] | select(test("^[0-9a-f]{40}$"))] | if length == 1 then .[0] else empty end')
+          if [ -z "$ref" ]; then
+            echo "::error::could not resolve exactly one commit tag for $digest"
+            exit 1
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "live task definition $task_definition, image $image, commit $ref"
+          echo "live image: \`$image\` (commit \`$ref\`)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build the command from the closed input
+        id: command
+        env:
+          MODE: ${{ inputs.mode }}
+          REF: ${{ steps.ecs.outputs.ref }}
+        run: |
+          set -euo pipefail
+          case "$MODE" in
+            preview) flag=--preview ;;
+            draft) flag=--apply ;;
+            activate) flag=--activate ;;
+            *) echo "::error::unknown mode '$MODE'"; exit 1 ;;
+          esac
+          command=$(jq -nc --arg flag "$flag" --arg ref "$REF" \
+            '["bun", "packages/backend/dist/scripts/provision-fee-schedule.js", $flag, "--ref=\($ref)"]')
+          echo "json=$command" >> "$GITHUB_OUTPUT"
+          echo "command: $command"
+          {
+            echo "### publish fee schedules ($MODE)"
+            echo
+            echo "\`$command\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run the publish as an ECS one-shot task
+        run: .github/scripts/run-ecs-task.sh
+        env:
+          TASK_DEFINITION: ${{ steps.ecs.outputs.task_definition }}
+          CONTAINER_NAME: ${{ steps.ecs.outputs.container }}
+          NETWORK_CONFIGURATION: ${{ steps.ecs.outputs.network }}
+          COMMAND_JSON: ${{ steps.command.outputs.json }}
+          TASK_LABEL: publish fee schedules (${{ inputs.mode }})
+          STARTED_BY: publish-fee-schedules
+          TASK_TIMEOUT_SECONDS: '900'
+          PRINT_TASK_LOG: 'true'
