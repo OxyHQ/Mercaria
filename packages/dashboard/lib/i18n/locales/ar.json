@@ -640,6 +640,92 @@
     "subtitle": "الأشخاص الذين يشترون من متجرك",
     "walkIn": "عميل عابر"
   },
+  "dataExports": {
+    "documentTitle": "تصدير البيانات | Wholesale by Mercaria",
+    "title": "تصدير البيانات",
+    "subtitle": "طلباتك ومنتجاتك وعملاؤك في ملفات CSV متى احتجت إليها. مجانًا في كل الخطط.",
+    "datasets": {
+      "orders": "الطلبات",
+      "products": "المنتجات والمخزون",
+      "customers": "العملاء"
+    },
+    "status": {
+      "pending": "في قائمة الانتظار",
+      "running": "قيد التحضير",
+      "succeeded": "جاهز",
+      "failed": "فشل",
+      "skippedLimit": "تم التخطي: نفدت الحصة",
+      "skippedNotEntitled": "تم التخطي: غير مشمول في الخطة"
+    },
+    "failure": {
+      "generationFailed": "تعذّر تحضير الملف",
+      "storageUnavailable": "تعذّر حفظ الملف"
+    },
+    "exportNow": "صدّر الآن",
+    "requested": "بدأ التصدير. سيظهر أدناه عندما يصبح جاهزًا.",
+    "requestFailed": "تعذّر بدء التصدير",
+    "retentionNote": "يمكن تنزيل كل ملف لمدة 30 يومًا.",
+    "scheduleLinkTitle": "التصدير المجدول",
+    "scheduleLinkBody": "استلم الملفات نفسها يوميًا أو أسبوعيًا أو شهريًا مع خطة Mercaria.",
+    "historyTitle": "عمليات التصدير الأخيرة",
+    "loadFailed": "تعذّر تحميل عمليات التصدير",
+    "noRuns": "لا توجد عمليات تصدير بعد.",
+    "rows": "الصفوف: %{rows}",
+    "truncated": "أحدث 100,000 صف",
+    "expired": "انتهت صلاحية الملف",
+    "triggerSchedule": "مجدول",
+    "triggerOnDemand": "عند الطلب",
+    "download": "تنزيل",
+    "downloadFailed": "تعذّر فتح الملف. صدّر البيانات مرة أخرى إذا انتهت صلاحيته."
+  },
+  "scheduledExports": {
+    "documentTitle": "التصدير المجدول | Wholesale by Mercaria",
+    "title": "التصدير المجدول",
+    "subtitle": "ملفات CSV ببيانات متجرك، تُحضَّر لك وفق جدول",
+    "toolDescription": "تصدير CSV يومي أو أسبوعي أو شهري للطلبات أو المنتجات أو العملاء",
+    "cadence": {
+      "daily": "يوميًا",
+      "weekly": "أسبوعيًا",
+      "monthly": "شهريًا"
+    },
+    "summary": {
+      "daily": "كل يوم في %{at} (%{zone})",
+      "weekly": "كل %{day} في %{at} (%{zone})",
+      "monthly": "في اليوم %{day} من كل شهر في %{at} (%{zone})"
+    },
+    "newSchedule": "جدول جديد",
+    "newTitle": "جدول تصدير جديد",
+    "editTitle": "تعديل جدول التصدير",
+    "datasetLabel": "البيانات",
+    "cadenceLabel": "كم مرة",
+    "weekdayLabel": "يوم الأسبوع",
+    "dayOfMonthLabel": "يوم الشهر",
+    "hourLabel": "الوقت",
+    "timeZoneLabel": "المنطقة الزمنية",
+    "timeZoneRequired": "أدخل منطقة زمنية، مثل Asia/Dubai",
+    "allowanceNote": "كل تصدير مجدول يستخدم تصديرًا واحدًا من خطتك في فترة الفوترة.",
+    "nextRun": "التصدير التالي: %{at}",
+    "pausedLabel": "متوقف مؤقتًا",
+    "enabledLabel": "الجدول مفعّل",
+    "edit": "تعديل الجدول",
+    "delete": "حذف الجدول",
+    "deleteTitle": "هل تريد حذف هذا الجدول؟",
+    "deleteBody": "لن تُحضَّر ملفات أخرى وفق هذا الجدول. تبقى الملفات المحضّرة متاحة حتى تنتهي صلاحيتها.",
+    "deleted": "تم حذف الجدول",
+    "deleteFailed": "تعذّر حذف الجدول",
+    "created": "تم إنشاء الجدول",
+    "saved": "تم حفظ الجدول",
+    "paused": "تم إيقاف الجدول مؤقتًا",
+    "resumed": "تم استئناف الجدول",
+    "saveFailed": "تعذّر حفظ الجدول",
+    "refusedCapability": "التصدير المجدول ليس ضمن خطتك الحالية. لا يزال بإمكانك إيقاف الجداول مؤقتًا أو حذفها، والتصدير عند الطلب مجانًا.",
+    "refusedLimit": "لم يتبقَّ في خطتك أي تصدير مجدول لفترة الفوترة هذه.",
+    "loadFailed": "تعذّر تحميل الجداول",
+    "emptyTitle": "لا توجد جداول بعد",
+    "emptyBody": "أنشئ جدولًا لتستلم تلقائيًا ملف CSV لطلباتك أو منتجاتك أو عملائك.",
+    "historyTitle": "سجل التصدير المجدول",
+    "onDemandLink": "تحتاج إلى ملف الآن؟ صدّر بياناتك عند الطلب من الإعدادات ← تصدير البيانات، مجانًا في كل الخطط."
+  },
   "discounts": {
     "create": {
       "amountOffLabel": "قيمة الخصم (⊜)",
@@ -1998,6 +2084,10 @@
       "tax": {
         "description": "معدلات الضريبة وسلوكها",
         "label": "الضرائب"
+      },
+      "exports": {
+        "label": "تصدير البيانات",
+        "description": "نزّل طلباتك ومنتجاتك وعملاءك بصيغة CSV"
       }
     },
     "store": {

@@ -640,6 +640,92 @@
     "subtitle": "在你店铺购买过的人",
     "walkIn": "散客"
   },
+  "dataExports": {
+    "documentTitle": "导出数据 | Wholesale by Mercaria",
+    "title": "导出数据",
+    "subtitle": "随时将订单、商品和客户导出为 CSV 文件。所有方案均免费。",
+    "datasets": {
+      "orders": "订单",
+      "products": "商品与库存",
+      "customers": "客户"
+    },
+    "status": {
+      "pending": "排队中",
+      "running": "准备中",
+      "succeeded": "已就绪",
+      "failed": "失败",
+      "skippedLimit": "已跳过：额度已用完",
+      "skippedNotEntitled": "已跳过：方案未包含"
+    },
+    "failure": {
+      "generationFailed": "无法准备文件",
+      "storageUnavailable": "无法保存文件"
+    },
+    "exportNow": "立即导出",
+    "requested": "导出已开始，准备好后会显示在下方。",
+    "requestFailed": "无法开始导出",
+    "retentionNote": "每个文件可下载 30 天。",
+    "scheduleLinkTitle": "定时导出",
+    "scheduleLinkBody": "使用 Mercaria 方案，每天、每周或每月收到相同的文件。",
+    "historyTitle": "最近的导出",
+    "loadFailed": "无法加载导出记录",
+    "noRuns": "暂无导出记录。",
+    "rows": "行数：%{rows}",
+    "truncated": "最新的 100,000 行",
+    "expired": "文件已过期",
+    "triggerSchedule": "定时",
+    "triggerOnDemand": "手动",
+    "download": "下载",
+    "downloadFailed": "无法打开文件。如果文件已过期，请重新导出数据。"
+  },
+  "scheduledExports": {
+    "documentTitle": "定时导出 | Wholesale by Mercaria",
+    "title": "定时导出",
+    "subtitle": "按计划为你准备店铺数据的 CSV 文件",
+    "toolDescription": "每天、每周或每月导出订单、商品或客户的 CSV",
+    "cadence": {
+      "daily": "每天",
+      "weekly": "每周",
+      "monthly": "每月"
+    },
+    "summary": {
+      "daily": "每天 %{at}（%{zone}）",
+      "weekly": "每%{day} %{at}（%{zone}）",
+      "monthly": "每月 %{day} 日 %{at}（%{zone}）"
+    },
+    "newSchedule": "新建计划",
+    "newTitle": "新建导出计划",
+    "editTitle": "编辑导出计划",
+    "datasetLabel": "数据",
+    "cadenceLabel": "频率",
+    "weekdayLabel": "星期",
+    "dayOfMonthLabel": "日期",
+    "hourLabel": "时间",
+    "timeZoneLabel": "时区",
+    "timeZoneRequired": "请输入时区，例如 Asia/Shanghai",
+    "allowanceNote": "每次定时导出都会使用方案在计费周期内的一次导出额度。",
+    "nextRun": "下次导出：%{at}",
+    "pausedLabel": "已暂停",
+    "enabledLabel": "启用计划",
+    "edit": "编辑计划",
+    "delete": "删除计划",
+    "deleteTitle": "删除此计划？",
+    "deleteBody": "此计划将不再准备新文件。已准备的文件在过期前仍可下载。",
+    "deleted": "计划已删除",
+    "deleteFailed": "无法删除计划",
+    "created": "计划已创建",
+    "saved": "计划已保存",
+    "paused": "计划已暂停",
+    "resumed": "计划已恢复",
+    "saveFailed": "无法保存计划",
+    "refusedCapability": "你当前的方案不包含定时导出。你仍可暂停或删除计划，并免费手动导出。",
+    "refusedLimit": "你的方案在本计费周期内已没有剩余的定时导出次数。",
+    "loadFailed": "无法加载计划",
+    "emptyTitle": "暂无计划",
+    "emptyBody": "创建计划，即可自动收到订单、商品或客户的 CSV。",
+    "historyTitle": "定时导出记录",
+    "onDemandLink": "现在就需要文件？在 设置 → 导出数据 中手动导出，所有方案均免费。"
+  },
   "discounts": {
     "create": {
       "amountOffLabel": "减免金额（⊜）",
@@ -1993,6 +2079,10 @@
       "tax": {
         "description": "税率与征税方式",
         "label": "税费"
+      },
+      "exports": {
+        "label": "导出数据",
+        "description": "以 CSV 下载订单、商品和客户"
       }
     },
     "store": {

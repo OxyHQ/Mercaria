@@ -201,6 +201,8 @@ describe('the code catalogue', () => {
       'competitive_price_analytics',
       // `services/pos-registers.service.ts`, `/admin/stores/:storeId/pos-registers`.
       'expanded_pos_registers',
+      // `services/data-exports/`, `/admin/stores/:storeId/exports`.
+      'scheduled_exports',
     ];
     for (const definition of Object.values(MERCHANT_CAPABILITY_CATALOG)) {
       expect(

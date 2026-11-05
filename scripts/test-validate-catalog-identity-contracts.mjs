@@ -408,7 +408,10 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // Named POS registers add `pos-register.ts` and
     // `CompleteDraftOrderInput.registerId` (#89): +1 module, +7 types, +23
     // properties. Measured by the real guard.
-    'walked 143 contract module(s), 2409 exported type(s), 8066 property signature(s)',
+    // Scheduled exports add `data-export.ts` (schedule and run views, their
+    // inputs, the download view): +1 module, +11 types, +42 properties.
+    // Measured by the real guard.
+    'walked 144 contract module(s), 2420 exported type(s), 8108 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });

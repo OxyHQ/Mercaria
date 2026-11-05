@@ -652,6 +652,92 @@
     "subtitle": "Persones que compren a la teva botiga",
     "walkIn": "Client de pas"
   },
+  "dataExports": {
+    "documentTitle": "Exportar dades | Wholesale by Mercaria",
+    "title": "Exportar dades",
+    "subtitle": "Les teves comandes, productes i clients en fitxers CSV, quan els necessitis. Gratuït en tots els plans.",
+    "datasets": {
+      "orders": "Comandes",
+      "products": "Productes i inventari",
+      "customers": "Clients"
+    },
+    "status": {
+      "pending": "En cua",
+      "running": "Preparant",
+      "succeeded": "Preparat",
+      "failed": "Error",
+      "skippedLimit": "Omesa: quota esgotada",
+      "skippedNotEntitled": "Omesa: no inclosa al pla"
+    },
+    "failure": {
+      "generationFailed": "No s'ha pogut preparar el fitxer",
+      "storageUnavailable": "No s'ha pogut desar el fitxer"
+    },
+    "exportNow": "Exporta ara",
+    "requested": "Exportació iniciada. Apareixerà a sota quan estigui preparada.",
+    "requestFailed": "No s'ha pogut iniciar l'exportació",
+    "retentionNote": "Cada fitxer es pot descarregar durant 30 dies.",
+    "scheduleLinkTitle": "Exportacions programades",
+    "scheduleLinkBody": "Rep els mateixos fitxers cada dia, setmana o mes amb un pla de Mercaria.",
+    "historyTitle": "Exportacions recents",
+    "loadFailed": "No s'han pogut carregar les exportacions",
+    "noRuns": "Encara no hi ha exportacions.",
+    "rows": "Files: %{rows}",
+    "truncated": "les 100.000 files més recents",
+    "expired": "fitxer caducat",
+    "triggerSchedule": "Programada",
+    "triggerOnDemand": "A demanda",
+    "download": "Descarrega",
+    "downloadFailed": "No s'ha pogut obrir el fitxer. Torna a exportar les dades si ha caducat."
+  },
+  "scheduledExports": {
+    "documentTitle": "Exportacions programades | Wholesale by Mercaria",
+    "title": "Exportacions programades",
+    "subtitle": "Fitxers CSV amb les dades de la botiga, preparats segons una programació",
+    "toolDescription": "Exportacions CSV diàries, setmanals o mensuals de comandes, productes o clients",
+    "cadence": {
+      "daily": "Diària",
+      "weekly": "Setmanal",
+      "monthly": "Mensual"
+    },
+    "summary": {
+      "daily": "Cada dia a les %{at} (%{zone})",
+      "weekly": "Cada %{day} a les %{at} (%{zone})",
+      "monthly": "El dia %{day} de cada mes a les %{at} (%{zone})"
+    },
+    "newSchedule": "Nova programació",
+    "newTitle": "Nova exportació programada",
+    "editTitle": "Edita l’exportació programada",
+    "datasetLabel": "Dades",
+    "cadenceLabel": "Freqüència",
+    "weekdayLabel": "Dia de la setmana",
+    "dayOfMonthLabel": "Dia del mes",
+    "hourLabel": "Hora",
+    "timeZoneLabel": "Fus horari",
+    "timeZoneRequired": "Indica un fus horari, per exemple Europe/Madrid",
+    "allowanceNote": "Cada exportació programada fa servir una exportació del teu pla en el període de facturació.",
+    "nextRun": "Propera exportació: %{at}",
+    "pausedLabel": "En pausa",
+    "enabledLabel": "Programació activa",
+    "edit": "Edita la programació",
+    "delete": "Elimina la programació",
+    "deleteTitle": "Vols eliminar aquesta programació?",
+    "deleteBody": "No es prepararan més fitxers amb aquesta programació. Els fitxers ja preparats continuen disponibles fins que caduquin.",
+    "deleted": "Programació eliminada",
+    "deleteFailed": "No s'ha pogut eliminar la programació",
+    "created": "Programació creada",
+    "saved": "Programació desada",
+    "paused": "Programació en pausa",
+    "resumed": "Programació represa",
+    "saveFailed": "No s'ha pogut desar la programació",
+    "refusedCapability": "Les exportacions programades no formen part del teu pla actual. Pots posar en pausa o eliminar programacions i exportar a demanda de franc.",
+    "refusedLimit": "El teu pla no té més exportacions programades en aquest període de facturació.",
+    "loadFailed": "No s'han pogut carregar les programacions",
+    "emptyTitle": "Encara no hi ha programacions",
+    "emptyBody": "Crea una programació per rebre automàticament un CSV de les comandes, els productes o els clients.",
+    "historyTitle": "Historial d’exportacions programades",
+    "onDemandLink": "Necessites un fitxer ara? Exporta les dades a demanda a Configuració → Exportar dades, gratuït en tots els plans."
+  },
   "discounts": {
     "create": {
       "amountOffLabel": "Import de descompte (⊜)",
@@ -2014,6 +2100,10 @@
       "tax": {
         "description": "Tipus impositius i comportament dels impostos",
         "label": "Impostos"
+      },
+      "exports": {
+        "label": "Exportar dades",
+        "description": "Descarrega les comandes, els productes i els clients en CSV"
       }
     },
     "store": {

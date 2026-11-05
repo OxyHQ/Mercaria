@@ -640,6 +640,92 @@
     "subtitle": "People who buy from your store",
     "walkIn": "Walk-in customer"
   },
+  "dataExports": {
+    "documentTitle": "Export data | Wholesale by Mercaria",
+    "title": "Export data",
+    "subtitle": "Your orders, products and customers as CSV files, whenever you need them. Free on every plan.",
+    "datasets": {
+      "orders": "Orders",
+      "products": "Products and inventory",
+      "customers": "Customers"
+    },
+    "status": {
+      "pending": "Queued",
+      "running": "Preparing",
+      "succeeded": "Ready",
+      "failed": "Failed",
+      "skippedLimit": "Skipped: allowance used",
+      "skippedNotEntitled": "Skipped: not in plan"
+    },
+    "failure": {
+      "generationFailed": "The file could not be prepared",
+      "storageUnavailable": "The file could not be saved"
+    },
+    "exportNow": "Export now",
+    "requested": "Export started. It will appear below when it is ready.",
+    "requestFailed": "Couldn't start the export",
+    "retentionNote": "Each file can be downloaded for 30 days.",
+    "scheduleLinkTitle": "Scheduled exports",
+    "scheduleLinkBody": "Receive the same files daily, weekly or monthly with a Mercaria plan.",
+    "historyTitle": "Recent exports",
+    "loadFailed": "Couldn't load your exports",
+    "noRuns": "No exports yet.",
+    "rows": "Rows: %{rows}",
+    "truncated": "newest 100,000 rows",
+    "expired": "file expired",
+    "triggerSchedule": "Scheduled",
+    "triggerOnDemand": "On demand",
+    "download": "Download",
+    "downloadFailed": "Couldn't open the file. Export the data again if it has expired."
+  },
+  "scheduledExports": {
+    "documentTitle": "Scheduled exports | Wholesale by Mercaria",
+    "title": "Scheduled exports",
+    "subtitle": "CSV files of your store data, prepared for you on a schedule",
+    "toolDescription": "Daily, weekly or monthly CSV exports of orders, products or customers",
+    "cadence": {
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "monthly": "Monthly"
+    },
+    "summary": {
+      "daily": "Every day at %{at} (%{zone})",
+      "weekly": "Every %{day} at %{at} (%{zone})",
+      "monthly": "On day %{day} of each month at %{at} (%{zone})"
+    },
+    "newSchedule": "New schedule",
+    "newTitle": "New export schedule",
+    "editTitle": "Edit export schedule",
+    "datasetLabel": "Data",
+    "cadenceLabel": "How often",
+    "weekdayLabel": "Day of the week",
+    "dayOfMonthLabel": "Day of the month",
+    "hourLabel": "Time",
+    "timeZoneLabel": "Time zone",
+    "timeZoneRequired": "Enter a time zone, for example Europe/Madrid",
+    "allowanceNote": "Each scheduled export uses one export from your plan for the billing period.",
+    "nextRun": "Next export: %{at}",
+    "pausedLabel": "Paused",
+    "enabledLabel": "Schedule on",
+    "edit": "Edit schedule",
+    "delete": "Delete schedule",
+    "deleteTitle": "Delete this schedule?",
+    "deleteBody": "No more files will be prepared on this schedule. Files it already prepared stay available until they expire.",
+    "deleted": "Schedule deleted",
+    "deleteFailed": "Couldn't delete the schedule",
+    "created": "Schedule created",
+    "saved": "Schedule saved",
+    "paused": "Schedule paused",
+    "resumed": "Schedule resumed",
+    "saveFailed": "Couldn't save the schedule",
+    "refusedCapability": "Scheduled exports are not part of your current plan. You can still pause or delete schedules, and export on demand for free.",
+    "refusedLimit": "Your plan has no scheduled exports left this billing period.",
+    "loadFailed": "Couldn't load your schedules",
+    "emptyTitle": "No schedules yet",
+    "emptyBody": "Create a schedule to receive a CSV of your orders, products or customers automatically.",
+    "historyTitle": "Scheduled export history",
+    "onDemandLink": "Need a file right now? Export your data on demand from Settings → Export data, free on every plan."
+  },
   "discounts": {
     "create": {
       "amountOffLabel": "Amount off (⊜)",
@@ -1994,6 +2080,10 @@
       "tax": {
         "description": "Tax rates and tax behavior",
         "label": "Taxes"
+      },
+      "exports": {
+        "label": "Export data",
+        "description": "Download your orders, products and customers as CSV"
       }
     },
     "store": {

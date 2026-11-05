@@ -93,6 +93,7 @@ import {
   feedUploads,
   feedValidationJobs,
 } from './schema/feedImport';
+import { dataExportRuns } from './schema/dataExports';
 import {
   guestAbuseCounters,
   guestAbuseInterventions,
@@ -337,6 +338,14 @@ const FEED_UPLOAD_SESSION_RETENTION_SECONDS = 7 * 24 * 60 * 60;
  * the record that it ran, and it is swept long before the report it points at.
  */
 const FEED_VALIDATION_JOB_RETENTION_SECONDS = 7 * 24 * 60 * 60;
+
+/**
+ * A data export run (on demand or scheduled), a year after it was written. Its
+ * FILE goes long before — `DATA_EXPORT_FILE_RETENTION_DAYS`, cleared by the
+ * export worker so the reference trigger withdraws it — and the row keeps the
+ * history (status, rows, size) a merchant reads beside their schedules.
+ */
+const DATA_EXPORT_RUN_RETENTION_SECONDS = 365 * 24 * 60 * 60;
 
 /**
  * A feed import, validation or preview report (#63), 90 days later.
@@ -660,6 +669,14 @@ export const EXPIRY_TARGETS: readonly ExpirySweepTarget[] = [
       'upload open, so the sweep never removes a session that could still complete.',
   },
   {
+    table: dataExportRuns,
+    column: dataExportRuns.expiresAt,
+    retentionSeconds: 0,
+    reason:
+      'A store data export run, a year after it was written. Its file was released at the end ' +
+      'of its own 30-day retention; the row is the history beside the schedule.',
+  },
+  {
     table: feedValidationJobs,
     column: feedValidationJobs.expiresAt,
     retentionSeconds: 0,
@@ -863,6 +880,7 @@ export const RETENTION_SECONDS = {
   feedUpload: FEED_UPLOAD_RETENTION_SECONDS,
   feedUploadSession: FEED_UPLOAD_SESSION_RETENTION_SECONDS,
   feedValidationJob: FEED_VALIDATION_JOB_RETENTION_SECONDS,
+  dataExportRun: DATA_EXPORT_RUN_RETENTION_SECONDS,
   feedImportReport: FEED_IMPORT_REPORT_RETENTION_SECONDS,
   feedImportReportEntry: FEED_IMPORT_REPORT_ENTRY_RETENTION_SECONDS,
   watchlistSnapshot: WATCHLIST_SNAPSHOT_RETENTION_SECONDS,
