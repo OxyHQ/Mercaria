@@ -1,0 +1,14 @@
+{
+  "cli": {
+    "version": ">= 15.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "production": {
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.mercaria.co",
+        "EXPO_PUBLIC_OXY_API_URL": "https://api.oxy.so"
+      }
+    }
+  }
+}

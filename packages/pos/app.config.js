@@ -45,6 +45,16 @@ module.exports = {
       // react-native's own Image — app images, @mercaria/ui, Bloom and
       // @oxy.so/services all draw with expo-image.
       ['@oxy.so/app-preset', { android: { gifEnabled: false, webpEnabled: false } }],
+      // Oxy Updates (OTA). The POS shares Mercaria's registered client id (no
+      // dedicated POS client exists) and polls its own channel, so a storefront
+      // update never reaches the register and vice versa.
+      [
+        '@oxy.so/app-preset/plugin/withOxyUpdates',
+        {
+          clientId: 'oxy_dk_8993efc30f18b2cfd361374634df4099a63a247df675132c',
+          channel: 'pos-production',
+        },
+      ],
       // Native OS splash (Oxy family "Instagram, from Meta" pattern): Mercaria's
       // own logo (white on transparent) centered on the dark brand background,
       // with the shared Oxy symbol pinned to the bottom. `oxySplashScreenPlugin`

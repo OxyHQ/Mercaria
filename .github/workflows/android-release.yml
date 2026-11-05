@@ -1,0 +1,31 @@
+# The signed Android release of the storefront and the POS, built on Oxy's
+# build machine by oxy's reusable workflow. A run builds only when the app's
+# `version` has no GitHub release yet (`android-v<version>` for the
+# storefront, `android-pos-v<version>` for the POS); otherwise the change ships
+# as an OTA update (`publish-update.yml`). oxy
+# docs/engineering/build-and-deploy.md#native-android-releases.
+name: Android release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  storefront:
+    permissions:
+      contents: write
+    uses: OxyHQ/oxy/.github/workflows/android-release.yml@main
+    with:
+      app-dir: packages/frontend
+
+  pos:
+    permissions:
+      contents: write
+    uses: OxyHQ/oxy/.github/workflows/android-release.yml@main
+    with:
+      app-dir: packages/pos
+      tag-prefix: android-pos

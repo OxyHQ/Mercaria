@@ -67,6 +67,10 @@
         {
           "android": { "gifEnabled": false, "webpEnabled": false }
         }
+      ],
+      [
+        "@oxy.so/app-preset/plugin/withOxyUpdates",
+        { "clientId": "oxy_dk_8993efc30f18b2cfd361374634df4099a63a247df675132c" }
       ]
     ],
     "experiments": {
