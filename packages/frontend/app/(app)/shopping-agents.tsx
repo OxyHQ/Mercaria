@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { Loading } from '@oxy.so/bloom/loading';
 import Head from 'expo-router/head';
 import { useRouter } from 'expo-router';
-import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { RiTimeLine } from '@oxy.so/bloom/icons/RiTimeLine';
 import { EmptyState } from '@oxy.so/bloom/empty-state';
 import {
@@ -257,6 +257,7 @@ function EmptyAgentsPlaceholder() {
 }
 
 function SignedOutInvitation() {
+  const { openAccountDialog } = useOxy();
   const { t } = useTranslation();
   return (
     <EmptyState

@@ -18,7 +18,7 @@ import {
   Text,
   useSettingsDialog,
 } from '@mercaria/ui';
-import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import * as Skeleton from '@oxy.so/bloom/skeleton';
 import { Button } from '@oxy.so/bloom/button';
 import { ScreenShell } from '@/components/shell/ScreenShell';
@@ -79,7 +79,7 @@ import { useTranslation } from '@/lib/i18n';
 export default function CanonicalProductPageScreen() {
   const router = useRouter();
   const settings = useSettingsDialog();
-  const { canUsePrivateApi } = useOxy();
+  const { canUsePrivateApi, openAccountDialog } = useOxy();
   const resolveImage = useImageResolver();
   const { t } = useTranslation();
   const { width } = useWindowDimensions();

@@ -464,8 +464,8 @@ changed.
 
 ### Operator
 
-`/internal/pickup/*`, on the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list
-#54/#55/#56/#57/#58/#60/#62/#68/#83/#94 use — **not a seventh list**. Withdrawing
+`/internal/pickup/*`, on the SAME `catalog.operate` key
+#54/#55/#56/#57/#58/#60/#62/#68/#83/#94 use — **not a new operator key**. Withdrawing
 a published shop front is a catalogue-moderation power over the same graph.
 
 READ plus ONE write. There is no "set this location's position", no "publish this
@@ -704,8 +704,8 @@ Stated rather than quietly narrowed.
 - [ ] `PICKUP_COLLECTION_CODE_KEY` provisioned (64 hex) in SSM, and in the
       deploy workflow's explicit secret allow-list **in the same change** as the
       task definition entry.
-- [ ] `GOWAY_API_URL` set — `deploy-aws.yml` pins it into every release
-      revision (repo variable `GOWAY_API_URL`, default `https://api.goway.to`);
+- [ ] `GOWAY_API_URL` set — `deploy-aws.yml`'s `RELEASE_ENVIRONMENT` pins it
+      into every release revision (repo variable `GOWAY_API_URL`, default `https://api.goway.to`);
       mirror it in the oxy-infra task definition's `environment`
       (configuration, not a secret). Without it no location can be published.
 - [ ] GoWay's API serves `GET /places?ids=` and `GET /claims?placeId=`, and its
@@ -716,8 +716,8 @@ Stated rather than quietly narrowed.
 - [ ] `STORE_PICKUP_ENABLED=true` only after the collection-desk flow has been
       walked end to end on a real store with real staff permissions.
 - [ ] `GUEST_STORE_PICKUP_ENABLED` stays OFF until #111's rollout review.
-- [ ] `CATALOG_OPERATOR_OXY_USER_IDS` non-empty, or `/internal/pickup/*` is not
-      mounted and nobody can restrict a location or read the probes.
+- [ ] `catalog.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`), or nobody can restrict a
+      location or read the probes on `/internal/pickup/*`.
 - [ ] PostGIS present on the target database — no runtime read uses it any
       more, but the migration chain names `geography` (`db/requiredExtensions.ts`).
 - [ ] Before the deploy that carries `0162` (post): count and export the place

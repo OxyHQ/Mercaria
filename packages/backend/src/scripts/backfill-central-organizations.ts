@@ -1,10 +1,10 @@
 /** Explicit, resumable source-ID migration. Dry-run is the default; never matches names. */
 import { readFile, writeFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
-import { OxyServices } from '@oxy.so/core';
 import { and, eq, isNull, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { createDatabase } from '@oxy.so/db';
+import { oxyClient } from '../middleware/auth.js';
 import {
   organizations,
   organizationAliases,
@@ -110,17 +110,18 @@ try {
   if (values.apply) {
     if (!values['plan-sha256'])
       throw new Error('Apply requires --plan-sha256 from the reviewed dry-run');
-    if (rows.length && !process.env.OXY_ADMIN_ACCESS_TOKEN)
+    const adminToken = process.env.OXY_ADMIN_ACCESS_TOKEN;
+    if (rows.length && !adminToken)
       throw new Error('OXY_ADMIN_ACCESS_TOKEN is required for nonempty migrations');
-    const directory = new OxyServices({ baseURL: process.env.OXY_API_URL || 'https://api.oxy.so' });
-    if (process.env.OXY_ADMIN_ACCESS_TOKEN)
-      directory.http.setTokens(process.env.OXY_ADMIN_ACCESS_TOKEN);
+    // The directory is asked AS the operator whose token this is (a user client,
+    // never a token set on the shared workload client).
+    const operator = adminToken ? oxyClient.asUser(adminToken) : undefined;
     const mappings = await applyOrganizationBackfill({
       rows,
       reviewedMappings,
       acknowledgeDomainReverification: values['acknowledge-domain-reverification'],
       expectedPlanSha256: values['plan-sha256'],
-      directory: directory.organizations,
+      directory: (operator ?? oxyClient).organizations,
       saveMappings: async (items) =>
         db.transaction(async (tx) => {
           for (const item of items) {
@@ -143,7 +144,7 @@ try {
               );
           }
         }),
-    });
+    }).finally(() => operator?.dispose());
     console.log(
       JSON.stringify({ appliedMappings: mappings.length, database: values['target-database'] }),
     );

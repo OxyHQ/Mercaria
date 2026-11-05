@@ -1,8 +1,5 @@
 import { Pressable, View, useWindowDimensions } from 'react-native';
-import { Image } from '../ui/image';
 import { Carousel, CarouselItem } from '@oxy.so/bloom/carousel';
-import { useImageResolver } from '@oxy.so/bloom/image-resolver';
-import { resolveStoredImageUrl } from '../../lib/stored-image-url';
 import { Text } from '../ui/text';
 import { SectionHeader } from './SectionHeader';
 import { ShopDetailIcon } from './ShopDetailIcon';
@@ -13,7 +10,6 @@ export interface ThreadShelfItem {
   id: string;
   title: string;
   dateLabel: string;
-  imageUrls: string[];
 }
 export function ThreadShelf({
   title,
@@ -27,14 +23,6 @@ export function ThreadShelf({
   const shelf = useShelfCarouselProps();
   const { width } = useWindowDimensions();
   const { colors } = useColorScheme();
-  const resolveImage = useImageResolver();
-  const displayItems = items.map((item) => ({
-    ...item,
-    imageUrls: item.imageUrls.flatMap((value) => {
-      const url = resolveStoredImageUrl(value, resolveImage);
-      return url ? [url] : [];
-    }),
-  }));
   if (!items.length) return null;
   return (
     <View className="mb-3 md:mb-6" testID="thread-shelf">
@@ -45,7 +33,7 @@ export function ThreadShelf({
         accessibilityLabel={title}
         header={<SectionHeader title={title} inset={false} />}
       >
-        {displayItems.map((item) => (
+        {items.map((item) => (
           <CarouselItem key={item.id} width={width >= 768 ? 289 : 239}>
             <Pressable
               testID="feed-thread-card"
@@ -59,29 +47,8 @@ export function ThreadShelf({
                 pointerEvents="none"
                 className="absolute inset-0 rounded-[20px] border-[0.5px] border-black/10 dark:border-white/15"
               />
-              <View className="relative h-10 w-10 shrink-0">
-                {item.imageUrls.length ? (
-                  item.imageUrls.slice(0, 2).map((uri, index) => (
-                    <View
-                      key={`${uri}-${index}`}
-                      className={`absolute top-0 h-10 w-10 overflow-hidden rounded-xl border border-border bg-card web:shadow-sm ${index ? 'start-[5px]' : 'start-0'}`}
-                      style={{
-                        zIndex: 2 - index,
-                        transform: [
-                          {
-                            rotate: item.imageUrls.length === 1 ? '0deg' : index ? '4deg' : '-3deg',
-                          },
-                        ],
-                      }}
-                    >
-                      <Image source={{ uri }} contentFit="cover" className="h-full w-full" />
-                    </View>
-                  ))
-                ) : (
-                  <View className="h-10 w-10 items-center justify-center rounded-lg border border-border bg-card web:shadow-sm">
-                    <ShopDetailIcon name="thread" size={16} color={colors.mutedForeground} />
-                  </View>
-                )}
+              <View className="h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-card web:shadow-sm">
+                <ShopDetailIcon name="thread" size={16} color={colors.mutedForeground} />
               </View>
               <View className="min-w-0 flex-1">
                 <Text numberOfLines={1} className="text-sm leading-[18px]">

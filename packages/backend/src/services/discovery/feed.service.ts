@@ -103,6 +103,7 @@
  * because it is BECOMING personal by design; this one is explicitly not.
  */
 
+import { findShelfProducts } from './shelf-products.service.js';
 import type {
   CategoryTile,
   CurrencyCode,
@@ -129,7 +130,6 @@ import {
   type CategoryRecord,
 } from '../../db/catalog/categoryRepository.js';
 import {
-  findListingsBySignal,
   findStoresBySignal,
   findStoresWithLiveDiscounts,
 } from '../../db/discovery/discoveryReadRepository.js';
@@ -152,7 +152,8 @@ import { getRedisClient, withRedisTimeout } from '../../lib/redis.js';
 import { log } from '../../lib/logger.js';
 
 /** Bump when the assembled feed shape changes so stale cache entries are ignored. */
-const DISCOVERY_FEED_CACHE_VERSION = 'v2';
+/** v3: shelves carry catalogue products after the listings (`catalogSlug`). */
+const DISCOVERY_FEED_CACHE_VERSION = 'v3';
 
 /**
  * The two signals a category page renders as compact two-per-row cards —
@@ -262,16 +263,16 @@ async function buildProductsSection(input: {
   categoryName: string;
   layout: 'carousel' | 'grid';
 }): Promise<ProductsSection | null> {
-  const rows = await findListingsBySignal({
+  // A Mercaria store's listings first, then the catalogue's products.
+  const products = await findShelfProducts({
     signal: input.signal,
-    categoryIds: input.categoryIds,
+    scope: { kind: 'categories', categoryIds: input.categoryIds },
     limit: config.discovery.shelfSize,
     offset: 0,
   });
-  if (rows.length === 0) {
+  if (products.length === 0) {
     return null;
   }
-  const products = await toProductSummaries(rows);
   return {
     kind: 'products',
     id: input.id,

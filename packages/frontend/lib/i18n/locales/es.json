@@ -743,6 +743,8 @@
       "a11yLabel": "Estado del comercio: %{status}",
       "claim": "Reclamar este comercio",
       "claimHint": "Demuestra que operas este comercio para gestionar su página",
+      "contest": "Impugnar esta reclamación",
+      "contestHint": "Avisa a Mercaria de que el operador verificado de este comercio no es correcto",
       "label": {
         "unclaimed": "Sin reclamar",
         "claimInProgress": "Reclamación en curso",
@@ -797,6 +799,117 @@
         "staleSources": "Mercaria no ha recibido datos de las fuentes de este comercio lo bastante recientemente como para mostrar precios actuales.",
         "filteredOut": "Ningún producto coincide con estos filtros."
       }
+    }
+  },
+  "merchantClaim": {
+    "title": "Reclamar %{merchant}",
+    "intro": "Demuestra que operas este comercio para gestionar cómo aparece en Mercaria. Una reclamación no crea una tienda en Mercaria ni te convierte en vendedor oficial de ninguna marca.",
+    "signInPrompt": "Inicia sesión con tu cuenta de Oxy para reclamar este comercio.",
+    "signIn": "Iniciar sesión",
+    "loadFailed": "No pudimos cargar tus reclamaciones.",
+    "noMethods": "Ahora mismo no se puede reclamar desde aquí.",
+    "start": "Continuar",
+    "starting": "Iniciando…",
+    "close": "Cerrar",
+    "copy": "Copiar %{label}",
+    "copied": "Copiado",
+    "copyFailed": "No se pudo copiar. Selecciona el texto y cópialo tú.",
+    "method": {
+      "title": "¿Cómo quieres demostrarlo?",
+      "checkedAutomatically": "Se comprueba automáticamente.",
+      "reviewedByPerson": "Lo revisa una persona.",
+      "dnsTxt": {
+        "label": "Registro DNS",
+        "description": "Añade un registro TXT al DNS de tu dominio."
+      },
+      "wellKnownFile": {
+        "label": "Archivo en tu sitio web",
+        "description": "Sube un pequeño archivo de texto a tu sitio web."
+      },
+      "metaTag": {
+        "label": "Etiqueta en tu página de inicio",
+        "description": "Añade una metaetiqueta a la página de inicio de tu sitio web."
+      },
+      "businessDocument": {
+        "label": "Documentos de empresa",
+        "description": "Comparte enlaces a documentos que muestren que diriges este negocio."
+      }
+    },
+    "domain": {
+      "label": "Dominio de tu sitio web",
+      "help": "El dominio desde el que vende este comercio. Tu prueba cubre solo este dominio.",
+      "placeholder": "example.com"
+    },
+    "previous": {
+      "rejected": "Tu última reclamación de este comercio no se aprobó.",
+      "reason": "Nota de la persona revisora: %{reason}",
+      "expired": "Tu última reclamación de este comercio caducó antes de demostrarse. Puedes empezar de nuevo.",
+      "revoked": "Se retiró tu verificación de este comercio. Puedes abrir una nueva reclamación."
+    },
+    "errors": {
+      "tooMany": "Demasiados intentos recientes. Inténtalo más tarde.",
+      "notFoundYet": "Todavía no encontramos el valor de verificación. Los cambios en el DNS y en el sitio web pueden tardar en aparecer, así que vuelve a intentarlo en un rato.",
+      "codeUnusable": "Este código ya no se puede usar. Obtén un código nuevo y publica ese.",
+      "cannotOpen": "Ahora mismo no puedes abrir una reclamación de este comercio.",
+      "cannotContest": "Ahora mismo no se puede impugnar esta reclamación.",
+      "invalid": "Revisa lo que has introducido e inténtalo de nuevo.",
+      "generic": "Algo salió mal. Inténtalo de nuevo."
+    },
+    "challenge": {
+      "draftIntro": "Tu reclamación de %{domain} está lista. Obtén un código de verificación para continuar.",
+      "lost": "Los códigos de verificación solo se muestran una vez. Obtén un código nuevo para continuar; sustituye al anterior.",
+      "getCode": "Obtener código de verificación",
+      "gettingCode": "Obteniendo código…",
+      "verify": "Comprobar ahora",
+      "verifying": "Comprobando…",
+      "newCode": "Obtener un código nuevo",
+      "expires": "Este código es válido hasta el %{time}.",
+      "dnsTxt": {
+        "step": "Añade este registro TXT al DNS de %{domain}:",
+        "nameLabel": "Nombre",
+        "valueLabel": "Valor",
+        "note": "Los cambios de DNS pueden tardar unos minutos, a veces horas, en aparecer."
+      },
+      "wellKnownFile": {
+        "step": "Publica en esta dirección un archivo que contenga exactamente este texto:",
+        "urlLabel": "Dirección",
+        "contentsLabel": "Contenido del archivo"
+      },
+      "metaTag": {
+        "step": "Añade esta etiqueta dentro del <head> de %{url}:",
+        "tagLabel": "Etiqueta"
+      }
+    },
+    "status": {
+      "verified": {
+        "title": "Eres el operador verificado",
+        "body": "Tu reclamación de %{merchant} está verificada."
+      },
+      "reviewPending": {
+        "title": "Tu reclamación está en revisión",
+        "body": "Una persona está revisando tu reclamación. Vuelve aquí para ver la decisión."
+      },
+      "disputed": {
+        "title": "Tu reclamación está en disputa",
+        "body": "Otra cuenta ya tiene una reclamación verificada de este comercio. Una persona revisará ambas y decidirá."
+      }
+    },
+    "evidence": {
+      "intro": "Añade un enlace a documentos que muestren que diriges este negocio, como un registro mercantil o un documento fiscal, y una nota para la persona revisora. Solo ella los verá.",
+      "urlLabel": "Enlace al documento",
+      "urlPlaceholder": "https://",
+      "noteLabel": "Nota para la persona revisora",
+      "submit": "Enviar a revisión",
+      "submitting": "Enviando…"
+    },
+    "contest": {
+      "title": "Impugnar la reclamación de %{merchant}",
+      "intro": "Este comercio ya tiene un operador verificado. Si no es correcto, cuéntanos por qué. Una persona revisa cada impugnación, y al operador actual se le avisa de que se ha impugnado, nunca de quién lo ha hecho.",
+      "reasonLabel": "¿Por qué no es correcta la reclamación actual?",
+      "reasonHelp": "Al menos 20 caracteres.",
+      "urlLabel": "Enlace de apoyo (opcional)",
+      "submit": "Enviar impugnación",
+      "submitting": "Enviando…"
     }
   },
   "families": {
@@ -1397,6 +1510,21 @@
       "createFailed": "No se pudo crear el enlace. Inténtalo de nuevo.",
       "empty": "Crea un enlace para compartir Mercaria. Los referidos que traiga se te atribuyen.",
       "notPartner": "Tu enlace aparecerá aquí cuando estés inscrito en un programa."
+    },
+    "code": {
+      "title": "Código de referido",
+      "description": "¿Te han dado un código? Escríbelo aquí.",
+      "label": "Código de referido",
+      "placeholder": "Código",
+      "apply": "Aplicar",
+      "applied": "Código aplicado",
+      "invalid": "Ese código no se puede usar.",
+      "failed": "No se pudo aplicar el código. Inténtalo de nuevo."
+    },
+    "disclosure": {
+      "title": "Has llegado por un enlace de referido",
+      "body": "Quien lo compartió puede recibir una recompensa de Mercaria si compras. No cambia el precio que pagas.",
+      "dismiss": "Entendido"
     }
   },
   "brand": {
@@ -1692,19 +1820,6 @@
       "notForSale": "No está a la venta"
     }
   },
-  "thread": {
-    "title": "Asistente de compras",
-    "thinking": "Buscando ideas…",
-    "stop": "Detener",
-    "unavailable": "El asistente de compras aún no está disponible. Puedes seguir buscando en el catálogo.",
-    "signIn": "Inicia sesión para conversar",
-    "retry": "Reintentar",
-    "viewResults": "Ver resultados de búsqueda",
-    "newConversation": "Nueva conversación",
-    "previewAction": "Probar con datos de ejemplo",
-    "previewLabel": "Vista previa · Respuestas de ejemplo, sin IA conectada",
-    "previewReply": "Estos son ejemplos del catálogo local para probar el diseño de la conversación. Abre un producto para ver sus detalles o envía otro mensaje para probar el seguimiento."
-  },
   "profile": {
     "title": "Perfil",
     "subtitle": "Tus guardados, pedidos y cuenta, en un mismo lugar."
@@ -1722,5 +1837,149 @@
     "quoteComfort": "Comodidad, personalidad y esos pequeños detalles que hacen tuya una prenda.",
     "quoteTexture": "Una textura que te encanta puede cambiar por completo un conjunto.",
     "quoteEveryday": "Ten a mano esas cosas a las que siempre vuelves."
+  },
+  "materials": {
+    "heading": "Materiales donados",
+    "intro": "Ofrece y solicita materiales como persona u organización. Los artículos son gratuitos. Acuerda la recogida personal cuando el donante acepte.",
+    "switchAccount": "Cambiar cuenta",
+    "signIn": "Iniciar sesión",
+    "actingAs": "Actuando como %{account}",
+    "offers": "Materiales disponibles",
+    "reservations": "Mis solicitudes y reservas",
+    "refresh": "Actualizar",
+    "empty": "Todavía no hay materiales disponibles.",
+    "emptyReservations": "No tienes solicitudes ni reservas.",
+    "more": "Cargar más",
+    "offer": "Ofrecer materiales",
+    "title": "Nombre del material",
+    "description": "Descripción",
+    "area": "Zona pública aproximada",
+    "quantity": "Cantidad",
+    "unit": "Unidad (piezas, cajas…)",
+    "pickup": "Instrucciones de recogida personal",
+    "pickupPrivacy": "Indica una zona pública aproximada. Solo los receptores aceptados verán los detalles de recogida. Los materiales no requieren pago.",
+    "publish": "Publicar oferta gratuita",
+    "counts": "%{available} %{unit} disponibles · %{committed} comprometidas · %{received} recibidas",
+    "close": "Cerrar oferta a nuevas solicitudes",
+    "request": "Solicitar materiales",
+    "requestSent": "Solicitud enviada. El donante debe aceptarla antes de reservar las unidades.",
+    "reservation": "Reserva de materiales",
+    "reservationQuantity": "%{quantity} %{unit}",
+    "requester": "Cuenta receptora: %{account}",
+    "donor": "Cuenta donante: %{account}",
+    "accept": "Aceptar y reservar",
+    "confirm": "He recibido estos materiales",
+    "cancel": "Cancelar solicitud o reserva",
+    "requested": "Pendiente de aceptación",
+    "accepted": "Reservado — pendiente de recogida",
+    "cancelled": "Cancelado",
+    "delivered": "Recepción confirmada",
+    "conflict": "La cantidad disponible o el estado de la reserva han cambiado. Actualiza para ver los datos actuales.",
+    "forbidden": "Esta cuenta no tiene autorización para esta acción.",
+    "error": "No se pudo completar la solicitud. Comprueba la conexión y reinténtalo; no se duplicará."
+  },
+  "transport": {
+    "heading": "Transporte con Moovo",
+    "pickupAlways": "La recogida personal sigue disponible. Los materiales donados son gratuitos.",
+    "pickup": "Recogida",
+    "dropoff": "Entrega",
+    "line1": "Dirección",
+    "city": "Ciudad",
+    "postalCode": "Código postal",
+    "country": "País (código de dos letras)",
+    "contactName": "Nombre de contacto",
+    "contactPhone": "Teléfono de contacto",
+    "pickupPlace": "Dirección de recogida",
+    "dropoffPlace": "Dirección de entrega",
+    "placeSearch": "Busca la calle, el número y la ciudad",
+    "notes": "Instrucciones",
+    "weight": "Peso total (kg)",
+    "pieces": "Número de paquetes",
+    "small": "Pequeño",
+    "medium": "Mediano",
+    "large": "Grande",
+    "payer": "¿Quién paga el transporte?",
+    "donor": "Donante",
+    "recipient": "Receptor",
+    "sponsor": "Organización patrocinadora",
+    "organization": "ID de la organización en Oxy",
+    "selectedPayer": "Paga el transporte: %{account}",
+    "payerMustConfirm": "Elegir quién paga no autoriza ningún pago. Esa cuenta debe revisar el trayecto y el precio y confirmar. En organizaciones pueden autorizar propietarios y administradores.",
+    "getQuote": "Consultar precio del transporte",
+    "request": "Solicitar transporte",
+    "keepPickup": "Mantener recogida personal",
+    "missingFacts": "Completa las direcciones reales, coordenadas, contactos y datos del paquete. Revisa las instrucciones de recogida: no son una dirección estructurada.",
+    "unavailable": "Moovo no está disponible o esta cuenta no tiene acceso. Actualiza para consultar la información actual.",
+    "unknown": "No se pudo confirmar el resultado. Actualiza esta solicitud antes de reintentar; no se repetirá un transporte existente.",
+    "attach": "Guardar referencia del transporte",
+    "newRequest": "Iniciar otra solicitud de transporte",
+    "route": "De %{pickup} a %{dropoff}",
+    "price": "Transporte: %{price}. El precio caduca %{expiry}.",
+    "pendingPayment": "El pago del transporte está pendiente. El cobro no está disponible aquí; esta acción no marca el transporte como pagado. La donación no tiene coste.",
+    "cancellationWarning": "Cancelar la donación no cancela su transporte. Gestiona por separado en Moovo una entrega solicitada o de resultado incierto.",
+    "confirmPayer": "Actúo por %{account} y acepto este trayecto y precio de transporte",
+    "unconfirm": "Retirar mi confirmación",
+    "authorize": "Autorizar este precio de transporte",
+    "book": "Solicitar el transporte autorizado",
+    "participantBooks": "Autorización guardada. Un participante en la donación puede solicitar el transporte antes de que caduque el precio.",
+    "shareApproval": "Compartir con quien paga para su aprobación",
+    "retryQuote": "Reintentar o renovar precio",
+    "cancelProposal": "Cancelar propuesta y mantener recogida personal",
+    "openMoovo": "Abrir entrega en Moovo",
+    "forbidden": "Esta cuenta no puede autorizar ese pago. Cambia a la cuenta elegida; las organizaciones requieren acceso de propietario o administrador.",
+    "signIn": "Inicia sesión con la cuenta que paga para revisar el transporte.",
+    "status": {
+      "quoting": "Preparando precio. Puedes reintentar en unos instantes.",
+      "quoted": "Pendiente de autorización de quien paga.",
+      "authorized": "Precio autorizado. El transporte aún no se ha solicitado.",
+      "booking": "Solicitando transporte. Actualiza para comprobar el resultado.",
+      "booking_unknown": "Resultado del transporte incierto. No crees otra solicitud; comprueba esta operación en Moovo.",
+      "booked": "Transporte solicitado.",
+      "cancelled": "Propuesta de transporte cancelada."
+    },
+    "retryBooking": "Recuperar la solicitud de transporte existente",
+    "jobStatus": {
+      "requested": "Transporte solicitado",
+      "offered": "Buscando repartidor",
+      "accepted": "Repartidor asignado",
+      "picked_up": "Material recogido",
+      "in_transit": "En camino",
+      "delivered": "Entregado",
+      "cancelled": "Transporte cancelado"
+    }
+  },
+  "supervisedShopping": {
+    "title": "Compras con supervisión",
+    "intro": "Explora artículos revisados. Tu tutor aprueba la compra exacta antes del pago.",
+    "unavailable": "Compras no disponibles",
+    "unavailableBody": "Puede haber cambiado tu acceso o algún artículo. Reintenta para cargar los detalles actuales.",
+    "empty": "Aún no hay artículos revisados",
+    "emptyBody": "Los artículos aparecen aquí tras una revisión de la plataforma. Vuelve más tarde.",
+    "add": "Añadir",
+    "remove": "Eliminar",
+    "itemUnavailable": "Artículo no disponible",
+    "reviewPurchase": "Revisar compra",
+    "changeError": "No se pudo actualizar la cesta. Revisa los artículos actuales y vuelve a intentarlo.",
+    "approvalIntro": "Introduce la dirección de entrega. Tu tutor verá la compra completa antes de aprobar el pago.",
+    "prepareError": "No se pudo preparar la compra. Reintenta para recuperar la misma compra.",
+    "requestApproval": "Solicitar aprobación del tutor",
+    "pending": "Esperando la aprobación de tu tutor",
+    "approved": "Aprobada para el pago",
+    "paid": "Pago confirmado",
+    "closed": "Esta aprobación está cerrada",
+    "shipping": "Envío",
+    "tax": "Impuestos",
+    "discount": "Descuento",
+    "rounding": "Redondeo de divisa",
+    "total": "Total",
+    "viewApproval": "Ver aprobación en Oxy",
+    "continuePayment": "Continuar al pago",
+    "paymentError": "El pago no se ha confirmado. Reintenta el mismo pago o actualiza su estado.",
+    "pendingBody": "Tu tutor puede revisar los artículos y el total exactos en Oxy. El pago estará disponible cuando lo apruebe.",
+    "refresh": "Actualizar estado",
+    "account": "Supervisión y cuenta"
+  },
+  "alia": {
+    "viewResults": "Ver resultados de búsqueda"
   }
 }

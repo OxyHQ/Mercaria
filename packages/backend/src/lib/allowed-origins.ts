@@ -1,19 +1,17 @@
 /**
  * The ONE browser-origin authority this backend maintains.
  *
- * Two consumers, deliberately reading the same list so there is nothing to
+ * Three consumers, deliberately reading the same list so there is nothing to
  * drift (ADR 0003 D10):
  *
- *  - the CORS layer in `app.ts`, which decides whose scripts may read
- *    responses;
- *  - the guest CSRF gate in `middleware/commerce-actor.ts`, which refuses a
- *    cookie-authenticated state-changing request whose `Origin` (or, absent
- *    that, `Referer`) is not listed here.
+ *  - the CORS layer in `app.ts` (`createOxyCors`), which decides whose scripts
+ *    may read responses;
+ *  - the Socket.IO server (`createOxySocketCors`), on both transports;
+ *  - the finite referral-cookie migration gate, which requires an exact
+ *    Origin on both exchange and acknowledgement; no Referer fallback.
  *
- * D10 chose strict Origin verification over double-submit precisely because
- * this list already exists — a second CSRF secret would be a second authority
- * to keep consistent, and its classic failure mode is only closed by the
- * `__Host-` cookie prefix the transport requires anyway.
+ * Normal commerce uses explicit headers and never ambient cookies. Only the
+ * two migration paths enable credentialed CORS while retiring old evidence.
  */
 
 /** Production web origins. `PRODUCTION_ORIGINS` per `AGENTS.md` §CORS. */
@@ -29,30 +27,47 @@ export const PRODUCTION_ORIGINS: readonly string[] = [
  * Local development origins. Mercaria's Expo apps own the 816x block of the
  * per-app local dev port map (frontend 8160, dashboard 8161, pos 8162), so
  * several Oxy apps can run side by side on one machine.
+ *
+ * Web origins only. A native client sends no `Origin` and is not subject to
+ * CORS, and an `exp://` entry has no origin to match — every custom scheme
+ * serializes to the same opaque `null`, which `createOxyCors` refuses.
  */
 export const DEV_ORIGINS: readonly string[] = [
   'http://localhost:4160',
   'http://localhost:5173',
   'http://localhost:8160',
-  'exp://localhost:8160',
   'http://10.0.2.2:8160',
   'http://localhost:8161',
-  'exp://localhost:8161',
   'http://10.0.2.2:8161',
   'http://localhost:8162',
-  'exp://localhost:8162',
   'http://10.0.2.2:8162',
 ];
 
 /**
  * Every origin a browser may act from: an optional deployment override plus
  * the two lists above. Frozen — a mutation would widen CORS and CSRF at once.
+ *
+ * `DEV_ORIGINS` remain excluded in production (M8-05). This transport change
+ * preserves the existing production allow-list; an extra deployed origin is
+ * configured explicitly through WEB_URL.
  */
-export const ALLOWED_ORIGINS: readonly string[] = Object.freeze([
-  ...(process.env.WEB_URL ? [process.env.WEB_URL] : []),
-  ...PRODUCTION_ORIGINS,
-  ...DEV_ORIGINS,
-]);
+export const ALLOWED_ORIGINS: readonly string[] = allowedOriginsFor(process.env);
+
+/**
+ * The allow-list a process with this environment computes. {@link ALLOWED_ORIGINS}
+ * is this function applied to `process.env` once, at module load; it is exported
+ * so the production/development difference can be asserted without reloading
+ * the module under a stubbed environment.
+ */
+export function allowedOriginsFor(
+  env: Readonly<{ NODE_ENV?: string; WEB_URL?: string }>,
+): readonly string[] {
+  return Object.freeze([
+    ...(env.WEB_URL ? [env.WEB_URL] : []),
+    ...PRODUCTION_ORIGINS,
+    ...(env.NODE_ENV === 'production' ? [] : DEV_ORIGINS),
+  ]);
+}
 
 /** Membership test both consumers share. `null`/`undefined` is NOT allowed. */
 export function isAllowedBrowserOrigin(origin: string | undefined): boolean {
@@ -113,14 +128,21 @@ export const PUBLIC_READ_CORS_ALLOWED_HEADERS: readonly string[] = Object.freeze
  *    calling application already holds.
  *
  * It widens NOTHING else: {@link ALLOWED_ORIGINS} and
- * {@link isAllowedBrowserOrigin} are unchanged, so the guest CSRF gate — which
- * guards cookie-authenticated writes, none of which live under this path — reads
- * exactly the list it read before. The prefix match is case-SENSITIVE while
+ * {@link isAllowedBrowserOrigin} are unchanged, so the bounded referral migration
+ * gate continues to read exactly that list. The prefix match is case-SENSITIVE while
  * Express routing is not; a request spelled `/PUBLIC/v1/...` therefore reaches
- * the public router under the credentialed policy, which is the restrictive
+ * the public router under the ordinary origin allow-list, which is the restrictive
  * direction.
  */
 export function isPublicReadCorsRequest(method: string, path: string): boolean {
   if (!PUBLIC_READ_CORS_METHODS.includes(method.toUpperCase())) return false;
   return path === PUBLIC_READ_CORS_BASE_PATH || path.startsWith(`${PUBLIC_READ_CORS_BASE_PATH}/`);
+}
+
+/** Bearer-only materials mutations; no browser cookies or other writes inherit this allowance. */
+export function isMaterialsCorsRequest(method: string, path: string): boolean {
+  return (
+    ['GET', 'HEAD', 'POST', 'OPTIONS'].includes(method.toUpperCase()) &&
+    path.startsWith('/public/v1/materials/')
+  );
 }

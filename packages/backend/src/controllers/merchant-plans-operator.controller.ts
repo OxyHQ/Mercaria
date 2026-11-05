@@ -3,11 +3,11 @@
  * surface.
  *
  * Lives under `/internal/payments/*` behind the EXISTING
- * `requirePaymentOperator` gate rather than a seventh allow-list. Publishing a
+ * `requirePaymentOperator` gate rather than a new key. Publishing a
  * plan is the same kind of act as publishing a fee schedule — a platform-wide
  * commercial decision no store membership can express — so it belongs to the
- * people already vetted for that, and a new list would grant it to whoever
- * happened to be added to it instead.
+ * people already trusted with that, and a new key would hand it to whoever
+ * happened to hold it instead.
  *
  * ## Nothing here moves money
  *

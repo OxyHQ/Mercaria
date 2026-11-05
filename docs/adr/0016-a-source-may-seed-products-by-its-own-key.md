@@ -1,6 +1,6 @@
 # ADR 0016: A source may seed products by its own product key
 
-- **Status:** Accepted
+- **Status:** Accepted; D5 superseded by [ADR 0017](0017-clarity-crawls-mercaria-reads.md)
 - **Date:** 2026-10-10
 - **Amends:** ADR 0014 D2's rule that a reference record mints only under a
   validating GTIN. #58's existing-link stage, which reused only a NATIVE variant's
@@ -75,6 +75,9 @@ nothing is reused.
 OR an active variant source link and has at least one active priced offer.
 
 ### D5. Mercaria's own extraction provider: Shopify storefronts
+
+> Superseded by ADR 0017: Clarity crawls the stores and Mercaria reads the
+> documents it keeps. Kept for the record.
 
 `shopify_storefront` reads a Shopify store's `/products.json` (the stores behind
 shop.app) and is the first provider declared `extraction: true`. #62 refuses it

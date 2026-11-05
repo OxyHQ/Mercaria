@@ -1,80 +1,24 @@
 const path = require('node:path');
-const { getDefaultConfig } = require('expo/metro-config');
-const { withNativeWind } = require('nativewind/metro');
+const { createOxyMetroConfig } = require('@oxy.so/app-preset/metro');
 
-// Monorepo roots: this package lives at packages/frontend, so the workspace
-// root is two levels up. Metro must watch the root and resolve from the hoisted
-// root node_modules so it can follow the @mercaria/shared-types workspace
-// symlink to its source.
-const projectRoot = __dirname;
-const monorepoRoot = path.resolve(projectRoot, '../..');
+// The Oxy Metro config (@oxy.so/app-preset/metro) owns the monorepo watch
+// folder and block list (worktrees, backend, docs, caches, tests), symlink and
+// package-exports resolution, the font/wasm asset extensions, the release
+// minifier, NativeWind (`./global.css`, 1rem = 16px), Bloom's single instance
+// and the complete `react-native` behind NativeWind's shim, without which
+// `expo-asset` reads React Native 0.88's `AssetRegistry` as undefined and an
+// Android release stays blank.
+//
+// `@mercaria/ui` and `@mercaria/shared-types` are bundled from SOURCE through
+// tsconfig.json `paths`, which Metro reads; `sharedTypesPackage` is not passed
+// because it would send Metro to the built `dist/` instead.
+const monorepoRoot = path.resolve(__dirname, '../..');
 
-// Web shim for react-native-track-player (avoids bundling shaka-player)
-const trackPlayerWebShim = path.resolve(__dirname, 'lib/shims/react-native-track-player.web.js');
-
-module.exports = (() => {
-  const config = getDefaultConfig(projectRoot);
-
-  // Watch the whole monorepo so changes in sibling workspace packages
-  // (e.g. @mercaria/shared-types) trigger a rebuild.
-  config.watchFolders = [monorepoRoot];
-
-  // Worktrees are separate checkouts with their own dependencies. Crawling them
-  // from this workspace duplicates the module graph and can exhaust Metro's heap.
-  // Playwright replaces generated reports while running. Excluding these from
-  // the crawl also prevents ENOENT races in Metro's filesystem watcher.
-  // Scope exclusions to this checkout; it may itself live inside a worktree.
-  const blockList = config.resolver.blockList;
-  config.resolver.blockList = [
-    ...(Array.isArray(blockList) ? blockList : blockList ? [blockList] : []),
-    new RegExp(
-      `${monorepoRoot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[/\\\\](?:\\.worktrees|test-results|playwright-report)(?:[/\\\\].*|$)`,
-    ),
-  ];
-
-  // Resolve modules from both this package and the hoisted root node_modules.
-  config.resolver.nodeModulesPaths = [
-    path.resolve(projectRoot, 'node_modules'),
-    path.resolve(monorepoRoot, 'node_modules'),
-  ];
-
-  // Resolve workspace UI/type dependencies to their SOURCE so live edits are
-  // picked up without a rebuild. `@mercaria/ui` is source-only (no dist build);
-  // shared-types falls through to node_modules/dist otherwise.
-  config.resolver.extraNodeModules = {
-    '@mercaria/shared-types': path.resolve(monorepoRoot, 'packages/shared-types/src'),
-    '@mercaria/ui': path.resolve(monorepoRoot, 'packages/ui/src'),
-  };
-
-  // Enable package exports for zod v4 compatibility
-  config.resolver.unstable_enablePackageExports = true;
-
-  // Add web-specific resolver settings to handle ESM modules
-  config.resolver.sourceExts = [...config.resolver.sourceExts, 'mjs', 'cjs'];
-
-  // SVG support for react-native-svg-transformer (Expo transformer)
-  const { transformer, resolver } = config;
-  config.transformer = {
-    ...transformer,
-    babelTransformerPath: require.resolve('react-native-svg-transformer/expo'),
-  };
-  config.resolver = {
-    ...resolver,
-    assetExts: [...resolver.assetExts.filter((ext) => ext !== 'svg'), 'wasm', 'woff2', 'woff'],
-    sourceExts: [...resolver.sourceExts, 'svg'],
-    // On web, replace react-native-track-player with a no-op shim so the
-    // bundler never pulls in shaka-player (TTS uses expo-speech on web).
-    resolveRequest: (context, moduleName, platform) => {
-      if (platform === 'web' && moduleName === 'react-native-track-player') {
-        return { filePath: trackPlayerWebShim, type: 'sourceFile' };
-      }
-      return context.resolveRequest(context, moduleName, platform);
-    },
-  };
-
-  return withNativeWind(config, {
-    input: './global.css',
-    inlineRem: 16,
-    inlineVariables: false,
-  });
-})();
+module.exports = createOxyMetroConfig(__dirname, {
+  // Playwright replaces its reports while it runs; crawling them races
+  // Metro's file watcher (ENOENT).
+  extraBlockList: [
+    path.join(monorepoRoot, 'test-results'),
+    path.join(monorepoRoot, 'playwright-report'),
+  ],
+});

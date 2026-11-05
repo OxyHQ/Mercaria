@@ -8,7 +8,7 @@
  * declared in this module and exported from nowhere. The type cannot be
  * constructed by a caller, an object literal, a cast a reviewer would notice,
  * or a `JSON.parse` — only `governanceActor(req)` mints one, and that function
- * reads `catalogOperatorId(req)`, which is only meaningful after
+ * reads `operatorId(req)`, which is only meaningful after
  * `requireCatalogOperator` has run.
  *
  * Every apply and every review function in this domain takes one. A
@@ -27,7 +27,7 @@
 
 import type { Request } from 'express';
 import type { CatalogGovernanceRole } from '@mercaria/shared-types';
-import { catalogOperatorId } from '../../middleware/catalog-operator-authz.js';
+import { operatorId } from '../../middleware/operator-authz.js';
 
 /**
  * Module-private. Not exported, not re-exported by any barrel — this domain has
@@ -51,18 +51,18 @@ export interface CatalogGovernanceActor {
 /**
  * Mint an actor from an authorized request.
  *
- * `catalogOperatorId` throws when the request carries no verified Oxy id, so
- * there is no branch here that could return an unauthenticated actor. The
- * middleware order in `routes/internal-catalog-governance.ts` is
- * `authenticateToken` then `requireCatalogOperator` then the handler — an
- * allow-list consulted before authentication would compare against whatever a
- * client claimed.
+ * `operatorId` throws unless `requireCatalogOperator` admitted the request, so
+ * there is no branch here that could return an unauthenticated actor, and the
+ * actor is the PERSON Oxy resolved even when they act as their organization.
+ * The middleware order in `routes/internal-catalog-governance.ts` is
+ * `authenticateToken` then `requireCatalogOperator` then the handler — the gate
+ * asks Oxy about the verified caller's own session.
  */
 export function governanceActor(
   req: Request,
   roles: readonly CatalogGovernanceRole[],
 ): CatalogGovernanceActor {
-  const oxyUserId = catalogOperatorId(req);
+  const oxyUserId = operatorId(req);
   return { oxyUserId, roles } as CatalogGovernanceActor;
 }
 

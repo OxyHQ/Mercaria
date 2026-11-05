@@ -90,7 +90,7 @@ whole merchant-facing statement of scope was one sentence, *"imports your
 products, stock and orders on a schedule"*, which is accurate and silent about
 everything it omits. Everything that could have said more was either not
 rendered or could not express it: `descriptor.resources` had **zero** occurrences
-across all three client packages, the nine `CHANNEL_LIMITATION_CODES` name no
+across all three client packages, the eight `CHANNEL_LIMITATION_CODES` name no
 entity at all, and Shopify's only two limitations are `informational` — which the
 channels list filters out, so it displayed none.
 
@@ -736,10 +736,10 @@ this listing's fields the merchant's own edits pinned against a later sync
 
 ## What is deliberately NOT here
 
-- **No operator surface, and no seventh allow-list.** Every route is a store's
+- **No operator surface, and no new operator key.** Every route is a store's
   own; there is no cross-store channel view. When one is needed it belongs on
   `/internal/ingestion` or `/internal/commerce-graph`, behind
-  `CATALOG_OPERATOR_OXY_USER_IDS`, which already reads sources and merchants.
+  `catalog.operate`, which already reads sources and merchants.
 - **No environment flag of its own.** Nothing here gates a durable record, and
   the levers that matter already exist: `FEED_IMPORT_ENABLED` decides whether the
   feed channel is available, the connector OAuth configuration decides whether
@@ -910,10 +910,13 @@ archives every listing whose Shopify source is currently a draft or archived.
 
 Both pull connectors and push-in product imports pass their image references
 through `services/catalog-media/sync.ts` before creating or updating a listing.
-HTTPS sources are downloaded using Oxy's DNS-pinned `safeFetch` and uploaded to
-Oxy's durable public user-media endpoint. The owner is the store's persisted
-`oxyAccountId`; the resulting gallery stores only the returned internal file IDs.
-Images protected by a merchant override cause no download.
+HTTPS sources are IMPORTED BY OXY (Oxy ADR 0043 D7, `importUserMedia`), which
+fetches with its own SSRF-safe fetcher and remembers each source per owner — so
+re-syncing an unchanged product answers the same file ids without a download and
+leaves the gallery untouched. The owner is the store's persisted `oxyAccountId`;
+the resulting gallery stores only the returned internal file IDs, and the
+reference triggers register them with Oxy after the write (`docs/catalog-media.md`).
+Images protected by a merchant override cause no import.
 
 Description HTML follows the same boundary through
 `services/catalog-media/description.ts`. It parses visible `img` sources, imports
@@ -926,8 +929,9 @@ renderer's supported content and are never fetched by this importer.
 
 Push and pull imports prepare descriptions before catalog transactions. A
 failed description import preserves existing product facts and cannot relist an
-archived product. Canonical source observations use the same importer with the
-authenticated operator's ownership and source media rights; their provenance
+archived product. Canonical source observations use the same importer, owned by
+the Mercaria APPLICATION (never the operator who made the request) and bounded by
+the source's media rights; their provenance
 record retains the original HTML. Merchant overrides and pinned canonical
 descriptions are not fetched. Direct transactional catalog writers accept only
 already synchronized description images and reject external sources, just as
@@ -935,9 +939,9 @@ gallery writes require internal file IDs; they never perform network IO inside
 a database transaction. Existing historical descriptions are not backfilled by
 this change.
 
-The importer accepts at most 64 references per gallery, limits each image to
-20 MiB, and bounds download/upload time. A failed download, denied upload or
-non-public file result fails that product without changing its gallery or
+The importer accepts at most 64 references per gallery; Oxy bounds each import's
+bytes and time. A failed or denied import, or a non-public or wrong-kind file
+result, fails that product without changing its gallery or
 relisting it. Other products in the batch continue. Source URLs and credentials
 are omitted from media error messages. Existing internal IDs pass through.
 
@@ -1171,11 +1175,11 @@ Each is a named contract rather than a stub that lies.
   first page of a real backfill as a sample without committing it is work in
   `connector-sync.service` rather than here. A feed's preview IS wired, through
   #63's own `POST .../versions/:v/preview`.
-- **Feed UPLOADS** have no screen. The endpoint exists and takes raw bytes with
-  no body parser; a file picker that streams to it is a client concern with its
-  own platform differences, and an upload lives on one task's disk
-  (`feed_uploads.status='missing'` is a real state), so a URL feed is the path
-  this issue gives screens to.
+- **Feed UPLOADS** have no screen. The protocol exists — a direct upload session
+  whose parts the client PUTs straight to storage (`docs/feed-importer.md`
+  §"Uploading a feed file") — and a file picker that hashes a file and sends its
+  parts is a client concern with its own platform differences, so a URL feed is
+  the path this issue gives screens to.
 - **A record-level error EXPORT for CONNECTORS** (#87 management 9). The
   per-record TABLE this entry said was owed now exists — #303's
   `sync_run_record_failures`, read at

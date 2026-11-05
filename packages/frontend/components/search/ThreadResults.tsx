@@ -1,6 +1,6 @@
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { CanonicalProductCard } from '@mercaria/ui';
 import type { SearchResult, CatalogPriceConditionScope } from '@mercaria/shared-types';
 import { SearchResultRow } from './SearchResultRow';

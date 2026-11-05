@@ -100,7 +100,8 @@ account) and requires the caller to be that account undelegated, or its owner
 or admin. `PATCH /admin/stores/:storeId/owner-account` requires `store:manage`
 on the store AND owner/admin of the target. The dashboard's "Convert to
 organization" runs with the owner's session: `oxy.accounts.create({ kind:
-'organization' })`, `accounts.members.invite` per person, then the PATCH.
+'organization' })`, `accounts.invitations.create` per person (each joins only
+once they accept in Oxy), then the PATCH.
 
 ### D6. Surfaces without a caller session read only Mercaria's own rows
 

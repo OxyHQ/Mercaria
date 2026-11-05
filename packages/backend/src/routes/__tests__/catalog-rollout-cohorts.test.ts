@@ -41,8 +41,9 @@
  * census DERIVES the catalog mounts from `app.ts` — every `app.use` inside a
  * guard whose config namespace begins with `catalog` — and requires each to be
  * covered by the middleware, walking the routers' real Express stacks. A new
- * public catalog mount fails the build until it is gated or exempted by the
- * `/internal/` rule.
+ * public catalog mount fails the build until it is gated. Operator (`/internal/`)
+ * surfaces are exempt: they are gated on the `catalog.operate` application role
+ * instead, on every deployment.
  */
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -83,7 +84,9 @@ vi.mock('../../middleware/auth.js', () => ({
     }
     next();
   },
-  oxyClient: {},
+  oxyClient: {
+    middleware: { auth: () => (_req: unknown, res: express.Response) => res.sendStatus(401) },
+  },
   optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
     next();
   },
@@ -235,7 +238,6 @@ async function build(cohorts: string): Promise<Deployment> {
   vi.resetModules();
   for (const lever of LEVERS) process.env[lever] = 'true';
   process.env.CATALOG_ROLLOUT_COHORTS = cohorts;
-  process.env.CATALOG_OPERATOR_OXY_USER_IDS = '';
   process.env.STRIPE_ENABLED = 'false';
 
   const { createApp } = await import('../../app.js');
@@ -283,7 +285,6 @@ beforeAll(async () => {
 afterAll(async () => {
   for (const lever of LEVERS) delete process.env[lever];
   delete process.env.CATALOG_ROLLOUT_COHORTS;
-  delete process.env.CATALOG_OPERATOR_OXY_USER_IDS;
   delete process.env.STRIPE_ENABLED;
   for (const deployment of opened) await deployment.close();
 });
@@ -538,21 +539,16 @@ function layerName(layer: ExpressLayer): string {
 describe('the catalog mount census is derived from app.ts and is not empty', () => {
   const source = readFileSync(join(SRC_ROOT, 'app.ts'), 'utf8');
   const mounts = catalogMounts(source);
+  // Operator surfaces are not cohort-gated: they are mounted on every deployment
+  // and gated on the `catalog.operate` application role, so none sits inside a
+  // catalog lever's guard. One that ever did would still be exempt here.
   const publicMounts = mounts.filter((mount) => !mount.path.startsWith('/internal/'));
-  const operatorMounts = mounts.filter((mount) => mount.path.startsWith('/internal/'));
 
-  it('finds the catalog mounts, both kinds, above a floor', () => {
-    // Floors PER SHAPE rather than one total: the two populations break
-    // independently, and a single number would let the public set collapse to
-    // zero while the operator set carried it.
+  it('finds the public catalog mounts above a floor', () => {
     expect(
       publicMounts.length,
       'the derived public catalog mount set collapsed',
     ).toBeGreaterThanOrEqual(6);
-    expect(
-      operatorMounts.length,
-      'the derived operator catalog mount set collapsed',
-    ).toBeGreaterThanOrEqual(20);
     expect(new Set(mounts.map((mount) => mount.guard)).size).toBeGreaterThanOrEqual(4);
   });
 

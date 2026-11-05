@@ -159,8 +159,8 @@ export function canonicalReadPermitted(mode: CanonicalReadMode, subject: CohortS
  * Answers 404 rather than 403 when a lever is off: a shopper hitting a surface
  * this deployment has not rolled out yet is looking at a page that does not
  * exist here, and a 403 would advertise a surface they cannot reach. The same
- * reasoning as the operator allow-lists' unmounted routers, applied to a
- * rollout instead of to an authorization.
+ * reasoning as the operator surfaces' 404 for anyone without the key, applied to
+ * a rollout instead of to an authorization.
  *
  * It gates on the MODE alone. The cohort question needs the object, which the
  * middleware has not loaded — so a handler that serves a specific canonical row

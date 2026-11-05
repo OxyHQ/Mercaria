@@ -45,6 +45,8 @@
  * presence of an error: `absent` is a value, `unresolved` and `unconfigured` throw.
  */
 
+import { Readable } from 'node:stream';
+import { readResponseBody } from '@oxy.so/core/server';
 import { findAssetFileStorageKey } from '../../db/digital/assetRepository.js';
 import { log } from '../../lib/logger.js';
 import type { AssetByteRead, AssetByteSource } from './inspection/bytes.js';
@@ -52,43 +54,11 @@ import { registerAssetByteSource } from './inspection/bytes.js';
 import { assetStorage, isDigitalStorageError } from './storage.js';
 
 /**
- * Read a response body into memory, stopping at `maxBytes`.
- *
- * Returns `null` when the body exceeds the cap, which the caller turns into
- * `too_large`. It stops at the ceiling rather than reading to the end and
- * comparing, so a mis-declared length costs one chunk over the limit and not the
- * whole object.
+ * The whole-body deadline for one object read. The ceiling is 256 MiB, and the
+ * deadline is what stops an object store that sends its headers and then stalls
+ * the body from holding an inspection worker open.
  */
-async function readCapped(
-  body: ReadableStream<Uint8Array>,
-  maxBytes: number,
-): Promise<Uint8Array | null> {
-  const reader = body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (!value) continue;
-      total += value.byteLength;
-      if (total > maxBytes) return null;
-      chunks.push(value);
-    }
-  } finally {
-    // Cancelling releases the connection on the over-cap path. Without it the
-    // socket stays open until the whole object has been sent, which is exactly
-    // the transfer the cap exists to avoid paying for.
-    await reader.cancel().catch(() => undefined);
-  }
-  const bytes = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return bytes;
-}
+const BODY_READ_TIMEOUT_MS = 120_000;
 
 /** The shipped reader: an asset file is a private Oxy object, served once. */
 export const storageAssetByteSource: AssetByteSource = {
@@ -143,8 +113,20 @@ export const storageAssetByteSource: AssetByteSource = {
       throw new Error('Reading the asset object answered with no body');
     }
 
-    const bytes = await readCapped(response.body, maxBytes);
-    if (!bytes) {
+    // `readResponseBody` (the SDK's) stops at the ceiling rather than reading to
+    // the end and comparing, destroys the stream on every non-`ok` path so the
+    // connection is released, and bounds the whole body by one deadline.
+    const read = await readResponseBody(Readable.fromWeb(response.body), {
+      maxBytes,
+      timeoutMs: BODY_READ_TIMEOUT_MS,
+    });
+    if (read.kind === 'timeout' || read.kind === 'error') {
+      // A stall or a reset — the transport failures a retry can fix. Thrown.
+      throw new Error(`Reading the asset object failed (${read.kind})`, {
+        cause: read.kind === 'error' ? read.error : undefined,
+      });
+    }
+    if (read.kind === 'too_large') {
       // The stream exceeded the ceiling the ROW said it was under. Reported with
       // the row's size, because the real size is unknown: the read stopped.
       log.general.warn(
@@ -153,7 +135,7 @@ export const storageAssetByteSource: AssetByteSource = {
       );
       return { outcome: 'too_large', byteSize: file.byteSize };
     }
-    return { outcome: 'ok', bytes };
+    return { outcome: 'ok', bytes: read.body };
   },
 };
 

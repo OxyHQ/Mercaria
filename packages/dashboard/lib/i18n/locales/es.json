@@ -591,6 +591,16 @@
         "lte": "Menor o igual que"
       },
       "categoryIdentifier": "Identificador de categoría"
+    },
+    "featured": {
+      "title": "Colecciones destacadas",
+      "help": "Elige hasta %{count} colecciones manuales publicadas y ordena cómo se muestran.",
+      "empty": "No hay colecciones destacadas.",
+      "unavailable": "Colección no disponible",
+      "hidden": "Esta colección no se muestra actualmente a los compradores.",
+      "add": "Añadir una colección manual publicada",
+      "failed": "No se pudieron guardar las colecciones destacadas. Tus cambios se conservan.",
+      "saved": "Colecciones destacadas guardadas."
     }
   },
   "common": {
@@ -1721,18 +1731,39 @@
         "displayNameLabel": "Nombre de la organización",
         "done": "La tienda ahora pertenece a la organización",
         "failed": "No se ha podido convertir la tienda",
-        "inviteLabel": "Usuario o correo",
-        "invitePlaceholder": "usuario o correo@ejemplo.com",
+        "inviteLabel": "Correo electrónico",
+        "invitePlaceholder": "correo@ejemplo.com",
         "inviteesTitle": "Personas que invitar",
         "nameRequired": "Escribe el nombre y el usuario de la organización",
         "open": "Convertir en organización",
-        "someInvitesFailed": "La tienda se ha movido, pero estas invitaciones han fallado: %{names}",
+        "someInvitesFailed": "La tienda se ha movido, pero no se han podido enviar estas invitaciones: %{names}",
         "submit": "Crear organización y mover la tienda",
         "title": "Convertir en una organización",
         "usernameLabel": "Nombre de usuario de la organización",
         "warning": "Las personas que antes podían actuar por esta tienda y no están en la organización ya no tienen acceso a ella."
       },
       "documentTitle": "Miembros | Wholesale by Mercaria",
+      "invitations": {
+        "body": "Las personas se unen a la organización solo después de aceptar la invitación enviada a su correo.",
+        "dialogTitle": "Invitar a alguien",
+        "emailLabel": "Correo electrónico",
+        "empty": "No hay invitaciones pendientes",
+        "expired": "Caducada",
+        "invalidEmail": "Introduce un correo electrónico válido",
+        "invite": "Invitar",
+        "loadFailed": "No se han podido cargar las invitaciones",
+        "pending": "Pendiente",
+        "resend": "Reenviar",
+        "resendFailed": "No se ha podido reenviar la invitación",
+        "resent": "Invitación enviada de nuevo",
+        "revoke": "Revocar",
+        "revokeFailed": "No se ha podido revocar la invitación",
+        "revoked": "Invitación revocada",
+        "send": "Enviar invitación",
+        "sendFailed": "No se ha podido enviar la invitación",
+        "sent": "Invitación enviada a %{email}",
+        "title": "Invitaciones pendientes"
+      },
       "loadFailed": "No se han podido cargar las personas de esta tienda",
       "noAccess": "Sin acceso",
       "organizationBody": "Quién puede actuar por esta tienda lo decide la membresía de la organización en Oxy. Mercaria solo guarda excepciones a los permisos de cada rol.",
@@ -2056,5 +2087,23 @@
   "brand": {
     "name": "Wholesale",
     "byline": "by Mercaria"
+  },
+  "catalogSafety": {
+    "title": "Revisión de contenido de compras",
+    "intro": "Los operadores de la plataforma revisan el texto completo antes de mostrar los artículos sin imágenes.",
+    "accessDenied": "Acceso de plataforma necesario",
+    "accessBody": "Esta área solo está disponible para revisores autorizados del catálogo.",
+    "unavailable": "No se puede revisar este artículo",
+    "empty": "No hay artículos para revisar",
+    "next": "Siguientes artículos",
+    "select": "Selecciona un artículo para revisar",
+    "limitBody": "Este artículo supera los límites de revisión. No estará disponible para compras con supervisión.",
+    "allowed": "El texto actual está aprobado",
+    "pending": "El texto actual no está aprobado",
+    "textOnly": "Solo se mostrarán el título, las variantes, las opciones y el precio. No se incluyen fotos, descripciones ni reseñas.",
+    "saveError": "No se pudo guardar la revisión. Recarga el artículo y revisa su contenido actual.",
+    "saved": "Revisión guardada",
+    "allow": "Permitir texto revisado",
+    "withhold": "No mostrar"
   }
 }

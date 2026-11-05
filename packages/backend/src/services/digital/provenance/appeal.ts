@@ -149,7 +149,7 @@ export async function recordProvenanceAppeal(
     throw notFound(`recordProvenanceAppeal: asset ${version.assetId} does not exist.`);
   }
   const store = await findStoreById(asset.storeId);
-  const access = store ? await resolveStoreAccess(input.appellant, store) : null;
+  const access = store ? await resolveStoreAccess(input.appellant, store, { fresh: true }) : null;
   if (access === null) {
     throw forbidden(
       'recordProvenanceAppeal: only somebody who can act for the store that published this ' +

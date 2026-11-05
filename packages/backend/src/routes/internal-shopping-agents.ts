@@ -15,7 +15,7 @@
  * added — "who is watching this product" is unrepresentable rather than
  * refused.
  *
- * Mounted on the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list
+ * Mounted on the SAME `catalog.operate` key
  * #54/#56/#57/#58/#60/#62/#68/#70/#78/#79 use, and deliberately NOT gated on
  * `SHOPPING_AGENTS_ENABLED`: the evidence has to be readable during the
  * incident that turned the shopper surface off.
@@ -23,14 +23,13 @@
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireCatalogOperator } from '../middleware/catalog-operator-authz.js';
+import { requireCatalogOperator } from '../middleware/operator-authz.js';
 import { shoppingAgentMetricsHandler } from '../controllers/shopping-agents.controller.js';
 
 const router = Router();
 
-// Authentication FIRST, then the allow-list — the gate reads the verified
-// caller, and an allow-list consulted before authentication would compare
-// against whatever a client claimed.
+// Authentication FIRST, then the operator gate — it asks Oxy about the verified
+// caller's own session, which only `authenticateToken` establishes.
 router.use(authenticateToken);
 router.use(requireCatalogOperator);
 

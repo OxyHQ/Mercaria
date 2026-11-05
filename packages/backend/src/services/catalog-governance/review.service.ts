@@ -17,7 +17,7 @@
  *
  * `/internal/catalog-proposals/*` already exposes all seven decisions
  * (approve, merge, reject, request-information, defer, redirect, backfill),
- * behind the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list, writing the same
+ * behind the SAME `catalog.operate` key, writing the same
  * `catalog_review_events` trail. Adding a second route to one decision is how
  * two surfaces come to disagree about what a decision means, so this domain
  * consumes proposals by COUNTING their backlog on the desk

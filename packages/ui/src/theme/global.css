@@ -15,19 +15,15 @@
  * shared components. Keep the two in sync via this file.
  * ------------------------------------------------------------------------- */
 
-@import "tailwindcss/theme.css" layer(theme);
-@import "tailwindcss/preflight.css" layer(base);
-@import "tailwindcss/utilities.css";
-@import "nativewind/theme";
-@import "@oxy.so/bloom/design-tokens/theme.css";
+/* Tailwind v4, NativeWind, Bloom's design tokens, the `--font-sans` that wins
+   over NativeWind's native default, and the Oxy SDK `@source` globs. */
+@import "@oxy.so/app-preset/base.css";
 @import "./color-scheme.css";
 @import "./shop-typography.css";
 @import "./shop-shadows.css";
 @import "./shop-controls.css";
 
 @theme {
-  --font-sans: Inter, sans-serif;
-
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);

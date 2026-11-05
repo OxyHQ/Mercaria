@@ -1,11 +1,7 @@
-import { Peable } from '@peable.to/sdk';
 import { createHash } from 'node:crypto';
 import { log } from '../../lib/logger.js';
 import { config } from '../../config/index.js';
-import {
-  oxyServiceClient,
-  oxyServiceTokenProvider,
-} from '../../capabilities/oxy-service-client.js';
+import { createPeableClient } from '../payments/peable/client.js';
 import { registerBillingProvider } from './provider.js';
 import { StripeBillingProvider } from './stripe/stripe-billing.js';
 import { billingCohortSchema, CohortBillingProvider } from './peable/adapter.js';
@@ -20,31 +16,24 @@ export async function registerMerchantBillingProvider(): Promise<void> {
     return;
   }
   // Parse errors never include the raw configuration; do not register a legacy fallback.
-  let cohort;
+  let cohort: ReturnType<typeof billingCohortSchema.parse>;
   try {
     cohort = billingCohortSchema.parse(JSON.parse(raw));
   } catch {
     throw new Error('Invalid merchant billing cohort configuration.');
   }
-  // An explicit cohort must be completely configured before any remote reads.
-  // Peable is reached as Mercaria's own Oxy identity (the task role on ECS).
-  if (!oxyServiceClient()) {
-    throw new Error('Merchant billing requires an Oxy identity for Mercaria.');
-  }
+  // Peable is reached as Mercaria's own Oxy workload identity (the task role on ECS).
   const reader = createBillingCohortStripeReader(cohort);
   const accountId = await reader.platformAccountId();
   if (accountId !== cohort.platformAccountId || legacy.livemode !== cohort.livemode) {
     throw new Error('Merchant billing platform account or mode differs from the cohort.');
   }
-  const client = new Peable({
-    tokenProvider: oxyServiceTokenProvider,
-    baseURL: config.payments.peable.baseUrl,
-  });
+  const client = createPeableClient();
   // Namespace must resolve through Mercaria's identity; never register a merchant here.
   const merchant = await client.merchants.retrieve();
   if (
     merchant.id !== cohort.merchantId ||
-    merchant.oxyAppId !== cohort.applicationId ||
+    merchant.oxy_app_id !== cohort.applicationId ||
     merchant.environment !== cohort.environment
   ) {
     throw new Error('Merchant billing credential resolves to a different namespace.');

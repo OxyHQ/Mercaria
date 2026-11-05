@@ -36,6 +36,8 @@
  * in its own column precisely so correlation never depends on the payload.
  */
 
+import { recordSupervisedCancellation } from '../../supervised-shopping/purchase.service.js';
+
 import type Stripe from 'stripe';
 import { and, eq, sql } from 'drizzle-orm';
 import type {
@@ -270,6 +272,7 @@ async function handlePaymentIntent(context: StripeEventContext): Promise<StripeE
   }
 
   if (next === payment.status) {
+    if (next === 'canceled') await recordSupervisedCancellation(payment.id, true);
     return {
       kind: 'applied',
       paymentId: payment.id,
@@ -296,6 +299,8 @@ async function handlePaymentIntent(context: StripeEventContext): Promise<StripeE
     ...(failure?.code ? { errorCode: failure.code } : {}),
     ...(failure?.message ? { errorMessage: failure.message } : {}),
   });
+
+  if (next === 'canceled') await recordSupervisedCancellation(payment.id, true);
 
   return {
     kind: 'applied',

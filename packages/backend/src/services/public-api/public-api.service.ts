@@ -1,3 +1,4 @@
+import { featuredCollections } from '../../db/merchandising/featuredCollectionRepository.js';
 /**
  * The public integration surface's reads (#1017): what another Oxy application
  * may learn from Mercaria through `/public/v1`, and the status rules that decide
@@ -389,6 +390,31 @@ export async function listPublicStoreCollections(
   return {
     items: rows.map((row) => projectCollection(row, store.handle, origin, resolveMedia)),
     nextCursor: nextPublicCursor(kind, fingerprint, offset, rows.length, hasMore),
+  };
+}
+
+/** Seller-selected shelves, with the same live-store gate as every catalog read. */
+export async function listPublicStoreFeaturedCollections(
+  storeId: string,
+  params: PublicPageParams,
+): Promise<MercariaPage<MercariaCollection>> {
+  const store = await publicStoreById(storeId);
+  const kind: MercariaPublicCursorKind = 'store-featured-collections';
+  const fingerprint = publicCursorFingerprint(kind, { storeId: store.id });
+  const offset = resolvePublicCursorOffset(params.cursor, kind, fingerprint);
+  const limit = clampPublicPageLimit(offset, params.limit);
+  const selected = await featuredCollections(store.id, true);
+  const rows = selected.slice(offset, offset + limit);
+  const origin = webOrigin();
+  return {
+    items: rows.map((row) => projectCollection(row, store.handle, origin, resolveMedia)),
+    nextCursor: nextPublicCursor(
+      kind,
+      fingerprint,
+      offset,
+      rows.length,
+      offset + rows.length < selected.length,
+    ),
   };
 }
 

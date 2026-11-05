@@ -5,16 +5,15 @@
  * experience") and acceptance 7 (rollback is tested, not just documented).
  *
  * The `internal-offers.test.ts` shape, extended with the thing this issue adds:
- * FOUR apps against four frozen configs, because a lever's effect is a property
+ * THREE apps against three frozen configs, because a lever's effect is a property
  * of the MOUNT and of a middleware that reads a frozen config — neither is
  * observable from a handler test.
  *
- *  - an allow-listed catalog operator gets past the gate on every path;
- *  - an authenticated non-operator gets 403, not a run;
- *  - a deployment with an EMPTY allow-list has no such surface at all — 404,
- *    from the MOUNT, because a 401 would advertise that it exists;
- *  - the PAYMENTS allow-list does not open it: separate powers, and the
- *    cross-list case is what a refactor toward "one operator list" would
+ *  - a holder of `catalog.operate` gets past the gate on every path;
+ *  - an authenticated caller holding no key gets 404, not a run — the surface
+ *    is never revealed;
+ *  - holding `payments.operate` does not open it: separate powers, and the
+ *    cross-desk case is what a refactor toward "one operator key" would
  *    silently break.
  *
  * And the rollout half, which is where acceptance 5 actually lives:
@@ -45,24 +44,40 @@ const MERCHANT_USER = 'oxy-user-merchant-1';
 
 /** Whichever caller the current request is acting as. */
 let currentUser = CATALOG_OPERATOR;
+const GRANTS: Readonly<Record<string, readonly string[]>> = {
+  [CATALOG_OPERATOR]: ['catalog.operate'],
+  [PAYMENTS_OPERATOR]: ['payments.operate'],
+};
 
 vi.mock('@oxy.so/core/server', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@oxy.so/core/server')>()),
   getRequiredOxyUserId: () => currentUser,
 }));
-vi.mock('../../middleware/auth.js', () => ({
-  authenticateToken: (
-    _req: express.Request,
-    _res: express.Response,
-    next: express.NextFunction,
-  ) => {
-    next();
-  },
-  oxyClient: {},
-  optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
-    next();
-  },
-}));
+vi.mock('../../middleware/auth.js', async () => {
+  const { fakeAppPermissions } = await import('../../__tests__/oxy-app-permissions-fake.js');
+  const fake = fakeAppPermissions(
+    () => GRANTS[currentUser] ?? [],
+    () => currentUser,
+  );
+  return {
+    authenticateToken: (
+      _req: express.Request,
+      _res: express.Response,
+      next: express.NextFunction,
+    ) => {
+      next();
+    },
+    oxyClient: {
+      middleware: {
+        requireAppPermission: fake.requireAppPermission,
+        auth: () => (_req: unknown, res: express.Response) => res.sendStatus(401),
+      },
+    },
+    optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
+      next();
+    },
+  };
+});
 vi.mock('../../lib/rate-limit.js', () => ({
   makeRateLimiter:
     () => (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
@@ -98,7 +113,6 @@ interface Deployment {
 
 const deployments: Deployment[] = [];
 let enabled: Deployment;
-let noOperators: Deployment;
 let readsOff: Deployment;
 let routesOff: Deployment;
 
@@ -121,9 +135,7 @@ async function listen(app: express.Express): Promise<Deployment> {
  */
 async function buildApp(env: Record<string, string>): Promise<express.Express> {
   vi.resetModules();
-  process.env.PAYMENT_OPERATOR_OXY_USER_IDS = PAYMENTS_OPERATOR;
   process.env.STRIPE_ENABLED = 'false';
-  process.env.CATALOG_OPERATOR_OXY_USER_IDS = CATALOG_OPERATOR;
   delete process.env.CANONICAL_READS;
   delete process.env.CANONICAL_OFFER_COMPARISON;
   delete process.env.CANONICAL_PUBLIC_ROUTES_ENABLED;
@@ -134,14 +146,11 @@ async function buildApp(env: Record<string, string>): Promise<express.Express> {
 
 beforeAll(async () => {
   enabled = await listen(await buildApp({}));
-  noOperators = await listen(await buildApp({ CATALOG_OPERATOR_OXY_USER_IDS: '' }));
   readsOff = await listen(await buildApp({ CANONICAL_READS: 'off' }));
   routesOff = await listen(await buildApp({ CANONICAL_PUBLIC_ROUTES_ENABLED: 'false' }));
 }, 60_000);
 
 afterAll(async () => {
-  delete process.env.CATALOG_OPERATOR_OXY_USER_IDS;
-  delete process.env.PAYMENT_OPERATOR_OXY_USER_IDS;
   delete process.env.CANONICAL_READS;
   delete process.env.CANONICAL_OFFER_COMPARISON;
   delete process.env.CANONICAL_PUBLIC_ROUTES_ENABLED;
@@ -192,8 +201,8 @@ async function call(
   });
 }
 
-describe('the catalog operator allow-list on the backfill surface', () => {
-  it('lets an allow-listed catalog operator through the gate on every path', async () => {
+describe('the catalog.operate application role on the backfill surface', () => {
+  it('lets a holder of catalog.operate through the gate on every path', async () => {
     // Past the GATE is the assertion, not a 200: the database is stubbed to
     // throw, so handlers answer 500 — what matters is that none answers 403,
     // 404 or 400, which is what a gate or a schema refusing a valid request
@@ -207,24 +216,17 @@ describe('the catalog operator allow-list on the backfill surface', () => {
     }
   });
 
-  it('refuses an authenticated non-operator with 403 on every path', async () => {
+  it('answers a caller holding no key with 404 on every path', async () => {
     for (const route of OPERATOR_PATHS) {
       const res = await call(enabled.url, route, MERCHANT_USER);
-      expect(res.status, route.path).toBe(403);
-    }
-  });
-
-  it('does not mount the surface at all when the allow-list is empty', async () => {
-    for (const route of OPERATOR_PATHS) {
-      const res = await call(noOperators.url, route);
       expect(res.status, route.path).toBe(404);
     }
   });
 
-  it('does not open the surface to the PAYMENTS operator', async () => {
+  it('does not open the surface to a holder of payments.operate', async () => {
     for (const route of OPERATOR_PATHS) {
       const res = await call(enabled.url, route, PAYMENTS_OPERATOR);
-      expect(res.status, route.path).toBe(403);
+      expect(res.status, route.path).toBe(404);
     }
   });
 
@@ -295,7 +297,7 @@ describe('the canonical READ levers (acceptance 5 and 7)', () => {
   it('keeps the OPERATOR surface reachable while every read lever is off', async () => {
     // The evidence has to be readable during exactly the incident that turned
     // the levers off, which is why `/internal/backfill` is gated on the operator
-    // allow-list and on nothing else.
+    // key and on nothing else.
     for (const deployment of [readsOff, routesOff]) {
       const res = await call(deployment.url, {
         method: 'GET',

@@ -34,8 +34,8 @@ export type GuestActor = {
   readonly kind: 'guest';
   /** The `guest_sessions` row id — never the token. */
   readonly guestSessionId: string;
-  /** Which transport carried the credential; decides how a rotation returns (D9). */
-  readonly transport: 'cookie' | 'header';
+  /** Persisted issuance classification for operational rollout, never authorization. */
+  readonly clientClass?: import('@mercaria/shared-types').GuestClientClass;
 };
 
 /** No credential at all, or only an invalid one (D2: invalid resolves as absent). */
@@ -47,8 +47,8 @@ export type CommerceActor = OxyActor | GuestActor | AnonymousActor;
 /**
  * The stable key actor-aware rate limits and idempotency claims hash on.
  *
- * Keys off the ACTOR, not the transport: the same guest is one bucket whether
- * the credential arrived by cookie or header, and an anonymous caller falls
+ * Keys off the ACTOR: the same guest is one bucket across clients,
+ * and an anonymous caller falls
  * back to the network dimension. The ids inside are internal row/account ids —
  * they feed Redis keys and never leave the backend.
  */

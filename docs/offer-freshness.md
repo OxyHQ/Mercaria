@@ -455,11 +455,11 @@ decides when the durable retirement is written down.
 
 ## The operator surface
 
-`/internal/offer-freshness/*`, behind the SAME `CATALOG_OPERATOR_OXY_USER_IDS`
-allow-list #54/#56/#57/#58/#60/#62 use — who may decide what an external source
+`/internal/offer-freshness/*`, behind the SAME `catalog.operate`
+key #54/#56/#57/#58/#60/#62 use — who may decide what an external source
 is permitted to do and who may decide how long its facts are worth showing are
-the same power over the same graph. Empty list = not mounted (404, never a 401
-that would advertise the surface). It stays mounted while
+the same power over the same graph. Anyone without it gets 404, never a 401
+that would advertise the surface. It stays mounted while
 `OFFER_REFRESH_ENABLED` is off.
 
 | Route | What it does |
@@ -555,8 +555,8 @@ Each is a NAMED contract that fails closed, never a stub that lies.
 
 ## Production-readiness checklist
 
-1. `CATALOG_OPERATOR_OXY_USER_IDS` populated, or the surface is not mounted and
-   nobody can publish a freshness policy or release a quarantine.
+1. `catalog.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`), or nobody can publish a freshness policy or
+   release a quarantine.
 2. For each source: a freshness version published, reviewed, and its thresholds
    set against that provider's own contract — the `source_configuration`
    fallback is a safe default, not a reviewed decision.

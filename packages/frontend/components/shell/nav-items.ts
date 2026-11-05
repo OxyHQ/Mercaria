@@ -49,6 +49,14 @@ export type NavItem =
 
 export const NAV_ITEMS: readonly NavItem[] = [
   {
+    key: 'materials',
+    labelKey: 'materials.heading',
+    icon: 'explore',
+    href: '/materials',
+    available: true,
+    desktopOnly: true,
+  },
+  {
     key: 'home',
     labelKey: 'nav.home',
     icon: 'home',

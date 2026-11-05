@@ -34,6 +34,38 @@ threading a viewer through `catalog-hydration.service.ts`'s
 `toProductSummaries`, which takes none, and accepting a per-viewer cache on a
 page that reads the whole active taxonomy to build; neither has been decided.
 
+## A shelf is the stores' listings, then the catalogue
+
+Every product is one row of `canonical_products` and every way to buy it one
+row of `offers` — a Mercaria store's listing is a NATIVE offer. A products
+shelf (the home's "New arrivals" and "On sale", every explore/category/deals
+shelf and its "see all") reads `services/discovery/shelf-products.service.ts`'s
+`findShelfProducts`: the stores' listings first (as before), then the
+catalogue's products (`db/discovery/catalogShelfRepository.ts`) — imaged,
+priced by a CURRENT non-native offer, not sold natively (that product is
+already on the shelf as its listing). Shelves used to read `listings` alone, so
+of 166,000 products the 29 the stores sell were the only ones any browse page
+showed (2026-10-20).
+
+The catalogue answers `new` (`created_at`), `on-sale` (the CHEAPEST current
+offer's discount, deepest first) and `top-rated` (product rating, the same
+review floor); `best-selling`/`most-viewed` are counted for listings only. A
+catalogue card carries `catalogSlug` (it opens `/p/<slug>` and saving it saves
+the product) and is priced at the lowest current offer through search's own
+projection (`buildSearchOfferContexts`). The home and explore's root also show
+the catalogue products filed under NO category — most of the catalogue is not
+classified yet, so a category page shows only what is filed under it; a product
+filed under a SUPPRESSED category is shown nowhere, like that category's
+listings.
+
+`on-sale` never evaluates every discounted offer: it walks
+`offers_sale_discount_idx` (the discount, deepest first) one window at a time
+and checks only that window's offers for a cheaper offer of their product and
+for shelf eligibility, stopping once its page is full. Ranking all ~37k
+discounted offers first cost 1.4 s idle and up to 31 s on the loaded shared
+database, which was most of a 30 s cold home feed (2026-10-20). The home feed is
+cached once for every viewer, like this one: its build reads no viewer either.
+
 ## Why `discovery`, not `feed`
 
 `feed` already names two unrelated things in this repo — the home feed
@@ -147,11 +179,11 @@ and a failed or lost lease costs only a duplicate computation next tick.
 now rather than waiting for the timer; it answers 200 either way and says
 which happened (`{ ran: true, rowsWritten }` or `{ ran: false }`), because
 another task already holding the lease is a normal outcome, not a failure.
-That surface joins `ANALYTICS_OPERATOR_OXY_USER_IDS` rather than creating an
-eighth allow-list: forcing this recomputation is the power that list already
-holds over the merchant-demand acquisition pipeline, and an empty allow-list
-means the surface is NOT MOUNTED (404, never a 401 that would advertise it
-exists) — `docs/house-invariants.md`'s table names it.
+That surface joins `analytics.operate` rather than creating an eighth operator
+key: forcing this recomputation is the power that key already grants over the
+merchant-demand acquisition pipeline, and anyone without it gets 404 (never a
+401 that would advertise it exists) — `docs/house-invariants.md`'s table names
+it.
 
 ## The isolation gate
 

@@ -15,7 +15,7 @@
  *    `ANALYTICS_QUERY_MIN_OCCURRENCES` unconditionally and is the only query
  *    reader in the backend, so an operator sees exactly what a merchant sees on
  *    that surface. A rare query is a near-identifier whoever is reading it, and
- *    an operator allow-list is a list of people, not a licence.
+ *    an operator key is held by people, not a licence.
  *  - **Cross-checkout identity correlation.** The trace opens from a query
  *    event id or a checkout group and returns a projection with NEITHER
  *    identity column. There is no endpoint that takes a pseudonym, and none

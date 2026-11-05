@@ -738,6 +738,8 @@
       "a11yLabel": "販売事業者のステータス: %{status}",
       "claim": "この販売事業者を申請する",
       "claimHint": "このページを管理するには、この販売事業者を運営していることを証明してください",
+      "contest": "この申請に異議を申し立てる",
+      "contestHint": "この販売事業者の認証済み運営者が誤っていることをMercariaに伝えます",
       "label": {
         "unclaimed": "未申請",
         "claimInProgress": "申請中",
@@ -790,6 +792,117 @@
         "staleSources": "現在の価格を表示できるほど最近には、Mercaria はこの販売事業者の情報源から更新を受け取っていません。",
         "filteredOut": "この条件に一致する商品はありません。"
       }
+    }
+  },
+  "merchantClaim": {
+    "title": "%{merchant}を申請する",
+    "intro": "この販売事業者を運営していることを証明すると、Mercariaでの表示を管理できます。申請によってMercariaのストアが作成されたり、ブランドの公式販売者になったりすることはありません。",
+    "signInPrompt": "この販売事業者を申請するには、Oxyアカウントでサインインしてください。",
+    "signIn": "サインイン",
+    "loadFailed": "申請を読み込めませんでした。",
+    "noMethods": "現在ここから申請することはできません。",
+    "start": "続ける",
+    "starting": "開始しています…",
+    "close": "閉じる",
+    "copy": "%{label}をコピー",
+    "copied": "コピーしました",
+    "copyFailed": "コピーできませんでした。テキストを選択して手動でコピーしてください。",
+    "method": {
+      "title": "どの方法で証明しますか？",
+      "checkedAutomatically": "自動で確認されます。",
+      "reviewedByPerson": "担当者が審査します。",
+      "dnsTxt": {
+        "label": "DNSレコード",
+        "description": "ドメインのDNSにTXTレコードを追加します。"
+      },
+      "wellKnownFile": {
+        "label": "ウェブサイト上のファイル",
+        "description": "ウェブサイトに小さなテキストファイルをアップロードします。"
+      },
+      "metaTag": {
+        "label": "トップページのタグ",
+        "description": "ウェブサイトのトップページにmetaタグを追加します。"
+      },
+      "businessDocument": {
+        "label": "事業関連書類",
+        "description": "この事業を運営していることを示す書類へのリンクを共有します。"
+      }
+    },
+    "domain": {
+      "label": "ウェブサイトのドメイン",
+      "help": "この販売事業者が販売に使っているドメインです。証明の対象はこのドメインのみです。",
+      "placeholder": "example.com"
+    },
+    "previous": {
+      "rejected": "この販売事業者に対する前回の申請は承認されませんでした。",
+      "reason": "審査担当者のメモ：%{reason}",
+      "expired": "この販売事業者に対する前回の申請は、証明される前に期限切れになりました。もう一度始められます。",
+      "revoked": "この販売事業者に対する認証は取り消されました。新しく申請できます。"
+    },
+    "errors": {
+      "tooMany": "最近の試行回数が多すぎます。しばらくしてからもう一度お試しください。",
+      "notFoundYet": "確認用の値がまだ見つかりません。DNSやウェブサイトの変更が反映されるまで時間がかかることがあるため、少し待ってから再試行してください。",
+      "codeUnusable": "このコードはもう使用できません。新しいコードを取得して、そちらを公開してください。",
+      "cannotOpen": "現在この販売事業者を申請することはできません。",
+      "cannotContest": "現在この申請に異議を申し立てることはできません。",
+      "invalid": "入力内容を確認して、もう一度お試しください。",
+      "generic": "問題が発生しました。もう一度お試しください。"
+    },
+    "challenge": {
+      "draftIntro": "%{domain}の申請の準備ができました。続けるには確認コードを取得してください。",
+      "lost": "確認コードは一度しか表示されません。続けるには新しいコードを取得してください。以前のコードは置き換えられます。",
+      "getCode": "確認コードを取得",
+      "gettingCode": "コードを取得しています…",
+      "verify": "今すぐ確認",
+      "verifying": "確認しています…",
+      "newCode": "新しいコードを取得",
+      "expires": "このコードは%{time}まで有効です。",
+      "dnsTxt": {
+        "step": "%{domain}のDNSに次のTXTレコードを追加してください：",
+        "nameLabel": "名前",
+        "valueLabel": "値",
+        "note": "DNSの変更が反映されるまで数分、場合によっては数時間かかることがあります。"
+      },
+      "wellKnownFile": {
+        "step": "次のアドレスに、このテキストだけを含むファイルを公開してください：",
+        "urlLabel": "アドレス",
+        "contentsLabel": "ファイルの内容"
+      },
+      "metaTag": {
+        "step": "%{url}の<head>内に次のタグを追加してください：",
+        "tagLabel": "タグ"
+      }
+    },
+    "status": {
+      "verified": {
+        "title": "あなたは認証済みの運営者です",
+        "body": "%{merchant}に対するあなたの申請は認証されました。"
+      },
+      "reviewPending": {
+        "title": "申請を審査中です",
+        "body": "担当者があなたの申請を審査しています。結果はここで確認できます。"
+      },
+      "disputed": {
+        "title": "申請は係争中です",
+        "body": "別のアカウントがすでにこの販売事業者の認証済み申請を保有しています。担当者が両方を審査して判断します。"
+      }
+    },
+    "evidence": {
+      "intro": "商業登記簿謄本や納税証明書など、この事業を運営していることを示す書類へのリンクと、審査担当者へのメモを追加してください。これらは審査担当者だけが確認します。",
+      "urlLabel": "書類のリンク",
+      "urlPlaceholder": "https://",
+      "noteLabel": "審査担当者へのメモ",
+      "submit": "審査に送信",
+      "submitting": "送信しています…"
+    },
+    "contest": {
+      "title": "%{merchant}の申請に異議を申し立てる",
+      "intro": "この販売事業者にはすでに認証済みの運営者がいます。誤りであれば、その理由をお知らせください。異議はすべて担当者が審査します。現在の運営者には異議が申し立てられたことが通知されますが、申立人が誰かは伝えられません。",
+      "reasonLabel": "現在の申請が誤っている理由",
+      "reasonHelp": "20文字以上で入力してください。",
+      "urlLabel": "根拠となるリンク（任意）",
+      "submit": "異議を送信",
+      "submitting": "送信しています…"
     }
   },
   "families": {
@@ -1382,6 +1495,21 @@
       "createFailed": "リンクを作成できませんでした。もう一度お試しください。",
       "empty": "Mercaria を共有するリンクを作成しましょう。そのリンクからの紹介はあなたに帰属します。",
       "notPartner": "プログラムに登録すると、ここにリンクが表示されます。"
+    },
+    "code": {
+      "title": "紹介コード",
+      "description": "コードを受け取りましたか？ここに入力してください。",
+      "label": "紹介コード",
+      "placeholder": "コード",
+      "apply": "適用",
+      "applied": "コードを適用しました",
+      "invalid": "このコードは使用できません。",
+      "failed": "コードを適用できませんでした。もう一度お試しください。"
+    },
+    "disclosure": {
+      "title": "紹介リンクからアクセスしました",
+      "body": "購入すると、リンクを共有した人が Mercaria から報酬を受け取る場合があります。お支払い価格は変わりません。",
+      "dismiss": "OK"
     }
   },
   "brand": {
@@ -1676,19 +1804,6 @@
       "notForSale": "販売していません"
     }
   },
-  "thread": {
-    "title": "ショッピングアシスタント",
-    "thinking": "アイデアを探しています…",
-    "stop": "停止",
-    "unavailable": "ショッピングアシスタントはまだ利用できません。カタログの検索は引き続き利用できます。",
-    "signIn": "ログインしてチャット",
-    "retry": "再試行",
-    "viewResults": "検索結果を見る",
-    "newConversation": "新しい会話",
-    "previewAction": "サンプルデータで試す",
-    "previewLabel": "プレビュー · サンプル回答、AI未接続",
-    "previewReply": "会話のレイアウトを試すためのローカルカタログの例です。商品を開いて詳細を確認するか、別のメッセージを送信してください。"
-  },
   "profile": {
     "title": "プロフィール",
     "subtitle": "保存した商品、注文、アカウントをひとつの場所で。"
@@ -1706,5 +1821,149 @@
     "quoteComfort": "心地よさ、個性、そして自分らしさを生む小さなディテール。",
     "quoteTexture": "お気に入りの質感が、装い全体の印象を変えてくれます。",
     "quoteEveryday": "いつも使うお気に入りを、手の届くところに。"
+  },
+  "materials": {
+    "heading": "Donated materials",
+    "intro": "Offer and request materials as a person or organization. The items are free. Arrange personal pickup after the donor accepts.",
+    "switchAccount": "Change account",
+    "signIn": "Sign in",
+    "actingAs": "Acting as %{account}",
+    "offers": "Available materials",
+    "reservations": "My requests and reservations",
+    "refresh": "Refresh",
+    "empty": "No materials are available yet.",
+    "emptyReservations": "You have no requests or reservations.",
+    "more": "Load more",
+    "offer": "Offer materials",
+    "title": "Material name",
+    "description": "Description",
+    "area": "Approximate public area",
+    "quantity": "Quantity",
+    "unit": "Unit (pieces, boxes…)",
+    "pickup": "Personal pickup instructions",
+    "pickupPrivacy": "Keep the public area approximate. Pickup details are shared only with accepted recipients. No payment for the materials is required.",
+    "publish": "Publish free offer",
+    "counts": "%{available} %{unit} available · %{committed} committed · %{received} received",
+    "close": "Close offer to new requests",
+    "request": "Request materials",
+    "requestSent": "Request sent. The donor must accept before units are reserved.",
+    "reservation": "Material reservation",
+    "reservationQuantity": "%{quantity} %{unit}",
+    "requester": "Recipient account: %{account}",
+    "donor": "Donor account: %{account}",
+    "accept": "Accept and reserve",
+    "confirm": "I have received these materials",
+    "cancel": "Cancel request or reservation",
+    "requested": "Awaiting donor acceptance",
+    "accepted": "Reserved — awaiting pickup",
+    "cancelled": "Cancelled",
+    "delivered": "Receipt confirmed",
+    "conflict": "This action no longer matches the available quantity or reservation state. Refresh to see the current details.",
+    "forbidden": "This account is not authorized for this action.",
+    "error": "Could not complete the request. Check your connection and retry; the same request will not be duplicated."
+  },
+  "transport": {
+    "heading": "Transport with Moovo",
+    "pickupAlways": "Personal pickup is always available. Donated materials remain free.",
+    "pickup": "Pickup",
+    "dropoff": "Delivery",
+    "line1": "Street address",
+    "city": "City",
+    "postalCode": "Postal code",
+    "country": "Country (two-letter code)",
+    "contactName": "Contact name",
+    "contactPhone": "Contact phone",
+    "pickupPlace": "集荷先の住所",
+    "dropoffPlace": "配達先の住所",
+    "placeSearch": "通り・番地・市区町村で検索",
+    "notes": "Instructions",
+    "weight": "Total weight (kg)",
+    "pieces": "Number of packages",
+    "small": "Small",
+    "medium": "Medium",
+    "large": "Large",
+    "payer": "Who pays for transport?",
+    "donor": "Donor",
+    "recipient": "Recipient",
+    "sponsor": "Sponsoring organization",
+    "organization": "Oxy organization account ID",
+    "selectedPayer": "Transport payer: %{account}",
+    "payerMustConfirm": "Choosing a payer does not authorize payment. That account must review the route and price and confirm. Organization owners and admins can authorize.",
+    "getQuote": "Get a transport quote",
+    "request": "Request transport",
+    "keepPickup": "Keep personal pickup",
+    "missingFacts": "Complete the actual pickup and delivery addresses, coordinates, contacts and package details. Collection instructions are suggestions to review, not a structured address.",
+    "unavailable": "Moovo is unavailable or this account cannot access the request. Refresh to read current information.",
+    "unknown": "The result could not be confirmed. Refresh this request before trying again; an existing booking will not be repeated.",
+    "attach": "Save transport reference",
+    "newRequest": "Start a new transport request",
+    "route": "From %{pickup} to %{dropoff}",
+    "price": "Transport: %{price}. Quote expires %{expiry}.",
+    "pendingPayment": "Transport payment is pending. Payment collection is not available here; this action does not mark transport paid. The donation itself costs nothing.",
+    "cancellationWarning": "Cancelling a donation does not cancel its transport. Manage a requested or uncertain delivery separately in Moovo.",
+    "confirmPayer": "I am acting for %{account} and agree to this route and transport price",
+    "unconfirm": "Remove my confirmation",
+    "authorize": "Authorize this transport price",
+    "book": "Request the authorized transport",
+    "participantBooks": "Authorization saved. A donation participant can now request the transport before the quote expires.",
+    "shareApproval": "Share with the selected payer for approval",
+    "retryQuote": "Retry or renew quote",
+    "cancelProposal": "Cancel transport proposal; keep personal pickup",
+    "openMoovo": "Open delivery in Moovo",
+    "forbidden": "Your current account cannot authorize this payer. Switch to the selected payer account; organizations require owner or admin access.",
+    "signIn": "Sign in with the selected payer account to review this transport.",
+    "status": {
+      "quoting": "Preparing a quote. You can retry after a short wait.",
+      "quoted": "Waiting for the selected payer to authorize.",
+      "authorized": "Price authorized. Transport has not been requested yet.",
+      "booking": "Requesting transport. Refresh to check the result.",
+      "booking_unknown": "Transport result is uncertain. Do not create another request; check this operation in Moovo.",
+      "booked": "Transport requested.",
+      "cancelled": "Transport proposal cancelled."
+    },
+    "retryBooking": "Recover existing transport request",
+    "jobStatus": {
+      "requested": "Transport requested",
+      "offered": "Finding a courier",
+      "accepted": "Courier assigned",
+      "picked_up": "Materials picked up",
+      "in_transit": "In transit",
+      "delivered": "Delivered",
+      "cancelled": "Transport cancelled"
+    }
+  },
+  "supervisedShopping": {
+    "title": "見守り付きショッピング",
+    "intro": "確認済みの商品を探せます。支払い前に保護者が購入内容を承認します。",
+    "unavailable": "現在お買い物できません",
+    "unavailableBody": "アクセス権や商品が変更された可能性があります。最新の情報を再読み込みしてください。",
+    "empty": "確認済みの商品はまだありません",
+    "emptyBody": "運営による確認後に商品が表示されます。後ほどご確認ください。",
+    "add": "追加",
+    "remove": "削除",
+    "itemUnavailable": "この商品は利用できません",
+    "reviewPurchase": "購入内容を確認",
+    "changeError": "カートを更新できませんでした。商品を確認して再度お試しください。",
+    "approvalIntro": "配送先住所を入力してください。保護者は支払いを承認する前に購入内容全体を確認できます。",
+    "prepareError": "購入を準備できませんでした。同じ購入を復元するには再度お試しください。",
+    "requestApproval": "保護者に承認を依頼",
+    "pending": "保護者の承認待ち",
+    "approved": "支払いが許可されました",
+    "paid": "支払いを確認しました",
+    "closed": "この承認は終了しました",
+    "shipping": "送料",
+    "tax": "税金",
+    "discount": "割引",
+    "rounding": "通貨換算の丸め",
+    "total": "合計",
+    "viewApproval": "Oxyで承認内容を見る",
+    "continuePayment": "支払いへ進む",
+    "paymentError": "支払いは確認されていません。同じ支払いを再試行するか、状態を更新してください。",
+    "pendingBody": "保護者はOxyで商品と正確な合計金額を確認できます。承認後に支払いが可能になります。",
+    "refresh": "状態を更新",
+    "account": "見守りとアカウント"
+  },
+  "alia": {
+    "viewResults": "検索結果を見る"
   }
 }

@@ -2,7 +2,8 @@
  * The supplier-preflight operator surface (#122 operations 1–8).
  *
  * Lives under `/internal/supplier-preflight/*` behind
- * `requireProcurementOperator` — a SIXTH allow-list, because reading Mercaria's
+ * `requireProcurementOperator` — a SIXTH key
+ * (`procurement.operate`), because reading Mercaria's
  * wholesale cost base and flipping a market kill switch are supply-operations
  * powers and not payments, catalogue, cart-diagnostic, analytics or compliance
  * ones.
@@ -28,7 +29,7 @@ import type { SupplierSuppressionKind, SupplierSuppressionScope } from '@mercari
 import { SUPPLIER_FORBIDDEN_SOURCING_SIGNAL_LABELS } from '@mercaria/shared-types';
 import { getDb } from '../db/postgres.js';
 import { sendSuccess, sendError, ErrorCodes } from '../utils/api-response.js';
-import { procurementOperatorId } from '../middleware/procurement-operator-authz.js';
+import { operatorId } from '../middleware/operator-authz.js';
 import { validationError } from '../lib/errors/error-codes.js';
 import {
   findSupplierQuoteById,
@@ -366,7 +367,7 @@ export async function createSupplierSourcingPolicyHandler(
         healthMinimumSamples: body.healthMinimumSamples,
         healthMaxFailureBps: body.healthMaxFailureBps,
         healthSuppressionMinutes: body.healthSuppressionMinutes,
-        createdByOxyUserId: procurementOperatorId(req),
+        createdByOxyUserId: operatorId(req),
       },
       getDb(),
     );
@@ -384,7 +385,7 @@ export async function activateSupplierSourcingPolicyHandler(
 ): Promise<void> {
   try {
     const policy = await activateSupplierSourcingPolicy(
-      { policyId: requiredParam(req, 'id'), approvedByOxyUserId: procurementOperatorId(req) },
+      { policyId: requiredParam(req, 'id'), approvedByOxyUserId: operatorId(req) },
       getDb(),
     );
     sendSuccess(res, { policy });
@@ -466,7 +467,7 @@ export async function raiseSupplierSuppressionHandler(
         origin: 'operator',
         reason: body.reason,
         sourcingPolicyId: null,
-        raisedByOxyUserId: procurementOperatorId(req),
+        raisedByOxyUserId: operatorId(req),
         effectiveFrom: new Date(),
         expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
       },
@@ -489,7 +490,7 @@ export async function liftSupplierSuppressionHandler(
     const suppression = await liftSupplierPreflightSuppression(
       {
         suppressionId: requiredParam(req, 'id'),
-        liftedByOxyUserId: procurementOperatorId(req),
+        liftedByOxyUserId: operatorId(req),
         liftReason: body.reason,
       },
       getDb(),

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { type ComponentRef, useEffect, useRef, useState, type ReactNode } from 'react';
 import { View } from 'react-native';
 import type { SearchResults } from '@goway.to/sdk';
 import { Button } from '@oxy.so/bloom/button';
@@ -37,7 +37,7 @@ export function AddressPicker({
   const [lookup, setLookup] = useState<Lookup>();
   const [retry, setRetry] = useState(0);
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const detailsTrigger = useRef<View>(null);
+  const detailsTrigger = useRef<ComponentRef<typeof View>>(null);
   const term = query.trim();
   const searching = term.length >= 3;
   // A response belongs to exactly one term and locale, including during debounce.

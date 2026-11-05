@@ -200,6 +200,29 @@ export async function countVariantsForProduct(
   return rows[0]?.count ?? 0;
 }
 
+/**
+ * {@link countVariantsForProduct} for a page of products in one statement — the
+ * same predicate, grouped. A product with no counted variant is absent from
+ * the map and its count is 0.
+ */
+export async function countVariantsForProducts(
+  db: DatabaseOrTransaction,
+  productIds: readonly string[],
+): Promise<Map<string, number>> {
+  if (productIds.length === 0) return new Map();
+  const rows = await db
+    .select({ productId: canonicalVariants.productId, count: sql<number>`count(*)::int` })
+    .from(canonicalVariants)
+    .where(
+      and(
+        inArray(canonicalVariants.productId, [...productIds]),
+        ne(canonicalVariants.status, 'merged'),
+      ),
+    )
+    .groupBy(canonicalVariants.productId);
+  return new Map(rows.map((row) => [row.productId, row.count]));
+}
+
 /** One option assignment as the write services supply it. */
 export interface VariantAttributeInput {
   attributeKey: string;

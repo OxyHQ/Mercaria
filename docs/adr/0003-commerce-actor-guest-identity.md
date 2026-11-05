@@ -2,11 +2,12 @@
 
 - **Status:** Accepted
 - **Date:** 2026-08-09
+- **Amended:** 2026-10-25 — owner approved cookie-free commerce while preserving carts and existing access.
 - **Issue:** [#102](https://github.com/OxyHQ/Mercaria/issues/102), part of epic [#101](https://github.com/OxyHQ/Mercaria/issues/101)
 - **Binds:** #103–#112. #114 (Stripe guest checkout) amends this ADR for
   provider-identity mapping and inherits the identities defined here.
 
-## Context
+## Context at the original decision (2026-08-09)
 
 Every buyer-side path in this backend uses `oxyUserId` as both the
 authentication identity and the commerce ownership key, and the coupling is in
@@ -45,14 +46,12 @@ refuses it: **no synthetic Oxy users, ever** — Oxy owns identity, and a
 Mercaria-minted identifier must be structurally incapable of appearing where
 an Oxy id is expected.
 
-Two ecosystem rules frame the design. First, the Oxy session model is
-device-first and **zero-cookie**: Oxy identity has exactly one transport, the
-SDK's `{deviceId, deviceSecret}` mint, and Mercaria must not add a second one.
-Second, a guest is by definition someone with **no Oxy session** — so the
-guest credential is not Oxy identity and is not governed by that rule; it is
-Mercaria's own first-party domain state, like any other server-set state on
-`api.mercaria.co`. D9 justifies the cookie explicitly rather than by
-omission.
+Oxy identity uses the shared device/session SDK. Mercaria's guest cart and
+portal credentials remain separate commerce identities, never synthetic Oxy
+users. The 2026-10-25 decision applies the zero-cookie rule to these domain
+credentials too: explicit headers on web and native, with the same server-side
+ownership, expiry, rotation and revocation checks. The earlier cookie exception
+is superseded by D9/D10 below.
 
 The child issues implement this ADR: #103 (guest sessions + actor resolver),
 #104 (cart ownership + merge), #105 (inline contact/destination in checkout),
@@ -90,8 +89,8 @@ export type GuestActor = {
   readonly kind: 'guest';
   /** The `guest_sessions` row id — never the token. */
   readonly guestSessionId: string;
-  /** Which transport carried the credential; decides how a rotation returns (D9). */
-  readonly transport: 'cookie' | 'header';
+  /** Persisted issuance class for operational rollout; never authorization. */
+  readonly clientClass?: GuestClientClass;
 };
 
 export type AnonymousActor = { readonly kind: 'anonymous' };
@@ -139,7 +138,7 @@ re-verify possession at their own boundary.
 Two refusals are part of the precedence and are binding:
 
 - **A failed Oxy credential is a 401, never a downgrade.** An `Authorization`
-  header that fails verification does not fall through to the guest cookie —
+  header that fails verification does not fall through to a guest credential —
   a silently expired Oxy session degrading to a guest actor would split one
   person across two carts with no visible error. Absence of the header is
   what makes guest resolution reachable.
@@ -246,8 +245,7 @@ and POSTs it. The exchange consumes it atomically
 NULL AND revoked_at IS NULL AND expires_at > now() RETURNING …` — the empty
 vs one-row result IS the already-used answer, the moderation-event claim
 pattern) and mints a `portal` grant delivered per D9's transport contract
-(`__Host-mercaria_portal` cookie on web, `mgp_` token in the response for
-native). The portal URL after exchange carries no credential at all.
+(`X-Mercaria-Portal-Token` on web and native). The portal URL after exchange carries no credential at all.
 
 **The happy path also goes through a grant.** Checkout completion mints a
 `post_checkout` portal grant (`email_verified = false`) to the session that
@@ -376,57 +374,58 @@ Guest presentment currency is not persisted (no `user_preferences` row for
 guests): the client sends it per request, falling back to FAIR — the same
 fallback an Oxy user without preferences gets.
 
-### D9. One server contract for web cookies and native secure storage
+### D9. Explicit commerce headers on web and native
 
-The credential is ONE opaque bearer token with one lifecycle; only the
-carriage differs.
+Cart credentials (`mgs_`) and portal credentials (`mgp_`) retain their existing
+rows, ownership, absolute expiry and revocation rules. Both platforms present
+`X-Mercaria-Guest-Token` / `X-Mercaria-Portal-Token`. Issuing writes must declare
+`X-Mercaria-Guest-Transport: header` / `X-Mercaria-Portal-Transport: header`;
+otherwise they fail before creating a session or consuming a magic link.
+An old cookie alone never authenticates an ordinary request or silently creates
+a replacement cart. A verified Oxy actor still takes precedence, with any guest
+possession used only by the existing merge/claim operations.
 
-- **Web:** `__Host-mercaria_guest` (session) and `__Host-mercaria_portal`
-  (portal grant) — `HttpOnly; Secure; SameSite=Lax; Path=/`, set only by the
-  server on the API origin. The `__Host-` prefix forbids a `Domain`
-  attribute, so a subdomain can never plant or shadow the cookie (T1). The
-  storefront calls with `credentials: 'include'`; `mercaria.co` →
-  `api.mercaria.co` is same-site, so `Lax` passes it, and the existing
-  `PRODUCTION_ORIGINS` CORS allowlist in `app.ts` already names every
-  legitimate origin. The token never appears in a response body for
-  cookie-transport clients.
-- **Native:** the token is returned once in the response header
-  `X-Mercaria-Guest-Token`, stored in `expo-secure-store`, and presented as
-  the request header `X-Mercaria-Guest-Token`. A client declares header
-  transport with `X-Mercaria-Guest-Transport: header` on the issuing write;
-  absent means cookie.
-- **One resolver.** The server reads the header first, else the cookie, and
-  from there the path is identical: hash, unique-index lookup, expiry/
-  revocation/rotation-grace checks. Rotation answers in kind — `Set-Cookie`
-  for cookie transport, response `X-Mercaria-Guest-Token` for header
-  transport — which is why `GuestActor` carries `transport`.
+Responses carry tokens only in those headers, with `Cache-Control: no-store`,
+server absolute expiry and generation metadata. Web persists them on the
+storefront origin in localStorage; native retains expo-secure-store. Client
+storage cannot extend server deadlines or grant authority. Hydration precedes
+requests; ordered persistence, account-context fences and credential revisions
+prevent late responses from restoring cleared or superseded credentials.
+Switching an Oxy account does not revoke a separate valid commerce credential;
+merge, explicit portal sign-out and server revocation retain their existing
+meaning. Query/mutation state is isolated across Oxy account contexts.
 
-**Why a cookie does not violate the Oxy zero-cookie rule:** that rule
-abolished cookies as the OXY IDENTITY transport — the ecosystem session, SSO
-bounces, refresh-token families. This credential names no Oxy identity,
-never touches `auth.oxy.so`, is scoped to Mercaria's own API host, and
-exists precisely for the person who HAS no Oxy session. It is Mercaria
-domain state. The moment the person signs in, D2's precedence makes the Oxy
-SDK's device-first session the identity and the guest cookie is revoked at
-merge.
+The storefront uses shared Oxy linked transport for its Oxy session, refresh and
+origin boundary. Normal requests omit cookies and refuse redirects. Credential
+headers never go to arbitrary origins. JS-readable web persistence does not
+retain the former HttpOnly protection: trusted script/CSP controls, origin
+isolation, bounded token lifetimes and prompt revocation remain material. Tokens
+must never enter logs, analytics, rendered content or URLs.
 
-### D10. CSRF model for web guest writes: Origin verification
+### D10. Browser boundary and bounded retirement
 
-**The control is strict `Origin` verification against `PRODUCTION_ORIGINS`,
-with `SameSite=Lax` as defense in depth.** Every state-changing request
-authenticated by a guest cookie must carry an `Origin` (or, absent that,
-`Referer`) header whose origin is in the allowlist; a cookie-authenticated
-write with neither header is refused 403. Native traffic is untouched: it
-authenticates by custom header, which a cross-site attacker cannot attach —
-a custom header forces a CORS preflight, and the existing CORS layer refuses
-the origin.
+Ordinary API CORS is restricted to the existing origin authority, explicitly
+allows and exposes the commerce headers, and does not permit credentials mode.
+There is no ambient cookie authority or double-submit CSRF mechanism. Legacy
+web bundles may observe a CORS/network refusal rather than the server's 426;
+reload/update is required. Native clients already using headers remain valid.
 
-Double-submit is rejected, deliberately: it needs a second, JS-readable
-cookie plus an echo field — two more moving parts and a second authority to
-keep consistent — and its classic failure mode (sibling-subdomain cookie
-injection) is only closed by `__Host-` prefixes, which we require anyway.
-Origin verification reuses the ONE origin authority the backend already
-maintains for CORS; there is nothing new to drift.
+Production read-only evidence at `2026-10-25T15:00:46.286Z` found zero guest
+sessions, zero portal/exchange grants and three carts, all Oxy-owned. Therefore
+there is no guest/portal cookie redemption endpoint or database backfill. The
+three Oxy carts are untouched. Deployment must recheck the disabled issuer flags
+and population before cutover; unexpected live credentials require a reviewed
+preservation plan, not deletion or replacement.
+
+Only stateless referral evidence has a temporary migration endpoint. Its signed
+`clickedAt` and `expiresAt` and exact bytes remain unchanged; it grants no cart,
+portal or Oxy authority and creates no attribution. Exact Origin plus a custom
+marker protect exchange/acknowledgement, and only those two exact paths permit
+credentialed CORS. The client persists successfully before acknowledging the
+same cookie; a different tab's carrier cannot be erased. The fixed issuance
+cutoff is `2026-10-25T15:00:46Z`, and the endpoint closes 90 days later, the
+maximum original signed lifetime. Missing keys or invalid state fail uniformly;
+feature flags remain disabled. See [the cutover review](../reviews/2026-10-25-cookie-free-commerce.md).
 
 ### D11. Retention classes — per record type, never one blanket TTL
 
@@ -635,9 +634,9 @@ sequenceDiagram
     B->>API: POST /cart/items (no credential, Origin mercaria.co)
     API->>API: resolve → anonymous; write op + GUEST_COMMERCE_ENABLED
     API->>API: rate-check rl:guest-issue:ip; mint 32B token,<br/>INSERT guest_sessions (sha256), INSERT cart (guest_session_id), line
-    API-->>B: 201 cart + Set-Cookie __Host-mercaria_guest<br/>(HttpOnly, Secure, SameSite=Lax) — token never in body
-    B->>API: GET /cart (cookie)
-    API->>API: hash lookup → GuestActor{transport cookie}
+    API-->>B: 201 cart + X-Mercaria-Guest-Token<br/>(no-store) — token never in body
+    B->>API: GET /cart (explicit guest header)
+    API->>API: hash lookup → GuestActor{guestSessionId, clientClass}
     API-->>B: cart
 ```
 
@@ -669,7 +668,7 @@ sequenceDiagram
     App->>API: POST /cart/merge (Bearer + guest credential)
     API->>API: resolve → OxyActor{presentedGuestSessionId}
     API->>API: ONE transaction: load both carts,<br/>per-variant qty = min(sum, stock, line cap) — T9,<br/>move lines into oxy cart, DELETE guest cart,<br/>revoke guest session (revoked_at)
-    API-->>App: merged cart + cookie cleared / token discard instruction
+    API-->>App: merged cart + token discard header
     App->>API: POST /cart/merge (retry, same revoked credential)
     API-->>App: 200 — revoked session, merge already done: idempotent no-op
 ```
@@ -681,7 +680,7 @@ sequenceDiagram
     participant G as Guest client
     participant API as Mercaria API
     participant S as Stripe
-    G->>API: POST /checkout {contact.email, destination, Idempotency-Key}<br/>(guest credential; Origin-checked if cookie)
+    G->>API: POST /checkout {contact.email, destination, Idempotency-Key}<br/>(explicit guest credential header)
     API->>API: D18 gate — refuse sellerType user groups for a guest;<br/>readiness gate, reprice, reserve
     API->>API: ONE txn: guest_checkouts (email ciphertext+HMAC),<br/>orders buyer_origin guest + buyer_guest_checkout_id,<br/>payment record (checkout_group_id)
     API->>S: PaymentIntent.create (ADR 0001 D3/D4, unchanged)
@@ -739,7 +738,7 @@ sequenceDiagram
     U->>API: POST /guest/orders/exchange {token} (SPA read the fragment)
     API->>API: atomic consume: UPDATE … WHERE consumed_at IS NULL RETURNING;<br/>empty result = already used → 401
     API->>API: INSERT portal grant (30 d, email_verified true,<br/>scope checkout_group_id)
-    API-->>U: Set-Cookie __Host-mercaria_portal (or header token)
+    API-->>U: X-Mercaria-Portal-Token (no-store)
     U->>API: GET /guest/orders/:groupId — every query joins through grant scope
 ```
 
@@ -780,7 +779,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant T as Thief (stolen portal cookie)
+    participant T as Thief (stolen portal credential)
     participant V as Victim
     participant API as Mercaria API
     T->>API: GET /guest/orders/:groupId (stolen credential)
@@ -826,9 +825,9 @@ sequenceDiagram
 
 | # | Threat | Controls |
 |---|---|---|
-| T1 | Session fixation | Tokens are issued ONLY by the server on a write (D3) — no endpoint accepts a client-proposed token or reads one from a URL; `__Host-` forbids `Domain`, so no subdomain can plant a cookie; rotation on privilege elevation; sign-in revokes rather than upgrades the guest session (D2/D3). |
-| T2 | Cookie theft and replay | `HttpOnly; Secure; __Host-` (no JS read, no non-TLS send, no subdomain shadowing); 30-day idle / 90-day absolute expiry; rotation every 7 active days; revocation via "secure my access" (diagram 10); scope bounds the prize — a cart token gets a cart, a portal token gets one group (I3). IP/device binding is deliberately NOT used (mobile network churn would log guests out at random; and I2 forbids device traits as credentials). |
-| T3 | CSRF | D10: strict Origin allowlist verification on every cookie-authenticated write, `SameSite=Lax` in depth; native header transport forces CORS preflight, refused by the existing allowlist. |
+| T1 | Session fixation | Tokens are issued ONLY by the server on a write (D3) — no endpoint accepts a client-proposed token or reads one from a URL; origin-isolated storage and explicit header transport; rotation on privilege elevation; sign-in revokes rather than upgrades the guest session (D2/D3). |
+| T2 | Credential theft and replay | HTTPS and explicit same-origin header transport; JS-readable web storage requires trusted-script/CSP protection; 30-day idle / 90-day absolute expiry; rotation every 7 active days; revocation via "secure my access" (diagram 10); scope bounds the prize — a cart token gets a cart, a portal token gets one group (I3). IP/device binding is deliberately NOT used (mobile network churn would log guests out at random; and I2 forbids device traits as credentials). |
+| T3 | CSRF | D10: no ordinary cookie authority; explicit headers force CORS preflight. The temporary referral exchange requires exact Origin and a versioned marker. |
 | T4 | Magic-link leakage (logs, referrers, previews) | Exchange token rides the URL FRAGMENT (never in server logs, proxy logs or `Referer`); 15-minute single-use with atomic consumption — an email-scanner prefetch that somehow executed the SPA burns the link visibly, it cannot silently share it; the durable credential is minted only at exchange and never appears in any URL (D5). |
 | T5 | Email enumeration | `POST /guest/orders/recover` answers 202 identically for match and non-match; work happens async (enqueue-then-send) so timing does not distinguish; rate limits per `email_hash` and per IP (D12's two permitted hash uses). |
 | T6 | Order-number guessing | Order numbers (`MRC-000123`, sequential, printed) are treated as PUBLIC and are never an access factor (I4); portal reads authorize by grant scope only; the recover endpoint uses the number as a narrowing hint, never a proof. |

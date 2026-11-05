@@ -539,7 +539,7 @@ with per-entry numeric bounds, and every URL encoding of one is a parser somebod
 has to agree on. The response carries nothing viewer-specific, so a caching layer
 keys on the body.
 
-**There is deliberately no operator surface and no seventh allow-list.** A facet
+**There is deliberately no operator surface and no new operator key.** A facet
 rail is a projection over rows other domains own, every one of which already has
 an operator surface behind its own gate.
 

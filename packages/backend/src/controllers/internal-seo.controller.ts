@@ -34,7 +34,7 @@ import type { Request, Response } from 'express';
 import { SEO_SITEMAP_COLLECTIONS } from '@mercaria/shared-types';
 import { config } from '../config/index.js';
 import { log } from '../lib/logger.js';
-import { catalogOperatorId } from '../middleware/catalog-operator-authz.js';
+import { operatorId } from '../middleware/operator-authz.js';
 import { PUBLIC_ROUTES } from '../services/seo/routes.js';
 import { diagnoseSeoUrl } from '../services/seo/seo.service.js';
 import { readSitemapCoverage } from '../services/seo/sitemap.service.js';
@@ -52,7 +52,7 @@ import { routeParam } from '../utils/request.js';
  */
 export async function seoDiagnoseHandler(req: Request, res: Response): Promise<void> {
   const { path } = req.query as { path: string };
-  const operator = catalogOperatorId(req);
+  const operator = operatorId(req);
   try {
     const url = new URL(path, config.web.origin);
     const diagnosis = await diagnoseSeoUrl({
@@ -102,7 +102,7 @@ export async function seoDiagnoseHandler(req: Request, res: Response): Promise<v
  * reads `availability: 'planned'` here and stops looking.
  */
 export function seoRouteRegistryHandler(req: Request, res: Response): void {
-  const operator = catalogOperatorId(req);
+  const operator = operatorId(req);
   log.general.info({ operator }, '[Seo] operator read the public route registry');
   sendSuccess(res, {
     routes: PUBLIC_ROUTES,
@@ -123,7 +123,7 @@ export function seoRouteRegistryHandler(req: Request, res: Response): void {
 export async function seoSitemapCoverageHandler(req: Request, res: Response): Promise<void> {
   const collection = routeParam(req, 'collection');
   const pageParam = routeParam(req, 'page');
-  const operator = catalogOperatorId(req);
+  const operator = operatorId(req);
   try {
     if (!isSitemapCollection(collection) || !/^\d+$/u.test(pageParam)) {
       sendError(res, ErrorCodes.NOT_FOUND, 'Not found', 404);

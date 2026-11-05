@@ -192,13 +192,20 @@ function analyticsNamedIn(directory: string, readDir: DirectoryReader = readDire
 /** The two directories this domain OWNS outright, walked recursively. */
 const ANALYTICS_OWNED_DIRECTORIES = ['services/analytics', 'db/analytics'] as const;
 
-/** The shared directories a domain module lives in under a domain NAME. */
+/**
+ * The shared directories a domain module lives in under a domain NAME.
+ *
+ * `middleware` is not one of them any more: its only analytics module was the
+ * operator gate, now `requireAnalyticsOperator` in the shared
+ * `middleware/operator-authz.ts`, and a configured directory holding no module
+ * is a hole (below). An analytics-named middleware module added later puts
+ * `middleware` back here, with its floor.
+ */
 const ANALYTICS_SHARED_DIRECTORIES = [
   'controllers',
   'controllers/admin',
   'routes',
   'routes/admin',
-  'middleware',
   'db/schema',
 ] as const;
 
@@ -272,7 +279,6 @@ const ANALYTICS_MODULE_FLOORS: ReadonlyArray<readonly [string, number]> = [
   ['controllers/admin/', 1],
   ['routes/', 1],
   ['routes/admin/', 1],
-  ['middleware/', 1],
   ['db/schema/', 1],
 ];
 

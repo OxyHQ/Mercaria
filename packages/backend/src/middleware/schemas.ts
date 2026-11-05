@@ -1464,7 +1464,7 @@ export const createAssetVersionSchema = z.object({
  * would make it an attacker-chosen value and the duplicate detector in W8 a
  * thing an attacker controls"* (#1015 W1 requirement 7). The server reads all
  * three from the asset service through
- * `services/digital/storage.ts` `describeAssetObject`. A field for any of them
+ * `services/digital/storage.ts` `adoptAssetObject`. A field for any of them
  * here would be the exact value that rule forbids, arriving politely validated.
  *
  * `storageKey` is the Oxy `file_id` and is NOT `digitalRowIdSchema`: it is a

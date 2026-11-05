@@ -16,9 +16,18 @@
  *
  * Every class is answered individually and a retained one names its reason from
  * a bounded set (#111 export requirement 3). "We deleted everything" is not a
- * sentence this module can produce, because the receipt is assembled from the
- * INVENTORY: a class whose disposition is `retained_under_obligation` says so,
- * and the financial records are exactly that.
+ * sentence this module can produce, because the receipt is assembled over the
+ * INVENTORY: a class the request cannot erase says `retained_under_obligation`
+ * with its reason, and the financial records are exactly that.
+ *
+ * ## …and never claims a deletion it did not perform (M8-01)
+ *
+ * The M8 review found this module wrote nothing and answered every erasable
+ * class with one affected row — a false receipt that only being unreachable
+ * kept from being issued. An erasure now runs D15 in the transaction that
+ * records it, and every `affectedRowCount` is a `RETURNING` set from that
+ * transaction. It is reached from `POST /guest/orders/:groupId/data-requests`
+ * (`routes/guest-orders.ts`), behind a FRESH inbox proof.
  *
  * ## What an export excludes
  *
@@ -35,9 +44,16 @@ import type {
   GuestDataRetentionReason,
 } from '@mercaria/shared-types';
 import { GUEST_DATA_INVENTORY } from '@mercaria/shared-types';
+import { eq } from 'drizzle-orm';
 import { log } from '../../lib/logger.js';
-import { getDb } from '../../db/postgres.js';
-import { findGuestCheckoutByGroup } from '../../db/guests/guestCheckoutRepository.js';
+import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
+import { orders } from '../../db/schema/orders.js';
+import {
+  findGuestCheckoutByGroup,
+  minimizeGuestCheckoutContact,
+} from '../../db/guests/guestCheckoutRepository.js';
+import { deleteGuestSessionAndCarts } from '../../db/guests/guestSessionRepository.js';
+import { revokeGroupGrants } from '../../db/guestPortal/grantRepository.js';
 import {
   recordDataRequest,
   type ClassDispositionInput,
@@ -82,6 +98,17 @@ export type GuestDataRequestOutcome =
  * what it may not. Both write exactly one audit row plus one disposition per
  * class, in one transaction, because a request row with no dispositions reads
  * as a request nobody answered.
+ *
+ * ## The erasure and its receipt are ONE transaction (M8-01)
+ *
+ * The M8 review found this function wrote nothing and reported one affected
+ * row per class. Now every count on the receipt is a `RETURNING` set from the
+ * transaction that writes the receipt: if the erasure rolls back, so does the
+ * claim that it happened, and a class the request cannot reach says so with a
+ * bounded reason rather than a number. ADR 0003 D15's post-payment regime, in
+ * full: the contact is anonymized (by the writer the retention job uses), every
+ * live portal credential for the group is revoked, and the session that placed
+ * the checkout is deleted with its cart.
  */
 export async function requestGuestData(input: {
   subject: GuestDataRequestSubject;
@@ -94,50 +121,41 @@ export async function requestGuestData(input: {
     return { outcome: 'refused', refusal: 'unknown_checkout' };
   }
 
-  // A hold pauses ONLY the class it names (#111 retention rule 7), so an
-  // export is never blocked by a hold and an erasure is blocked only for the
-  // classes actually held. The contact classes are the ones an erasure would
-  // touch, so those are the two consulted.
-  const contactHeld =
-    input.kind === 'export'
-      ? false
-      : (await isRetentionHeld(db, {
-          checkoutGroupId: input.subject.checkoutGroupId,
-          retentionClass: 'plaintext_equivalent_contact',
-        })) ||
-        (await isRetentionHeld(db, {
-          checkoutGroupId: input.subject.checkoutGroupId,
-          retentionClass: 'unpaid_pending_checkout',
-        }));
-
-  const dispositions = composeDispositions({
-    kind: input.kind,
-    contactHeld,
-    alreadyAnonymized: checkout.anonymizedAt !== null,
-  });
-
-  const requestId = await db.transaction(async (tx) =>
-    recordDataRequest(tx, {
+  const { requestId, dispositions } = await db.transaction(async (tx) => {
+    const composed =
+      input.kind === 'export'
+        ? composeExportDispositions()
+        : await eraseGroup(tx, {
+            checkoutGroupId: input.subject.checkoutGroupId,
+            guestCheckoutId: checkout.id,
+            guestSessionId: checkout.guestSessionId,
+            now: input.now,
+          });
+    const id = await recordDataRequest(tx, {
       checkoutGroupId: input.subject.checkoutGroupId,
       kind: input.kind,
       proof: input.subject.proof,
       ...(input.subject.proof === 'verified_portal_grant'
         ? { sourceGrantId: input.subject.grantId }
         : { requestedByOxyUserId: input.subject.oxyUserId }),
-      state: dispositions.some((entry) => entry.disposition === 'retained_under_obligation')
-        ? 'partially_completed'
-        : 'completed',
-      dispositions,
+      state: stateFor(composed),
+      dispositions: composed,
       now: input.now,
-    }),
-  );
+    });
+    return { requestId: id, dispositions: composed };
+  });
 
   // An operator ACCESS to a sensitive guest record is counted; a data subject's
   // own request is not the same thing and is not counted as one. What IS worth
   // a number is that erasure requests are being made at all, which the request
-  // rows themselves answer.
+  // rows themselves answer. The log carries counts and ids, never a value.
   log.guest.info(
-    { requestId, kind: input.kind, proof: input.subject.proof },
+    {
+      requestId,
+      kind: input.kind,
+      proof: input.subject.proof,
+      affectedRows: dispositions.reduce((sum, entry) => sum + entry.affectedRowCount, 0),
+    },
     '[GuestData] answered a data-subject request',
   );
 
@@ -146,9 +164,7 @@ export async function requestGuestData(input: {
     receipt: {
       requestId,
       kind: input.kind,
-      state: dispositions.some((entry) => entry.disposition === 'retained_under_obligation')
-        ? 'partially_completed'
-        : 'completed',
+      state: stateFor(dispositions),
       checkoutGroupId: input.subject.checkoutGroupId,
       outcomes: dispositions.map((entry) => ({
         dataClass: entry.dataClass,
@@ -160,54 +176,185 @@ export async function requestGuestData(input: {
   };
 }
 
+/** `partially_completed` whenever any class survived — for a guest group, always. */
+function stateFor(
+  dispositions: readonly ClassDispositionInput[],
+): 'completed' | 'partially_completed' {
+  return dispositions.some((entry) => entry.disposition === 'retained_under_obligation')
+    ? 'partially_completed'
+    : 'completed';
+}
+
+/** What one erasure actually changed — every figure a `RETURNING` set. */
+export interface GroupErasureCounts {
+  /** Whether any order references the group: decides pending versus paid. */
+  readonly groupHasOrders: boolean;
+  /** Whether a live legal hold kept the contact on the row. */
+  readonly contactHeld: boolean;
+  readonly contactMinimized: number;
+  readonly grantsRevoked: number;
+  readonly sessionsDeleted: number;
+  readonly cartsDeleted: number;
+}
+
 /**
- * What happens to each class, derived from the INVENTORY.
+ * The classes whose live hold keeps the contact on the row.
  *
- * Derived rather than listed, which is what makes requirement 3 hold for
- * classes nobody has written yet: a class added to `GUEST_DATA_INVENTORY` with
- * `disposition: 'retained_under_obligation'` appears in the retained half of
- * every future receipt automatically, and one added with no thought at all
- * still appears — it cannot be silently omitted, because the loop is over the
- * inventory and not over a list in this file.
+ * `lookup_hash` is here beside the two contact classes because the hash leaves
+ * in the same statement as the ciphertext (M8-09), so a hold on it is a hold on
+ * the row.
  */
-function composeDispositions(input: {
-  kind: GuestDataRequestKind;
-  contactHeld: boolean;
-  alreadyAnonymized: boolean;
-}): readonly ClassDispositionInput[] {
-  return GUEST_DATA_INVENTORY.map((record): ClassDispositionInput => {
-    if (input.kind === 'export') {
-      return {
-        dataClass: record.dataClass,
-        disposition: record.exportable ? 'deleted' : 'retained_under_obligation',
-        ...(record.exportable ? {} : { retainedReason: exportExclusionReason(record.dataClass) }),
-        affectedRowCount: 0,
-      };
+const CONTACT_RETENTION_CLASSES = [
+  'plaintext_equivalent_contact',
+  'unpaid_pending_checkout',
+  'lookup_hash',
+] as const;
+
+/**
+ * Perform D15 for one group inside the caller's transaction, and answer every
+ * class from what was done.
+ *
+ * A legal hold pauses ONLY the class it names (#111 retention rule 7), so a
+ * hold on the contact keeps the contact and nothing else: the session, the cart
+ * and the credentials are not pausable classes and still go.
+ */
+async function eraseGroup(
+  tx: DatabaseOrTransaction,
+  input: { checkoutGroupId: string; guestCheckoutId: string; guestSessionId: string; now: Date },
+): Promise<readonly ClassDispositionInput[]> {
+  let contactHeld = false;
+  for (const retentionClass of CONTACT_RETENTION_CLASSES) {
+    if (await isRetentionHeld(tx, { checkoutGroupId: input.checkoutGroupId, retentionClass })) {
+      contactHeld = true;
     }
-    if (record.disposition === 'retained_under_obligation' || record.disposition === 'not_stored') {
-      return {
-        dataClass: record.dataClass,
-        disposition: record.disposition,
-        ...(record.disposition === 'retained_under_obligation'
-          ? { retainedReason: retentionReasonFor(record.dataClass) }
-          : {}),
-        affectedRowCount: 0,
-      };
-    }
-    if (input.contactHeld) {
-      return {
-        dataClass: record.dataClass,
-        disposition: 'retained_under_obligation',
-        retainedReason: 'legal_hold',
-        affectedRowCount: 0,
-      };
-    }
-    return {
-      dataClass: record.dataClass,
-      disposition: record.disposition,
-      affectedRowCount: input.alreadyAnonymized ? 0 : 1,
-    };
+  }
+  const [anyOrder] = await tx
+    .select({ id: orders.id })
+    .from(orders)
+    .where(eq(orders.checkoutGroupId, input.checkoutGroupId))
+    .limit(1);
+
+  const contactMinimized =
+    !contactHeld && (await minimizeGuestCheckoutContact(tx, input.guestCheckoutId, input.now))
+      ? 1
+      : 0;
+  // Every live credential for the group, the presenting one included — D15
+  // says ALL, and sparing the requester's own would leave standing the one
+  // credential most likely to sit in a borrowed or stolen browser.
+  const revoked = await revokeGroupGrants(tx, input.checkoutGroupId, input.now);
+  const removed = await deleteGuestSessionAndCarts(tx, input.guestSessionId);
+
+  return composeErasureDispositions({
+    groupHasOrders: anyOrder !== undefined,
+    contactHeld,
+    contactMinimized,
+    grantsRevoked: revoked.length,
+    sessionsDeleted: removed.sessions,
+    cartsDeleted: removed.carts,
   });
+}
+
+/**
+ * Every class's answer to an erasure, from what {@link eraseGroup} did.
+ *
+ * An EXHAUSTIVE switch over the class, looped over the inventory: a class added
+ * to `GUEST_DATA_CLASSES` without an answer here fails `tsc`, and a class
+ * silently omitted from a receipt is impossible because the loop is over the
+ * inventory rather than over a list in this file. The version the M8 review
+ * read reported the inventory's `disposition` field with one affected row —
+ * a field describing what the RETENTION SCHEDULE eventually does, reported as
+ * what the REQUEST did, while the request did nothing (M8-01).
+ */
+export function composeErasureDispositions(
+  counts: GroupErasureCounts,
+): readonly ClassDispositionInput[] {
+  const retained = (
+    dataClass: GuestDataClass,
+    retainedReason: GuestDataRetentionReason,
+    affectedRowCount = 0,
+  ): ClassDispositionInput => ({
+    dataClass,
+    disposition: 'retained_under_obligation',
+    retainedReason,
+    affectedRowCount,
+  });
+  const contact = (dataClass: GuestDataClass, applies: boolean): ClassDispositionInput => {
+    // A group is EITHER unpaid or paid, never both. The class that does not
+    // describe this group stores nothing for it, and answering `minimized`
+    // with zero rows would put it in the receipt's erased half.
+    if (!applies) return { dataClass, disposition: 'not_stored', affectedRowCount: 0 };
+    if (counts.contactHeld) return retained(dataClass, 'legal_hold');
+    return { dataClass, disposition: 'minimized', affectedRowCount: counts.contactMinimized };
+  };
+
+  return GUEST_DATA_INVENTORY.map((record): ClassDispositionInput => {
+    const dataClass = record.dataClass;
+    switch (dataClass) {
+      case 'guest_session_metadata':
+        return { dataClass, disposition: 'deleted', affectedRowCount: counts.sessionsDeleted };
+      case 'cart_and_discount_intent':
+        return { dataClass, disposition: 'deleted', affectedRowCount: counts.cartsDeleted };
+      case 'pending_guest_checkout':
+        return contact(dataClass, !counts.groupHasOrders);
+      case 'paid_guest_checkout':
+        return contact(dataClass, counts.groupHasOrders);
+      case 'order_buyer_and_contact_snapshot':
+      case 'destination_snapshot':
+      case 'claim_operations':
+      case 'payment_refund_dispute_ledger_payout':
+        // D15: GDPR Art. 17(3)(b). The shipping snapshot is part of the
+        // invoice-grade record and stays with it.
+        return retained(dataClass, 'financial_record');
+      case 'post_purchase_requests':
+        return retained(dataClass, 'merchant_fulfilment_copy');
+      case 'access_grants_and_portal_sessions':
+        // REVOKED, every one, and the rows stay until their own `purge_at` as
+        // the audit of who could reach the purchase (ADR 0003 D11). They hold a
+        // digest of a dead credential and no contact.
+        return retained(dataClass, 'security_audit', counts.grantsRevoked);
+      case 'email_verification_and_recovery':
+      case 'security_and_audit_events':
+        // Keyed digests and counts with no group handle, so the request has
+        // nothing to find them BY — the property they were built for.
+        // `guest_contact_suppressions` is the M8-08 decision, not an oversight.
+        return retained(dataClass, 'security_audit');
+      case 'transactional_notification_events':
+      case 'product_analytics_and_experimentation':
+      case 'merchant_facing_aggregates':
+        // No recipient, no contact and no Oxy id in any of them, and each
+        // leaves on the published schedule. A queued message for this group can
+        // no longer send once the contact is gone (`contact_anonymized`), and
+        // the analytics event log is append-only by #77's rule — its only
+        // permitted removal is the retention sweep.
+        return retained(dataClass, 'expires_on_schedule');
+      case 'provider_customer_wallet_reference':
+        return { dataClass, disposition: 'not_stored', affectedRowCount: 0 };
+      default: {
+        const unanswered: never = dataClass;
+        throw new Error(`guest data class ${String(unanswered)} has no erasure answer`);
+      }
+    }
+  });
+}
+
+/**
+ * The export receipt: which classes an export covers.
+ *
+ * NOT ROUTED, and it must not be until it is fixed: it answers an exportable
+ * class with `deleted` because `GUEST_DATA_DISPOSITIONS` has no `exported`
+ * value, so a routed export would write an erasure record for data it only
+ * read. Unchanged by M8-01 apart from moving here (`HANDOFF.md` carries it).
+ * An export removes nothing, so no class is counted as affected.
+ */
+function composeExportDispositions(): readonly ClassDispositionInput[] {
+  return GUEST_DATA_INVENTORY.map(
+    (record): ClassDispositionInput => ({
+      dataClass: record.dataClass,
+      disposition: record.exportable ? 'deleted' : 'retained_under_obligation',
+      ...(record.exportable ? {} : { retainedReason: exportExclusionReason(record.dataClass) }),
+      affectedRowCount: 0,
+    }),
+  );
 }
 
 /**
@@ -228,20 +375,6 @@ function exportExclusionReason(dataClass: GuestDataClass): GuestDataRetentionRea
       return 'security_audit';
     default:
       return 'merchant_fulfilment_copy';
-  }
-}
-
-/** Why a class survives an erasure. */
-function retentionReasonFor(dataClass: GuestDataClass): GuestDataRetentionReason {
-  switch (dataClass) {
-    case 'payment_refund_dispute_ledger_payout':
-      return 'financial_record';
-    case 'provider_customer_wallet_reference':
-      return 'provider_record';
-    case 'post_purchase_requests':
-      return 'merchant_fulfilment_copy';
-    default:
-      return 'financial_record';
   }
 }
 

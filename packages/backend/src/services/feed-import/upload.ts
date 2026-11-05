@@ -1,5 +1,16 @@
 /**
- * Explicitly uploaded feed artefacts (#63 §"Supported inputs" 6, security 3).
+ * Uploaded feed artefacts (#63 §"Supported inputs" 6, security 3).
+ *
+ * ## The bytes go straight to storage and never through this API
+ *
+ * A feed is gigabytes, and every Oxy API hostname sits behind a proxy that
+ * refuses a request body over 100 MB. So a client uploads a feed through a
+ * SESSION (`upload-session.service.ts`): it PUTs presigned parts to Oxy Files'
+ * storage, and the file is a PRIVATE file the Mercaria application owns. What
+ * this module does is read it back — the first bytes, to refuse a container
+ * before anything is accepted, and the whole object, for a preview, a
+ * validation or a run. Every task reads the same object, so an upload no
+ * longer goes with the task that received it.
  *
  * ## Path traversal is UNREPRESENTABLE, not scanned for
  *
@@ -12,29 +23,18 @@
  *
  * The one name that does exist is the merchant's own filename, and it is
  * reduced to a LABEL: basename only, a positive character class, no `..`, no
- * leading dot, bounded. The stored artefact is never named after it —
- * `storage_key` is minted from CSPRNG bytes and is the only thing that reaches
- * the filesystem, so even a filename that somehow passed the CHECK could not
- * decide where a byte lands.
+ * leading dot, bounded. Nothing is stored under it — the stored artefact is an
+ * Oxy file id, and storage is told a name Mercaria chose.
  *
- * ## The bytes are EPHEMERAL and the domain says so
+ * ## An upload Oxy no longer serves is a REFUSAL, never an empty feed
  *
- * Mercaria has no blob store of its own, so a staged upload lives on the disk of
- * the ECS task that received it. `feed_uploads.status = 'missing'` is a real
- * state rather than an error path: a run whose artefact went with the task that
- * took it refuses with `upload_missing`, which is retryable and instructs a
- * re-upload — instead of importing zero records and reporting a complete
- * enumeration, which is the one shape that retires a catalogue. Durable object
- * storage is the obvious later improvement and it changes this file and nothing
- * else.
+ * `upload_missing` names the remedy (upload it again) instead of importing zero
+ * records and reporting a complete enumeration, which is the one shape that
+ * retires a catalogue.
  */
 
-import { createHash, randomBytes } from 'node:crypto';
-import { createReadStream, createWriteStream } from 'node:fs';
-import { mkdir, stat, unlink } from 'node:fs/promises';
-import { join } from 'node:path';
 import type { FeedCompression, FeedForbiddenContainer } from '@mercaria/shared-types';
-import { config } from '../../config/index.js';
+import { mintPrivateDownloadUrls } from '../catalog-media/oxy-files.js';
 import { FeedImportRefusal } from './errors.js';
 
 /** The magic bytes of every container Mercaria refuses, plus the one it accepts. */
@@ -58,7 +58,7 @@ const CONTAINER_SIGNATURES: readonly {
 const GZIP_SIGNATURE = [0x1f, 0x8b];
 
 /** How much of the artefact the container check reads. Enough to see a tar header. */
-const SIGNATURE_PREFIX_BYTES = 512;
+export const SIGNATURE_PREFIX_BYTES = 512;
 
 /**
  * Refuse a multi-entry container, by name, from its bytes.
@@ -111,118 +111,136 @@ export function sanitizeUploadFilename(raw: string): string {
   return cleaned;
 }
 
-/** Where a staged artefact lives. Minted from CSPRNG bytes, never from a name. */
-export function mintUploadStorageKey(): string {
-  return randomBytes(24).toString('base64url');
+/** A stored upload, opened for reading. `close` releases the connection early. */
+export interface OpenedUpload {
+  readonly bytes: AsyncIterable<Uint8Array>;
+  readonly close: () => void;
 }
 
-function uploadDirectory(): string {
-  return join(config.feedImport.stagingDir, 'uploads');
-}
+const MISSING_MESSAGE =
+  'The uploaded feed file is no longer stored. Upload the file again and draft a version ' +
+  'that cites the new upload.';
 
-export function uploadPath(storageKey: string): string {
-  if (!/^[A-Za-z0-9_-]{8,128}$/u.test(storageKey)) {
-    // The CHECK enforces the same shape; this refuses a value that reached here
-    // some other way, before it becomes a path.
-    throw new FeedImportRefusal('upload_missing', 'The stored upload reference is not usable.');
+/** A short-lived URL for the stored file, or the refusal a re-upload fixes. */
+async function storedUploadUrl(fileId: string): Promise<string> {
+  let minted: Awaited<ReturnType<typeof mintPrivateDownloadUrls>>;
+  try {
+    minted = await mintPrivateDownloadUrls([fileId]);
+  } catch (error) {
+    // Oxy unreachable or refusing for now: retryable, and never a fact about
+    // the file. The cause carries no URL (the adapter's errors never do).
+    throw new FeedImportRefusal('upstream_unavailable', 'The feed file store is unavailable.', {
+      retryable: true,
+      cause: error,
+    });
   }
-  return join(uploadDirectory(), storageKey);
+  const url = minted.find((entry) => entry.id === fileId)?.url;
+  // Absence is Oxy's answer for a file it will not serve: deleted, taken down,
+  // or not this application's. Each is permanent for this upload.
+  if (url === undefined) throw new FeedImportRefusal('upload_missing', MISSING_MESSAGE);
+  return url;
 }
 
-/** What a staged upload turned out to be. */
-export interface StagedUpload {
-  readonly storageKey: string;
-  readonly byteSize: number;
-  readonly contentDigest: string;
-  readonly compression: FeedCompression;
+async function fetchStored(
+  url: string,
+  init: { range?: string; signal?: AbortSignal },
+): Promise<Response> {
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      redirect: 'error',
+      ...(init.range === undefined ? {} : { headers: { range: init.range } }),
+      ...(init.signal === undefined ? {} : { signal: init.signal }),
+    });
+  } catch (error) {
+    if (init.signal?.aborted) throw error;
+    throw new FeedImportRefusal('upstream_unavailable', 'Reading the stored feed file failed.', {
+      retryable: true,
+      cause: error,
+    });
+  }
+  if (response.status === 404 || response.status === 410) {
+    await response.body?.cancel().catch(() => undefined);
+    throw new FeedImportRefusal('upload_missing', MISSING_MESSAGE);
+  }
+  if (!response.ok || !response.body) {
+    await response.body?.cancel().catch(() => undefined);
+    // Includes a 403 from a URL that expired between minting and fetching —
+    // the next attempt mints a fresh one, so it is retryable.
+    throw new FeedImportRefusal(
+      'upstream_unavailable',
+      `Reading the stored feed file answered ${response.status}.`,
+      { retryable: true },
+    );
+  }
+  return response;
 }
 
 /**
- * Write an uploaded artefact to the task's own disk, bounded.
+ * Open a stored upload for reading, start to end.
  *
- * The container check runs on the FIRST bytes, before the rest is written, so a
- * zip is refused without ever being fully stored. The download cap applies here
- * exactly as it does to a URL fetch — an upload is not a trusted origin just
- * because a merchant authenticated to send it.
+ * Streamed and never buffered — the caps live one layer up, in `bytes.ts`,
+ * exactly as they do for a URL fetch, because an upload is not a trusted origin
+ * just because a merchant authenticated to send it.
  */
-export async function stageUploadedFeed(
-  bytes: AsyncIterable<Uint8Array>,
-  declaredCompression: FeedCompression,
-): Promise<StagedUpload> {
-  await mkdir(uploadDirectory(), { recursive: true });
-  const storageKey = mintUploadStorageKey();
-  const target = uploadPath(storageKey);
-  const hash = createHash('sha256');
-  const handle = createWriteStream(target);
-
-  let byteSize = 0;
-  let prefix = Buffer.alloc(0);
-  let detected: FeedCompression | null = null;
-
-  try {
-    for await (const chunk of bytes) {
-      const buffer = Buffer.from(chunk);
-      byteSize += buffer.byteLength;
-      if (byteSize > config.feedImport.maxDownloadBytes) {
-        throw new FeedImportRefusal(
-          'download_too_large',
-          `The upload exceeded the ${config.feedImport.maxDownloadBytes}-byte limit.`,
-        );
-      }
-      if (detected === null) {
-        prefix = Buffer.concat([prefix, buffer]);
-        if (prefix.length >= SIGNATURE_PREFIX_BYTES) detected = detectUploadContainer(prefix);
-      }
-      hash.update(buffer);
-      if (!handle.write(buffer)) {
-        await new Promise<void>((resolve) =>
-          handle.once('drain', () => {
-            resolve();
-          }),
-        );
-      }
-    }
-    if (detected === null) detected = detectUploadContainer(prefix);
-    if (detected !== declaredCompression) {
-      throw new FeedImportRefusal(
-        'unsupported_format',
-        `The upload is ${detected === 'gzip' ? 'gzip-compressed' : 'not compressed'} but the ` +
-          `mapping version declares ${declaredCompression}. A mismatch is handed to the parser ` +
-          'as binary and produces a report full of malformed records instead of one refusal.',
-      );
-    }
-  } catch (error: unknown) {
-    handle.destroy();
-    await unlink(target).catch(() => undefined);
-    throw error;
-  }
-
-  await new Promise<void>((resolve, reject) => {
-    handle.end(() => {
-      resolve();
-    });
-    handle.once('error', reject);
+export async function openStagedUpload(
+  fileId: string,
+  signal?: AbortSignal,
+): Promise<OpenedUpload> {
+  const controller = new AbortController();
+  const onAbort = () => controller.abort(signal?.reason);
+  signal?.addEventListener('abort', onAbort, { once: true });
+  const response = await fetchStored(await storedUploadUrl(fileId), {
+    signal: controller.signal,
   });
-
+  const body = response.body as unknown as AsyncIterable<Uint8Array>;
   return {
-    storageKey,
-    byteSize,
-    contentDigest: hash.digest('hex'),
-    compression: detected,
+    bytes: body,
+    close: () => {
+      signal?.removeEventListener('abort', onAbort);
+      controller.abort();
+    },
   };
 }
 
-/** Read a staged artefact back, or refuse with the reason a re-upload fixes. */
-export async function openStagedUpload(storageKey: string): Promise<AsyncIterable<Uint8Array>> {
-  const path = uploadPath(storageKey);
+/**
+ * Read `length` bytes of a stored upload from `offset`, exactly — the container
+ * check's prefix and a proof of possession's range. Returns fewer bytes only
+ * when the object itself is shorter.
+ */
+export async function readStoredUploadRange(
+  fileId: string,
+  offset: number,
+  length: number,
+): Promise<Buffer> {
+  const response = await fetchStored(await storedUploadUrl(fileId), {
+    range: `bytes=${offset}-${offset + length - 1}`,
+  });
+  const chunks: Buffer[] = [];
+  let total = 0;
+  // `fetchStored` refuses a response with no body, so there is always one here.
+  const body = response.body;
+  if (!body)
+    throw new FeedImportRefusal('upstream_unavailable', 'The stored feed file had no body.', {
+      retryable: true,
+    });
+  const reader = body.getReader();
   try {
-    await stat(path);
-  } catch {
-    throw new FeedImportRefusal(
-      'upload_missing',
-      'The uploaded feed artefact is no longer on this task. Uploads are staged on the disk of ' +
-        'the task that received them and do not survive a deployment; re-upload the file.',
-    );
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      chunks.push(Buffer.from(value));
+      total += value.byteLength;
+      // A server that ignored the Range header sends the whole object; stop at
+      // what was asked for rather than reading gigabytes to compare 64 KiB.
+      if (response.status !== 206 && total >= offset + length) break;
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined);
   }
-  return createReadStream(path);
+  const bytes = Buffer.concat(chunks);
+  return response.status === 206
+    ? bytes.subarray(0, length)
+    : bytes.subarray(offset, offset + length);
 }

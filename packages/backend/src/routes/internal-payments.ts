@@ -15,20 +15,19 @@
  * dashboard. A separate prefix, a separate gate and no store in the chain is
  * what makes that structural rather than a rule somebody has to remember.
  *
- * ## The MOUNT is gated, not just the handler
+ * ## Gated on an application role, and hidden from everyone else
  *
- * `app.ts` registers this router only when `PAYMENT_OPERATOR_OXY_USER_IDS` names
- * somebody, so a deployment with no operators answers 404 on every path here —
- * `STRIPE_ENABLED`'s rule rather than the outbox's. There is nothing to park,
- * and a 401 would tell an unauthenticated caller that an operator surface exists
- * on this deployment. `requirePaymentOperator` repeats the check anyway, because
- * the mount and the gate are in different files and that is exactly the pair
- * that drifts.
+ * `app.ts` mounts this router on every deployment, and `requirePaymentOperator`
+ * asks Oxy whether the person behind the request holds `payments.operate`.
+ * Anyone who does not — including a request with no person in a session — is
+ * answered 404 on every path here: a 401 would tell an unauthenticated caller
+ * that an operator surface exists on this deployment. An Oxy that cannot answer
+ * is 503, never a refusal, and every write asks Oxy fresh.
  *
  * ## Metered, and not for the reason most routes are
  *
  * The `payments` scope, shared with onboarding-link minting. These are
- * authenticated, allow-listed callers, so abuse is not the concern — cost is:
+ * authenticated operators, so abuse is not the concern — cost is:
  * `refetch` and every repair make live Stripe API calls against the platform's
  * own rate limit, and a dashboard polling `trace` in a loop during an incident
  * is the realistic way that budget gets spent. The limiter is modest rather than
@@ -97,10 +96,8 @@ import {
 
 const router = Router();
 
-// Authentication FIRST, then the allow-list. The order matters: the gate reads
-// `getRequiredOxyUserId`, which needs a verified caller — and an allow-list
-// consulted before authentication would be comparing against whatever a client
-// claimed.
+// Authentication FIRST, then the operator gate — it asks Oxy about the verified
+// caller's own session, which only `authenticateToken` establishes.
 router.use(authenticateToken);
 router.use(requirePaymentOperator);
 router.use(makeRateLimiter('payments'));
@@ -178,14 +175,14 @@ router.post('/retail-pricing-policies/:id/retire', retireRetailPricingPolicyHand
 //
 // The CUSTOMER half of #127's operator surface: deciding what Mercaria owes a
 // buyer on a `mercaria_retail` order, and driving it. It belongs on this gate
-// because it moves Mercaria's own money, which is what this allow-list already
-// exists for — a `platform` order has no store, so no store permission could
-// express the authority and inventing one would be a second identity system.
+// because it moves Mercaria's own money, which is what this key already exists
+// for — a `platform` order has no store, so no store permission could express
+// the authority and inventing one would be a second identity system.
 //
 // Nothing here carries a supplier recovery, a wholesale figure or an RMA
 // reference: `projectRetailServiceRequestForCustomer` is the projection these
 // handlers serve and it has no member one could be put in. The SIDE-BY-SIDE
-// trace is `/internal/procurement/retail-service/*`, behind the sixth list.
+// trace is `/internal/procurement/retail-service/*`, behind `procurement.operate`.
 //
 // Every write drives an existing idempotent path. There is no "set this request
 // completed", no "override this outcome" and no delete.

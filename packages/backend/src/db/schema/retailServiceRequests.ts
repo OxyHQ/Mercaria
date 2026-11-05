@@ -353,6 +353,10 @@ export const retailServiceRequests = pgTable(
     index('retail_service_requests_settling_idx')
       .on(t.updatedAt)
       .where(sql`${t.refundId} is not null and ${t.state} = 'in_progress'`),
+    // `guest_order_access_grants` is swept (`db/expiryTargets.ts`); each deleted row checks this foreign key.
+    index('retail_service_requests_requester_grant_id_idx')
+      .on(t.requesterGrantId)
+      .where(sql`${t.requesterGrantId} is not null`),
   ],
 );
 
@@ -514,6 +518,10 @@ export const retailServiceRequestEvents = pgTable(
           or (length(${t.detail}) between 1 and ${sql.raw(String(RETAIL_SERVICE_NOTE_MAX_LENGTH))})`,
     ),
     index('retail_service_request_events_request_idx').on(t.requestId, t.createdAt),
+    // `guest_order_access_grants` is swept (`db/expiryTargets.ts`); each deleted row checks this foreign key.
+    index('retail_service_request_events_actor_grant_id_idx')
+      .on(t.actorGrantId)
+      .where(sql`${t.actorGrantId} is not null`),
   ],
 );
 
@@ -806,6 +814,10 @@ export const retailReturnLineDispositions = pgTable(
     check('retail_return_line_dispositions_key_check', sql`length(btrim(${t.idempotencyKey})) > 0`),
     uniqueIndex('retail_return_line_dispositions_key').on(t.idempotencyKey),
     index('retail_return_line_dispositions_line_idx').on(t.returnCaseLineId, t.observedAt),
+    // `guest_order_access_grants` is swept (`db/expiryTargets.ts`); each deleted row checks this foreign key.
+    index('retail_return_line_dispositions_actor_grant_id_idx')
+      .on(t.actorGrantId)
+      .where(sql`${t.actorGrantId} is not null`),
   ],
 );
 

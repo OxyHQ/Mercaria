@@ -1,12 +1,12 @@
 /**
  * The bounded retail pilot's operator surface (#125).
  *
- * On the SAME sixth allow-list (`PROCUREMENT_OPERATOR_OXY_USER_IDS`) that
+ * On the SAME sixth key (`procurement.operate`) that
  * #122's preflight and #124's procurement surfaces use, and deliberately NOT a
- * seventh: publishing the bounds Mercaria buys under, recording what its
+ * new one: publishing the bounds Mercaria buys under, recording what its
  * supplier balance is, and pausing entry when a threshold is crossed are the
  * same power as reading what Mercaria pays a supplier and flipping a supplier
- * kill switch. Splitting them would create a list to keep in sync with no
+ * kill switch. Splitting them would create a key to grant in step with no
  * distinction to justify it.
  *
  * ## What it can do, and the three things it deliberately cannot
@@ -36,7 +36,7 @@ import {
   SUPPLIER_FUNDING_SOURCES,
 } from '@mercaria/shared-types';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireProcurementOperator } from '../middleware/procurement-operator-authz.js';
+import { requireProcurementOperator } from '../middleware/operator-authz.js';
 import { validateBody, validateId } from '../middleware/validate.js';
 import {
   addRetailPilotSkuHandler,
@@ -53,9 +53,8 @@ import {
 
 const router = Router();
 
-// Authentication FIRST, then the allow-list — the gate reads the verified
-// caller, and an allow-list consulted before authentication would compare
-// against whatever a client claimed.
+// Authentication FIRST, then the operator gate — it asks Oxy about the verified
+// caller's own session, which only `authenticateToken` establishes.
 router.use(authenticateToken);
 router.use(requireProcurementOperator);
 

@@ -19,11 +19,10 @@ import type { CommerceActor } from '../../commerce-actor.js';
 import type { EligibilitySellerGroup } from '../fulfilment-eligibility.js';
 import { isCheckoutRefusal } from '../refusal.js';
 
-const GUEST_WEB: CommerceActor = { kind: 'guest', guestSessionId: 'gs-lever', transport: 'cookie' };
+const GUEST_WEB: CommerceActor = { kind: 'guest', guestSessionId: 'gs-lever', clientClass: 'web' };
 const GUEST_NATIVE: CommerceActor = {
   kind: 'guest',
   guestSessionId: 'gs-lever-native',
-  transport: 'header',
 };
 const OXY: CommerceActor = { kind: 'oxy', oxyUserId: 'buyer-lever' };
 

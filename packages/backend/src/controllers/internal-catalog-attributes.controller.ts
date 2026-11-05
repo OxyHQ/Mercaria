@@ -8,7 +8,7 @@
  * version, recording a per-source mapping, applying a source observation, and
  * working the review queue.
  *
- * Behind `CATALOG_OPERATOR_OXY_USER_IDS`, the same allow-list #54, #55, #56 and
+ * Behind `catalog.operate`, the same key #54, #55, #56 and
  * #83 use. Who may reshape the catalogue is one question with one answer.
  */
 
@@ -16,7 +16,7 @@ import type { Request, Response } from 'express';
 import { getDb } from '../db/postgres.js';
 import { sendSuccess } from '../utils/api-response.js';
 import { notFound, respondWithError, validationError } from '../lib/errors/error-codes.js';
-import { catalogOperatorId } from '../middleware/catalog-operator-authz.js';
+import { operatorId } from '../middleware/operator-authz.js';
 import {
   deprecateAttributeDefinition,
   draftAttributeDefinition,
@@ -53,7 +53,7 @@ export async function draftDefinitionHandler(req: Request, res: Response): Promi
     const body = req.body as AttributeDefinitionDraftBody;
     const definition = await draftAttributeDefinition({
       ...body,
-      actorOxyUserId: catalogOperatorId(req),
+      actorOxyUserId: operatorId(req),
     });
     sendSuccess(res, definition, 201);
   } catch (error) {
@@ -68,7 +68,7 @@ export async function publishDefinitionHandler(req: Request, res: Response): Pro
     const definition = await publishAttributeDefinition(
       key,
       parseVersion(version),
-      catalogOperatorId(req),
+      operatorId(req),
     );
     sendSuccess(res, definition);
   } catch (error) {
@@ -185,7 +185,7 @@ export async function upsertSourceMappingHandler(req: Request, res: Response): P
       componentAxis: body.componentAxis ?? null,
       categoryIds: body.categoryIds ?? [],
       note: body.note ?? null,
-      createdByOxyUserId: catalogOperatorId(req),
+      createdByOxyUserId: operatorId(req),
     });
     sendSuccess(res, mapping, 201);
   } catch (error) {
@@ -302,7 +302,7 @@ export async function resolveReviewHandler(req: Request, res: Response): Promise
     const body = req.body as AttributeReviewResolveBody;
     const review = await resolveAttributeReview({
       reviewId: id,
-      actorOxyUserId: catalogOperatorId(req),
+      actorOxyUserId: operatorId(req),
       state: body.state,
       ...(body.selectedValueId === undefined ? {} : { selectedValueId: body.selectedValueId }),
     });

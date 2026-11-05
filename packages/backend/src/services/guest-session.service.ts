@@ -99,7 +99,7 @@ export function hashGuestToken(token: string): string {
 
 /**
  * Cheap structural check, run before hashing. Length is pinned exactly, so a
- * megabyte cookie value is refused without reading past the first characters.
+ * megabyte credential value is refused without reading past the first characters.
  */
 export function isWellFormedGuestToken(value: string): boolean {
   // Length first: the regex is anchored and linear anyway, but refusing on

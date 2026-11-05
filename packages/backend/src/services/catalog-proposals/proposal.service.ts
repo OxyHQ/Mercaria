@@ -8,7 +8,7 @@
  *
  * - It writes to no catalogue table. Not a category, not a brand, not an
  *   attribute definition, not an enum value. The one path that mints is
- *   `review.service.ts`'s approval, behind the operator allow-list, and
+ *   `review.service.ts`'s approval, behind `catalog.operate`, and
  *   `catalog-proposal-isolation.test.ts` fails the build if a module in this
  *   domain other than that one imports a catalogue write.
  * - It accepts no key and no slug, because

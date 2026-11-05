@@ -23,7 +23,7 @@ import type {
   IdentifierScheme,
   SourceLinkMethod,
 } from '@mercaria/shared-types';
-import { catalogOperatorId } from '../middleware/catalog-operator-authz.js';
+import { operatorId } from '../middleware/operator-authz.js';
 import { createProductFamily } from '../services/canonical/product-family.service.js';
 import {
   applyProductSourceObservation,
@@ -49,7 +49,7 @@ export async function createProductFamilyHandler(req: Request, res: Response): P
       categoryId?: string;
       aliases?: { alias: string; kind: CanonicalAliasKind; language?: string }[];
     };
-    const family = await createProductFamily({ ...body, actorOxyUserId: catalogOperatorId(req) });
+    const family = await createProductFamily({ ...body, actorOxyUserId: operatorId(req) });
     sendSuccess(res, { id: family.id, slug: family.slug, name: family.name }, 201);
   } catch (error) {
     respondWithError(res, error, 'Creating the product family failed');
@@ -75,7 +75,7 @@ export async function createCanonicalProductHandler(req: Request, res: Response)
     };
     const product = await createCanonicalProduct({
       ...body,
-      actorOxyUserId: catalogOperatorId(req),
+      actorOxyUserId: operatorId(req),
     });
     sendSuccess(
       res,
@@ -104,7 +104,7 @@ export async function createCanonicalVariantHandler(req: Request, res: Response)
     const result = await createVariant({
       productId: routeParam(req, 'productId'),
       ...body,
-      actorOxyUserId: catalogOperatorId(req),
+      actorOxyUserId: operatorId(req),
     });
     sendSuccess(
       res,
@@ -167,7 +167,7 @@ export async function applyProductObservationHandler(req: Request, res: Response
       method: body.method,
       matchRule: body.matchRule,
       ...(body.confidence === undefined ? {} : { confidence: body.confidence }),
-      decidedByOxyUserId: catalogOperatorId(req),
+      decidedByOxyUserId: operatorId(req),
       fields: {
         ...(body.sourceTitle === undefined ? {} : { name: body.sourceTitle }),
         ...(body.description === undefined ? {} : { description: body.description }),
@@ -189,7 +189,7 @@ export async function applyProductObservationHandler(req: Request, res: Response
         scheme: identifier.scheme,
         rawValue: identifier.rawValue,
         sourceRecordId: result.sourceRecordId,
-        assignedByOxyUserId: catalogOperatorId(req),
+        assignedByOxyUserId: operatorId(req),
       });
       identifierOutcomes.push({ scheme: identifier.scheme, outcome: outcome.outcome });
     }
@@ -228,7 +228,7 @@ export async function assignIdentifierHandler(req: Request, res: Response): Prom
       scheme: body.scheme,
       rawValue: body.rawValue,
       ...(body.sourceRecordId === undefined ? {} : { sourceRecordId: body.sourceRecordId }),
-      assignedByOxyUserId: catalogOperatorId(req),
+      assignedByOxyUserId: operatorId(req),
       ...(body.note === undefined ? {} : { note: body.note }),
     });
 
@@ -265,7 +265,7 @@ export async function correctIdentifierHandler(req: Request, res: Response): Pro
       scheme: body.scheme,
       rawValue: body.rawValue,
       note: body.note,
-      actorOxyUserId: catalogOperatorId(req),
+      actorOxyUserId: operatorId(req),
     });
     sendSuccess(res, {
       retiredIdentifierId: result.retired.id,

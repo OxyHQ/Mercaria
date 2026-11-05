@@ -2,7 +2,7 @@ import * as esbuild from 'esbuild';
 
 await esbuild.build({
   /**
-   * FOUR entry points, and none of the last three is optional.
+   * NINE entry points, and none of the last eight is optional.
    *
    * `src/db/migrate.ts` is the one-shot the deploy runs before and after the
    * rollout (`.github/workflows/deploy-aws.yml`). It cannot be invoked the way a
@@ -23,21 +23,36 @@ await esbuild.build({
    * Registering a source-tree file from a runner would let Oxy advertise code
    * that the task does not actually contain.
    *
+   * `src/scripts/backfill-central-organizations.ts` maps legacy store owners
+   * onto the Oxy company directory (`docs/central-organizations.md`). It reads
+   * and writes the production database and calls Oxy, so it runs as a one-shot
+   * inside the VPC for the same reason as the taxonomy.
+   *
+   * The four Oxy-media backfills — `backfill-listing-media`,
+   * `backfill-store-artwork`, `backfill-application-media` and
+   * `backfill-digital-asset-storage` (`docs/catalog-media.md` §Backfills) —
+   * import and adopt files AS MERCARIA'S OXY APPLICATION. That authority is the
+   * ECS task role (`oxy-mercaria-task`, workload identity), so they can only
+   * act from a task running the live task definition, and an entry point is
+   * the only way they reach one. `.github/workflows/run-media-backfill.yml`
+   * runs them; each previews by default and writes only on `--apply`.
+   *
    * `src/scripts/seed.ts` is deliberately NOT an entry point and must not
    * become one. It opens by DELETING every listing, store, order, review and
    * category in the database it is pointed at, so putting it in the production
    * image would place a marketplace-destroying one-shot one `command` override
    * away from a running service.
    *
-   * `outdir` rather than `outfile` because there are four: esbuild takes the
+   * `outdir` rather than `outfile` because there are several: esbuild takes the
    * entry points' common ancestor (`src/`) as the base, so these land exactly at
    * `dist/index.js`, `dist/db/migrate.js`, `dist/register-capability-catalog.js`
-   * and `dist/scripts/provision-taxonomy.js`. The one-shots call their main function at module
-   * load, so the emitted files run on plain `bun <path>` (the image's runtime).
+   * and `dist/scripts/<name>.js` for each script. The one-shots call their main
+   * function at module load, so the emitted files run on plain `bun <path>` (the
+   * image's runtime).
    *
    * Note they sit at different depths below the package root, which is why
    * `db/migrationsFolder.ts` resolves by finding that root rather than by
-   * counting `..` segments — no fixed count is correct for all four.
+   * counting `..` segments — no fixed count is correct for all of them.
    *
    * Code splitting is deliberately left OFF (esbuild's default): each entry is
    * self-contained, so the migrator cannot fail at container start on a missing
@@ -50,6 +65,10 @@ await esbuild.build({
     'src/register-capability-catalog.ts',
     'src/scripts/provision-taxonomy.ts',
     'src/scripts/backfill-central-organizations.ts',
+    'src/scripts/backfill-listing-media.ts',
+    'src/scripts/backfill-store-artwork.ts',
+    'src/scripts/backfill-application-media.ts',
+    'src/scripts/backfill-digital-asset-storage.ts',
   ],
   bundle: true,
   platform: 'node',
@@ -60,14 +79,14 @@ await esbuild.build({
   // workspace packages (e.g. shared-types) are inlined so the runtime image needs
   // neither their dist nor their build-time devDependencies.
   //
-  // @oxy.so/* MUST stay external. The @oxy.so/crowdsource* packages are published as
+  // @oxy.so/* MUST stay external. The @crowdsource.you/core* packages are published as
   // CommonJS ("type": "commonjs"), and inlining CJS into this ESM bundle rewrites
   // each of their internal require() calls into an esbuild shim that throws the
   // moment it runs:
   //   Error: Dynamic require of "zod" is not supported
   // Reproduced here 2026-07-31 by running the bundle: it threw from
-  // @oxy.so/crowdsource-contracts/dist/primitives.js, reached through
-  // @oxy.so/crowdsource-express — the throwing frame is not the package you imported.
+  // @crowdsource.you/contracts/dist/primitives.js, reached through
+  // @crowdsource.you/core/express — the throwing frame is not the package you imported.
   // The same crash took Moovo's API down at container start. Node's own ESM loader
   // imports those CJS packages correctly, so leave the resolution to Node; the
   // runtime image ships production node_modules (see the Dockerfile), so they

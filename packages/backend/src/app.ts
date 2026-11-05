@@ -15,6 +15,7 @@ import { ecosystemActivityMiddleware } from './ecosystemActivity';
  */
 
 import express from 'express';
+import { createOxyCors, oxyTrustProxy } from '@oxy.so/core/server';
 import cors from 'cors';
 import { log } from './lib/logger.js';
 // Routes
@@ -35,6 +36,7 @@ import internalProductSavesRouter from './routes/internal-product-saves.js';
 import cartRouter from './routes/cart.js';
 import addressesRouter from './routes/addresses.js';
 import checkoutRouter from './routes/checkout.js';
+import supervisedShoppingRouter from './routes/supervised-shopping.js';
 import ordersRouter from './routes/orders.js';
 import digitalRouter from './routes/digital.routes.js';
 import reviewsRouter from './routes/reviews.js';
@@ -51,6 +53,7 @@ import reportsRouter from './routes/reports.js';
 import crowdSourceWebhookRouter from './routes/crowdsource-webhook.js';
 import stripeWebhookRouter from './routes/stripe-webhook.js';
 import peableWebhookRouter from './routes/peable-webhook.js';
+import oxyFilesWebhookRouter from './routes/oxy-files-webhook.js';
 import supplierWebhookRouter from './routes/supplier-webhook.js';
 import stripeOnboardingRouter from './routes/stripe-onboarding.js';
 import internalPaymentsRouter from './routes/internal-payments.js';
@@ -62,6 +65,7 @@ import canonicalProductsRouter from './routes/canonical-products.js';
 import productFamiliesRouter from './routes/product-families.js';
 import catalogPagesRouter from './routes/catalog-pages.js';
 import internalCanonicalCatalogRouter from './routes/internal-canonical-catalog.js';
+import internalCatalogSafetyRouter from './routes/internal-catalog-safety.js';
 import offersRouter from './routes/offers.js';
 import retailOffersRouter from './routes/retail-offers.js';
 import internalOffersRouter from './routes/internal-offers.js';
@@ -71,7 +75,6 @@ import internalPickupRouter from './routes/internal-pickup.js';
 import internalSearchRouter from './routes/internal-search.js';
 import productPageRouter from './routes/product-page.js';
 import searchIntentRouter from './routes/search-intent.js';
-import shoppingThreadRouter from './routes/shopping-thread.js';
 import internalSearchIntentRouter from './routes/internal-search-intent.js';
 import priceHistoryRouter from './routes/price-history.js';
 import internalPriceHistoryRouter from './routes/internal-price-history.js';
@@ -105,6 +108,9 @@ import referralRedirectRouter from './routes/referral-redirect.js';
 import affiliateOutboundRouter from './routes/outbound.js';
 import internalAffiliateRouter from './routes/internal-affiliate.js';
 import referralsRouter from './routes/referrals.js';
+import referralCookieMigrationRouter, {
+  REFERRAL_COOKIE_MIGRATION_PATHS,
+} from './routes/referral-cookie-migration.js';
 import internalReferralsRouter from './routes/internal-referrals.js';
 import guestSessionRouter from './routes/guest-session.js';
 import guestOrdersRouter from './routes/guest-orders.js';
@@ -148,21 +154,33 @@ import {
   PUBLIC_READ_CORS_ALLOWED_HEADERS,
   PUBLIC_READ_CORS_METHODS,
   isPublicReadCorsRequest,
+  isMaterialsCorsRequest,
 } from './lib/allowed-origins.js';
+import { ErrorCodes, sendError } from './utils/api-response.js';
 import capabilitiesRouter from './routes/capabilities.js';
 import { createMercariaMcpHttpService } from './capabilities/mercaria-mcp-http.js';
 
 /**
  * Build the application.
  *
- * MOUNT ORDER IS LOAD-BEARING and is asserted by
- * `routes/__tests__/crowdsource-webhook.integration.test.ts` and
- * `routes/__tests__/stripe-webhook.integration.test.ts`: all three webhook
- * routers must be registered BEFORE `express.json()`, or the raw bytes their
- * signatures cover are consumed before they can be verified.
+ * MOUNT ORDER IS LOAD-BEARING and is asserted PER MOUNT by
+ * `routes/__tests__/*-webhook.integration.test.ts`: every webhook router must be
+ * registered BEFORE `express.json()`, or the raw bytes its signatures cover are
+ * consumed before they can be verified (`docs/house-invariants.md`, "Raw-body
+ * mounts").
  */
 export function createApp(): express.Express {
   const app = express();
+  // FIRST, before any middleware reads `req.ip`: the general and actor rate
+  // limits, guest-session farming (`networkRangeOf`) and guest order recovery
+  // all key on it. The ALB appends the peer it saw to `X-Forwarded-For`, and a
+  // hostname behind the Cloudflare proxy adds Cloudflare's edge after the
+  // client. With no setting `req.ip` was the ALB's private address — one key
+  // for every caller; `trust proxy = 1` would be Cloudflare's edge behind the
+  // proxy. `oxyTrustProxy` trusts the private socket peer and a Cloudflare edge
+  // hop and nothing further out, so `req.ip` is the client either way and a
+  // forged header is never believed.
+  app.set('trust proxy', oxyTrustProxy);
   app.use(ecosystemActivityMiddleware);
   const mercariaMcpHttpService = createMercariaMcpHttpService();
 
@@ -176,15 +194,54 @@ export function createApp(): express.Express {
     void mercariaMcpHttpService.handleMcp(request, response);
   });
 
-  // CORS — restricted to known origins. The list lives in
-  // `lib/allowed-origins.ts` because it is ALSO the guest CSRF gate's
-  // authority (ADR 0003 D10): one list, nothing to drift.
-  const allowedOrigins = ALLOWED_ORIGINS;
+  // CORS — built ONCE, here. The credentialed allow-list is `createOxyCors`
+  // over the ONE origin list in `lib/allowed-origins.ts` (also the referral
+  // migration gate's and the socket server's authority — nothing to drift).
+  // It echoes only an exact allowed origin, never a wildcard; every other
+  // browser origin is refused before it (below).
+  //
+  // Normal commerce carries a bearer header and never an ambient cookie, so the
+  // default policy is NOT credentialed; only the two referral-cookie migration
+  // paths are (ADR 0003 D10).
+  const appCorsOptions = {
+    appOrigins: [...ALLOWED_ORIGINS],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'Idempotency-Key',
+      'X-Requested-With',
+      'Accept',
+      'X-Mercaria-Guest-Token',
+      'X-Mercaria-Guest-Transport',
+      'X-Mercaria-Guest-Persistence',
+      'X-Mercaria-Guest-Client',
+      'X-Mercaria-Portal-Token',
+      'X-Mercaria-Portal-Transport',
+      'X-Mercaria-Referral-State',
+      'X-Mercaria-Referral-Migration',
+      'X-Oxy-Edge-Region',
+      'X-Oxy-Activity-Id',
+    ],
+    exposedHeaders: [
+      'X-Mercaria-Guest-Token',
+      'X-Mercaria-Guest-Expires-At',
+      'X-Mercaria-Guest-Generation',
+      'X-Mercaria-Portal-Token',
+      'X-Mercaria-Portal-Expires-At',
+      'X-Mercaria-Portal-Generation',
+      'X-Mercaria-Referral-State',
+      'X-Mercaria-Referral-Expires-At',
+    ],
+  };
+  const appCors = createOxyCors({ ...appCorsOptions, allowCredentials: false });
+  const referralMigrationCors = createOxyCors({ ...appCorsOptions, allowCredentials: true });
 
   // The PUBLIC integration surface (#1017) takes a different policy: any origin,
   // GET/HEAD/preflight only, never credentialed. The decision — and why it is
   // safe for exactly that population — lives in `lib/allowed-origins.ts` beside
-  // the list it deliberately does not widen.
+  // the list it deliberately does not widen. `createOxyCors` never emits a
+  // wildcard, so these two keep the `cors` package.
   const publicReadCors = cors({
     origin: '*',
     credentials: false,
@@ -194,46 +251,38 @@ export function createApp(): express.Express {
     maxAge: 600,
   });
 
+  const materialsCors = cors({
+    origin: '*',
+    credentials: false,
+    methods: ['GET', 'HEAD', 'POST', 'OPTIONS'],
+    allowedHeaders: [...PUBLIC_READ_CORS_ALLOWED_HEADERS],
+    optionsSuccessStatus: 204,
+  });
   app.use((req, res, next) => {
+    if (isMaterialsCorsRequest(req.method, req.path)) {
+      materialsCors(req, res, next);
+      return;
+    }
     if (isPublicReadCorsRequest(req.method, req.path)) {
       publicReadCors(req, res, next);
       return;
     }
-    cors({
-      origin: (origin, callback) => {
-        // Allow requests with no origin (like mobile apps or curl)
-        if (!origin) return callback(null, true);
-
-        if (allowedOrigins.includes(origin)) {
-          callback(null, true);
-        } else {
-          callback(new Error('Not allowed by CORS'));
-        }
-      },
-      credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: [
-        'Content-Type',
-        'Authorization',
-        'Idempotency-Key',
-        'X-Requested-With',
-        'Accept',
-        'Origin',
-        'X-Service-Name',
-        'X-Timestamp',
-        'X-Signature',
-        'X-Session-Id',
-        'X-Device-Info',
-        'X-Oxy-User-Id',
-        'X-Workspace-Id',
-        'X-Mercaria-Guest-Token',
-        'X-Mercaria-Guest-Transport',
-        'X-Mercaria-Guest-Client',
-        'X-Oxy-Edge-Region',
-        'X-Oxy-Activity-Id',
-      ],
-      optionsSuccessStatus: 200,
-    })(req, res, next);
+    // A browser origin outside the list is REFUSED here, not merely left
+    // without CORS headers. Withholding the headers only stops a browser
+    // READING the answer; a simple cross-site POST (a form, no custom header)
+    // is sent without a preflight and would still run — on the referral
+    // migration paths with the ambient cookie. A request with no Origin
+    // (a native app, a server) is not a browser's and is not judged here.
+    const origin = req.headers.origin;
+    if (origin !== undefined && !ALLOWED_ORIGINS.includes(origin)) {
+      sendError(res, ErrorCodes.FORBIDDEN, 'Origin not allowed', 403);
+      return;
+    }
+    if (REFERRAL_COOKIE_MIGRATION_PATHS.some((path) => path === req.path)) {
+      referralMigrationCors(req, res, next);
+      return;
+    }
+    appCors(req, res, next);
   });
 
   // Allow cross-origin resource loading (fixes ERR_BLOCKED_BY_RESPONSE.NotSameOrigin)
@@ -307,6 +356,17 @@ export function createApp(): express.Express {
   // where their configuration is exactly what somebody is fixing.
   app.use('/webhooks/suppliers', supplierWebhookRouter);
 
+  // Oxy's file events (Oxy ADR 0043 D9) — the SIXTH raw-body mount: Oxy signs
+  // the bytes it sent, so a parser reaching the stream first breaks every
+  // delivery. Gated on `OXY_FILE_EVENTS_ENABLED` (404 when off). Unlike the
+  // Stripe mount it is NOT gated on the secret too: Oxy shows the secret only
+  // after the endpoint echoed its challenge, so the route must answer that
+  // challenge first and refuses events (503, retried) until the secret is set.
+  // See `routes/oxy-files-webhook.ts`.
+  if (config.oxyFiles.eventsEnabled) {
+    app.use('/webhooks/oxy-files', oxyFilesWebhookRouter);
+  }
+
   // Body parsing
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -314,6 +374,9 @@ export function createApp(): express.Express {
   // Global rate limiter — per-user for authenticated callers, per-IP for anon.
   // (The SDK exempts health probes + CORS preflight internally.)
   app.use(makeRateLimiter('general'));
+  // Independent of feature activation, but behind the ordinary rate limit:
+  // transfer existing signed evidence without enabling redirects or binds.
+  app.use('/referrals', referralCookieMigrationRouter);
 
   // Routes
   app.use('/_oxy/capabilities', capabilitiesRouter);
@@ -357,16 +420,14 @@ export function createApp(): express.Express {
     app.use('/catalog-proposals', catalogProposalsRouter);
   }
   /**
-   * …and its operator surface, on the SAME `CATALOG_OPERATOR_OXY_USER_IDS`
-   * allow-list, and deliberately NOT gated on `CATALOG_PROPOSALS_ENABLED`.
+   * …and its operator surface, on the SAME `catalog.operate`
+   * key, and deliberately NOT gated on `CATALOG_PROPOSALS_ENABLED`.
    *
    * The `/internal/product-saves` arrangement, for its reason: the evidence has
    * to be readable during the incident that turned the merchant surface off, and
    * a request already submitted still deserves an answer.
    */
-  if (config.catalog.graphOperatorSurfaceEnabled) {
-    app.use('/internal/catalog-proposals', internalCatalogProposalsRouter);
-  }
+  app.use('/internal/catalog-proposals', internalCatalogProposalsRouter);
   app.use('/stores', storesRouter);
   app.use('/favorites', favoritesRouter);
   /**
@@ -398,6 +459,7 @@ export function createApp(): express.Express {
   app.use('/cart', cartRouter);
   app.use('/addresses', addressesRouter);
   app.use('/checkout', checkoutRouter);
+  app.use('/supervised-shopping', supervisedShoppingRouter);
   // Guest sessions (ADR 0003, #103). The MOUNT is gated like the Stripe routes
   // above and for the same reason: a deployment without guest commerce answers
   // 404 — the truthful answer — rather than advertising a credential surface
@@ -485,23 +547,19 @@ export function createApp(): express.Express {
   // session. Issue #50: operator tooling must not be reachable through the
   // merchant dashboard.
   //
-  // The MOUNT is gated on the allow-list being non-empty, so a deployment with
-  // no operators answers 404 rather than 401 — the same rule the Stripe routes
-  // above follow, because a 401 would tell an unauthenticated caller that an
-  // operator surface exists here.
-  if (config.payments.operatorSurfaceEnabled) {
-    app.use('/internal/payments', internalPaymentsRouter);
-  }
-  // The affiliate outbound operator surface (#67), on the SAME payment
-  // allow-list and deliberately not a seventh: approving a destination host
+  // Every `/internal/*` surface is mounted on every deployment and gated inside
+  // its router on an operator APPLICATION ROLE (`middleware/operator-authz.ts`):
+  // anyone without the desk's key is answered 404, never a 401 that would tell
+  // an unauthenticated caller that an operator surface exists here.
+  app.use('/internal/payments', internalPaymentsRouter);
+  // The affiliate outbound operator surface (#67), on the SAME `payments.operate`
+  // key and deliberately not a new one: approving a destination host
   // decides where Mercaria sends its buyers and therefore which relationships
   // can earn, and the report reads what Mercaria earned. It is NOT gated on
   // `OUTBOUND_REDIRECT_ENABLED` — a host has to be approvable BEFORE the
   // redirect is switched on, and the evidence has to be readable during the
   // incident that switched it off.
-  if (config.payments.operatorSurfaceEnabled) {
-    app.use('/internal/affiliate', internalAffiliateRouter);
-  }
+  app.use('/internal/affiliate', internalAffiliateRouter);
   // Canonical commerce graph (#54, ADR 0002): public merchant/storefront
   // identity reads…
   app.use('/merchants', merchantsRouter);
@@ -566,11 +624,8 @@ export function createApp(): express.Express {
   // the request actually names. Not flag-gated, for the claim surface's reason.
   app.use('/store-linkage', storeLinkageRouter);
   // …and the graph's operator surface, gated exactly as /internal/payments is
-  // (its own allow-list; empty = not mounted, 404 — see
-  // middleware/catalog-operator-authz.ts).
-  if (config.catalog.graphOperatorSurfaceEnabled) {
-    app.use('/internal/commerce-graph', internalCommerceGraphRouter);
-  }
+  // (its own key, `catalog.operate` — see middleware/operator-authz.ts).
+  app.use('/internal/commerce-graph', internalCommerceGraphRouter);
   /**
    * The canonical PRODUCT layer (#56): public identity reads, behind #60's two
    * rollout levers.
@@ -613,12 +668,11 @@ export function createApp(): express.Express {
     );
   }
   // …and its own operator surface. A SEPARATE router from the graph's above,
-  // sharing the ONE operator allow-list — the two surfaces belong to different
+  // sharing the ONE `catalog.operate` key — the two surfaces belong to different
   // issues and move at different rates, but who may reshape the catalogue is a
   // single question with a single answer.
-  if (config.catalog.graphOperatorSurfaceEnabled) {
-    app.use('/internal/canonical-catalog', internalCanonicalCatalogRouter);
-  }
+  app.use('/internal/canonical-catalog', internalCanonicalCatalogRouter);
+  app.use('/internal/catalog-safety', internalCatalogSafetyRouter);
   /**
    * The unified offer model (#57, ADR 0002 D18): what a canonical variant costs,
    * where, from whom, and how current that is — native and external offers
@@ -694,7 +748,6 @@ export function createApp(): express.Express {
   // and never whether the surface exists. A deployment with it off still has a
   // working natural-language search box.
   app.use('/search-intent', searchIntentRouter);
-  app.use('/shopping-thread', shoppingThreadRouter);
 
   /**
    * The canonical product page (#71): one product's identity, its
@@ -739,12 +792,10 @@ export function createApp(): express.Express {
   if (config.pickup.nearbyEnabled) {
     app.use('/nearby', nearbyRouter);
   }
-  // …and #93's operator surface, on the SAME catalogue allow-list. Mounted
+  // …and #93's operator surface, on the SAME `catalog.operate` key. Mounted
   // whatever the nearby lever says: the evidence has to be readable during the
   // incident that turned discovery off.
-  if (config.catalog.graphOperatorSurfaceEnabled) {
-    app.use('/internal/pickup', internalPickupRouter);
-  }
+  app.use('/internal/pickup', internalPickupRouter);
 
   /**
    * Currency-safe price history (#78), behind its OWN read lever.
@@ -813,8 +864,8 @@ export function createApp(): express.Express {
     app.use('/seo', seoRouter);
   }
   /**
-   * …and its operator surface, on the SAME `CATALOG_OPERATOR_OXY_USER_IDS`
-   * allow-list, and NOT gated on `SEO_ROUTES_ENABLED`.
+   * …and its operator surface, on the SAME `catalog.operate`
+   * key, and NOT gated on `SEO_ROUTES_ENABLED`.
    *
    * The `/internal/price-history` arrangement, for its reason: the evidence has
    * to be readable during the incident that turned the public surface off, and
@@ -822,9 +873,7 @@ export function createApp(): express.Express {
    * pulling the lever. Read-only — every write an operator might want here is a
    * second authority over what the indexability policy already decides.
    */
-  if (config.catalog.graphOperatorSurfaceEnabled) {
-    app.use('/internal/seo', internalSeoRouter);
-  }
+  app.use('/internal/seo', internalSeoRouter);
   // The versioned attribute registry and the constraint language (#94): public
   // definition/facet reads and the pre-flight validation both search and #95's
   // interpreter run against…
@@ -839,52 +888,48 @@ export function createApp(): express.Express {
   if (config.catalog.facetsEnabled) {
     app.use('/facets', facetsRouter);
   }
-  // …and their operator surfaces, on the SAME allow-list the ones above use:
+  // …and their operator surfaces, on the SAME key the ones above use:
   // who may reshape the catalogue, who may withdraw an offer from a comparison
   // and who may change what an attribute MEANS are the same power over the same
   // graph. Separate routers because the three move at their own rates.
-  if (config.catalog.graphOperatorSurfaceEnabled) {
-    app.use('/internal/offers', internalOffersRouter);
-    // …and #70's, on the same list and mounted while the public search lever is
-    // off: the shadow evidence a rollout is judged on has to be readable during
-    // the incident that turned the surface off.
-    app.use('/internal/search', internalSearchRouter);
-    // …and #95's, on the same list and mounted while the model half is off: the
-    // benchmark an operator runs to turn it back ON lives here, and so does the
-    // fallback-rate evidence they would be reading during the incident that
-    // turned it off.
-    app.use('/internal/search-intent', internalSearchIntentRouter);
-    app.use('/internal/catalog-attributes', internalCatalogAttributesRouter);
-    // The condition taxonomy (#90): versioned source-label mappings, category
-    // restrictions, and one listing's condition history. Same allow-list, same
-    // reason — what an external source's wording MEANS is a fact about this
-    // graph.
-    app.use('/internal/catalog-condition', internalCatalogConditionRouter);
-    // Price history (#78): metrics, one offer's observation trail, and a
-    // rebuild trigger. Mounted while `PRICE_HISTORY_ENABLED` is off, because
-    // the evidence has to be readable during the incident that turned the loop
-    // off — #62's and #68's rule for their own operator surfaces.
-    app.use('/internal/price-history', internalPriceHistoryRouter);
-    // Price signals (#82): policy versions, measurement runs, coverage and label
-    // distribution, the mass-change diff, and the merchant correction queue. Same
-    // allow-list, same reason — what a claim about a price MEANS is a fact about
-    // this graph. Mounted while the sweep is off and while nothing is published,
-    // because a deployment with no active version is exactly when somebody needs
-    // to publish one.
-    app.use('/internal/price-signals', internalPriceSignalsRouter);
-  }
+  app.use('/internal/offers', internalOffersRouter);
+  // …and #70's, on the same key and mounted while the public search lever is
+  // off: the shadow evidence a rollout is judged on has to be readable during
+  // the incident that turned the surface off.
+  app.use('/internal/search', internalSearchRouter);
+  // …and #95's, on the same key and mounted while the model half is off: the
+  // benchmark an operator runs to turn it back ON lives here, and so does the
+  // fallback-rate evidence they would be reading during the incident that
+  // turned it off.
+  app.use('/internal/search-intent', internalSearchIntentRouter);
+  app.use('/internal/catalog-attributes', internalCatalogAttributesRouter);
+  // The condition taxonomy (#90): versioned source-label mappings, category
+  // restrictions, and one listing's condition history. Same key, same
+  // reason — what an external source's wording MEANS is a fact about this
+  // graph.
+  app.use('/internal/catalog-condition', internalCatalogConditionRouter);
+  // Price history (#78): metrics, one offer's observation trail, and a
+  // rebuild trigger. Mounted while `PRICE_HISTORY_ENABLED` is off, because
+  // the evidence has to be readable during the incident that turned the loop
+  // off — #62's and #68's rule for their own operator surfaces.
+  app.use('/internal/price-history', internalPriceHistoryRouter);
+  // Price signals (#82): policy versions, measurement runs, coverage and label
+  // distribution, the mass-change diff, and the merchant correction queue. Same
+  // key, same reason — what a claim about a price MEANS is a fact about
+  // this graph. Mounted while the sweep is off and while nothing is published,
+  // because a deployment with no active version is exactly when somebody needs
+  // to publish one.
+  app.use('/internal/price-signals', internalPriceSignalsRouter);
 
   /**
-   * The matching operator surface (#58), on the SAME allow-list for the same
+   * The matching operator surface (#58), on the SAME key for the same
    * reason: deciding that two things are one thing is the same power over the
-   * same graph as reshaping it. Empty list ⇒ never registered ⇒ 404, never a 401
-   * that would advertise the surface.
+   * same graph as reshaping it. A non-holder is answered 404, never a 401 that
+   * would advertise the surface.
    */
-  if (config.catalog.graphOperatorSurfaceEnabled) {
-    app.use('/internal/matching', internalMatchingRouter);
-  }
+  app.use('/internal/matching', internalMatchingRouter);
   /**
-   * The staged migration's operator surface (#60), on the SAME allow-list and
+   * The staged migration's operator surface (#60), on the SAME key and
    * for the same reason as the four above: migrating the native catalogue into
    * the canonical graph is the same power over the same graph as reshaping it.
    *
@@ -894,11 +939,9 @@ export function createApp(): express.Express {
    * make "start the migration paused" impossible and would hide the evidence
    * during exactly the incident that turned the loop off.
    */
-  if (config.catalog.graphOperatorSurfaceEnabled) {
-    app.use('/internal/backfill', internalBackfillRouter);
-  }
+  app.use('/internal/backfill', internalBackfillRouter);
   /**
-   * The product-save operator surface (#80), on the SAME allow-list and for the
+   * The product-save operator surface (#80), on the SAME key and for the
    * same reason as the five above: a save points at a canonical product and its
    * counter is a canonical rollup.
    *
@@ -908,117 +951,93 @@ export function createApp(): express.Express {
    * on it would hide the evidence during exactly the incident that turned the
    * buyer surface off, which is #60's own reasoning for `/internal/backfill`.
    */
-  if (config.catalog.graphOperatorSurfaceEnabled) {
-    app.use('/internal/product-saves', internalProductSavesRouter);
-  }
+  app.use('/internal/product-saves', internalProductSavesRouter);
   /**
-   * The price-alert operator surface (#79), on the SAME allow-list and mounted
+   * The price-alert operator surface (#79), on the SAME key and mounted
    * regardless of `PRICE_ALERTS_ENABLED` — #80's reasoning exactly: an operator
    * has to be able to read the evaluation lag and trace an alert during the
    * incident that turned the buyer surface off.
    */
-  if (config.catalog.graphOperatorSurfaceEnabled) {
-    app.use('/internal/price-alerts', internalPriceAlertsRouter);
-    // #97's aggregates. Deliberately NOT gated on `SHOPPING_AGENTS_ENABLED`:
-    // the queue lag has to be readable during the incident that turned the
-    // shopper surface off.
-    app.use('/internal/shopping-agents', internalShoppingAgentsRouter);
-  }
+  app.use('/internal/price-alerts', internalPriceAlertsRouter);
+  // #97's aggregates. Deliberately NOT gated on `SHOPPING_AGENTS_ENABLED`:
+  // the queue lag has to be readable during the incident that turned the
+  // shopper surface off.
+  app.use('/internal/shopping-agents', internalShoppingAgentsRouter);
   /**
    * The external ingestion framework's operator surface (#62), on the SAME
-   * allow-list and mounted for the same reason the backfill's is: configuring a
+   * key and mounted for the same reason the backfill's is: configuring a
    * source, reviewing its terms and draining it by hand is how a feed is
    * brought up BEFORE `CATALOG_INGESTION_ENABLED` is switched on, and the
    * evidence has to stay readable during the incident that turned the loop off.
    */
-  if (config.catalog.graphOperatorSurfaceEnabled) {
-    app.use('/internal/ingestion', internalIngestionRouter);
-  }
+  app.use('/internal/ingestion', internalIngestionRouter);
   /**
    * Source-aware freshness, refresh scheduling and catalogue health (#68), on
-   * the SAME allow-list as the ingestion surface above and mounted for the same
+   * the SAME key as the ingestion surface above and mounted for the same
    * reason: publishing a source's freshness policy, reading its quarantine
    * board and draining it by hand is how a feed is brought up BEFORE
    * `OFFER_REFRESH_ENABLED` is switched on, and the evidence has to stay
    * readable during the incident that turned the loop off.
    */
-  if (config.catalog.graphOperatorSurfaceEnabled) {
-    app.use('/internal/offer-freshness', internalOfferFreshnessRouter);
-  }
+  app.use('/internal/offer-freshness', internalOfferFreshnessRouter);
   /**
-   * The ranking policy surface (#74), on the SAME allow-list and mounted whether
+   * The ranking policy surface (#74), on the SAME key and mounted whether
    * or not anything has been published: a deployment ranking under the BUILT-IN
    * policy is exactly when somebody needs to read what that policy is, and
    * gating this on having published one would make preparing the first
    * publication impossible.
    */
-  if (config.catalog.graphOperatorSurfaceEnabled) {
-    app.use('/internal/ranking', internalRankingRouter);
-  }
+  app.use('/internal/ranking', internalRankingRouter);
   /**
-   * The feed importer's operator surface (#63), on the SAME allow-list and
+   * The feed importer's operator surface (#63), on the SAME key and
    * mounted while `FEED_IMPORT_ENABLED` is off — for `/internal/backfill`'s
    * reason: a merchant's mapping, their validation reports and the reason their
    * last pass failed are exactly the evidence somebody needs during the incident
    * that turned the importer off. It is read-only; every write belongs to the
    * store that owns the feed.
    */
-  if (config.catalog.graphOperatorSurfaceEnabled) {
-    app.use('/internal/feed-imports', internalFeedImportsRouter);
-  }
+  app.use('/internal/feed-imports', internalFeedImportsRouter);
   /**
-   * The eBay Browse source's operator surface (#65), on the SAME allow-list and
+   * The eBay Browse source's operator surface (#65), on the SAME key and
    * for the same reason: deciding which eBay categories Mercaria ingests is the
    * same power over the same graph as deciding what any other external source
    * may do. It stays mounted while `EBAY_ENABLED` and `EBAY_FETCH_ENABLED` are
    * off — reading the call budget is exactly what somebody does after flipping
    * the fetch kill switch.
    */
-  if (config.catalog.graphOperatorSurfaceEnabled) {
-    app.use('/internal/ebay', internalEbayRouter);
-  }
+  app.use('/internal/ebay', internalEbayRouter);
   /**
-   * The Awin retailer-network operator surface (#66), on the SAME allow-list and
+   * The Awin retailer-network operator surface (#66), on the SAME key and
    * mounted while `AWIN_ENABLED` is off — for `/internal/ingestion`'s reason:
    * registering a publisher account, polling the feed list and reading what it
    * found is how a network is brought up BEFORE the adapter is switched on, and
    * the evidence has to stay readable during the incident that turned it off.
    */
-  if (config.catalog.graphOperatorSurfaceEnabled) {
-    app.use('/internal/awin', internalAwinRouter);
-  }
-  // Guest-commerce diagnostic (#104), gated on its OWN allow-list for the same
-  // reason the two above have theirs: reading who merged which cart is a third
-  // power, and one list for all three would grant whichever an operator was not
-  // vetted for. Empty = not mounted, 404 — see middleware/guest-operator-authz.ts.
-  if (config.guest.operatorSurfaceEnabled) {
-    app.use('/internal/guest-commerce', internalGuestCommerceRouter);
-  }
-  // The referral operator surface (#143), on a SEVENTH allow-list. Pausing a
-  // program's attribution stops partners earning and the trace says which
-  // partner was credited for which subject; an operator vetted to repair a
-  // payment or trace a cart merge has been vetted for neither. Empty = not
-  // mounted, 404 — see middleware/referral-operator-authz.ts. Deliberately NOT
+  app.use('/internal/awin', internalAwinRouter);
+  // Guest-commerce diagnostic (#104), gated on its OWN key (`guest.operate`) for
+  // the same reason the two above have theirs: reading who merged which cart is
+  // a third power, and one key for all three would grant whichever an operator
+  // was not vetted for.
+  app.use('/internal/guest-commerce', internalGuestCommerceRouter);
+  // The referral operator surface (#143), on a SEVENTH key (`referrals.operate`).
+  // Pausing a program's attribution stops partners earning and the trace says
+  // which partner was credited for which subject; an operator vetted to repair
+  // a payment or trace a cart merge has been vetted for neither. Deliberately NOT
   // gated on `REFERRALS_ENABLED`: turning that off is exactly when somebody
   // needs to read why.
-  if (config.referrals.operatorSurfaceEnabled) {
-    app.use('/internal/referrals', internalReferralsRouter);
-  }
+  app.use('/internal/referrals', internalReferralsRouter);
   // Client analytics ingestion (#77). Mounted UNCONDITIONALLY, unlike the guest
   // and Stripe routes above: a deployment that collects nothing answers 202 and
   // records nothing rather than 404, because the endpoint's existence is not a
   // secret and a client that got a 404 would retry it forever. The handler's own
   // `config.analytics.enabled` check is the gate.
   app.use('/analytics', analyticsRouter);
-  // …and the analytics operator surface, on its OWN allow-list — a FOURTH list
-  // beside payments, catalog and guest, for the fourth instance of the reason
-  // those three are separate: reading what every market searched for is a
-  // different power from repairing payments, rewiring the catalogue or
-  // inspecting a cart merge. Empty = not mounted, 404 — see
-  // middleware/analytics-operator-authz.ts.
-  if (config.analytics.operatorSurfaceEnabled) {
-    app.use('/internal/analytics', internalAnalyticsRouter);
-  }
+  // …and the analytics operator surface, on its OWN key (`analytics.operate`) —
+  // a FOURTH beside payments, catalog and guest, for the fourth instance of the
+  // reason those three are separate: reading what every market searched for is
+  // a different power from repairing payments, rewiring the catalogue or
+  // inspecting a cart merge.
+  app.use('/internal/analytics', internalAnalyticsRouter);
   // Merchant demand analytics (#86). The MERCHANT-facing router mounts only
   // when at least one of its two levers is on: the dashboard and the public
   // preview are separate switches because the preview is the one surface an
@@ -1028,52 +1047,41 @@ export function createApp(): express.Express {
   if (config.merchantDemand.dashboardEnabled || config.merchantDemand.previewEnabled) {
     app.use('/merchant-demand', merchantDemandRouter);
   }
-  // …and the operator acquisition pipeline, on the SAME analytics allow-list —
-  // deliberately not a seventh list, because reading what demand is doing
-  // across the marketplace is the power that list already grants. It mounts
+  // …and the operator acquisition pipeline, on the SAME `analytics.operate`
+  // key — deliberately not a new one, because reading what demand is doing
+  // across the marketplace is the power that key already grants. It mounts
   // while BOTH merchant levers are off: the evidence has to be readable during
   // the incident that turned them off.
-  if (config.analytics.operatorSurfaceEnabled) {
-    app.use('/internal/merchant-demand', internalMerchantDemandRouter);
-  }
-  // …and the discovery-sweep trigger, on the SAME analytics allow-list —
+  app.use('/internal/merchant-demand', internalMerchantDemandRouter);
+  // …and the discovery-sweep trigger, on the SAME `analytics.operate` key —
   // forcing a recomputation of counts derived from analytics events is the
-  // power that list already holds, so this is a second surface joining it
-  // rather than an eighth list. Empty = not mounted, 404 — see
-  // middleware/analytics-operator-authz.ts.
-  if (config.analytics.operatorSurfaceEnabled) {
-    app.use('/internal/discovery', internalDiscoveryRouter);
-  }
-  // …and the retail compliance surface, on its OWN allow-list — a FIFTH list,
-  // for the fifth instance of the same reason: approving a resale
+  // power that key already grants, so this is a second surface joining it
+  // rather than an eighth key.
+  app.use('/internal/discovery', internalDiscoveryRouter);
+  // …and the retail compliance surface, on its OWN key (`retail.operate`) — a
+  // FIFTH, for the fifth instance of the same reason: approving a resale
   // authorization, verifying a product-safety certificate and LIFTING A RECALL
   // is a compliance power, and it is the only one of the five whose misuse puts
-  // an unsafe product back on sale. Empty = not mounted, 404 — see
-  // middleware/retail-operator-authz.ts.
-  if (config.retailEligibility.operatorSurfaceEnabled) {
-    app.use('/internal/retail-eligibility', internalRetailEligibilityRouter);
-  }
-  // …and the supply-operations surface, on its OWN allow-list — a SIXTH list,
-  // for a power none of the other five holds: this one reads what Mercaria PAYS
-  // its suppliers and flips the supplier and market kill switches. Empty = not
-  // mounted, 404 — see middleware/procurement-operator-authz.ts.
-  if (config.supplierPreflight.operatorSurfaceEnabled) {
-    app.use('/internal/supplier-preflight', internalSupplierPreflightRouter);
-    // The supplier-ORDER half of the same power, on the SAME sixth list (#124).
-    // Deliberately not a seventh: reading what Mercaria pays a supplier and
-    // acting on a supplier order are one power, and splitting them would create
-    // a list to keep in sync with no distinction to justify it.
-    app.use('/internal/procurement', internalProcurementRouter);
-    // …and the bounded pilot (#125), on the SAME sixth list for the same
-    // reason: publishing the bounds Mercaria buys under and pausing entry when
-    // a threshold is crossed is the supply-operations power, not a seventh one.
-    app.use('/internal/retail-pilot', internalRetailPilotRouter);
-    // #128's cost reconciliation, on the SAME sixth allow-list: it reads the
-    // supplier invoice by component, which is the wholesale cost base that list
-    // exists for. It stays mounted while the sweep is off — the evidence has to
-    // be readable during the incident that turned it off.
-    app.use('/internal/retail-reconciliation', internalRetailReconciliationRouter);
-  }
+  // an unsafe product back on sale.
+  app.use('/internal/retail-eligibility', internalRetailEligibilityRouter);
+  // …and the supply-operations surface, on its OWN key (`procurement.operate`)
+  // — a SIXTH, for a power none of the other five holds: this one reads what
+  // Mercaria PAYS its suppliers and flips the supplier and market kill switches.
+  app.use('/internal/supplier-preflight', internalSupplierPreflightRouter);
+  // The supplier-ORDER half of the same power, on the SAME sixth key (#124).
+  // Deliberately not a seventh: reading what Mercaria pays a supplier and
+  // acting on a supplier order are one power, and splitting them would create
+  // a key to grant in step with no distinction to justify it.
+  app.use('/internal/procurement', internalProcurementRouter);
+  // …and the bounded pilot (#125), on the SAME sixth key for the same
+  // reason: publishing the bounds Mercaria buys under and pausing entry when
+  // a threshold is crossed is the supply-operations power, not a seventh one.
+  app.use('/internal/retail-pilot', internalRetailPilotRouter);
+  // #128's cost reconciliation, on the SAME sixth key: it reads the
+  // supplier invoice by component, which is the wholesale cost base that key
+  // exists for. It stays mounted while the sweep is off — the evidence has to
+  // be readable during the incident that turned it off.
+  app.use('/internal/retail-reconciliation', internalRetailReconciliationRouter);
   /**
    * Navigation trees (#367 step 7, ADR 0007 D3) — the published menus, sections
    * and campaign strips a storefront renders, plus the operator surface that
@@ -1102,58 +1110,54 @@ export function createApp(): express.Express {
     app.use('/taxonomy', taxonomyRouter);
   }
   /**
-   * …and its operator surface, on the SAME `CATALOG_OPERATOR_OXY_USER_IDS`
-   * allow-list, and deliberately NOT gated on `CATALOG_TAXONOMY_V2_ENABLED`.
+   * …and its operator surface, on the SAME `catalog.operate`
+   * key, and deliberately NOT gated on `CATALOG_TAXONOMY_V2_ENABLED`.
    *
    * The `/internal/backfill` and `/internal/seo` arrangement, for their reason:
    * the evidence has to be readable during the incident that turned the public
    * surface off, and the one moment somebody most needs to preview a navigation
-   * tree is right after switching it off. Empty list = not mounted at all (404,
-   * never 401).
+   * tree is right after switching it off. A non-holder is answered 404, never
+   * 401.
    */
-  if (config.catalog.graphOperatorSurfaceEnabled) {
-    app.use('/internal/navigation', internalNavigationRouter);
-  }
+  app.use('/internal/navigation', internalNavigationRouter);
   /**
    * Catalog administration and governance (#367 Workstream 12) — the operator
    * surface over all nine catalog domains, on the SAME
-   * `CATALOG_OPERATOR_OXY_USER_IDS` allow-list and gated on nothing else.
+   * `catalog.operate` key and gated on nothing else.
    *
    * Deliberately NOT gated on `CATALOG_TAXONOMY_V2_ENABLED`,
    * `CATALOG_PROPOSALS_ENABLED` or any other domain's rollout lever, for the
    * reason `/internal/backfill` and `/internal/product-saves` are not: the
    * evidence has to be readable during the incident that turned a domain off,
    * and the audit trail of what an operator did to the catalogue is exactly
-   * what somebody reaches for at that moment. Empty list = not mounted at all
-   * (404, never 401).
+   * what somebody reaches for at that moment. A non-holder is answered 404,
+   * never 401.
    */
-  if (config.catalog.graphOperatorSurfaceEnabled) {
-    app.use('/internal/catalog-governance', internalCatalogGovernanceRouter);
-    // Catalog observability (#367 W16/W17). The SAME allow-list rather than a
-    // seventh: reading how much of the catalogue is translated is not a different
-    // power from publishing a taxonomy change. Read-only, and deliberately kept
-    // mounted alongside governance for the reason `/internal/backfill` is — the
-    // evidence has to be readable during the incident that turned a domain off.
-    app.use('/internal/catalog-metrics', internalCatalogMetricsRouter);
-    // The translation desk (#367 merge-order step 10). Same allow-list again,
-    // and beside metrics rather than inside it: that surface answers "is the
-    // catalogue healthy" in uniform metric cells with an exactly-asserted route
-    // set, this one answers "what should a translator do next" with per
-    // (domain, locale) rows carrying their own denominators. Read-only — the
-    // review DECISION stays at `/internal/catalog-governance/reviews/localization`,
-    // because a second route to one decision is how two surfaces come to
-    // disagree about what it meant.
-    app.use('/internal/catalog-localization', internalCatalogLocalizationRouter);
-    // Secondary category classification (#367 Workstream 1). The SAME allow-list
-    // for the third time in this block, and for the reason the two above give:
-    // deciding that a product is ALSO a regulated battery is the same power over
-    // the same graph as deciding what a category means. It is a SEPARATE router
-    // rather than routes on governance, per ADR 0002 D25(a)'s file-ownership
-    // protocol — and it writes no `catalog_governance_*` row, because a
-    // classification is a fact about a product rather than a change to a
-    // definition.
-    app.use('/internal/taxonomy', internalTaxonomyRouter);
-  }
+  app.use('/internal/catalog-governance', internalCatalogGovernanceRouter);
+  // Catalog observability (#367 W16/W17). The SAME key rather than a
+  // new one: reading how much of the catalogue is translated is not a different
+  // power from publishing a taxonomy change. Read-only, and deliberately kept
+  // mounted alongside governance for the reason `/internal/backfill` is — the
+  // evidence has to be readable during the incident that turned a domain off.
+  app.use('/internal/catalog-metrics', internalCatalogMetricsRouter);
+  // The translation desk (#367 merge-order step 10). Same key again,
+  // and beside metrics rather than inside it: that surface answers "is the
+  // catalogue healthy" in uniform metric cells with an exactly-asserted route
+  // set, this one answers "what should a translator do next" with per
+  // (domain, locale) rows carrying their own denominators. Read-only — the
+  // review DECISION stays at `/internal/catalog-governance/reviews/localization`,
+  // because a second route to one decision is how two surfaces come to
+  // disagree about what it meant.
+  app.use('/internal/catalog-localization', internalCatalogLocalizationRouter);
+  // Secondary category classification (#367 Workstream 1). The SAME key
+  // for the third time in this block, and for the reason the two above give:
+  // deciding that a product is ALSO a regulated battery is the same power over
+  // the same graph as deciding what a category means. It is a SEPARATE router
+  // rather than routes on governance, per ADR 0002 D25(a)'s file-ownership
+  // protocol — and it writes no `catalog_governance_*` row, because a
+  // classification is a fact about a product rather than a change to a
+  // definition.
+  app.use('/internal/taxonomy', internalTaxonomyRouter);
   /**
    * Compatibility and automotive fitment (#367 step 8, ADR 0007 D8) — "does this
    * part fit my car", plus the vehicle picker that lets somebody ask.

@@ -107,7 +107,7 @@ export function referralRedirectOrigin(): string {
  * The origin is compared back afterwards anyway — the belt to that brace — and
  * the loop guard runs on the final pathname rather than on the input.
  */
-export function composeReferralDestination(relativePath: string): string {
+export function composeReferralDestination(relativePath: string, referralState?: string): string {
   const origin = referralRedirectOrigin();
   const target = new URL(relativePath, origin);
   const base = new URL(origin);
@@ -125,8 +125,12 @@ export function composeReferralDestination(relativePath: string): string {
       `A referral destination resolved back onto the referral route (${target.pathname}); that is a loop.`,
     );
   }
-  // `target.href` carries no search and no hash: nothing above ever sets one,
-  // and `destinations.ts` produces path-only strings.
+  // Only this closed destination composer may attach the minted evidence.
+  // Preserve other fragment namespaces by refusing unexpected template state.
+  if (referralState !== undefined) {
+    if (target.hash) throw new Error('Referral destination already has a fragment');
+    target.hash = new URLSearchParams({ 'mercaria-referral': referralState }).toString();
+  }
   return target.href;
 }
 
@@ -263,7 +267,7 @@ export async function resolveReferralRedirect(
   });
   return {
     outcome: 'redirect',
-    location,
+    location: composeReferralDestination(resolved.destinationPath, minted.token),
     disposition: 'redirected_and_recorded',
     disclosureRequired: resolved.disclosureRequired,
     state: {

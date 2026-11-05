@@ -175,6 +175,35 @@ export async function revokeGuestSession(
   return updated.length === 1;
 }
 
+/**
+ * Delete one guest session and the carts it owns — ADR 0003 D15's "revokes all
+ * sessions … deletes the guest cart", performed for a data subject's erasure
+ * request (M8-01).
+ *
+ * The carts go FIRST and explicitly even though `carts.guest_session_id`
+ * CASCADEs, because the receipt reports how many carts were removed and a
+ * cascade reports nothing. The session row then goes outright rather than
+ * being revoked: a revoked row survives seven days for the sweep, and an
+ * erasure request is the one caller entitled not to wait for it. Nothing holds
+ * a RESTRICT on either table — `guest_checkouts.guest_session_id` and
+ * `order_status_history.actor_guest_session_id` are correlation text by design
+ * (D11/D16), so the audit trail survives the credential.
+ */
+export async function deleteGuestSessionAndCarts(
+  db: DatabaseOrTransaction,
+  guestSessionId: string,
+): Promise<{ sessions: number; carts: number }> {
+  const deletedCarts = await db
+    .delete(carts)
+    .where(eq(carts.guestSessionId, guestSessionId))
+    .returning({ id: carts.id });
+  const deletedSessions = await db
+    .delete(guestSessions)
+    .where(eq(guestSessions.id, guestSessionId))
+    .returning({ id: guestSessions.id });
+  return { sessions: deletedSessions.length, carts: deletedCarts.length };
+}
+
 /** Fetch by row id — the inspect surface after resolution, and tests. */
 export async function findGuestSessionById(
   db: DatabaseOrTransaction,

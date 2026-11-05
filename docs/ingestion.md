@@ -360,7 +360,7 @@ an operator releases it explicitly.
 
 The SOURCE lease says "this task is responsible for feeding this source"; the
 RUN lease says "this task is driving this pass". A pass outlives a tick — a feed
-with forty pages is forty ticks of one run — so collapsing them would either
+of four thousand pages spans many ticks of one run — so collapsing them would either
 hold a source lease for an hour or let a second task claim the source mid-pass
 and open a competing run.
 
@@ -399,11 +399,11 @@ deliberately bounds.
 
 ## The operator surface
 
-`/internal/ingestion/*`, behind the SAME `CATALOG_OPERATOR_OXY_USER_IDS`
-allow-list #54/#56/#57/#58/#60 use — who may reshape the canonical catalogue,
+`/internal/ingestion/*`, behind the SAME `catalog.operate`
+key #54/#56/#57/#58/#60 use — who may reshape the canonical catalogue,
 who may migrate the native one into it and who may decide what an external
-source may do are the same power over the same graph. Empty list = not mounted
-(404, never a 401 that would advertise the surface).
+source may do are the same power over the same graph. Anyone without it gets
+404, never a 401 that would advertise the surface.
 
 It stays mounted while `CATALOG_INGESTION_ENABLED` is off, deliberately:
 configuring a source, reviewing its terms and draining it by hand is how a feed
@@ -440,10 +440,34 @@ CATALOG_INGESTION_ENABLED=true           # gates the LOOP, never the durable rec
 CATALOG_INGESTION_BATCH_SIZE=5
 CATALOG_INGESTION_POLL_INTERVAL_MS=30000
 CATALOG_INGESTION_LEASE_MS=120000
+CATALOG_INGESTION_TICK_BUDGET_MS=25000
 CATALOG_INGESTION_MAX_BACKOFF_MS=21600000
 CATALOG_INGESTION_RETIREMENT_BATCH_SIZE=500
 CATALOG_INGESTION_ANOMALY_PRICE_FACTOR=20
 ```
+
+A tick claims up to `BATCH_SIZE` runs and drives them round-robin, one page of
+each per round, for as long as `TICK_BUDGET_MS` lasts; a run still unfinished
+then is YIELDED — back to `pending`, due now — so the next tick picks it up
+straight away. Driving one page and leaving the run leased made every next page
+wait for the two-minute lease to expire: about 0.45 pages a minute, many hours
+per Scryfall pass, in October 2026. The providers' own spacing (the open-data
+transport's per-host interval, eBay's daily budget) still governs every request.
+
+A pass that reads its provider to the last page without an error is a SUCCESS
+for scheduling (`passSucceeded` in `health.ts`): it sets `last_success_at` and
+waits the source's cadence, even though a pass that is not a snapshot records
+`partial_feed` (or `matching_ambiguity`) as its health. Only a pass that failed,
+or a snapshot pass that did not enumerate completely, takes the 2ⁿ-minute
+backoff — which is shorter than a daily cadence, so counting finished
+incremental passes as failures re-read Steam and YGOPRODeck several times a day.
+
+A page that throws is logged (`[Ingestion] page failed; the rest of the batch
+continues`) and the tick moves on without that run, which keeps its lease: every run in the batch is already leased, so
+aborting would leave the others leased and undriven until expiry, round after
+round. That is how one wedged Open Prices run held every other keyless source to
+about a page an hour for a week in October 2026, with `attempts` in the
+thousands beside a `fetch_count` in the hundreds — the signature to look for.
 
 There is deliberately no flag over the rights, the tables or the operator
 surface. Rights are per-source and versioned, which is a finer instrument than a
@@ -583,8 +607,8 @@ Each is a NAMED contract that fails closed, never a stub that lies.
 
 ## Production-readiness checklist
 
-1. `CATALOG_OPERATOR_OXY_USER_IDS` populated, or the surface is not mounted and
-   nobody can configure a source or review a policy.
+1. `catalog.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`), or nobody can configure a source
+   or review a policy.
 2. At least one adapter registered. #63's `product_feed` is registered by
    `FEED_IMPORT_ENABLED=true` (which additionally requires
    `FEED_IMPORT_AUTH_ENCRYPTION_KEY`); #65 and #66 ship none yet, and until an

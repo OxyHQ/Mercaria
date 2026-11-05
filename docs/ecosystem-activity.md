@@ -6,9 +6,9 @@ the service process regardless of whether somebody opens the dashboard.
 
 Enable with `OXY_ECOSYSTEM_ACTIVITY_ENABLED=true`, `AWS_REGION`, and an Oxy
 identity. On ECS that is the task role: `oxy-mercaria-task` is bound to the
-Mercaria application (oxy ADR 0026), and the deploy carries no key pair. Off
-ECS, set `OXY_APPLICATION_KEY` and `OXY_APPLICATION_SECRET`; a full pair wins
-over attestation and half a pair is no identity.
+Mercaria application with an administratively bound environment (Oxy ADR 0049).
+The shared publisher attests it; customer key pairs do not select own authority.
+Local development needs a registered workload identity to publish.
 An invalid activation value or missing required configuration fails at boot.
 Disabled collection emits a warning; it must not be interpreted as zero traffic.
 

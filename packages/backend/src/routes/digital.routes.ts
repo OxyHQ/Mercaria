@@ -22,18 +22,19 @@
  *
  * ## This is NOT a raw-body mount and must not become one
  *
- * The five routers mounted before `express.json()` are a closed set asserted per
- * mount, and nothing here belongs in it: the creator registers a file that was
- * uploaded STRAIGHT TO OXY and posts its `file_id`, so no request on this router
- * carries bytes. If a future upload route ever needs the stream, that is a sixth
- * mount and a sixth test file — a decision for a human, not a line added here.
+ * The routers mounted before `express.json()` are a closed set asserted per
+ * mount (`docs/house-invariants.md`), and nothing here belongs in it: the
+ * creator registers a file that was uploaded STRAIGHT TO OXY and posts its
+ * `file_id`, so no request on this router carries bytes. If a future upload
+ * route ever needs the stream, that is one more mount and one more test file —
+ * a decision for a human, not a line added here.
  *
  * ## There is no `/internal/*` surface here
  *
- * Every `/internal/*` router is gated by an operator allow-list and this creates
+ * Every `/internal/*` router is gated by an operator key and this creates
  * none. An operator action on a right — a revocation under a documented legal
  * basis, a support grant — is `right.service`'s and belongs on an existing
- * operator surface whose power it already shares, not on a new list.
+ * operator surface whose power it already shares, not on a new key.
  */
 
 import { Router } from 'express';

@@ -738,6 +738,8 @@
       "a11yLabel": "मर्चेंट की स्थिति: %{status}",
       "claim": "इस मर्चेंट पर दावा करें",
       "claimHint": "इस पेज को मैनेज करने के लिए साबित करें कि आप यह मर्चेंट चलाते हैं",
+      "contest": "इस दावे पर आपत्ति करें",
+      "contestHint": "Mercaria को बताएं कि इस मर्चेंट का सत्यापित ऑपरेटर सही नहीं है",
       "label": {
         "unclaimed": "बिना दावे का",
         "claimInProgress": "दावा प्रक्रिया में",
@@ -790,6 +792,117 @@
         "staleSources": "मौजूदा कीमतें दिखाने के लिए Mercaria को इस मर्चेंट के स्रोतों से हाल ही में जानकारी नहीं मिली है।",
         "filteredOut": "इन फ़िल्टर से कोई उत्पाद मेल नहीं खाता।"
       }
+    }
+  },
+  "merchantClaim": {
+    "title": "%{merchant} पर दावा करें",
+    "intro": "साबित करें कि आप यह मर्चेंट चलाते हैं, ताकि आप मैनेज कर सकें कि यह Mercaria पर कैसे दिखता है। दावा करने से Mercaria स्टोर नहीं बनता और न ही आप किसी ब्रांड के आधिकारिक विक्रेता बनते हैं।",
+    "signInPrompt": "इस मर्चेंट पर दावा करने के लिए अपने Oxy खाते से साइन इन करें।",
+    "signIn": "साइन इन करें",
+    "loadFailed": "हम आपके दावे लोड नहीं कर सके।",
+    "noMethods": "अभी यहां से दावा नहीं किया जा सकता।",
+    "start": "जारी रखें",
+    "starting": "शुरू हो रहा है…",
+    "close": "बंद करें",
+    "copy": "%{label} कॉपी करें",
+    "copied": "कॉपी हो गया",
+    "copyFailed": "कॉपी नहीं हो सका। टेक्स्ट चुनकर खुद कॉपी करें।",
+    "method": {
+      "title": "आप इसे कैसे साबित करना चाहते हैं?",
+      "checkedAutomatically": "अपने आप जांचा जाता है।",
+      "reviewedByPerson": "एक व्यक्ति समीक्षा करता है।",
+      "dnsTxt": {
+        "label": "DNS रिकॉर्ड",
+        "description": "अपने डोमेन के DNS में एक TXT रिकॉर्ड जोड़ें।"
+      },
+      "wellKnownFile": {
+        "label": "आपकी वेबसाइट पर फ़ाइल",
+        "description": "अपनी वेबसाइट पर एक छोटी टेक्स्ट फ़ाइल अपलोड करें।"
+      },
+      "metaTag": {
+        "label": "आपके होम पेज पर टैग",
+        "description": "अपनी वेबसाइट के होम पेज पर एक meta टैग जोड़ें।"
+      },
+      "businessDocument": {
+        "label": "व्यावसायिक दस्तावेज़",
+        "description": "ऐसे दस्तावेज़ों के लिंक साझा करें जो दिखाते हैं कि आप यह व्यवसाय चलाते हैं।"
+      }
+    },
+    "domain": {
+      "label": "आपकी वेबसाइट का डोमेन",
+      "help": "वह डोमेन जिससे यह मर्चेंट बेचता है। आपका प्रमाण केवल इसी डोमेन पर लागू होता है।",
+      "placeholder": "example.com"
+    },
+    "previous": {
+      "rejected": "इस मर्चेंट पर आपका पिछला दावा स्वीकृत नहीं हुआ।",
+      "reason": "समीक्षक की टिप्पणी: %{reason}",
+      "expired": "इस मर्चेंट पर आपका पिछला दावा साबित होने से पहले समाप्त हो गया। आप फिर से शुरू कर सकते हैं।",
+      "revoked": "इस मर्चेंट के लिए आपका सत्यापन वापस ले लिया गया। आप नया दावा कर सकते हैं।"
+    },
+    "errors": {
+      "tooMany": "हाल में बहुत अधिक प्रयास हुए। बाद में फिर से कोशिश करें।",
+      "notFoundYet": "हमें अभी सत्यापन मान नहीं मिला। DNS और वेबसाइट में बदलाव दिखने में समय लग सकता है, इसलिए थोड़ी देर में फिर से कोशिश करें।",
+      "codeUnusable": "यह कोड अब इस्तेमाल नहीं किया जा सकता। नया कोड लें और उसे प्रकाशित करें।",
+      "cannotOpen": "आप अभी इस मर्चेंट पर दावा नहीं कर सकते।",
+      "cannotContest": "अभी इस दावे पर आपत्ति नहीं की जा सकती।",
+      "invalid": "आपने जो दर्ज किया है उसे जांचें और फिर से कोशिश करें।",
+      "generic": "कुछ गलत हो गया। फिर से कोशिश करें।"
+    },
+    "challenge": {
+      "draftIntro": "%{domain} के लिए आपका दावा तैयार है। आगे बढ़ने के लिए सत्यापन कोड लें।",
+      "lost": "सत्यापन कोड केवल एक बार दिखाए जाते हैं। आगे बढ़ने के लिए नया कोड लें; यह पिछले कोड की जगह ले लेगा।",
+      "getCode": "सत्यापन कोड लें",
+      "gettingCode": "कोड लिया जा रहा है…",
+      "verify": "अभी जांचें",
+      "verifying": "जांच हो रही है…",
+      "newCode": "नया कोड लें",
+      "expires": "यह कोड %{time} तक मान्य है।",
+      "dnsTxt": {
+        "step": "%{domain} के DNS में यह TXT रिकॉर्ड जोड़ें:",
+        "nameLabel": "नाम",
+        "valueLabel": "मान",
+        "note": "DNS बदलाव दिखने में कुछ मिनट, कभी-कभी घंटे लग सकते हैं।"
+      },
+      "wellKnownFile": {
+        "step": "इस पते पर एक फ़ाइल प्रकाशित करें जिसमें ठीक यही टेक्स्ट हो:",
+        "urlLabel": "पता",
+        "contentsLabel": "फ़ाइल की सामग्री"
+      },
+      "metaTag": {
+        "step": "%{url} के <head> में यह टैग जोड़ें:",
+        "tagLabel": "टैग"
+      }
+    },
+    "status": {
+      "verified": {
+        "title": "आप सत्यापित ऑपरेटर हैं",
+        "body": "%{merchant} पर आपका दावा सत्यापित है।"
+      },
+      "reviewPending": {
+        "title": "आपके दावे की समीक्षा हो रही है",
+        "body": "एक व्यक्ति आपके दावे की समीक्षा कर रहा है। फ़ैसला देखने के लिए यहां वापस आएं।"
+      },
+      "disputed": {
+        "title": "आपका दावा विवाद में है",
+        "body": "किसी दूसरे खाते के पास इस मर्चेंट पर पहले से सत्यापित दावा है। एक व्यक्ति दोनों की समीक्षा करके फ़ैसला करेगा।"
+      }
+    },
+    "evidence": {
+      "intro": "ऐसे दस्तावेज़ों का लिंक जोड़ें जो दिखाते हैं कि आप यह व्यवसाय चलाते हैं, जैसे व्यवसाय पंजीकरण या टैक्स रिकॉर्ड, और समीक्षक के लिए एक टिप्पणी। इन्हें केवल समीक्षक देखेगा।",
+      "urlLabel": "दस्तावेज़ का लिंक",
+      "urlPlaceholder": "https://",
+      "noteLabel": "समीक्षक के लिए टिप्पणी",
+      "submit": "समीक्षा के लिए भेजें",
+      "submitting": "भेजा जा रहा है…"
+    },
+    "contest": {
+      "title": "%{merchant} पर दावे पर आपत्ति करें",
+      "intro": "इस मर्चेंट का पहले से एक सत्यापित ऑपरेटर है। अगर यह गलत है, तो हमें बताएं क्यों। हर आपत्ति की समीक्षा एक व्यक्ति करता है, और मौजूदा ऑपरेटर को बताया जाता है कि आपत्ति की गई है, पर यह कभी नहीं कि किसने की।",
+      "reasonLabel": "मौजूदा दावा गलत क्यों है?",
+      "reasonHelp": "कम से कम 20 अक्षर।",
+      "urlLabel": "सहायक लिंक (वैकल्पिक)",
+      "submit": "आपत्ति भेजें",
+      "submitting": "भेजा जा रहा है…"
     }
   },
   "families": {
@@ -1382,6 +1495,21 @@
       "createFailed": "लिंक नहीं बन सका। फिर से कोशिश करें।",
       "empty": "Mercaria साझा करने के लिए एक लिंक बनाएँ। उससे आने वाले रेफ़रल आपके नाम दर्ज होते हैं।",
       "notPartner": "किसी प्रोग्राम में नामांकन के बाद आपका लिंक यहाँ दिखेगा।"
+    },
+    "code": {
+      "title": "रेफ़रल कोड",
+      "description": "किसी ने आपको कोड दिया है? उसे यहाँ डालें।",
+      "label": "रेफ़रल कोड",
+      "placeholder": "कोड",
+      "apply": "लागू करें",
+      "applied": "कोड लागू हो गया",
+      "invalid": "इस कोड का इस्तेमाल नहीं किया जा सकता।",
+      "failed": "कोड लागू नहीं हो सका। फिर से कोशिश करें।"
+    },
+    "disclosure": {
+      "title": "आप एक रेफ़रल लिंक से आए हैं",
+      "body": "अगर आप खरीदते हैं, तो इसे शेयर करने वाले को Mercaria से इनाम मिल सकता है। आपकी कीमत नहीं बदलती।",
+      "dismiss": "समझ गया"
     }
   },
   "brand": {
@@ -1676,19 +1804,6 @@
       "notForSale": "बिक्री पर नहीं"
     }
   },
-  "thread": {
-    "title": "खरीदारी सहायक",
-    "thinking": "सुझाव खोज रहे हैं…",
-    "stop": "रोकें",
-    "unavailable": "खरीदारी सहायक अभी उपलब्ध नहीं है। आप कैटलॉग में खोज सकते हैं।",
-    "signIn": "चैट करने के लिए साइन इन करें",
-    "retry": "फिर कोशिश करें",
-    "viewResults": "खोज परिणाम देखें",
-    "newConversation": "नई बातचीत",
-    "previewAction": "नमूना डेटा से आज़माएँ",
-    "previewLabel": "पूर्वावलोकन · नमूना जवाब, AI कनेक्ट नहीं है",
-    "previewReply": "बातचीत का डिज़ाइन जाँचने के लिए ये स्थानीय कैटलॉग के उदाहरण हैं। विवरण देखने के लिए कोई उत्पाद खोलें या एक और संदेश भेजें।"
-  },
   "profile": {
     "title": "प्रोफ़ाइल",
     "subtitle": "आपके सहेजे गए उत्पाद, ऑर्डर और खाता एक ही जगह।"
@@ -1706,5 +1821,149 @@
     "quoteComfort": "आराम, व्यक्तित्व और वे छोटे विवरण जो किसी चीज़ को आपका बनाते हैं।",
     "quoteTexture": "पसंदीदा बनावट पूरे पहनावे का एहसास बदल सकती है।",
     "quoteEveryday": "जिन चीज़ों का सबसे अधिक इस्तेमाल करते हैं, उन्हें पास रखें।"
+  },
+  "materials": {
+    "heading": "Donated materials",
+    "intro": "Offer and request materials as a person or organization. The items are free. Arrange personal pickup after the donor accepts.",
+    "switchAccount": "Change account",
+    "signIn": "Sign in",
+    "actingAs": "Acting as %{account}",
+    "offers": "Available materials",
+    "reservations": "My requests and reservations",
+    "refresh": "Refresh",
+    "empty": "No materials are available yet.",
+    "emptyReservations": "You have no requests or reservations.",
+    "more": "Load more",
+    "offer": "Offer materials",
+    "title": "Material name",
+    "description": "Description",
+    "area": "Approximate public area",
+    "quantity": "Quantity",
+    "unit": "Unit (pieces, boxes…)",
+    "pickup": "Personal pickup instructions",
+    "pickupPrivacy": "Keep the public area approximate. Pickup details are shared only with accepted recipients. No payment for the materials is required.",
+    "publish": "Publish free offer",
+    "counts": "%{available} %{unit} available · %{committed} committed · %{received} received",
+    "close": "Close offer to new requests",
+    "request": "Request materials",
+    "requestSent": "Request sent. The donor must accept before units are reserved.",
+    "reservation": "Material reservation",
+    "reservationQuantity": "%{quantity} %{unit}",
+    "requester": "Recipient account: %{account}",
+    "donor": "Donor account: %{account}",
+    "accept": "Accept and reserve",
+    "confirm": "I have received these materials",
+    "cancel": "Cancel request or reservation",
+    "requested": "Awaiting donor acceptance",
+    "accepted": "Reserved — awaiting pickup",
+    "cancelled": "Cancelled",
+    "delivered": "Receipt confirmed",
+    "conflict": "This action no longer matches the available quantity or reservation state. Refresh to see the current details.",
+    "forbidden": "This account is not authorized for this action.",
+    "error": "Could not complete the request. Check your connection and retry; the same request will not be duplicated."
+  },
+  "transport": {
+    "heading": "Transport with Moovo",
+    "pickupAlways": "Personal pickup is always available. Donated materials remain free.",
+    "pickup": "Pickup",
+    "dropoff": "Delivery",
+    "line1": "Street address",
+    "city": "City",
+    "postalCode": "Postal code",
+    "country": "Country (two-letter code)",
+    "contactName": "Contact name",
+    "contactPhone": "Contact phone",
+    "pickupPlace": "पिकअप पता",
+    "dropoffPlace": "डिलीवरी पता",
+    "placeSearch": "सड़क, नंबर और शहर खोजें",
+    "notes": "Instructions",
+    "weight": "Total weight (kg)",
+    "pieces": "Number of packages",
+    "small": "Small",
+    "medium": "Medium",
+    "large": "Large",
+    "payer": "Who pays for transport?",
+    "donor": "Donor",
+    "recipient": "Recipient",
+    "sponsor": "Sponsoring organization",
+    "organization": "Oxy organization account ID",
+    "selectedPayer": "Transport payer: %{account}",
+    "payerMustConfirm": "Choosing a payer does not authorize payment. That account must review the route and price and confirm. Organization owners and admins can authorize.",
+    "getQuote": "Get a transport quote",
+    "request": "Request transport",
+    "keepPickup": "Keep personal pickup",
+    "missingFacts": "Complete the actual pickup and delivery addresses, coordinates, contacts and package details. Collection instructions are suggestions to review, not a structured address.",
+    "unavailable": "Moovo is unavailable or this account cannot access the request. Refresh to read current information.",
+    "unknown": "The result could not be confirmed. Refresh this request before trying again; an existing booking will not be repeated.",
+    "attach": "Save transport reference",
+    "newRequest": "Start a new transport request",
+    "route": "From %{pickup} to %{dropoff}",
+    "price": "Transport: %{price}. Quote expires %{expiry}.",
+    "pendingPayment": "Transport payment is pending. Payment collection is not available here; this action does not mark transport paid. The donation itself costs nothing.",
+    "cancellationWarning": "Cancelling a donation does not cancel its transport. Manage a requested or uncertain delivery separately in Moovo.",
+    "confirmPayer": "I am acting for %{account} and agree to this route and transport price",
+    "unconfirm": "Remove my confirmation",
+    "authorize": "Authorize this transport price",
+    "book": "Request the authorized transport",
+    "participantBooks": "Authorization saved. A donation participant can now request the transport before the quote expires.",
+    "shareApproval": "Share with the selected payer for approval",
+    "retryQuote": "Retry or renew quote",
+    "cancelProposal": "Cancel transport proposal; keep personal pickup",
+    "openMoovo": "Open delivery in Moovo",
+    "forbidden": "Your current account cannot authorize this payer. Switch to the selected payer account; organizations require owner or admin access.",
+    "signIn": "Sign in with the selected payer account to review this transport.",
+    "status": {
+      "quoting": "Preparing a quote. You can retry after a short wait.",
+      "quoted": "Waiting for the selected payer to authorize.",
+      "authorized": "Price authorized. Transport has not been requested yet.",
+      "booking": "Requesting transport. Refresh to check the result.",
+      "booking_unknown": "Transport result is uncertain. Do not create another request; check this operation in Moovo.",
+      "booked": "Transport requested.",
+      "cancelled": "Transport proposal cancelled."
+    },
+    "retryBooking": "Recover existing transport request",
+    "jobStatus": {
+      "requested": "Transport requested",
+      "offered": "Finding a courier",
+      "accepted": "Courier assigned",
+      "picked_up": "Materials picked up",
+      "in_transit": "In transit",
+      "delivered": "Delivered",
+      "cancelled": "Transport cancelled"
+    }
+  },
+  "supervisedShopping": {
+    "title": "निगरानी में खरीदारी",
+    "intro": "समीक्षित सामान देखें। भुगतान से पहले आपके अभिभावक खरीद के पूरे विवरण को मंज़ूरी देते हैं।",
+    "unavailable": "खरीदारी उपलब्ध नहीं है",
+    "unavailableBody": "आपकी पहुँच या कोई सामान बदल सकता है। ताज़ा विवरण के लिए फिर कोशिश करें।",
+    "empty": "अभी कोई समीक्षित सामान नहीं है",
+    "emptyBody": "प्लैटफ़ॉर्म की समीक्षा के बाद सामान यहाँ दिखाई देगा। बाद में फिर देखें।",
+    "add": "जोड़ें",
+    "remove": "हटाएँ",
+    "itemUnavailable": "सामान उपलब्ध नहीं है",
+    "reviewPurchase": "खरीद की समीक्षा करें",
+    "changeError": "कार्ट अपडेट नहीं हो सका। सामान जाँचें और फिर कोशिश करें।",
+    "approvalIntro": "डिलीवरी का पता दर्ज करें। भुगतान की मंज़ूरी से पहले आपके अभिभावक पूरी खरीद देखेंगे।",
+    "prepareError": "खरीद तैयार नहीं हो सकी। उसी खरीद को वापस पाने के लिए फिर कोशिश करें।",
+    "requestApproval": "अभिभावक की मंज़ूरी माँगें",
+    "pending": "अभिभावक की मंज़ूरी का इंतज़ार",
+    "approved": "भुगतान की मंज़ूरी मिल गई",
+    "paid": "भुगतान की पुष्टि हो गई",
+    "closed": "यह मंज़ूरी बंद हो चुकी है",
+    "shipping": "डिलीवरी",
+    "tax": "कर",
+    "discount": "छूट",
+    "rounding": "मुद्रा रूपांतरण का पूर्णांकन",
+    "total": "कुल",
+    "viewApproval": "Oxy में मंज़ूरी देखें",
+    "continuePayment": "भुगतान जारी रखें",
+    "paymentError": "भुगतान की पुष्टि नहीं हुई है। वही भुगतान फिर करें या उसकी स्थिति अपडेट करें।",
+    "pendingBody": "आपके अभिभावक Oxy में सामान और सटीक कुल राशि देख सकते हैं। उनकी मंज़ूरी के बाद भुगतान उपलब्ध होगा।",
+    "refresh": "स्थिति अपडेट करें",
+    "account": "निगरानी और खाता"
+  },
+  "alia": {
+    "viewResults": "खोज परिणाम देखें"
   }
 }

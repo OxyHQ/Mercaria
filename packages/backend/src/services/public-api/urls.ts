@@ -15,7 +15,9 @@
  *    `/stores/[handle]`), and a collection by its id on its store's page, which
  *    `app/(app)/stores/[handle].tsx` honours as the initial selection;
  *  - a location the same way, on its store's page, which puts that location
- *    first in the page's "Visit us" section.
+ *    first in the page's "Visit us" section;
+ *  - a catalog product by its CURRENT slug, on the canonical product page
+ *    (`app/(app)/p/[handle].tsx`), which a merged product's old slug redirects from.
  */
 
 /** Strip trailing slashes so `https://mercaria.co/` and `https://mercaria.co` agree. */
@@ -26,6 +28,11 @@ export function normalizeWebOrigin(origin: string): string {
 /** `${origin}/products/${id}` — the product page. */
 export function productWebUrl(origin: string, productId: string): string {
   return `${normalizeWebOrigin(origin)}/products/${encodeURIComponent(productId)}`;
+}
+
+/** `${origin}/p/${slug}` — the canonical (comparison) product page, by its CURRENT slug. */
+export function catalogProductWebUrl(origin: string, slug: string): string {
+  return `${normalizeWebOrigin(origin)}/p/${encodeURIComponent(slug)}`;
 }
 
 /** `${origin}/stores/${handle}` — the store page, by its CURRENT handle. */

@@ -10,10 +10,10 @@
  * other four harder to read, since three of the routes below are legitimately
  * deployment-scoped.
  *
- * The allow-list is `GUEST_OPERATOR_OXY_USER_IDS` and is deliberately not a
- * seventh: `routes/internal-guest-commerce.ts` mounts this after the same
- * `authenticateToken` + `requireGuestOperator` pair, so an empty list means the
- * whole prefix is not mounted (404, never a 401 that would advertise it).
+ * The key is `guest.operate` and is deliberately not a new one:
+ * `routes/internal-guest-commerce.ts` mounts this after the same
+ * `authenticateToken` + `requireGuestOperator` pair, so anyone without the key
+ * is answered 404 on the whole prefix (never a 401 that would advertise it).
  */
 
 import { Router } from 'express';

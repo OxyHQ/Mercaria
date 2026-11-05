@@ -77,15 +77,11 @@ for (const width of [390, 1440]) {
     const recent = page.getByTestId('recently-viewed-shelf');
     await expect(recent.getByRole('link', { name: product.title, exact: true })).toBeVisible();
     await expect(recent.locator('img')).toHaveCount(0);
-    const thread = page.getByTestId('feed-thread-card').filter({ hasText: title });
-    await expect(thread).toBeVisible();
-    await expect(thread.locator('img')).toHaveCount(0);
-    await thread.click();
-    await expect(page).toHaveURL(/\/thread\?conversationId=legacy-history$/);
-    const results = page.getByTestId('thread-preview-products');
-    await expect(results).toContainText(product.title);
-    await expect(results.locator('img')).toHaveCount(0);
-    await results.getByRole('link', { name: product.title, exact: true }).first().click();
+    // A conversation a device stored before conversations moved to Alia is
+    // dropped by the store's migration, never shown: "Keep shopping" is the
+    // person's Alia conversations started in Mercaria.
+    await expect(page.getByTestId('feed-thread-card').filter({ hasText: title })).toHaveCount(0);
+    await recent.getByRole('link', { name: product.title, exact: true }).first().click();
     await expect(page).toHaveURL(new RegExp(`/products/${product.id}$`));
     await expect(page.getByText(product.title, { exact: true }).first()).toBeVisible();
     expect(supplierRequests).toEqual([]);

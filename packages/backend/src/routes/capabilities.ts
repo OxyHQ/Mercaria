@@ -10,7 +10,7 @@ import { jsonObjectSchemaToZod } from '@oxy.so/mcp';
 
 import {
   auditMercariaCapabilityTicket,
-  introspectMercariaCapabilityTicket,
+  CapabilityTicketRevokedError,
   verifyMercariaCapabilityTicket,
 } from '../capabilities/capability-authority.js';
 import {
@@ -101,18 +101,22 @@ for (const tool of MERCARIA_CAPABILITY_CATALOG.tools.filter(({ exposure }) =>
       return;
     }
 
+    // Signature, issuer, audience, lifetime AND Oxy's live decision, in one call.
     let claims: CapabilityTicketClaims;
     try {
       claims = await verifyMercariaCapabilityTicket(ticket);
     } catch (error) {
-      const code = error instanceof CapabilityTicketError ? error.code : 'jwks_unavailable';
-      response.status(code === 'jwks_unavailable' ? 503 : 401).json({
-        error:
-          code === 'jwks_unavailable'
-            ? 'capability_authority_unavailable'
-            : 'invalid_capability_ticket',
-        code,
-      });
+      if (error instanceof CapabilityTicketError) {
+        response.status(401).json({ error: 'invalid_capability_ticket', code: error.code });
+        return;
+      }
+      if (error instanceof CapabilityTicketRevokedError) {
+        await auditDenied(ticket, tool, 'capability_revoked_or_denied');
+        response.status(403).json({ error: 'capability_revoked_or_denied' });
+        return;
+      }
+      log.general.error({ err: error, tool: tool.name }, 'Capability verification failed');
+      response.status(503).json({ error: 'capability_authority_unavailable' });
       return;
     }
 
@@ -135,18 +139,6 @@ for (const tool of MERCARIA_CAPABILITY_CATALOG.tools.filter(({ exposure }) =>
     if (!inputSatisfiesCapabilityLimits(tool.name, input, claims.limits)) {
       await auditDenied(ticket, tool, 'capability_limit_exceeded', claims);
       response.status(403).json({ error: 'capability_limit_exceeded' });
-      return;
-    }
-
-    try {
-      if (!(await introspectMercariaCapabilityTicket(ticket, claims))) {
-        await auditDenied(ticket, tool, 'capability_revoked_or_denied', claims);
-        response.status(403).json({ error: 'capability_revoked_or_denied' });
-        return;
-      }
-    } catch (error) {
-      log.general.error({ err: error, ticketId: claims.jti }, 'Capability introspection failed');
-      response.status(503).json({ error: 'capability_authority_unavailable' });
       return;
     }
 

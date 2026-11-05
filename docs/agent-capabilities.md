@@ -13,7 +13,7 @@ must not be copied into Alia or into a second MCP-only registry.
   resource, tool, capabilities and limits, then asks Oxy for a live authority
   decision before invoking domain code.
 - External clients call `/mcp` with an OAuth access token issued by Oxy for the
-  exact `https://mcp.mercaria.oxy.so` resource and selected Oxy account. The
+  exact `https://mcp.mercaria.co` resource and selected Oxy account. The
   shared `@oxy.so/mcp` transport performs live token introspection and protocol
   validation before Mercaria checks that the effective account owns the store.
 
@@ -53,3 +53,7 @@ This happens before post-phase migrations or catalog publication. In the normal 
 path, a candidate that fails before that boundary is returned to the recorded previous
 task definition; the explicit all-migrations cutover and failures of the external Oxy
 authorization server are never treated as safe Mercaria rollbacks.
+
+### Materials proposals
+
+Catalog 1.1.0 adds the read-only `listPendingMaterialPickups` capability (`materials.read`) on the exact `mercaria_account` root. The existing signature, audience, tool, capability-limit and live-introspection gates apply to both the owner's and an organization's delegated account. The handler projects accepted reservations only, excludes cancelled/delivered ones, and returns paginated reservation/offer/account references, quantity, unit, public area and optional Moovo reference. No private pickup instructions or cached transport status crosses this tool. A transport reference alone says nothing about its current status; the human follows the Mercaria review link to consult Moovo and choose collection, quote, payer authorization and booking. No materials mutation or finance tool is added. Register the deployed catalog with the existing `src/register-capability-catalog.ts` entrypoint before enabling the Alia template.

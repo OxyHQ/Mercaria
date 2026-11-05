@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Platform, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { FileUpload, type FileUploadFile } from '@oxy.so/bloom/file-upload';
 import { Button } from '@oxy.so/bloom/button';
 import { Text } from '@mercaria/ui';

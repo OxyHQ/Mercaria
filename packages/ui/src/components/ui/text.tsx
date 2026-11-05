@@ -6,15 +6,17 @@ export type TextProps = RNTextProps & {
   className?: string;
 };
 
-const Text = React.forwardRef<RNText, TextProps>(({ className, ...props }, ref) => {
-  return (
-    <RNText
-      className={cn('text-base text-foreground web:select-text font-sans', className)}
-      ref={ref}
-      {...props}
-    />
-  );
-});
+const Text = React.forwardRef<React.ComponentRef<typeof RNText>, TextProps>(
+  ({ className, ...props }, ref) => {
+    return (
+      <RNText
+        className={cn('text-base text-foreground web:select-text font-sans', className)}
+        ref={ref}
+        {...props}
+      />
+    );
+  },
+);
 Text.displayName = 'Text';
 
 export { Text };

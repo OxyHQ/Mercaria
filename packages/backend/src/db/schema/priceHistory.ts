@@ -385,6 +385,14 @@ export const offerPriceSnapshots = pgTable(
     index('offer_price_snapshots_retention_idx')
       .on(t.retentionExpiresAt)
       .where(sql`${t.retentionExpiresAt} is not null`),
+    // The sweep's OTHER half. Deleting a snapshot makes Postgres look for any
+    // snapshot that `supersedes` it, once per deleted row. Without this index
+    // each look was a full scan of the table: a 1,000-row sweep batch read the
+    // table ~1,000 times (28.8M buffers), and that one statement was the
+    // heaviest load Mercaria put on the shared database (2026-10-21, 0.16 AAS).
+    index('offer_price_snapshots_supersedes_idx')
+      .on(t.supersedesSnapshotId)
+      .where(sql`${t.supersedesSnapshotId} is not null`),
   ],
 );
 
