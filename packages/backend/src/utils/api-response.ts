@@ -9,7 +9,12 @@
  */
 
 import type { Response } from 'express';
-import type { ApiResponse, PaginatedResponse, Pagination } from '@mercaria/shared-types';
+import type {
+  ApiErrorDetails,
+  ApiResponse,
+  PaginatedResponse,
+  Pagination,
+} from '@mercaria/shared-types';
 
 /** Send a success response carrying `data`. */
 export function sendSuccess<T>(res: Response, data: T, status = 200): void {
@@ -43,10 +48,22 @@ export function sendPaginated<T>(
 
 /**
  * Send an error response. `error` is the machine-readable string code (see
- * `ErrorCodes`); `message` is the human-readable explanation.
+ * `ErrorCodes`); `message` is the human-readable explanation; `details`, when a
+ * refusal has them, are the ids a client acts on (`ApiErrorDetails`).
  */
-export function sendError(res: Response, error: string, message: string, status = 500): void {
-  const body: ApiResponse<never> = { success: false, error, message };
+export function sendError(
+  res: Response,
+  error: string,
+  message: string,
+  status = 500,
+  details?: ApiErrorDetails,
+): void {
+  const body: ApiResponse<never> = {
+    success: false,
+    error,
+    message,
+    ...(details ? { details } : {}),
+  };
   res.status(status).json(body);
 }
 

@@ -577,7 +577,10 @@
     "error": {
       "collectionEmailRequired": "受け取りの詳細を送るメールアドレスを入力してください。",
       "emailAndAddressRequired": "続けるには、メールアドレスとお届け先住所を入力してください。",
-      "receiptEmailRequired": "領収書を送るメールアドレスを入力してください。"
+      "receiptEmailRequired": "領収書を送るメールアドレスを入力してください。",
+      "sellerNotPaymentReady": "%{seller}は現在お支払いを受け付けられません。この販売者の商品を注文から削除すると、残りの商品を購入できます。",
+      "sellersNotPaymentReady": "次の販売者は現在お支払いを受け付けられません：%{sellers}。これらの販売者の商品を注文から削除すると、残りの商品を購入できます。",
+      "unnamedSellersNotPaymentReady": "ご注文内の一部の販売者は現在お支払いを受け付けられません。強調表示された商品を削除すると、残りの商品を購入できます。"
     },
     "form": {
       "cityLabel": "市区町村",
@@ -630,6 +633,7 @@
     },
     "summary": {
       "calculatedAtPlacement": "割引・税・送料は、ご注文の確定時に計算されます。",
+      "cannotAcceptPayment": "現在お支払いを受け付けられません",
       "subtotal": "小計",
       "title": "注文内容"
     },

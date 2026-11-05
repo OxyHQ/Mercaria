@@ -22,14 +22,20 @@
  * checkout.
  */
 
-import type { ProviderAccountOwnerType, ProviderAccountStatus } from '@mercaria/shared-types';
+import type {
+  ProviderAccountOwnerType,
+  ProviderAccountStatus,
+  RefusedCheckoutSeller,
+} from '@mercaria/shared-types';
 import { getDb } from '../../db/postgres.js';
+import { findStoresByIds } from '../../db/stores/storeRepository.js';
 import {
   findProviderAccountByOwner,
   findProviderAccountsByOwners,
   type ProviderAccountRow,
 } from '../../db/payments/providerAccountRepository.js';
 import { checkoutRefusal } from '../checkout/refusal.js';
+import { getProfiles } from '../oxy-user.service.js';
 import { NATIVE_RAIL, resolveNativeRail } from './native-rail.js';
 
 /** The rail a native checkout funds through — see `native-rail.ts`. */
@@ -206,14 +212,67 @@ export async function readSellerPaymentReadiness(
 }
 
 /**
+ * The sellers a refusal names, each by the name a buyer knows them by.
+ *
+ * A store by its `name`, a private seller by their Oxy display name — the same
+ * two sources the cart's group header reads (`cart.service`'s `buildGroups`),
+ * so the refusal names the seller exactly as the line above the items does.
+ * Read only on the refusal path: an admitted checkout never pays for it.
+ *
+ * A name that cannot be read is ABSENT, never replaced by the key. That happens
+ * only for a person — Oxy did not answer, or its answer fell back to the bare
+ * account id (a listing's store row is behind a foreign key) — and the buyer is
+ * then told "a seller"; the key stays in `sellerKey`, the machine field.
+ */
+async function nameRefusedSellers(sellerKeys: readonly string[]): Promise<RefusedCheckoutSeller[]> {
+  const owners = sellerKeys.map((sellerKey) => ({ sellerKey, owner: parseSellerKey(sellerKey) }));
+  const storeIds = owners.flatMap(({ owner }) =>
+    owner?.ownerType === 'store' ? [owner.ownerId] : [],
+  );
+  const userIds = owners.flatMap(({ owner }) =>
+    owner?.ownerType === 'user' ? [owner.ownerId] : [],
+  );
+  const [stores, profiles] = await Promise.all([findStoresByIds(storeIds), getProfiles(userIds)]);
+  const storeNames = new Map(stores.map((store) => [store.id, store.name.trim()]));
+
+  return owners.map(({ sellerKey, owner }) => {
+    const name =
+      owner?.ownerType === 'store'
+        ? storeNames.get(owner.ownerId)
+        : owner?.ownerType === 'user'
+          ? profiles.get(owner.ownerId)?.displayName.trim()
+          : undefined;
+    // `toOxyProfile` ends its fallback chain at the account id; an id is not a
+    // name, so it is treated exactly like no answer.
+    return name && name !== owner?.ownerId ? { sellerKey, name } : { sellerKey };
+  });
+}
+
+/** The English refusal sentence. Clients localize it from `details`; this is the fallback. */
+function sellersNotPaymentReadyMessage(sellers: readonly RefusedCheckoutSeller[]): string {
+  const names = sellers.map((seller) => seller.name ?? 'a seller');
+  if (names.length === 1) {
+    return (
+      `${sellers[0]?.name ?? 'A seller'} cannot accept payment right now. ` +
+      'Remove their items from your order to check out with the rest.'
+    );
+  }
+  const list = new Intl.ListFormat('en', { style: 'long', type: 'conjunction' }).format(names);
+  return (
+    `These sellers cannot accept payment right now: ${list}. ` +
+    'Remove their items from your order to check out with the rest.'
+  );
+}
+
+/**
  * Refuse a checkout whose sellers cannot be paid — BEFORE anything is reserved.
  *
  * ADR 0001 D4: a seller who lost eligibility between cart and checkout has their
  * group refused, and the buyer deselects it through the existing `sellerKeys`
- * partial-checkout mechanism. The refusal names the keys so a client can do
- * exactly that without a second round trip — the message is the only channel a
- * `MercariaError` has, and inventing a structured one for a single call site
- * would be a wider error contract than the codebase has anywhere else.
+ * partial-checkout mechanism. The MESSAGE names each seller by its public name
+ * (never `store:<id>`); the KEYS ride `details.sellers`, so a client can
+ * highlight and deselect those groups without a second round trip, and renders
+ * the sentence in the buyer's own language from the same field.
  *
  * ## The gate is the RAIL, and the disabled branch touches nothing
  *
@@ -232,14 +291,13 @@ export async function assertSellerGroupsPaymentReady(sellerKeys: readonly string
   }
   if (unready.length === 0) return;
 
-  // A CLASSIFIED refusal (#106): the message is unchanged and so is the 409,
-  // but the reason code is what lets #77 count a rejected checkout without
-  // matching on this sentence. The import is one type and one factory from the
-  // checkout domain — this module still knows nothing about an adapter or about
-  // analytics.
-  throw checkoutRefusal(
-    'seller_not_payment_ready',
-    `These sellers cannot accept payment right now: ${unready.join(', ')}. ` +
-      'Remove them from your order to check out with the rest.',
-  );
+  // A CLASSIFIED refusal (#106): the 409 and the reason code are what lets #77
+  // count a rejected checkout without matching on this sentence. The import is
+  // one type and one factory from the checkout domain — this module still knows
+  // nothing about an adapter or about analytics.
+  const sellers = await nameRefusedSellers(unready);
+  throw checkoutRefusal('seller_not_payment_ready', sellersNotPaymentReadyMessage(sellers), {
+    reason: 'seller_not_payment_ready',
+    sellers,
+  });
 }

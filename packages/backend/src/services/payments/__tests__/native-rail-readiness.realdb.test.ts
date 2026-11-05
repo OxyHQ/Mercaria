@@ -41,12 +41,24 @@ vi.mock('../../../config/index.js', async (importOriginal) => {
   };
 });
 
+/**
+ * Oxy's profile lookup is a network call to another service; what it answers is
+ * the input here, so it is stubbed at the module boundary. Everything on THIS
+ * side of it — the store read, the gate, the refusal — is real.
+ */
+const oxyProfiles = new Map<string, { id: string; username: string; displayName: string }>();
+vi.mock('../../oxy-user.service.js', () => ({
+  getProfiles: async (ids: string[]) =>
+    new Map(ids.flatMap((id) => (oxyProfiles.has(id) ? [[id, oxyProfiles.get(id)]] : []))),
+}));
+
 let assertSellerGroupsPaymentReady: typeof import('../provider-account.service.js')['assertSellerGroupsPaymentReady'];
 let isSellerPaymentReady: typeof import('../provider-account.service.js')['isSellerPaymentReady'];
 let readSellerPaymentReadiness: typeof import('../provider-account.service.js')['readSellerPaymentReadiness'];
 let closePostgres: typeof import('../../../db/postgres.js')['closePostgres'];
 let getDb: typeof import('../../../db/postgres.js')['getDb'];
 let accounts: typeof import('../../../db/payments/providerAccountRepository.js');
+let storeRepository: typeof import('../../../db/stores/storeRepository.js');
 
 beforeAll(async () => {
   // Dynamic, for the reason the refund lifecycle file gives: a STATIC import of
@@ -58,6 +70,7 @@ beforeAll(async () => {
   await postgres.connectPostgres();
   ({ closePostgres, getDb } = postgres);
   accounts = await import('../../../db/payments/providerAccountRepository.js');
+  storeRepository = await import('../../../db/stores/storeRepository.js');
   ({ assertSellerGroupsPaymentReady, isSellerPaymentReady, readSellerPaymentReadiness } =
     await import('../provider-account.service.js'));
 });
@@ -99,8 +112,32 @@ async function readySellerKey(): Promise<string> {
   return `store:${ownerId}`;
 }
 
+/** A real store row this run owns, with no provider account, named `name`. */
+async function unconnectedStore(name: string): Promise<string> {
+  const store = await storeRepository.insertStore({
+    oxyAccountId: `native-rail-owner-${uuidv7()}`,
+    handle: `native-rail-${uuidv7()}`,
+    name,
+    description: '',
+    brandColor: '#204060',
+    defaultCurrency: 'USD',
+  });
+  return `store:${store.id}`;
+}
+
+/** The refusal a gate threw, or `undefined` when it admitted the checkout. */
+async function refusalOf(
+  sellerKeys: string[],
+): Promise<{ message: string; httpStatus: number; details?: unknown } | undefined> {
+  return await assertSellerGroupsPaymentReady(sellerKeys).then(
+    () => undefined,
+    (err: unknown) => err as { message: string; httpStatus: number; details?: unknown },
+  );
+}
+
 beforeEach(() => {
   rails.peable = false;
+  oxyProfiles.clear();
 });
 
 describe('seller readiness follows the native rail', () => {
@@ -156,6 +193,79 @@ describe('seller readiness follows the native rail', () => {
       expect(readReady).toBe(false);
       expect(bulk.get(sellerKey)).toBeUndefined();
       expect(gateRefused).toBe(peable);
+    }
+  });
+});
+
+/**
+ * The buyer reads NAMES, never `store:<id>` (owner rule: no internal ids in a
+ * buyer's error). Real rows, so the name is the one `stores.name` holds and the
+ * key the one checkout groups by.
+ */
+describe('the refusal names each seller the way the cart does', () => {
+  it('names an unready store by its store name, keeping the key in details only', async () => {
+    rails.peable = true;
+    const sellerKey = await unconnectedStore('Lumen Ceramics');
+
+    const refusal = await refusalOf([sellerKey]);
+
+    expect(refusal?.httpStatus).toBe(409);
+    expect(refusal?.message).toBe(
+      'Lumen Ceramics cannot accept payment right now. ' +
+        'Remove their items from your order to check out with the rest.',
+    );
+    expect(refusal?.message).not.toContain('store:');
+    expect(refusal?.details).toEqual({
+      reason: 'seller_not_payment_ready',
+      sellers: [{ sellerKey, name: 'Lumen Ceramics' }],
+    });
+  });
+
+  it('names several sellers — a store and a private seller — and only the unready ones', async () => {
+    rails.peable = true;
+    const store = await unconnectedStore('North Pole Books');
+    const oxyUserId = `native-rail-person-${uuidv7()}`;
+    oxyProfiles.set(oxyUserId, { id: oxyUserId, username: 'ada', displayName: 'Ada Lovelace' });
+    const person = `user:${oxyUserId}`;
+    const ready = await readySellerKey();
+
+    const refusal = await refusalOf([store, ready, person]);
+
+    expect(refusal?.message).toBe(
+      'These sellers cannot accept payment right now: North Pole Books and Ada Lovelace. ' +
+        'Remove their items from your order to check out with the rest.',
+    );
+    expect(refusal?.message).not.toMatch(/store:|user:|native-rail-/);
+    expect(refusal?.details).toEqual({
+      reason: 'seller_not_payment_ready',
+      sellers: [
+        { sellerKey: store, name: 'North Pole Books' },
+        { sellerKey: person, name: 'Ada Lovelace' },
+      ],
+    });
+  });
+
+  it('says "A seller" — never the id — when Oxy cannot name a private seller', async () => {
+    rails.peable = true;
+    const unknownId = `native-rail-unknown-${uuidv7()}`;
+    // Oxy's own fallback chain ends at the account id: that is not a name either.
+    const handlelessId = `native-rail-handleless-${uuidv7()}`;
+    oxyProfiles.set(handlelessId, {
+      id: handlelessId,
+      username: handlelessId,
+      displayName: handlelessId,
+    });
+
+    for (const oxyUserId of [unknownId, handlelessId]) {
+      const person = `user:${oxyUserId}`;
+      const refusal = await refusalOf([person]);
+
+      expect(refusal?.message).toMatch(/^A seller cannot accept payment right now\./);
+      expect(refusal?.message).not.toContain(oxyUserId);
+      expect(refusal?.details).toEqual({
+        reason: 'seller_not_payment_ready',
+        sellers: [{ sellerKey: person }],
+      });
     }
   });
 });

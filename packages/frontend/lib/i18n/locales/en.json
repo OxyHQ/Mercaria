@@ -578,7 +578,10 @@
     "error": {
       "collectionEmailRequired": "Enter the email address your collection details should go to.",
       "emailAndAddressRequired": "Fill in your email and delivery address to continue.",
-      "receiptEmailRequired": "Enter the email address your receipt should go to."
+      "receiptEmailRequired": "Enter the email address your receipt should go to.",
+      "sellerNotPaymentReady": "%{seller} can't accept payment right now. Remove their items from your order to check out with the rest.",
+      "sellersNotPaymentReady": "These sellers can't accept payment right now: %{sellers}. Remove their items from your order to check out with the rest.",
+      "unnamedSellersNotPaymentReady": "Some sellers in your order can't accept payment right now. Remove the highlighted items to check out with the rest."
     },
     "form": {
       "cityLabel": "City",
@@ -631,6 +634,7 @@
     },
     "summary": {
       "calculatedAtPlacement": "Discounts, taxes and shipping are calculated when your order is placed.",
+      "cannotAcceptPayment": "Can't accept payment right now",
       "subtotal": "Subtotal",
       "title": "Order summary"
     },

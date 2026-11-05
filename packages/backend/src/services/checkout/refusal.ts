@@ -30,12 +30,15 @@
  *
  * A reason code and the same message #105 already wrote. Never a seller's
  * contact, never a cart's contents, never an email or an address — #105
- * privacy rule 8, unchanged. The seller KEYS a refusal names are already in the
- * message because a mixed cart's remedy is to deselect one of them, and they
- * are not carried as structured data here: the analytics event that reads this
- * takes the OUTCOME and nothing else.
+ * privacy rule 8, unchanged. A refusal whose remedy is to deselect a seller
+ * names that seller in the message by its PUBLIC name (a store's name, a person's
+ * Oxy display name — what the cart already shows), and carries the seller KEYS
+ * only in `details`, the machine field a client highlights and deselects by. A
+ * key is never in a sentence a buyer reads. The analytics event that reads a
+ * refusal still takes the OUTCOME and nothing else.
  */
 
+import type { ApiErrorDetails } from '@mercaria/shared-types';
 import { ErrorCodes } from '../../utils/api-response.js';
 import { MercariaError } from '../../lib/errors/error-codes.js';
 
@@ -123,16 +126,20 @@ export type CheckoutRefusalReason = (typeof CHECKOUT_REFUSAL_REASONS)[number];
 export class CheckoutRefusal extends MercariaError {
   readonly reason: CheckoutRefusalReason;
 
-  constructor(reason: CheckoutRefusalReason, message: string) {
-    super({ code: ErrorCodes.CONFLICT, message });
+  constructor(reason: CheckoutRefusalReason, message: string, details?: ApiErrorDetails) {
+    super({ code: ErrorCodes.CONFLICT, message, ...(details ? { details } : {}) });
     this.name = 'CheckoutRefusal';
     this.reason = reason;
   }
 }
 
 /** Refuse a checkout, naming the gate. The 409 and the message are unchanged. */
-export function checkoutRefusal(reason: CheckoutRefusalReason, message: string): CheckoutRefusal {
-  return new CheckoutRefusal(reason, message);
+export function checkoutRefusal(
+  reason: CheckoutRefusalReason,
+  message: string,
+  details?: ApiErrorDetails,
+): CheckoutRefusal {
+  return new CheckoutRefusal(reason, message, details);
 }
 
 /** Whether a caught error is a classified checkout refusal. */

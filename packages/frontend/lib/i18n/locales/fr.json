@@ -582,7 +582,10 @@
     "error": {
       "collectionEmailRequired": "Indiquez l'adresse e-mail à laquelle envoyer les détails du retrait.",
       "emailAndAddressRequired": "Renseignez votre e-mail et votre adresse de livraison pour continuer.",
-      "receiptEmailRequired": "Indiquez l'adresse e-mail à laquelle envoyer votre reçu."
+      "receiptEmailRequired": "Indiquez l'adresse e-mail à laquelle envoyer votre reçu.",
+      "sellerNotPaymentReady": "%{seller} ne peut pas accepter de paiement pour le moment. Retirez ses articles de votre commande pour régler le reste.",
+      "sellersNotPaymentReady": "Ces vendeurs ne peuvent pas accepter de paiement pour le moment : %{sellers}. Retirez leurs articles de votre commande pour régler le reste.",
+      "unnamedSellersNotPaymentReady": "Certains vendeurs de votre commande ne peuvent pas accepter de paiement pour le moment. Retirez les articles mis en évidence pour régler le reste."
     },
     "form": {
       "cityLabel": "Ville",
@@ -635,6 +638,7 @@
     },
     "summary": {
       "calculatedAtPlacement": "Les remises, les taxes et la livraison sont calculées au moment de la commande.",
+      "cannotAcceptPayment": "Ne peut pas accepter de paiement pour le moment",
       "subtotal": "Sous-total",
       "title": "Récapitulatif de la commande"
     },

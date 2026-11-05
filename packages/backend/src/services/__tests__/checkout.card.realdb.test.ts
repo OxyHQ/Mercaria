@@ -1067,7 +1067,13 @@ describe('card checkout on the Peable rail — idempotency and refusals', () => 
       `key-${RUN}-gate`,
     );
     await expect(refusal).rejects.toThrow(/cannot accept payment/);
-    await expect(refusal).rejects.toThrow(unreadyKey);
+    // The KEY is the machine field the client deselects by; the sentence a
+    // buyer reads never carries it. This fixture seller has no Oxy display
+    // name, so the sentence says "A seller" rather than its account id.
+    await expect(refusal).rejects.toMatchObject({
+      details: { reason: 'seller_not_payment_ready', sellers: [{ sellerKey: unreadyKey }] },
+    });
+    await expect(refusal).rejects.not.toThrow(unready.sellerId);
     await expect(refusal).rejects.not.toThrow(`user:${ready.sellerId}`);
     expect(gateway.state.intentCalls).toHaveLength(0);
     expect(await stockOf(ready.variantId)).toEqual({ available: 5, committed: 0 });

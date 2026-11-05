@@ -582,7 +582,10 @@
     "error": {
       "collectionEmailRequired": "Escriu l'adreça electrònica on han d'arribar les dades de la recollida.",
       "emailAndAddressRequired": "Omple el teu correu electrònic i l'adreça de lliurament per continuar.",
-      "receiptEmailRequired": "Escriu l'adreça electrònica on ha d'arribar el teu rebut."
+      "receiptEmailRequired": "Escriu l'adreça electrònica on ha d'arribar el teu rebut.",
+      "sellerNotPaymentReady": "%{seller} no pot acceptar pagaments ara mateix. Treu els seus articles de la comanda per pagar la resta.",
+      "sellersNotPaymentReady": "Aquests venedors no poden acceptar pagaments ara mateix: %{sellers}. Treu els seus articles de la comanda per pagar la resta.",
+      "unnamedSellersNotPaymentReady": "Alguns venedors de la teva comanda no poden acceptar pagaments ara mateix. Treu els articles destacats per pagar la resta."
     },
     "form": {
       "cityLabel": "Ciutat",
@@ -635,6 +638,7 @@
     },
     "summary": {
       "calculatedAtPlacement": "Els descomptes, els impostos i l'enviament es calculen en fer la comanda.",
+      "cannotAcceptPayment": "No pot acceptar pagaments ara mateix",
       "subtotal": "Subtotal",
       "title": "Resum de la comanda"
     },

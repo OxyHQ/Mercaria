@@ -577,7 +577,10 @@
     "error": {
       "collectionEmailRequired": "请填写接收自取信息的邮箱地址。",
       "emailAndAddressRequired": "请填写邮箱地址和收货地址后继续。",
-      "receiptEmailRequired": "请填写接收收据的邮箱地址。"
+      "receiptEmailRequired": "请填写接收收据的邮箱地址。",
+      "sellerNotPaymentReady": "%{seller}目前无法接受付款。请从订单中移除该卖家的商品，以结算其余商品。",
+      "sellersNotPaymentReady": "以下卖家目前无法接受付款：%{sellers}。请从订单中移除他们的商品，以结算其余商品。",
+      "unnamedSellersNotPaymentReady": "您订单中的部分卖家目前无法接受付款。请移除突出显示的商品，以结算其余商品。"
     },
     "form": {
       "cityLabel": "城市",
@@ -630,6 +633,7 @@
     },
     "summary": {
       "calculatedAtPlacement": "优惠、税费和运费在提交订单时计算。",
+      "cannotAcceptPayment": "目前无法接受付款",
       "subtotal": "小计",
       "title": "订单摘要"
     },

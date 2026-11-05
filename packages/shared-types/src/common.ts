@@ -42,7 +42,37 @@ export interface ApiResponse<T = unknown> {
   error?: string;
   /** Response payload, present when `success` is `true`. */
   data?: T;
+  /**
+   * Structured facts about a failure, for a client to ACT on — present only on
+   * the refusals {@link ApiErrorDetails} names. `message` stays the sentence a
+   * person reads; ids live here, never in it.
+   */
+  details?: ApiErrorDetails;
 }
+
+/**
+ * A seller a checkout refusal names: the key the buyer deselects by, and the
+ * public name they know the seller by.
+ */
+export interface RefusedCheckoutSeller {
+  /** `store:<id>` / `user:<id>` — what `CheckoutInput.sellerKeys` and `CartGroup.sellerKey` carry. */
+  sellerKey: string;
+  /**
+   * The store's name, or a private seller's Oxy display name. Absent when it
+   * could not be read (Oxy did not answer for the person) — a client then uses
+   * the name its own cart shows, or "a seller", never the key.
+   */
+  name?: string;
+}
+
+/** A checkout refused because these sellers cannot be paid right now (ADR 0001 D4). */
+export interface SellersNotPaymentReadyErrorDetails {
+  reason: 'seller_not_payment_ready';
+  sellers: RefusedCheckoutSeller[];
+}
+
+/** Every structured error detail the API emits, discriminated by `reason`. */
+export type ApiErrorDetails = SellersNotPaymentReadyErrorDetails;
 
 /** Paginated list envelope: a page of `T` plus its pagination metadata. */
 export interface PaginatedResponse<T> {

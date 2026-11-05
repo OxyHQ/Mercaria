@@ -1,3 +1,4 @@
+import type { ApiErrorDetails } from '@mercaria/shared-types';
 import type { OxyServices } from '@oxy.so/core';
 import axios from 'axios';
 import { Platform } from 'react-native';
@@ -81,6 +82,30 @@ export function apiErrorMessage(error: unknown, fallback: string): string {
     return fallback;
   }
   return error instanceof Error && error.message.length > 0 ? error.message : fallback;
+}
+
+/**
+ * The structured facts a refusal carries beside its sentence (`ApiResponse.details`),
+ * or `undefined` — what a screen ACTS on (highlighting a seller's group), and what
+ * it renders a refusal from in the reader's own language.
+ */
+export function apiErrorDetails(error: unknown): ApiErrorDetails | undefined {
+  if (!axios.isAxiosError(error)) return undefined;
+  const body: unknown = error.response?.data;
+  if (typeof body !== 'object' || body === null) return undefined;
+  const details = (body as { details?: unknown }).details;
+  if (typeof details !== 'object' || details === null) return undefined;
+  const { reason, sellers } = details as { reason?: unknown; sellers?: unknown };
+  if (reason !== 'seller_not_payment_ready' || !Array.isArray(sellers)) return undefined;
+  return {
+    reason,
+    sellers: sellers.flatMap((seller: unknown) => {
+      if (typeof seller !== 'object' || seller === null) return [];
+      const { sellerKey, name } = seller as { sellerKey?: unknown; name?: unknown };
+      if (typeof sellerKey !== 'string') return [];
+      return [typeof name === 'string' && name.length > 0 ? { sellerKey, name } : { sellerKey }];
+    }),
+  };
 }
 
 export default apiClient;
