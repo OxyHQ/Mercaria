@@ -206,6 +206,11 @@ const DISPATCH_ONLY_WITH_CREDENTIALS: Record<string, string> = {
   // and registers nothing, so it cannot ship code; a merge sets nothing off.
   // Its own properties are pinned by `mediaBackfillWorkflow.test.ts`.
   'run-media-backfill.yml': 'workflow_dispatch one-shot on the live task definition, ships nothing',
+  // The merchant plan catalogue publish (#89): an operator-dispatched one-shot
+  // on the image ALREADY live, writing Orbit catalog rows and plan versions. It
+  // ships no code, and a merge sets nothing off.
+  'publish-merchant-plans.yml':
+    'workflow_dispatch one-shot on the live task definition, ships nothing',
 };
 
 describe('the coverage check watches every workflow that can ship', () => {

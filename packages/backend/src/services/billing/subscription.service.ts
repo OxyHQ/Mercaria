@@ -61,6 +61,7 @@ import {
   findMerchantPlanById,
   findMerchantPlanByProviderPrice,
   findMerchantPlanPrice,
+  findMerchantPlanPriceByProviderId,
   insertMerchantPlanAcceptance,
   type MerchantPlanRow,
 } from '../../db/merchantPlans/planRepository.js';
@@ -173,6 +174,19 @@ export async function startMerchantPlanCheckout(
     );
   }
 
+  // ONE subscription per store (`merchant_subscriptions_store_key`). A second
+  // checkout while one is live would start a second subscription at the rail
+  // that the store's row could only record by overwriting the first — which
+  // would keep billing with nothing in Mercaria pointing at it. A store that
+  // already pays changes plan instead (`changeMerchantPlan`); one whose plan
+  // has ENDED (`expired`) starts afresh here.
+  const live = await findSubscriptionByStore(db, input.storeId);
+  if (live && live.status !== 'expired') {
+    throw conflict(
+      'This store already has a plan. Change plan instead of starting a second subscription.',
+    );
+  }
+
   await insertMerchantPlanAcceptance(db, {
     storeId: input.storeId,
     planKey: plan.planKey,
@@ -216,6 +230,112 @@ export async function startMerchantPlanCheckout(
       `billing-checkout:${input.storeId}:${plan.id}:${input.interval}:${price.unitPriceCurrency}`,
   });
   return { url: session.url, expiresAt: session.expiresAt?.toISOString() ?? null };
+}
+
+/** What changing a live subscription's plan needs. */
+export interface ChangeMerchantPlanInput {
+  storeId: string;
+  planId: string;
+  interval: BillingInterval;
+  currency: CurrencyCode;
+  actorOxyUserId: string;
+  idempotencyKey?: string;
+}
+
+/**
+ * Move a store's live subscription onto another paid plan version or cadence.
+ *
+ * The terms of the NEW version are accepted first (the row a change is
+ * recorded against must name an acceptance, exactly as a new subscription
+ * must), then the rail swaps the price with `always_invoice` proration — an
+ * upgrade is paid now, a downgrade leaves a credit — and the snapshot it
+ * answers is applied through the one path every provider change takes.
+ *
+ * Refused while the store's last payment failed (`past_due`) or the plan is
+ * paused: settling billing comes first, and a proration invoice on top of an
+ * unpaid one would only add to what is owed. The currency must be the one the
+ * subscription already bills in — the rail invoices one currency per
+ * subscription.
+ */
+export async function changeMerchantPlan(
+  input: ChangeMerchantPlanInput,
+): Promise<MerchantSubscriptionRow> {
+  if (!merchantBillingAvailable()) {
+    throw conflict('Paid plans are not available on this deployment.');
+  }
+  const provider = requireBillingProvider();
+  requireIntent(input.idempotencyKey);
+  const db = getDb();
+
+  const subscription = await findSubscriptionByStore(db, input.storeId);
+  if (!subscription || subscription.status === 'expired') {
+    throw conflict('This store has no plan to change. Choose a plan instead.');
+  }
+  if (subscription.status === 'past_due' || subscription.status === 'paused') {
+    throw conflict('Settle this store’s billing before changing plan.');
+  }
+
+  const plan = await findMerchantPlanById(db, input.planId);
+  if (!plan) throw notFound('Plan not found');
+  if (plan.status !== 'active') throw conflict('That plan version is not on sale.');
+  if (plan.tier !== 'paid') {
+    throw validationError('To stop paying, cancel the plan; it ends with the paid period.');
+  }
+
+  const [price, current] = await Promise.all([
+    findMerchantPlanPrice(db, {
+      planId: plan.id,
+      provider: provider.id,
+      livemode: provider.livemode,
+      interval: input.interval,
+      currency: input.currency,
+    }),
+    provider.retrieveSubscription(subscription.providerSubscriptionId),
+  ]);
+  if (!price) {
+    throw conflict(
+      `${plan.name} has no ${input.interval} price in ${input.currency} on this deployment.`,
+    );
+  }
+  if (current.providerPriceId === price.providerPriceId) {
+    throw conflict('This store is already on that plan and billing period.');
+  }
+  const currentPrice = await findMerchantPlanPriceByProviderId(db, {
+    provider: provider.id,
+    livemode: provider.livemode,
+    providerPriceId: current.providerPriceId,
+  });
+  if (currentPrice && currentPrice.unitPriceCurrency !== price.unitPriceCurrency) {
+    throw conflict(
+      `This plan bills in ${currentPrice.unitPriceCurrency}; a plan change keeps that currency.`,
+    );
+  }
+
+  await insertMerchantPlanAcceptance(db, {
+    storeId: input.storeId,
+    planKey: plan.planKey,
+    planVersion: plan.version,
+    termsVersion: plan.termsVersion,
+    acceptedByOxyUserId: input.actorOxyUserId,
+  });
+
+  const snapshot = await provider.changeSubscriptionPrice({
+    providerSubscriptionId: subscription.providerSubscriptionId,
+    providerPriceId: price.providerPriceId,
+    idempotencyKey:
+      input.idempotencyKey ??
+      `billing-change:${input.storeId}:${subscription.providerSubscriptionId}:${price.providerPriceId}`,
+  });
+  const applied = await applyProviderSubscriptionState({
+    snapshot,
+    note: `plan changed by the merchant to ${plan.planKey} v${plan.version} (${input.interval})`,
+    actorOxyUserId: input.actorOxyUserId,
+    eventKind: 'plan_changed',
+  });
+  if (applied.outcome !== 'applied') {
+    throw conflict('The plan was changed at the rail but could not be recorded yet.');
+  }
+  return applied.subscription;
 }
 
 /** Open the provider's hosted billing portal for one store. */
@@ -305,6 +425,7 @@ export type ProviderSubscriptionEventKind =
   | 'paused'
   | 'resumed'
   | 'cancellation_scheduled'
+  | 'plan_changed'
   | 'cancelled'
   | 'expired'
   | 'reconciled';

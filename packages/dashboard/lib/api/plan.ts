@@ -61,6 +61,28 @@ export async function startPlanCheckout(
   );
 }
 
+/**
+ * POST to move a live subscription to another paid plan or billing period.
+ * Answers the plan status the rail's answer produced — the change is applied
+ * synchronously, so this is the new state rather than a prediction of it.
+ */
+export async function changePlan(
+  storeId: string,
+  input: { planId: string; interval: 'monthly' | 'annual'; currency: string },
+): Promise<MerchantPlanStatusView> {
+  return withBillingIntent(
+    [storeId, 'change', input.planId, input.interval, input.currency],
+    async (key) => {
+      const { data } = await apiClient.post<ApiResponse<MerchantPlanStatusView>>(
+        `${base(storeId)}/change`,
+        input,
+        { headers: { 'Idempotency-Key': key } },
+      );
+      return unwrap(data);
+    },
+  );
+}
+
 /** POST for a hosted billing-portal URL — invoices, cards and cancellation. */
 export async function openBillingPortal(storeId: string): Promise<MerchantBillingSessionView> {
   return withBillingIntent([storeId, 'portal'], async (key) => {

@@ -20,6 +20,7 @@ import cors from 'cors';
 import { log } from './lib/logger.js';
 // Routes
 import healthRouter from './routes/health.js';
+import legalRouter from './routes/legal.js';
 import authRouter from './routes/auth.js';
 import feedbackRouter from './routes/feedback.js';
 import notificationsRouter from './routes/notifications.js';
@@ -368,6 +369,7 @@ export function createApp(): express.Express {
   // Routes
   app.use('/_oxy/capabilities', capabilitiesRouter);
   app.use('/health', healthRouter);
+  app.use('/legal', legalRouter);
   app.use('/auth', authRouter);
   app.use('/feedback', feedbackRouter);
   app.use('/notifications', notificationsRouter);

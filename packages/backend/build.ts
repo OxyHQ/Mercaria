@@ -2,7 +2,7 @@ import * as esbuild from 'esbuild';
 
 await esbuild.build({
   /**
-   * NINE entry points, and none of the last eight is optional.
+   * TEN entry points, and none of the last nine is optional.
    *
    * `src/db/migrate.ts` is the one-shot the deploy runs before and after the
    * rollout (`.github/workflows/deploy-aws.yml`). It cannot be invoked the way a
@@ -37,6 +37,12 @@ await esbuild.build({
    * the only way they reach one. `.github/workflows/run-media-backfill.yml`
    * runs them; each previews by default and writes only on `--apply`.
    *
+   * `src/scripts/publish-merchant-plans.ts` publishes the reviewed merchant
+   * plan catalogue — Orbit products and prices as Mercaria's Peable workload,
+   * then the plan versions in the production database — so it, too, can only
+   * run from a task on the live task definition
+   * (`.github/workflows/publish-merchant-plans.yml`; preview unless `--apply`).
+   *
    * `src/scripts/seed.ts` is deliberately NOT an entry point and must not
    * become one. It opens by DELETING every listing, store, order, review and
    * category in the database it is pointed at, so putting it in the production
@@ -69,6 +75,7 @@ await esbuild.build({
     'src/scripts/backfill-store-artwork.ts',
     'src/scripts/backfill-application-media.ts',
     'src/scripts/backfill-digital-asset-storage.ts',
+    'src/scripts/publish-merchant-plans.ts',
   ],
   bundle: true,
   platform: 'node',

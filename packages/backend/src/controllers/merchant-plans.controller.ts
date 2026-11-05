@@ -29,6 +29,7 @@ import {
   listMerchantPlanCatalog,
 } from '../services/entitlements/projection.js';
 import {
+  changeMerchantPlan,
   openMerchantBillingPortal,
   scheduleMerchantSubscriptionCancellation,
   startMerchantPlanCheckout,
@@ -121,6 +122,31 @@ export async function startPlanCheckoutHandler(req: Request, res: Response): Pro
   } catch (err) {
     log.general.error({ err }, 'Failed to start a plan checkout');
     respondWithBillingError(res, err, 'Failed to start the upgrade');
+  }
+}
+
+/**
+ * POST /admin/stores/:storeId/plan/change — move a live subscription to
+ * another paid plan or billing period. The body is the checkout's (a plan
+ * version, a cadence and a currency, never an amount); the answer is the
+ * store's plan status after the rail applied the change.
+ */
+export async function changePlanHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const storeId = routeParam(req, 'storeId');
+    const body = req.body as MerchantPlanCheckoutBody;
+    await changeMerchantPlan({
+      storeId,
+      planId: body.planId,
+      interval: body.interval,
+      currency: body.currency,
+      actorOxyUserId: getRequiredOxyUserId(req),
+      idempotencyKey: billingIntent(req),
+    });
+    sendSuccess(res, await buildMerchantPlanStatus({ storeId }));
+  } catch (err) {
+    log.general.error({ err }, 'Failed to change a plan');
+    respondWithBillingError(res, err, 'Failed to change the plan');
   }
 }
 
