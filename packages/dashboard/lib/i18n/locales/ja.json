@@ -2386,7 +2386,8 @@
       "currencyNotComparable": "この出品の通貨は比較できません。",
       "conditionUnknown": "この出品の状態は比較できません。",
       "tooFewOffers": "比較できるほかの出品がまだ足りません。",
-      "tooFewSellers": "比較できるほかの販売者がまだ足りません。"
+      "tooFewSellers": "比較できるほかの販売者がまだ足りません。",
+      "tooShortHistory": "ほかの販売者の観測期間がまだ比較に足りません。"
     },
     "trend": {
       "title": "推移",

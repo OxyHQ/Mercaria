@@ -28,6 +28,7 @@ export const REASON_LABEL_KEYS: Record<StorePriceUnmeasuredReason, string> = {
   insufficient_observations: 'priceAnalytics.reason.tooFewOffers',
   insufficient_distinct_sellers: 'priceAnalytics.reason.tooFewSellers',
   insufficient_distinct_offers: 'priceAnalytics.reason.tooFewOffers',
+  insufficient_time_coverage: 'priceAnalytics.reason.tooShortHistory',
 };
 
 /**

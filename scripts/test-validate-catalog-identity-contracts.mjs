@@ -422,7 +422,11 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // Replenishment planning (#89 `replenishment_planning`) adds
     // `replenishment.ts` (settings, overrides, plan rows and the plan): +1
     // module, +11 types, +60 properties. Measured by the real guard.
-    'walked 148 contract module(s), 2462 exported type(s), 8309 property signature(s)',
+    // Price-signal time coverage (#82/#89) names the four sample floors as
+    // `PriceSampleShortfallReason` in `price-signals.ts` and states
+    // `StorePriceAnalyticsSemantics.minCoverageDays`: +1 type, +1 property.
+    // Measured by the real guard.
+    'walked 148 contract module(s), 2463 exported type(s), 8310 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });

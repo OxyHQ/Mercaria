@@ -18,6 +18,12 @@ import { canonicalVariants } from '../schema/canonicalCatalog.js';
 export interface OfferSellerIdentity {
   readonly merchantId: string | null;
   readonly listingId: string | null;
+  /**
+   * When the offer was first seen — where its observation record begins, which
+   * a cross-sectional entry built from one of its points carries as
+   * `observedFrom` (`observationSpanStart`).
+   */
+  readonly firstSeenAt: Date;
 }
 
 /**
@@ -35,11 +41,19 @@ export async function listOfferSellerIdentities(
 ): Promise<Map<string, OfferSellerIdentity>> {
   if (offerIds.length === 0) return new Map();
   const rows = await db
-    .select({ id: offers.id, merchantId: offers.merchantId, listingId: offers.listingId })
+    .select({
+      id: offers.id,
+      merchantId: offers.merchantId,
+      listingId: offers.listingId,
+      firstSeenAt: offers.firstSeenAt,
+    })
     .from(offers)
     .where(inArray(offers.id, [...offerIds]));
   return new Map(
-    rows.map((row) => [row.id, { merchantId: row.merchantId, listingId: row.listingId }]),
+    rows.map((row) => [
+      row.id,
+      { merchantId: row.merchantId, listingId: row.listingId, firstSeenAt: row.firstSeenAt },
+    ]),
   );
 }
 

@@ -41,7 +41,43 @@ export interface PriceSampleEntry {
   readonly sellerKey: string;
   /** Minor units in the subject's display currency. */
   readonly amount: number;
+  /** When the value was READ — a snapshot's own instant, or an offer's current terms. */
   readonly observedAt: Date;
+  /**
+   * Where the evidence behind this value BEGINS, when it is longer than one read.
+   *
+   * Absent on a #78 point, which is one observation and evidences the instant
+   * it was read. Present on a CURRENT offer, whose price is evidenced by the
+   * offer's whole observation record — from its first sighting to the read of
+   * its current terms — clamped to the policy's recent window by
+   * {@link observationSpanStart}.
+   *
+   * This is what lets a cross-section carry a real time coverage. Stamping
+   * every current offer "now" gave every cross-sectional sample a span of zero,
+   * so `minCoverageDays` (CHECK-held at ≥ 1) refused every comparison under
+   * every valid policy, and the obvious repair — not applying the floor to a
+   * cross-section — would let a market minted an hour ago read as established.
+   */
+  readonly observedFrom?: Date;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1_000;
+
+/**
+ * Where a current offer's evidence begins: its first sighting, clamped to the
+ * policy's recent window measured back from `asOf`.
+ *
+ * Clamped because a longitudinal sample can span at most the window it was
+ * read over, and a cross-section reaching further back would clear a coverage
+ * floor no history sample under the same policy could — the two families must
+ * mean the same thing by "days".
+ */
+export function observationSpanStart(
+  firstSeenAt: Date,
+  asOf: Date,
+  recentWindowDays: number,
+): Date {
+  return new Date(Math.max(firstSeenAt.getTime(), asOf.getTime() - recentWindowDays * DAY_MS));
 }
 
 /**
@@ -233,7 +269,15 @@ export function partitionOutliers(
 }
 
 /**
- * How many whole days a sample spans.
+ * How many whole days a sample's evidence spans: from the earliest moment any
+ * entry is evidenced ({@link PriceSampleEntry.observedFrom}, else its read) to
+ * the latest read.
+ *
+ * ONE definition for both families. A longitudinal sample's entries are single
+ * observations, so its span is first point to last; a cross-section's entries
+ * each carry their offer's observation record, so its span is how long the
+ * market it describes has actually been watched — and a market of offers first
+ * seen an hour ago spans zero days and fails the floor, which is the point.
  *
  * FLOOR, so a sample gathered over 6 days and 23 hours reports 6 and fails a
  * 7-day floor. Rounding up would let a policy's minimum time coverage be cleared
@@ -245,8 +289,12 @@ export function coverageDays(sorted: readonly PriceSampleEntry[]): number {
   let latest = Number.NEGATIVE_INFINITY;
   for (const entry of sorted) {
     const at = entry.observedAt.getTime();
-    if (at < earliest) earliest = at;
+    // `min` with the read itself: an offer's first sighting may legitimately
+    // postdate an observation the source dated earlier, and a span must never be
+    // negative.
+    const from = Math.min(entry.observedFrom?.getTime() ?? at, at);
+    if (from < earliest) earliest = from;
     if (at > latest) latest = at;
   }
-  return Math.floor((latest - earliest) / (24 * 60 * 60 * 1_000));
+  return Math.floor((latest - earliest) / DAY_MS);
 }

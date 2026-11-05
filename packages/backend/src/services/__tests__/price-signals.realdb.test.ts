@@ -22,10 +22,18 @@ import {
   MERCHANT_COMPETITIVENESS_FORBIDDEN_FIELDS,
   PRICE_SIGNAL_MIN_DISTINCT_SELLERS_FLOOR,
   PRICE_SIGNAL_POLICY_KEY,
+  type MerchantCompetitivenessRow,
+  type PriceSignalPolicy,
 } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
-import { canonicalProducts } from '../../db/schema/canonicalCatalog.js';
+import { canonicalProducts, canonicalVariants } from '../../db/schema/canonicalCatalog.js';
 import { merchants } from '../../db/schema/merchants.js';
+import { offers } from '../../db/schema/offers.js';
+import { catalogSources, sourceRecords } from '../../db/schema/provenance.js';
+import type { InsertOfferInput } from '../../db/offers/offerRepository.js';
+import { declaredOfferCondition } from '../condition/condition-mapping.service.js';
+import { buildPriceSignalContext } from '../price-signals/context.service.js';
+import { derivePriceSignals } from '../price-signals/signals.js';
 import {
   priceSignalEvaluations,
   priceSignalFeedback,
@@ -52,6 +60,8 @@ const createdRunIds: string[] = [];
 const createdMerchantIds: string[] = [];
 const createdProductIds: string[] = [];
 const createdVariantIds: string[] = [];
+const createdSourceIds: string[] = [];
+const createdSourceRecordIds: string[] = [];
 
 function safeIds(ids: readonly string[]): string[] {
   return ids.length === 0 ? ['__none__'] : [...ids];
@@ -135,6 +145,9 @@ afterAll(async () => {
   await db
     .delete(priceSignalPolicyVersions)
     .where(inArray(priceSignalPolicyVersions.id, safeIds(createdPolicyIds)));
+  await db.delete(offers).where(inArray(offers.canonicalVariantId, safeIds(createdVariantIds)));
+  await db.delete(sourceRecords).where(inArray(sourceRecords.id, safeIds(createdSourceRecordIds)));
+  await db.delete(catalogSources).where(inArray(catalogSources.id, safeIds(createdSourceIds)));
   await deleteTestCanonicalRows(db, {
     variantIds: createdVariantIds,
     productIds: createdProductIds,
@@ -686,6 +699,248 @@ describe('the competitiveness surface is gated by #83, and names no competitor',
     expect(seen.has('coverage')).toBe(true);
     for (const forbidden of MERCHANT_COMPETITIVENESS_FORBIDDEN_FIELDS) {
       expect(seen.has(forbidden), `the response carries \`${forbidden}\``).toBe(false);
+    }
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * The cross-section carries the offers' REAL observation record.
+ *
+ * Every current offer used to be stamped with the read's clock, so a
+ * cross-sectional sample spanned zero days and — `min_coverage_days >= 1` being
+ * a CHECK — `price_quality_label` (and the merchant's
+ * `position_vs_eligible_median`), `official_store_position` and both cheapest
+ * rows answered `insufficient_time_coverage` under every valid policy, whatever
+ * the market held. These cases run the real reads (#74's admission over the
+ * real offer projection) with a fixture policy, because the active version is
+ * one global row a parallel file would see.
+ */
+describe("the cross-section is judged on the offers' own observation record", () => {
+  const DAY = 24 * 60 * 60 * 1_000;
+  const POLICY: PriceSignalPolicy = {
+    policyKey: `${PRICE_SIGNAL_POLICY_KEY}-${RUN}`,
+    version: `coverage-${RUN}`,
+    minObservations: 3,
+    minDistinctSellers: 3,
+    minDistinctOffers: 3,
+    minCoverageDays: 7,
+    recentWindowDays: 30,
+    outlierModifiedZThreshold: 3.5,
+    outlierMinDeviationBps: 7_500,
+    materialDropBps: 500,
+    typicalBandBps: 300,
+    goodPriceBelowMedianBps: 800,
+    strongSampleMultiplier: 2,
+    objectiveMetricKeys: [],
+    guardrailMetricKeys: ['zero_result_rate'],
+  };
+
+  async function mintVariant(label: string): Promise<string> {
+    const [product] = await db
+      .insert(canonicalProducts)
+      .values({
+        name: `Coverage product ${label} ${RUN}`,
+        normalizedName: `coverage product ${label} ${RUN}`,
+        slug: `coverage-product-${label}-${RUN}`,
+      })
+      .returning({ id: canonicalProducts.id });
+    if (!product) throw new Error('no canonical product');
+    createdProductIds.push(product.id);
+    const [variant] = await db
+      .insert(canonicalVariants)
+      .values({
+        productId: product.id,
+        signature: uuidv7().replace(/-/g, '').padEnd(64, '0').slice(0, 64),
+      })
+      .returning({ id: canonicalVariants.id });
+    if (!variant) throw new Error('no canonical variant');
+    createdVariantIds.push(variant.id);
+    return variant.id;
+  }
+
+  async function mintSeller(label: string, claimant?: string): Promise<string> {
+    const [merchant] = await db
+      .insert(merchants)
+      .values({
+        name: `Coverage seller ${label} ${RUN}`,
+        slug: `coverage-seller-${label}-${RUN}`,
+        ...(claimant === undefined
+          ? {}
+          : {
+              claimState: 'claimed' as const,
+              claimedByOxyUserId: claimant,
+              claimedAt: new Date(),
+            }),
+      })
+      .returning({ id: merchants.id });
+    if (!merchant) throw new Error('no merchant');
+    createdMerchantIds.push(merchant.id);
+    return merchant.id;
+  }
+
+  /** One seller's external offer, first seen `firstSeenDaysAgo` days ago and read just now. */
+  async function mintOffer(input: {
+    variantId: string;
+    merchantId: string;
+    priceAmount: number;
+    firstSeenDaysAgo: number;
+  }): Promise<string> {
+    const [source] = await db
+      .insert(catalogSources)
+      .values({
+        kind: 'feed',
+        name: `coverage-source-${uuidv7()}`,
+        mayDisplay: true,
+        mayStore: true,
+        attributionRequired: false,
+      })
+      .returning({ id: catalogSources.id });
+    if (!source) throw new Error('no source');
+    createdSourceIds.push(source.id);
+    const [record] = await db
+      .insert(sourceRecords)
+      .values({
+        sourceId: source.id,
+        externalType: 'offer',
+        externalId: `coverage-ext-${uuidv7()}`,
+        observedAt: new Date(),
+        contentHash: uuidv7().replace(/-/g, '').padEnd(64, 'a').slice(0, 64),
+        payload: { fixture: true },
+      })
+      .returning({ id: sourceRecords.id });
+    if (!record) throw new Error('no source record');
+    createdSourceRecordIds.push(record.id);
+
+    const now = new Date();
+    const firstSeenAt = new Date(now.getTime() - input.firstSeenDaysAgo * DAY);
+    const [row] = await db
+      .insert(offers)
+      .values({
+        kind: 'external',
+        status: 'active',
+        ...declaredOfferCondition('new'),
+        canonicalVariantId: input.variantId,
+        merchantId: input.merchantId,
+        sourceRecordId: record.id,
+        destinationUrl: `https://seller.example.test/${input.merchantId}`,
+        provider: 'test-feed',
+        externalOfferId: `coverage-${uuidv7()}`,
+        priceAmount: input.priceAmount,
+        priceCurrency: 'EUR',
+        availability: 'in_stock',
+        observedAt: now,
+        firstSeenAt,
+        lastSeenAt: now,
+        lastConfirmedAt: now,
+        staleAt: new Date(now.getTime() + DAY),
+      } satisfies InsertOfferInput)
+      .returning({ id: offers.id });
+    if (!row) throw new Error('no offer');
+    return row.id;
+  }
+
+  /** A claimed merchant at 9 000 against three rivals at 10 000, 11 000 and 12 000. */
+  async function mintMarket(label: string, firstSeenDaysAgo: number) {
+    const variantId = await mintVariant(label);
+    const claimant = `coverage-claimant-${label}-${RUN}`;
+    const merchantId = await mintSeller(`${label}-self`, claimant);
+    await mintOffer({ variantId, merchantId, priceAmount: 9_000, firstSeenDaysAgo });
+    for (const [index, priceAmount] of [10_000, 11_000, 12_000].entries()) {
+      await mintOffer({
+        variantId,
+        merchantId: await mintSeller(`${label}-rival-${index}`),
+        priceAmount,
+        firstSeenDaysAgo,
+      });
+    }
+    return { variantId, merchantId, claimant };
+  }
+
+  function row(
+    rows: readonly MerchantCompetitivenessRow[],
+    kind: MerchantCompetitivenessRow['kind'],
+  ) {
+    const found = rows.find((candidate) => candidate.kind === kind);
+    if (found === undefined) throw new Error(`no ${kind} row`);
+    return found;
+  }
+
+  it('measures an ESTABLISHED market on the free surface — the rows that could never measure', async () => {
+    const market = await mintMarket('established', 20);
+    const response = await readMerchantCompetitiveness({
+      merchantId: market.merchantId,
+      oxyUserId: market.claimant,
+      segment: 'new',
+      currency: 'EUR',
+      limit: 5,
+      policy: POLICY,
+    });
+
+    const position = row(response.rows, 'position_vs_eligible_median');
+    expect(position.state).toBe('measured');
+    // Four sellers, read just now and first seen twenty days ago: the sample
+    // spans the twenty days, not zero.
+    expect(position.sample.distinctSellers).toBe(4);
+    expect(position.sample.coverageDays).toBeGreaterThanOrEqual(19);
+    expect(position.sample.coverageDays).toBeLessThanOrEqual(POLICY.recentWindowDays);
+
+    const cheapest = row(response.rows, 'cheapest_item_price');
+    expect(cheapest.state).toBe('measured');
+    if (cheapest.state !== 'measured' || cheapest.value?.measure !== 'relative') {
+      throw new Error('expected a measured relative row');
+    }
+    // 9 000 against the cheapest OTHER seller's 10 000.
+    expect(cheapest.value.deltaBps).toBe(-1_000);
+    expect(response.coverage.subjectsMeasured).toBe(1);
+  });
+
+  it("the shopper's badge reads the same span from the same context", async () => {
+    const variantId = (await mintMarket('badge', 20)).variantId;
+    const context = await buildPriceSignalContext({
+      canonicalVariantId: variantId,
+      segment: 'new',
+      currency: 'EUR',
+      policy: POLICY,
+      now: new Date(),
+    });
+    // The vacuity floor: the admission really let the four offers in.
+    expect(context.input.currentItemPrice).toHaveLength(4);
+    for (const entry of context.input.currentItemPrice) {
+      expect(entry.observedFrom).toBeInstanceOf(Date);
+    }
+    const label = derivePriceSignals(context.input).find(
+      (signal) => signal.kind === 'price_quality_label',
+    );
+    expect(label?.state).toBe('measured');
+    if (label?.state !== 'measured' || label.value.measure !== 'label') {
+      throw new Error('expected a measured label');
+    }
+    // The cheapest, 9 000, against the lower median of four (10 000).
+    expect(label.value.deltaBps).toBe(-1_000);
+    expect(label.value.label).toBe('good_price');
+  });
+
+  it('a market of offers first seen TODAY is not a market yet — it says so, with no figure', async () => {
+    const market = await mintMarket('minted', 0);
+    const response = await readMerchantCompetitiveness({
+      merchantId: market.merchantId,
+      oxyUserId: market.claimant,
+      segment: 'new',
+      currency: 'EUR',
+      limit: 5,
+      policy: POLICY,
+    });
+    for (const kind of ['position_vs_eligible_median', 'cheapest_item_price'] as const) {
+      const minted = row(response.rows, kind);
+      expect(minted, kind).toMatchObject({
+        state: 'unmeasured',
+        reason: 'insufficient_time_coverage',
+      });
+      // Every OTHER floor was cleared: it is the span alone that refused it.
+      expect(minted.sample.distinctSellers, kind).toBeGreaterThanOrEqual(3);
+      expect(minted.sample.coverageDays, kind).toBe(0);
     }
   });
 });

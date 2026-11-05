@@ -44,7 +44,7 @@ import { convertOfferMoney } from '../ranking/money.js';
 import { listOfficialStoreMerchantIds } from '../../db/priceHistory/priceEligibilityRepository.js';
 import { listOfferSellerIdentities } from '../../db/priceSignals/priceSignalSubjectRepository.js';
 import { config } from '../../config/index.js';
-import { sellerDedupKey, type PriceSampleEntry } from './statistics.js';
+import { observationSpanStart, sellerDedupKey, type PriceSampleEntry } from './statistics.js';
 import type { PriceSignalDerivationInput, PriceSignalScope } from './signals.js';
 
 /** What a caller asks the context layer for. */
@@ -191,6 +191,10 @@ export async function buildPriceSignalContext(
     // direction that makes a weak sample look strong.
     if (seller === undefined) continue;
 
+    // Dated by the offer's OWN observation record, never by the read's clock:
+    // `currentEntrySpan` states why a "now" stamp made every cross-section span
+    // zero days.
+    const span = currentEntrySpan(offer, request.now, request.policy.recentWindowDays);
     const itemPrice = convertOfferMoney(offer.price, request.currency, rates);
     if (hasKnownPrice(itemPrice) && offer.price !== undefined) {
       const id = `offer:${offer.id}`;
@@ -199,7 +203,7 @@ export async function buildPriceSignalContext(
         offerId: offer.id,
         sellerKey: seller,
         amount: itemPrice.amount.amount,
-        observedAt: request.now,
+        ...span,
       });
       values.set(
         id,
@@ -227,7 +231,7 @@ export async function buildPriceSignalContext(
             offerId: offer.id,
             sellerKey: seller,
             amount: converted.amount.amount,
-            observedAt: request.now,
+            ...span,
           });
           values.set(id, priceValue(nativeTotal, converted.amount.amount, request.currency, rates));
         }
@@ -345,7 +349,7 @@ export async function buildPriceSignalContext(
         offerId: offer.id,
         sellerKey: focusSellerKey,
         amount: converted.amount.amount,
-        observedAt: request.now,
+        ...currentEntrySpan(offer, request.now, request.policy.recentWindowDays),
       };
       focusObservedItemValue = priceValue(
         { amount: offer.price.amount, currency: offer.price.currency },
@@ -376,6 +380,36 @@ export async function buildPriceSignalContext(
     ),
     ...(focusObservedItemPrice === undefined ? {} : { focusObservedItemPrice }),
     ...(focusObservedItemValue === undefined ? {} : { focusObservedItemValue }),
+  };
+}
+
+/**
+ * When a CURRENT offer's price was read, and how far back its evidence reaches.
+ *
+ * `observedAt` is the offer's own `observed_at` — when the source was read for
+ * the terms it carries now. `observedFrom` is its first sighting, clamped to the
+ * policy's recent window ({@link observationSpanStart}), so a cross-section's
+ * `coverageDays` is how long the market it describes has actually been watched.
+ *
+ * Both are the offer's stored facts. The read's clock used to stand in for
+ * both, which gave every cross-section a span of zero days: under any valid
+ * policy (`min_coverage_days >= 1` is a CHECK) `price_quality_label`,
+ * `official_store_position` and the merchant's cheapest rows answered
+ * `insufficient_time_coverage` whatever the market held, and the paid
+ * comparison tool had to skip the floor to show anything at all.
+ */
+function currentEntrySpan(
+  offer: Offer,
+  now: Date,
+  recentWindowDays: number,
+): { observedAt: Date; observedFrom: Date } {
+  return {
+    observedAt: new Date(offer.freshness.observedAt),
+    observedFrom: observationSpanStart(
+      new Date(offer.freshness.firstSeenAt),
+      now,
+      recentWindowDays,
+    ),
   };
 }
 

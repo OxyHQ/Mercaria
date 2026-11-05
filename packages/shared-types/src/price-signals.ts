@@ -1017,6 +1017,15 @@ export function priceQualityLabelFor(
   return 'typical_price';
 }
 
+/** The four floors a sample can miss — a subset of {@link PriceSignalUnmeasuredReason}. */
+export type PriceSampleShortfallReason = Extract<
+  PriceSignalUnmeasuredReason,
+  | 'insufficient_observations'
+  | 'insufficient_distinct_sellers'
+  | 'insufficient_distinct_offers'
+  | 'insufficient_time_coverage'
+>;
+
 /**
  * Whether a sample clears every floor the policy sets, and which one it failed.
  *
@@ -1027,8 +1036,11 @@ export function priceQualityLabelFor(
  */
 export function priceSampleShortfall(
   sample: PriceSignalSample,
-  policy: PriceSignalPolicy,
-): PriceSignalUnmeasuredReason | undefined {
+  policy: Pick<
+    PriceSignalPolicy,
+    'minObservations' | 'minDistinctSellers' | 'minDistinctOffers' | 'minCoverageDays'
+  >,
+): PriceSampleShortfallReason | undefined {
   if (sample.observations < policy.minObservations) return 'insufficient_observations';
   if (sample.distinctSellers < policy.minDistinctSellers) return 'insufficient_distinct_sellers';
   if (sample.distinctOffers < policy.minDistinctOffers) return 'insufficient_distinct_offers';

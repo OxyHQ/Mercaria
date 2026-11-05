@@ -2386,7 +2386,8 @@
       "currencyNotComparable": "此商品的货币无法比较。",
       "conditionUnknown": "此商品的成色无法比较。",
       "tooFewOffers": "其他报价暂时不足，无法比较。",
-      "tooFewSellers": "其他卖家暂时不足，无法比较。"
+      "tooFewSellers": "其他卖家暂时不足，无法比较。",
+      "tooShortHistory": "其他卖家的观察时间尚不足，无法比较。"
     },
     "trend": {
       "title": "走势",

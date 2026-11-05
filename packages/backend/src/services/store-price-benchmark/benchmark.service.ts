@@ -19,9 +19,12 @@
  *   observations (superseded, quarantined, anomalous, not-displayable and
  *   unconvertible observations excluded), run once per seller so each seller
  *   contributes its own lowest price per bucket.
- * - The statistics and floors are #82's (`market.ts`), under the ACTIVE
- *   price-signal policy. With none active, no row is measured — the same honest
- *   empty state every #82 surface has.
+ * - The statistics and ALL FOUR floors are #82's (`market.ts` calls
+ *   `priceSampleShortfall`), under the ACTIVE price-signal policy — including
+ *   `minCoverageDays`, which a cross-section can be judged on because every
+ *   entry carries its offer's own observation record rather than the read's
+ *   clock. With no policy active, no row is measured — the same honest empty
+ *   state every #82 surface has.
  *
  * ## What the store is compared with, and what it is not
  *
@@ -84,7 +87,11 @@ import {
   buildPriceSignalContext,
   type PriceSignalContext,
 } from '../price-signals/context.service.js';
-import { sellerDedupKey, type PriceSampleEntry } from '../price-signals/statistics.js';
+import {
+  observationSpanStart,
+  sellerDedupKey,
+  type PriceSampleEntry,
+} from '../price-signals/statistics.js';
 import { positionFor, summarizeMarket } from './market.js';
 
 /**
@@ -327,6 +334,7 @@ export async function readStorePriceAnalytics(
             minObservations: policy.minObservations,
             minDistinctSellers: policy.minDistinctSellers,
             minDistinctOffers: policy.minDistinctOffers,
+            minCoverageDays: policy.minCoverageDays,
             nearLowestBps: STORE_PRICE_NEAR_LOWEST_BPS,
             deduplication: 'one_offer_per_distinct_seller',
             medianMethod: 'lower_median_over_observed_values',
@@ -376,7 +384,11 @@ function bucketStarts(from: Date, to: Date, granularity: StorePriceTrendGranular
  * `derivePriceSeries`, so a bucket holds one admitted lowest price per seller —
  * deduplication by construction — and the store's own series is its listing's
  * lowest admitted price in the bucket. Each bucket's market clears the policy's
- * floors on its own, or says which one it missed.
+ * four floors on its own, or says which one it missed: a bucket is the
+ * cross-section at that time, so each entry carries its offer's observation
+ * record up to that point (`observationSpanStart` from its first sighting,
+ * clamped to the policy's recent window before the observation) — the same
+ * definition the overview's current entries use.
  */
 export async function readStorePriceTrend(
   request: StorePriceTrendRequest,
@@ -485,12 +497,25 @@ export async function readStorePriceTrend(
   for (const [sellerKey, rows] of bySeller) {
     for (const point of derive(rows)) {
       const key = point.bucketStart.getTime();
+      const firstSeenAt = identities.get(point.offerId)?.firstSeenAt;
       const entry: PriceSampleEntry = {
         id: point.snapshotId,
         offerId: point.offerId,
         sellerKey,
         amount: point.displayAmount,
         observedAt: point.observedAt,
+        // Every point's offer is in `identities` (the partition above skipped
+        // the rest), so this is never absent; written out because a non-null
+        // assertion is forbidden, and absent leaves the entry a single read.
+        ...(firstSeenAt === undefined
+          ? {}
+          : {
+              observedFrom: observationSpanStart(
+                firstSeenAt,
+                point.observedAt,
+                policy.recentWindowDays,
+              ),
+            }),
       };
       const list = othersByBucket.get(key);
       if (list === undefined) othersByBucket.set(key, [entry]);

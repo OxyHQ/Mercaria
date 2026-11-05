@@ -136,6 +136,36 @@ it can cite nothing.
 The cost is stated: on an even-sized sample the median sits one position low. The
 seller floor is what stops that mattering.
 
+### Time coverage is the evidence's span, and a current offer brings its record
+
+`minCoverageDays` is one floor with one definition (`coverageDays` in
+`statistics.ts`): the whole days from the earliest moment any entry is evidenced to
+the latest read, FLOORED. The two families differ only in what an entry is:
+
+- A **longitudinal** entry is one #78 observation, evidenced at the instant it was
+  read, so a history sample spans its first point to its last.
+- A **cross-sectional** entry is a CURRENT offer, and its price is evidenced by the
+  offer's own observation record: from `first_seen_at` to the `observed_at` of its
+  current terms (`PriceSampleEntry.observedFrom`, set by `buildPriceSignalContext`).
+  The start is clamped to the policy's `recentWindowDays` (`observationSpanStart`),
+  so a cross-section can never clear a floor no history sample under the same policy
+  could. A comparison's coverage is therefore how long the market it describes has
+  actually been watched.
+
+So a "good price" over five sellers who all appeared an hour ago is
+`insufficient_time_coverage`, not a badge — a market minted in an afternoon is the
+manipulation this floor exists for — while one established seller in the sample
+gives it the span of that seller's record, as one early point does for a history.
+
+The obvious implementation is wrong in the quiet direction. Stamping every current
+offer with the read's clock gives every cross-section a span of zero days, and
+because the CHECK holds `min_coverage_days >= 1`, `price_quality_label` (and the
+merchant's `position_vs_eligible_median`), `official_store_position` and both
+cheapest rows answered `insufficient_time_coverage` under every valid policy,
+whatever the market held. That was the state until the fix described here; the paid
+comparison tool (`docs/store-price-analytics.md`) had compensated by not applying
+the floor at all, and now calls the same `priceSampleShortfall` as everything else.
+
 ---
 
 ## The policy is a VERSION, and there is deliberately no built-in one
@@ -343,7 +373,11 @@ answers honestly that nothing has been defined yet.
   triggers, the composite foreign key, the two partial uniques and the runtime DTO
   walk, against a real server. The `cardinality` case is the one to read:
   `array_length('{}', 1)` is NULL, a CHECK rejects only FALSE, and the obvious
-  spelling ADMITS exactly the empty guardrail list it exists to refuse.
+  spelling ADMITS exactly the empty guardrail list it exists to refuse. The
+  cross-section cases run #74's real admission with a fixture policy: an
+  established market measures `position_vs_eligible_median`, `cheapest_item_price`
+  and the shopper's `price_quality_label`, and the same market first seen today is
+  `insufficient_time_coverage` on every one of them.
 
 **One real bug the realdb suite caught on its first run**, and it is the kind
 only a real server finds: `activatePriceSignalPolicyVersion` superseded the
@@ -391,6 +425,48 @@ Each is a NAMED contract that fails closed, never a stub that lies.
   to a question somebody asked, not a subscription.
 
 ---
+
+## The first production version, chosen
+
+Chosen 2026-11-05 under the owner's delegation ("precios y todo eso ... lo que
+creas mejor"). Every threshold is the column DEFAULT `db/schema/priceSignals.ts`
+already states and argues for — no number below is new — because those are the
+recommendations the code makes, and each errs toward making FEWER claims. Version
+`2026-11-05.1`, key `offer-price-signals` (the code constant).
+
+| Field | Value | Why |
+|---|---|---|
+| `minObservations` | 8 | The schema default. On a cross-section this is eight distinct sellers after the per-seller fold, on a history eight daily points: a badge needs a real sample, and a thin one is `unmeasured`, never a weak label. |
+| `minDistinctSellers` | 3 | The schema default and the CHECK floor (`PRICE_SIGNAL_MIN_DISTINCT_SELLERS_FLOOR`): the least a "market" can mean. Raised by `minObservations` on cross-sections anyway. |
+| `minDistinctOffers` | 3 | The schema default; keeps the offer floor independent of the seller floor (three merchants through nine feeds clears both honestly). |
+| `minCoverageDays` | 7 | The schema default: a week of observation (§"Time coverage"), so a market minted in an afternoon makes no claim. |
+| `recentWindowDays` | 30 | The schema default and #78's "thirty days" — what "recent" means on the page. |
+| `outlierModifiedZThreshold` | 3.5 | Iglewicz–Hoaglin's conventional constant (schema default). |
+| `outlierMinDeviationBps` | 7 500 | The schema default: a half-price sale (5 000) survives, a units error (90 000) does not. |
+| `materialDropBps` | 500 | The schema default: a drop under 5% is `not_present`, not a "price drop". |
+| `typicalBandBps` | 300 | The schema default: ±3% of the median reads as typical. |
+| `goodPriceBelowMedianBps` | 800 | The schema default: "good price" needs 8% below the median, well clear of the typical band (the CHECK requires ≥ it). |
+| `strongSampleMultiplier` | 2 | The schema default: `strong` only at twice every floor. |
+| `objectiveMetricKeys` | `[]` | This version optimises nothing; it is judged only on not doing harm. |
+| `guardrailMetricKeys` | `["product_to_offer_selection_rate"]` | The CHECK needs one, and this is #77's metric on the product page where the badge renders: shoppers choosing an offer must not get rarer while the policy serves. Naming it is all this domain does (it reads no measurement). |
+
+`PRICE_SIGNALS_PUBLIC_READS_ENABLED` and `PRICE_SIGNALS_ENABLED` stay off: the
+merchant surfaces and Ultra's competitive-price tool read the active version
+without either flag, and the public badge is checklist step 3, a separate
+decision.
+
+Publishing it is an operator act (checklist step 2) and the only supported path is
+the operator route, behind `catalog.operate` held by an `oxy` organization owner or
+admin's OWN Oxy session — no workflow, script or service credential can do it, by
+design:
+
+```
+GET  /internal/price-signals/policies                 # is one already active?
+POST /internal/price-signals/policies                 # the table above as JSON, plus
+                                                      # "version": "2026-11-05.1",
+                                                      # "description": "First version: the schema defaults (#82)."
+POST /internal/price-signals/policies/{id}/activate   # {"reason": "First production policy"}
+```
 
 ## Production-readiness checklist
 

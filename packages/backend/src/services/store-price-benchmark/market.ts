@@ -10,24 +10,24 @@
  * market" would be a second answer to a question a shopper's badge already
  * answers (ADR 0002's one-verdict rule).
  *
- * ## The floors, and the one that does not apply
+ * ## The floors are #82's four, applied by #82's own check
  *
  * The aggregate is published only when the other sellers clear the active
- * policy's `minObservations`, `minDistinctSellers` and `minDistinctOffers` —
- * #82's sample floors, the ones that make it a MARKET rather than one rival's
- * price. The fourth floor, `minCoverageDays`, measures how many days a
- * LONGITUDINAL sample spans, and an instant's cross-section spans none: every
- * current offer is observed "now", and applying it would refuse every
- * comparison under every valid policy (the CHECK holds it at ≥ 1). So it is not
- * applied to a cross-section here — stated rather than silently skipped. The
- * trend's per-bucket samples are cross-sections too, and are treated the same.
+ * policy's `minObservations`, `minDistinctSellers`, `minDistinctOffers` AND
+ * `minCoverageDays` — `priceSampleShortfall`, the function the free
+ * `/merchant-competitiveness` rows and the shopper's badge call. The coverage
+ * floor works on a cross-section because each current entry carries its offer's
+ * own observation record (`PriceSampleEntry.observedFrom`, set by
+ * `buildPriceSignalContext`), so a market of offers first seen an hour ago is
+ * `insufficient_time_coverage` rather than a median. The trend's per-bucket
+ * entries carry the same record, from the same `observationSpanStart`.
  */
 
 import {
   priceDeltaBps,
+  priceSampleShortfall,
   STORE_PRICE_NEAR_LOWEST_BPS,
   type PriceSignalPolicy,
-  type PriceSignalSample,
   type StorePriceMarket,
   type StorePricePosition,
   type StorePricePositionBand,
@@ -36,27 +36,17 @@ import {
 import { buildSample } from '../price-signals/sample.js';
 import { lowerMedianIndex, type PriceSampleEntry } from '../price-signals/statistics.js';
 
-/** The policy fields this tool reads — the floors and the outlier method. */
+/** The policy fields this tool reads — the four floors and the outlier method. */
 export type StorePriceFloors = Pick<
   PriceSignalPolicy,
   | 'version'
   | 'minObservations'
   | 'minDistinctSellers'
   | 'minDistinctOffers'
+  | 'minCoverageDays'
   | 'outlierModifiedZThreshold'
   | 'outlierMinDeviationBps'
 >;
-
-/** The floors a cross-sectional sample must clear, in #82's order. */
-export function crossSectionShortfall(
-  sample: PriceSignalSample,
-  policy: StorePriceFloors,
-): StorePriceUnmeasuredReason | undefined {
-  if (sample.observations < policy.minObservations) return 'insufficient_observations';
-  if (sample.distinctSellers < policy.minDistinctSellers) return 'insufficient_distinct_sellers';
-  if (sample.distinctOffers < policy.minDistinctOffers) return 'insufficient_distinct_offers';
-  return undefined;
-}
 
 export type MarketOutcome =
   | { readonly outcome: 'measured'; readonly market: StorePriceMarket }
@@ -78,7 +68,10 @@ export function summarizeMarket(
     outlierModifiedZThreshold: policy.outlierModifiedZThreshold,
     outlierMinDeviationBps: policy.outlierMinDeviationBps,
   });
-  const shortfall = crossSectionShortfall(built.sample, policy);
+  const shortfall: StorePriceUnmeasuredReason | undefined = priceSampleShortfall(
+    built.sample,
+    policy,
+  );
   if (shortfall !== undefined) return { outcome: 'unmeasured', reason: shortfall };
 
   const lowest = built.kept[0];
