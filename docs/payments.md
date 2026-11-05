@@ -2116,6 +2116,28 @@ nothing below has been done against live money.
       `commission_revenue`), and a delivery interrupted mid-flight converging by
       retry.
 
+**What the first real sale confirms** (nothing short of one does)
+
+Prerequisites, none of which moves money: at least one seller onboarded to
+`ready` through Peable's hosted flow (a real identity, so only with the owner's
+own store or a consenting seller), the platform account's settlement currency
+known (see "The settlement currency" — sell in it), and `PEABLE_ENABLED=true`
+on the task definition. Then one EUR card sale of that seller's listing
+confirms:
+
+- the handoff mounts Peable's Elements and the acquirer takes the charge on
+  Oxy Platforms' account (a platform charge: Mercaria's merchant is first-party);
+- `payment_intent.succeeded` arrives on `we_82b5…`, verifies with
+  `PEABLE_WEBHOOK_SECRET`, and `applyPaymentStatus` books the charge;
+- the outbox settles the seller: one `/v1/transfers` per order, sourced from
+  that charge, landing `paid` on their connected account;
+- the ledger sums to zero per currency with the commission in
+  `commission_revenue` (no `processor_expense` leg — the stated fee gap);
+- a later `payout.*` for the seller is recorded against their row.
+
+A refund of it confirms `refunds.refundSettlement` books it at the settled
+figure and reverses the seller's share. Neither has been run.
+
 **Configuration**
 
 - [ ] `PEABLE_ENABLED`, `PEABLE_BASE_URL` and `PEABLE_WEBHOOK_SECRET` set from SSM
@@ -2129,7 +2151,7 @@ nothing below has been done against live money.
 
 **Webhooks**
 
-- [ ] ONE endpoint, `we_82b5f363eb495108b252e607` at
+- [x] ONE endpoint, `we_82b5f363eb495108b252e607` at
       `https://api.mercaria.co/webhooks/peable` (the billing endpoint;
       `docs/runbooks/merchant-plans-live.md` §4), carries the marketplace types
       beside the billing ones: `payment_intent.requires_action`,
@@ -2139,9 +2161,9 @@ nothing below has been done against live money.
       `charge.dispute.created`, `charge.dispute.updated`, `charge.dispute.closed`,
       `charge.dispute.funds_withdrawn`, `charge.dispute.funds_reinstated`,
       `connected_account.updated`, `payout.created`, `payout.updated`,
-      `payout.paid`, `payout.failed`, `payout.canceled`. As of 2026-11-05 it
-      carries only the seven billing types; add these (`POST
-      /v1/webhook_endpoints/:id` with the FULL list) before `PEABLE_ENABLED`.
+      `payout.paid`, `payout.failed`, `payout.canceled`. Done 2026-11-05 (as
+      Mercaria's workload, `POST /v1/webhook_endpoints/:id` with the FULL list,
+      after the intent marker shipped): 27 types, the seven billing ones kept.
 - [ ] `POST /webhooks/peable` with no signature answers 400 `missing_signature`,
       not 404. A 404 means the secret is unset and the endpoint is unmounted.
 
