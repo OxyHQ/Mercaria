@@ -47,13 +47,66 @@
       "addresses": "Endereços",
       "watchlists": "Listas de interesse",
       "shoppingAgents": "Assistentes de compra",
-      "referrals": "Indicações"
+      "referrals": "Indicações",
+      "payments": "Pagamentos e repasses"
     },
     "currency": {
       "title": "Moeda de exibição",
       "description": "Escolha a moeda em que os preços são mostrados. FairCoin (⊜) é a padrão.",
       "signedOut": "Entre para salvar sua moeda de exibição preferida.",
       "updateFailed": "Não foi possível atualizar sua moeda de exibição"
+    },
+    "payments": {
+      "beingReviewed": "Em análise",
+      "countryHint": "Código de duas letras, por exemplo BR. Não pode ser alterado depois que os repasses forem configurados.",
+      "countryLabel": "País em que sua empresa está registrada",
+      "dueBy": "Prazo",
+      "itemCount": {
+        "many": "%{count} de itens",
+        "one": "%{count} item",
+        "other": "%{count} itens"
+      },
+      "loadFailed": "Não foi possível carregar as configurações de pagamento",
+      "neededNow": "Necessário agora",
+      "onboardingUnavailable": "A configuração de repasses ainda não está disponível nesta instalação da Mercaria.",
+      "openFailed": "Não foi possível abrir a configuração de repasses",
+      "outstandingTitle": "Pendências com a Peable",
+      "paidOutIn": "Repasse em",
+      "payoutsTitle": "Repasses",
+      "quoteToSupport": "Informe isto ao suporte da Mercaria se precisar de ajuda.",
+      "registeredIn": "Registrado em",
+      "reportedByPeable": "Informado pela Peable",
+      "requirementsNote": "A Peable guarda esses dados e é o único lugar onde eles podem ser preenchidos. A Mercaria nunca os vê.",
+      "states": {
+        "actionRequired": {
+          "action": "Continuar configuração",
+          "body": "A Peable precisa de mais informações antes de poder repassar seus valores. Enquanto ela não tiver tudo, os compradores não conseguem finalizar a compra dos seus anúncios.",
+          "heading": "Ainda faltam alguns dados"
+        },
+        "disabled": {
+          "body": "A Peable encerrou esta conta conectada, ou a conexão dela com a Mercaria foi removida. Os compradores não conseguem finalizar a compra dos seus anúncios. Fale com o suporte da Mercaria para verificar.",
+          "heading": "Esta conta não pode mais ser usada"
+        },
+        "notConnected": {
+          "action": "Configurar repasses",
+          "body": "Seus anúncios estão visíveis e você pode usar todo o resto da Mercaria, mas os compradores ainda não conseguem finalizar a compra deles. Configurar os repasses leva alguns minutos.",
+          "heading": "Ainda não configurado"
+        },
+        "ready": {
+          "action": "Gerenciar dados de repasse",
+          "body": "Os compradores conseguem finalizar a compra dos seus anúncios, e a Peable repassa seu saldo para o seu banco.",
+          "heading": "Pronto para receber"
+        },
+        "restricted": {
+          "action": "Resolver agora",
+          "body": "Algo que a Peable pediu está atrasado, então ela pausou os repasses e os compradores não conseguem finalizar a compra dos seus anúncios. Concluir isso restabelece os dois.",
+          "heading": "Os repasses estão pausados"
+        },
+        "underReview": {
+          "body": "A Peable recebeu o que pediu e está analisando. Não há nada a fazer da sua parte — isso costuma levar um ou dois dias. Os compradores não conseguem finalizar a compra dos seus anúncios até isso terminar.",
+          "heading": "Em análise"
+        }
+      }
     }
   },
   "feedback": {

@@ -18,6 +18,7 @@ export const STOREFRONT_SETTINGS_PAGES = [
   'addresses',
   'feedback',
   'referrals',
+  'payments',
 ] as const;
 export type StorefrontSettingsPage = (typeof STOREFRONT_SETTINGS_PAGES)[number];
 

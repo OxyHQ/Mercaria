@@ -47,13 +47,64 @@
       "addresses": "住所",
       "watchlists": "ウォッチリスト",
       "shoppingAgents": "ショッピングアシスタント",
-      "referrals": "紹介"
+      "referrals": "紹介",
+      "payments": "決済と入金"
     },
     "currency": {
       "title": "表示通貨",
       "description": "価格を表示する通貨を選んでください。既定は FairCoin（⊜）です。",
       "signedOut": "表示通貨の設定を保存するにはログインしてください。",
       "updateFailed": "表示通貨を更新できませんでした"
+    },
+    "payments": {
+      "beingReviewed": "審査中",
+      "countryHint": "2文字のコード（例：JP）。入金の設定後は変更できません。",
+      "countryLabel": "事業の登録国",
+      "dueBy": "期限",
+      "itemCount": {
+        "other": "%{count}件"
+      },
+      "loadFailed": "決済設定を読み込めませんでした",
+      "neededNow": "今すぐ必要",
+      "onboardingUnavailable": "このMercaria環境では、入金の設定をまだ利用できません。",
+      "openFailed": "入金の設定を開けませんでした",
+      "outstandingTitle": "Peableで未対応の項目",
+      "paidOutIn": "入金通貨",
+      "payoutsTitle": "入金",
+      "quoteToSupport": "サポートが必要な場合は、これをMercariaサポートにお伝えください。",
+      "registeredIn": "登録国",
+      "reportedByPeable": "Peableからの報告",
+      "requirementsNote": "これらの情報はPeableが保持しており、入力できるのはPeableのみです。Mercariaがこれらを見ることはありません。",
+      "states": {
+        "actionRequired": {
+          "action": "設定を続ける",
+          "body": "入金の前に、Peableが追加の情報を必要としています。すべてが揃うまで、購入者はあなたの商品をチェックアウトできません。",
+          "heading": "あと少し情報が必要です"
+        },
+        "disabled": {
+          "body": "Peableがこの連携アカウントを閉鎖したか、Mercariaとの接続が解除されました。購入者はあなたの商品をチェックアウトできません。Mercariaサポートにお問い合わせください。",
+          "heading": "このアカウントは使用できません"
+        },
+        "notConnected": {
+          "action": "入金を設定",
+          "body": "商品は表示され、Mercariaの他の機能もすべて使えますが、購入者はまだチェックアウトできません。入金の設定は数分で完了します。",
+          "heading": "未設定"
+        },
+        "ready": {
+          "action": "入金情報を管理",
+          "body": "購入者はあなたの商品をチェックアウトでき、Peableが残高を銀行口座へ入金します。",
+          "heading": "入金を受け取れます"
+        },
+        "restricted": {
+          "action": "今すぐ対応",
+          "body": "Peableが求めた対応が期限を過ぎたため、入金が停止され、購入者はあなたの商品をチェックアウトできません。対応を完了すると、どちらも再開されます。",
+          "heading": "入金が停止しています"
+        },
+        "underReview": {
+          "body": "Peableは必要な情報を受け取り、審査しています。あなたが行うことはありません。通常は1〜2日で完了します。完了するまで、購入者はあなたの商品をチェックアウトできません。",
+          "heading": "審査中"
+        }
+      }
     }
   },
   "feedback": {

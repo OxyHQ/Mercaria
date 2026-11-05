@@ -47,13 +47,64 @@
       "addresses": "收货地址",
       "watchlists": "关注清单",
       "shoppingAgents": "购物助手",
-      "referrals": "推荐"
+      "referrals": "推荐",
+      "payments": "收款与结算"
     },
     "currency": {
       "title": "显示货币",
       "description": "选择价格显示所用的货币。默认是 FairCoin（⊜）。",
       "signedOut": "登录后即可保存你偏好的显示货币。",
       "updateFailed": "无法更新你的显示货币"
+    },
+    "payments": {
+      "beingReviewed": "审核中",
+      "countryHint": "两个字母的代码，例如 CN。设置付款后无法更改。",
+      "countryLabel": "您的企业注册所在国家/地区",
+      "dueBy": "截止日期",
+      "itemCount": {
+        "other": "%{count} 项"
+      },
+      "loadFailed": "无法加载收款设置",
+      "neededNow": "现在需要提供",
+      "onboardingUnavailable": "当前 Mercaria 部署尚不支持结算设置。",
+      "openFailed": "无法打开结算设置",
+      "outstandingTitle": "Peable 尚待处理的事项",
+      "paidOutIn": "结算币种",
+      "payoutsTitle": "结算",
+      "quoteToSupport": "如需帮助，请把它提供给 Mercaria 支持团队。",
+      "registeredIn": "注册国家/地区",
+      "reportedByPeable": "由 Peable 提供",
+      "requirementsNote": "这些资料由 Peable 保管，也只能在 Peable 中补全。Mercaria 永远不会看到它们。",
+      "states": {
+        "actionRequired": {
+          "action": "继续设置",
+          "body": "Peable 还需要更多信息才能向你结算。在资料补齐之前，买家无法结账购买你的商品。",
+          "heading": "还需要补充一些资料"
+        },
+        "disabled": {
+          "body": "Peable 已关闭该关联账户，或者它与 Mercaria 的连接已被移除。买家无法结账购买你的商品。请联系 Mercaria 支持团队处理。",
+          "heading": "该账户已无法继续使用"
+        },
+        "notConnected": {
+          "action": "设置结算",
+          "body": "你的商品可以正常展示，Mercaria 的其他功能也都能使用，但买家还无法结账购买。设置结算只需几分钟。",
+          "heading": "尚未设置"
+        },
+        "ready": {
+          "action": "管理结算资料",
+          "body": "买家可以结账购买你的商品，Peable 会把你的余额结算到你的银行账户。",
+          "heading": "已可收款"
+        },
+        "restricted": {
+          "action": "立即处理",
+          "body": "Peable 要求的某项资料已逾期，因此它暂停了结算，买家也无法结账购买你的商品。补齐后两者都会恢复。",
+          "heading": "结算已暂停"
+        },
+        "underReview": {
+          "body": "Peable 已收到所需资料，正在审核。你无需做任何事 —— 通常需要一到两天。审核完成前，买家无法结账购买你的商品。",
+          "heading": "审核中"
+        }
+      }
     }
   },
   "feedback": {

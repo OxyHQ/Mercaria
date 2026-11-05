@@ -549,9 +549,10 @@ knows its shape:
 
 The dashboard's **Payments & payouts** screen (`settings/payments.tsx`) asks the
 owner for the country once, opens the link in the system browser and calls
-`refresh` when it closes. The storefront has no P2P payments page yet (P2P
-selling has no storefront entry — `/sell` is awaiting a product decision); the
-P2P routes are live for it.
+`refresh` when it closes. A P2P seller has the same page in the storefront's
+Settings dialog (`components/settings/payments-page.tsx`, signed in only), with
+`/settings/payments` as its deep-link bridge — which is also where the hosted
+flow returns them.
 
 ### One account per owner, and the index that enforces it
 
