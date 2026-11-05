@@ -1571,6 +1571,92 @@
       "title": "Photos et vidéos"
     }
   },
+  "replenishment": {
+    "documentTitle": "Réapprovisionnement | Wholesale by Mercaria",
+    "title": "Réapprovisionnement",
+    "subtitle": "Une prévision de la demande et des suggestions d'achat à partir de vos propres ventes et stocks",
+    "toolDescription": "Prévoyez la demande par emplacement et obtenez des quantités de commande suggérées à exporter.",
+    "loadFailed": "Impossible de charger le plan de réapprovisionnement",
+    "planRefused": "La planification du réapprovisionnement ne fait pas partie de votre offre actuelle.",
+    "exportCsv": "Exporter en CSV",
+    "exportFailed": "Impossible d'exporter le plan",
+    "truncated": "Votre catalogue est très volumineux : ce plan couvre les 20 000 premières variantes dont le stock est suivi.",
+    "emptyTitle": "Rien à planifier ici",
+    "emptyBody": "Les produits actifs dont le stock est suivi apparaissent ici, avec leur stock et leurs ventes récentes.",
+    "moreRows": "%{shown} sur %{total} affichés. Exportez le CSV pour la liste complète.",
+    "status": {
+      "stockedOut": "En rupture",
+      "reorderNow": "À recommander",
+      "healthy": "Suffisant",
+      "noRecentSales": "Aucune vente récente"
+    },
+    "filters": {
+      "location": "Emplacement",
+      "allLocations": "Tous les emplacements",
+      "status": "Statut",
+      "allStatuses": "Tous les statuts"
+    },
+    "summary": {
+      "suggestedUnits": "Unités suggérées"
+    },
+    "columns": {
+      "product": "Produit",
+      "suggested": "Commander",
+      "stockout": "Rupture le",
+      "cover": "Couverture",
+      "stock": "Disponible / en stock",
+      "demand": "Par jour",
+      "sold": "Vendu 28 j / 90 j"
+    },
+    "values": {
+      "noForecast": "Aucune prévision",
+      "days": "%{days} jours",
+      "sold": "%{recent} vendus en 28 jours, %{long} en 90",
+      "perDay": "%{rate} par jour",
+      "stock": "%{available} disponibles / %{onHand} en stock",
+      "suggest": "Commande suggérée : %{count}",
+      "ownSettings": "réglages propres"
+    },
+    "settings": {
+      "title": "Réglages de planification",
+      "body": "Utilisés pour chaque produit, sauf s'il a ses propres réglages.",
+      "defaultsNote": "Ce sont les valeurs par défaut tant que vous n'enregistrez pas les vôtres.",
+      "leadTime": "Délai de livraison (jours)",
+      "targetCover": "Couverture cible (jours)",
+      "safetyStock": "Stock de sécurité (jours)",
+      "save": "Enregistrer les réglages",
+      "saved": "Réglages enregistrés",
+      "saveFailed": "Impossible d'enregistrer les réglages",
+      "loadFailed": "Impossible de charger les réglages de planification",
+      "invalid": "Saisissez un nombre entier de jours entre %{min} et %{max}",
+      "readOnly": "Seuls les membres autorisés à modifier le stock peuvent les changer."
+    },
+    "overrides": {
+      "title": "Réglages par produit",
+      "empty": "Aucun produit n'a de réglages propres.",
+      "emptyEditable": "Aucun produit n'a de réglages propres. Sélectionnez un produit dans le plan pour lui en donner.",
+      "inherit": "réglage de la boutique",
+      "value": "%{label} : %{value}",
+      "remove": "Retirer",
+      "removed": "Réglages du produit retirés",
+      "removeFailed": "Impossible de retirer les réglages du produit",
+      "dialogTitle": "Réglages de ce produit",
+      "hint": "Laissez un champ vide pour utiliser le réglage de la boutique.",
+      "placeholder": "Boutique : %{value}",
+      "save": "Enregistrer",
+      "saved": "Réglages du produit enregistrés",
+      "saveFailed": "Impossible d'enregistrer les réglages du produit"
+    },
+    "how": {
+      "title": "Comment ces chiffres sont calculés",
+      "sales": "Les ventes sont les unités des commandes payées et non annulées, moins les unités remboursées. Une vente compte à l'emplacement où elle a été encaissée ou retirée, sinon à votre emplacement par défaut.",
+      "demand": "La demande par jour combine les 28 derniers jours (60 %) et les 90 derniers jours (40 %). Un produit plus récent est mesuré sur sa propre ancienneté, jamais moins de 7 jours.",
+      "cover": "Les jours de couverture sont le stock disponible divisé par la demande par jour ; la date de rupture est aujourd'hui plus ces jours.",
+      "suggest": "Commande suggérée = demande × (délai de livraison + couverture cible + stock de sécurité) − stock disponible, arrondie au supérieur et jamais négative. « À recommander » signifie que le stock ne tiendra pas le délai de livraison plus le stock de sécurité.",
+      "incoming": "Mercaria ne connaît pas le stock déjà commandé à vos fournisseurs : retranchez-le vous-même de la suggestion.",
+      "noOrders": "C'est une liste à exporter : Mercaria ne passe jamais de commande à un fournisseur à votre place."
+    }
+  },
   "settings": {
     "documentTitle": "Paramètres | Wholesale by Mercaria",
     "fees": {

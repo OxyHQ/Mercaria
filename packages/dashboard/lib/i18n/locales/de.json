@@ -1553,6 +1553,92 @@
       "title": "Fotos und Videos"
     }
   },
+  "replenishment": {
+    "documentTitle": "Nachbestellung | Wholesale by Mercaria",
+    "title": "Nachbestellung",
+    "subtitle": "Eine Bedarfsprognose und Bestellvorschläge aus deinen eigenen Verkäufen und Beständen",
+    "toolDescription": "Prognostiziere den Bedarf pro Standort und erhalte exportierbare Bestellmengen.",
+    "loadFailed": "Der Nachbestellplan konnte nicht geladen werden",
+    "planRefused": "Die Nachbestellplanung ist nicht Teil deines aktuellen Tarifs.",
+    "exportCsv": "CSV exportieren",
+    "exportFailed": "Der Plan konnte nicht exportiert werden",
+    "truncated": "Dein Katalog ist sehr groß, daher umfasst dieser Plan die ersten 20.000 Varianten mit Bestandsführung.",
+    "emptyTitle": "Hier gibt es nichts zu planen",
+    "emptyBody": "Aktive Produkte mit Bestandsführung erscheinen hier mit ihrem Bestand und ihren letzten Verkäufen.",
+    "moreRows": "%{shown} von %{total} angezeigt. Exportiere die CSV für die vollständige Liste.",
+    "status": {
+      "stockedOut": "Ausverkauft",
+      "reorderNow": "Jetzt nachbestellen",
+      "healthy": "Ausreichend",
+      "noRecentSales": "Keine aktuellen Verkäufe"
+    },
+    "filters": {
+      "location": "Standort",
+      "allLocations": "Alle Standorte",
+      "status": "Status",
+      "allStatuses": "Alle Status"
+    },
+    "summary": {
+      "suggestedUnits": "Vorgeschlagene Einheiten"
+    },
+    "columns": {
+      "product": "Produkt",
+      "suggested": "Bestellen",
+      "stockout": "Leer am",
+      "cover": "Reichweite",
+      "stock": "Verfügbar / vorrätig",
+      "demand": "Pro Tag",
+      "sold": "Verkauft 28 T / 90 T"
+    },
+    "values": {
+      "noForecast": "Keine Prognose",
+      "days": "%{days} Tage",
+      "sold": "%{recent} in 28 Tagen verkauft, %{long} in 90",
+      "perDay": "%{rate} pro Tag",
+      "stock": "%{available} verfügbar / %{onHand} vorrätig",
+      "suggest": "Vorgeschlagene Bestellung: %{count}",
+      "ownSettings": "eigene Einstellungen"
+    },
+    "settings": {
+      "title": "Planungseinstellungen",
+      "body": "Gelten für jedes Produkt, sofern es keine eigenen Einstellungen hat.",
+      "defaultsNote": "Das sind die Standardwerte, bis du eigene speicherst.",
+      "leadTime": "Lieferzeit (Tage)",
+      "targetCover": "Zielreichweite (Tage)",
+      "safetyStock": "Sicherheitsbestand (Tage)",
+      "save": "Einstellungen speichern",
+      "saved": "Einstellungen gespeichert",
+      "saveFailed": "Die Einstellungen konnten nicht gespeichert werden",
+      "loadFailed": "Die Planungseinstellungen konnten nicht geladen werden",
+      "invalid": "Gib ganze Tage zwischen %{min} und %{max} ein",
+      "readOnly": "Nur Mitglieder, die den Bestand bearbeiten dürfen, können diese ändern."
+    },
+    "overrides": {
+      "title": "Produkteinstellungen",
+      "empty": "Kein Produkt hat eigene Einstellungen.",
+      "emptyEditable": "Kein Produkt hat eigene Einstellungen. Wähle ein Produkt im Plan aus, um ihm eigene zu geben.",
+      "inherit": "Shop-Einstellung",
+      "value": "%{label}: %{value}",
+      "remove": "Entfernen",
+      "removed": "Produkteinstellungen entfernt",
+      "removeFailed": "Die Produkteinstellungen konnten nicht entfernt werden",
+      "dialogTitle": "Einstellungen für dieses Produkt",
+      "hint": "Lass ein Feld leer, um die Einstellung des Shops zu verwenden.",
+      "placeholder": "Shop: %{value}",
+      "save": "Speichern",
+      "saved": "Produkteinstellungen gespeichert",
+      "saveFailed": "Die Produkteinstellungen konnten nicht gespeichert werden"
+    },
+    "how": {
+      "title": "Wie diese Zahlen berechnet werden",
+      "sales": "Verkäufe sind Einheiten aus bezahlten, nicht stornierten Bestellungen abzüglich erstatteter Einheiten. Ein Verkauf zählt an dem Standort, an dem er kassiert oder abgeholt wurde, sonst an deinem Standardstandort.",
+      "demand": "Der Bedarf pro Tag kombiniert die letzten 28 Tage (60 %) mit den letzten 90 Tagen (40 %). Ein neueres Produkt wird über sein eigenes Alter gemessen, nie über weniger als 7 Tage.",
+      "cover": "Die Reichweite ist der verfügbare Bestand geteilt durch den Bedarf pro Tag; das Leer-Datum ist heute plus diese Tage.",
+      "suggest": "Vorgeschlagene Bestellung = Bedarf × (Lieferzeit + Zielreichweite + Sicherheitsbestand) − verfügbarer Bestand, aufgerundet und nie unter null. „Jetzt nachbestellen“ heißt, der Bestand reicht nicht über Lieferzeit plus Sicherheitsbestand.",
+      "incoming": "Bestände, die du bereits bei Lieferanten bestellt hast, kennt Mercaria nicht – ziehe sie selbst vom Vorschlag ab.",
+      "noOrders": "Dies ist eine Liste zum Exportieren: Mercaria gibt nie eine Bestellung bei einem Lieferanten für dich auf."
+    }
+  },
   "settings": {
     "documentTitle": "Einstellungen | Wholesale by Mercaria",
     "fees": {

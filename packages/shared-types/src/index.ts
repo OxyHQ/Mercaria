@@ -937,3 +937,8 @@ export { isolateBidi } from './bidi';
 // services that already exist, so this module names what a rule IS and owns no
 // vocabulary of the listing or order it acts on.
 export * from './automation-rule';
+// Replenishment planning (#89 `replenishment_planning`). Downstream of
+// `./order`, `./refund` and `./listing`, whose status tuples it narrows into the
+// sets a forecast counts. It describes a store's OWN stock and sales and nothing
+// any other store, buyer or ranking surface can read.
+export * from './replenishment';

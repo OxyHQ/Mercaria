@@ -1553,6 +1553,92 @@
       "title": "照片和视频"
     }
   },
+  "replenishment": {
+    "documentTitle": "补货 | Wholesale by Mercaria",
+    "title": "补货",
+    "subtitle": "根据你自己的销售和库存得出的需求预测与采购建议",
+    "toolDescription": "按地点预测需求，并获得可导出的建议订货量。",
+    "loadFailed": "无法加载补货计划",
+    "planRefused": "补货计划不在你当前的套餐中。",
+    "exportCsv": "导出 CSV",
+    "exportFailed": "无法导出计划",
+    "truncated": "你的商品目录非常大，此计划覆盖前 20,000 个跟踪库存的变体。",
+    "emptyTitle": "这里没有可计划的商品",
+    "emptyBody": "跟踪库存的在售商品会显示在这里，并附上库存和近期销售。",
+    "moreRows": "显示 %{total} 条中的 %{shown} 条。导出 CSV 可获取完整列表。",
+    "status": {
+      "stockedOut": "已缺货",
+      "reorderNow": "立即补货",
+      "healthy": "充足",
+      "noRecentSales": "近期无销售"
+    },
+    "filters": {
+      "location": "地点",
+      "allLocations": "所有地点",
+      "status": "状态",
+      "allStatuses": "所有状态"
+    },
+    "summary": {
+      "suggestedUnits": "建议件数"
+    },
+    "columns": {
+      "product": "商品",
+      "suggested": "订货",
+      "stockout": "缺货日期",
+      "cover": "可售天数",
+      "stock": "可售 / 现有",
+      "demand": "每天",
+      "sold": "售出 28 天 / 90 天"
+    },
+    "values": {
+      "noForecast": "无预测",
+      "days": "%{days} 天",
+      "sold": "28 天售出 %{recent}，90 天售出 %{long}",
+      "perDay": "每天 %{rate}",
+      "stock": "可售 %{available} / 现有 %{onHand}",
+      "suggest": "建议订货：%{count}",
+      "ownSettings": "单独设置"
+    },
+    "settings": {
+      "title": "计划设置",
+      "body": "适用于所有商品，除非商品有单独的设置。",
+      "defaultsNote": "在你保存自己的设置之前，这些是默认值。",
+      "leadTime": "交货周期（天）",
+      "targetCover": "目标覆盖（天）",
+      "safetyStock": "安全库存（天）",
+      "save": "保存设置",
+      "saved": "设置已保存",
+      "saveFailed": "无法保存设置",
+      "loadFailed": "无法加载计划设置",
+      "invalid": "请输入 %{min} 到 %{max} 之间的整数天数",
+      "readOnly": "只有可以编辑库存的成员才能更改这些设置。"
+    },
+    "overrides": {
+      "title": "商品设置",
+      "empty": "没有商品有单独的设置。",
+      "emptyEditable": "没有商品有单独的设置。在计划中选择一个商品即可为其单独设置。",
+      "inherit": "店铺设置",
+      "value": "%{label}：%{value}",
+      "remove": "移除",
+      "removed": "已移除商品设置",
+      "removeFailed": "无法移除商品设置",
+      "dialogTitle": "此商品的设置",
+      "hint": "留空即使用店铺的设置。",
+      "placeholder": "店铺：%{value}",
+      "save": "保存",
+      "saved": "商品设置已保存",
+      "saveFailed": "无法保存商品设置"
+    },
+    "how": {
+      "title": "这些数字是如何计算的",
+      "sales": "销售量是已付款且未取消的订单中的件数，减去已退款的件数。销售计入收银或自提所在的地点，否则计入你的默认地点。",
+      "demand": "每日需求结合最近 28 天（60%）和最近 90 天（40%）。较新的商品按其上架天数计算，但不少于 7 天。",
+      "cover": "可售天数是可售库存除以每日需求；缺货日期是今天加上这些天数。",
+      "suggest": "建议订货 = 需求 ×（交货周期 + 目标覆盖 + 安全库存）− 可售库存，向上取整且不小于零。“立即补货”表示库存撑不过交货周期加安全库存。",
+      "incoming": "Mercaria 不知道你已向供应商订购的库存，请自行从建议中扣除。",
+      "noOrders": "这是一份用于导出的清单：Mercaria 绝不会替你向供应商下单。"
+    }
+  },
   "settings": {
     "documentTitle": "设置 | Wholesale by Mercaria",
     "fees": {

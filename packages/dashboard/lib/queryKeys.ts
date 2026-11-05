@@ -67,6 +67,14 @@ export const queryKeys = {
     trend: (storeId: string, from: string, to: string, interval: string) =>
       ['stores', storeId, 'conversion-report', 'trend', from, to, interval] as const,
   },
+  // Replenishment planning (a paid tool): the saved settings, and the plan they
+  // drive under the same root so saving settings refreshes every plan view.
+  replenishment: {
+    all: (storeId: string) => ['stores', storeId, 'replenishment'] as const,
+    settings: (storeId: string) => ['stores', storeId, 'replenishment', 'settings'] as const,
+    plan: (storeId: string, locationId: string | null, status: string | null) =>
+      ['stores', storeId, 'replenishment', 'plan', locationId, status] as const,
+  },
   collections: {
     featured: (storeId: string) => ['stores', storeId, 'featured-collections'] as const,
     list: (storeId: string) => ['stores', storeId, 'collections'] as const,

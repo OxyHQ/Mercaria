@@ -82,6 +82,7 @@ flowchart LR
         M_Named_POS_registers___89___expanded_pos_registers__["Named POS registers (#89, `expanded_pos_registers`)"]
         M_Automation_rules___89_paid_tool_["Automation rules (#89 paid tool)"]
         M_Store_page_merchandising_rules__paid___89_["Store-page merchandising rules (paid, #89)"]
+        M_Replenishment_planning___89___replenishment_planning__["Replenishment planning (#89, `replenishment_planning`)"]
         M_Organization_migration_evidence["Organization migration evidence"]
         M_Taxonomy["Taxonomy"]
         M_Classification["Classification"]
@@ -160,6 +161,8 @@ flowchart LR
     M_Store_page_merchandising_rules__paid___89_ --> X_collections
     M_Store_page_merchandising_rules__paid___89_ --> X_listings
     M_Store_page_merchandising_rules__paid___89_ --> X_stores
+    M_Replenishment_planning___89___replenishment_planning__ --> X_product_variants
+    M_Replenishment_planning___89___replenishment_planning__ --> X_stores
     M_Organization_migration_evidence --> X_organizations
     M_Organization_migration_evidence --> X_source_records
     M_Taxonomy --> X_catalog_sources
@@ -244,7 +247,7 @@ Measured, not asserted. Every edge below is a `.insert(…)`, `.update(…)` or 
 the table's drizzle symbol, or a raw-SQL write naming it, found in a non-test module under
 `packages/backend/src`. The node on the left is the **directory** the writing module sits in.
 
-**33 modules**, **27 writing directories**,
+**34 modules**, **28 writing directories**,
 **5 tables written from more than one directory** and
 **5 written by no application code at all**. The exceptions are drawn by name,
 because they are the whole reason to look at this graph: `catalog-table-ownership.md` opens with
@@ -272,6 +275,7 @@ flowchart LR
     W_db_oxyFiles["db/oxyFiles"]
     W_db_pos["db/pos"]
     W_db_productTypes["db/productTypes"]
+    W_db_replenishment["db/replenishment"]
     W_db_reviews["db/reviews"]
     W_db_stores["db/stores"]
     W_db_taxonomy["db/taxonomy"]
@@ -284,6 +288,7 @@ flowchart LR
     M_Named_POS_registers___89___expanded_pos_registers__(["Named POS registers (#89, `expanded_pos_registers`)"])
     M_Automation_rules___89_paid_tool_(["Automation rules (#89 paid tool)"])
     M_Store_page_merchandising_rules__paid___89_(["Store-page merchandising rules (paid, #89)"])
+    M_Replenishment_planning___89___replenishment_planning__(["Replenishment planning (#89, `replenishment_planning`)"])
     M_Organization_migration_evidence(["Organization migration evidence"])
     M_Taxonomy(["Taxonomy"])
     M_Classification(["Classification"])
@@ -340,6 +345,7 @@ flowchart LR
     W_db_oxyFiles -->|"1"| M_Review_attachments
     W_db_pos -->|"1"| M_Named_POS_registers___89___expanded_pos_registers__
     W_db_productTypes -->|"5"| M_Product_types
+    W_db_replenishment -->|"2"| M_Replenishment_planning___89___replenishment_planning__
     W_db_reviews -->|"1"| M_Review_attachments
     W_db_reviews -->|"1"| M_Review_helpfulness
     W_db_stores -->|"1"| M_Store_access
@@ -414,7 +420,7 @@ HTTP-reachability half, which no source scan can answer.
 
 ## 3. Cardinality, by module
 
-All 113 tables created by a migration at or after `0088`
+All 115 tables created by a migration at or after `0088`
 appear below exactly once, each under the module that owns it. Every relationship is a foreign
 key drizzle will emit; the label is the child columns and the `ON DELETE` action.
 
@@ -494,6 +500,26 @@ Also names, from outside the epic: `collections`, `listings`, `stores`.
 |---|---|---|
 | `merchandising_rules` | `0189` | `db/merchandising` (delete/insert/update) |
 | `merchandising_rule_pins` | `0189` | `db/merchandising` (delete/insert) |
+
+### Replenishment planning (#89, `replenishment_planning`)
+
+```mermaid
+erDiagram
+    replenishment_settings {
+    }
+    replenishment_variant_overrides {
+    }
+    stores ||--o| replenishment_settings : "store_id · cascade"
+    product_variants ||--o| replenishment_variant_overrides : "variant_id · cascade"
+    stores ||--o{ replenishment_variant_overrides : "store_id · cascade"
+```
+
+Also names, from outside the epic: `product_variants`, `stores`.
+
+| Table | Created by | Written by |
+|---|---|---|
+| `replenishment_settings` | `0190` | `db/replenishment` (insert) |
+| `replenishment_variant_overrides` | `0190` | `db/replenishment` (delete/insert) |
 
 ### Organization migration evidence
 
@@ -1345,18 +1371,18 @@ moved. Every one of these is re-derived on each run and floored by the gate.
 
 | Fact | Value |
 |---|---|
-| Tables in the population | 113 |
-| Modules they are grouped into | 33 |
-| Foreign keys out of an epic table | 212 |
+| Tables in the population | 115 |
+| Modules they are grouped into | 34 |
+| Foreign keys out of an epic table | 215 |
 | Foreign keys into one, from outside the epic | 3 |
 | Pre-existing tables the epic attaches to | 28 |
-| Relationships the schema proves are 1:1 | 7 |
+| Relationships the schema proves are 1:1 | 9 |
 | Relationships whose parent is optional (nullable FK) | 87 |
-| Directories that write an epic table | 27 |
+| Directories that write an epic table | 28 |
 | Tables written from more than one directory | 5 |
 | Tables no application code writes | 5 |
 
-`ON DELETE` across those 212 foreign keys: **64** `cascade`, **2** `no action`, **141** `restrict`, **5** `set null`.
+`ON DELETE` across those 215 foreign keys: **67** `cascade`, **2** `no action`, **141** `restrict`, **5** `set null`.
 
 ### The relationships the schema proves are 1:1
 
@@ -1364,6 +1390,8 @@ moved. Every one of these is re-derived on each run and floored by the gate.
 - `supplier_agreements` → `digital_supply_terms` on `agreement_id`, because a unique constraint covers those columns.
 - `product_variants` → `native_variant_signatures` on `variant_id`, because a unique constraint covers those columns.
 - `organizations` → `organization_identity_archives` on `organization_id`, because a unique constraint covers those columns.
+- `stores` → `replenishment_settings` on `store_id`, because a unique constraint covers those columns.
+- `product_variants` → `replenishment_variant_overrides` on `variant_id`, because a unique constraint covers those columns.
 - `collections` → `store_featured_collections` on `collection_id + store_id`, because a unique constraint covers those columns.
 - `order_items` → `supervised_purchase_lines` on `order_item_id`, because a unique constraint covers those columns.
 - `payments` → `supervised_purchase_operations` on `payment_id`, because a unique constraint covers those columns.

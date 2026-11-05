@@ -1,4 +1,5 @@
 import {
+  Boxes,
   Calculator,
   CalendarClock,
   LayoutList,
@@ -86,6 +87,15 @@ export const PLAN_TOOLS: readonly PlanTool[] = [
     descriptionKey: 'merchandising.toolDescription',
     icon: LayoutList,
     href: '/tools/merchandising',
+    permission: 'products:read',
+  },
+  {
+    capability: 'replenishment_planning',
+    labelKey: 'replenishment.title',
+    descriptionKey: 'replenishment.toolDescription',
+    icon: Boxes,
+    href: '/tools/replenishment',
+    // The screen also needs `stats:read`: a plan row puts stock beside sales.
     permission: 'products:read',
   },
 ];

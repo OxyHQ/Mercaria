@@ -1571,6 +1571,92 @@
       "title": "Fotos i vídeos"
     }
   },
+  "replenishment": {
+    "documentTitle": "Reposició | Wholesale by Mercaria",
+    "title": "Reposició",
+    "subtitle": "Una previsió de demanda i suggeriments de compra a partir de les teves pròpies vendes i existències",
+    "toolDescription": "Preveu la demanda per ubicació i obtén quantitats de comanda suggerides que pots exportar.",
+    "loadFailed": "No s'ha pogut carregar el pla de reposició",
+    "planRefused": "La planificació de reposició no forma part del teu pla actual.",
+    "exportCsv": "Exporta CSV",
+    "exportFailed": "No s'ha pogut exportar el pla",
+    "truncated": "El teu catàleg és molt gran, així que aquest pla cobreix les primeres 20.000 variants amb inventari controlat.",
+    "emptyTitle": "No hi ha res a planificar aquí",
+    "emptyBody": "Els productes actius amb inventari controlat apareixen aquí, amb les seves existències i vendes recents.",
+    "moreRows": "Se'n mostren %{shown} de %{total}. Exporta el CSV per veure la llista completa.",
+    "status": {
+      "stockedOut": "Exhaurit",
+      "reorderNow": "Cal reposar",
+      "healthy": "Suficient",
+      "noRecentSales": "Sense vendes recents"
+    },
+    "filters": {
+      "location": "Ubicació",
+      "allLocations": "Totes les ubicacions",
+      "status": "Estat",
+      "allStatuses": "Tots els estats"
+    },
+    "summary": {
+      "suggestedUnits": "Unitats suggerides"
+    },
+    "columns": {
+      "product": "Producte",
+      "suggested": "Demanar",
+      "stockout": "S'exhaureix",
+      "cover": "Cobertura",
+      "stock": "Disponible / en estoc",
+      "demand": "Per dia",
+      "sold": "Venut 28 d / 90 d"
+    },
+    "values": {
+      "noForecast": "Sense previsió",
+      "days": "%{days} dies",
+      "sold": "%{recent} venudes en 28 dies, %{long} en 90",
+      "perDay": "%{rate} al dia",
+      "stock": "%{available} disponibles / %{onHand} en estoc",
+      "suggest": "Comanda suggerida: %{count}",
+      "ownSettings": "configuració pròpia"
+    },
+    "settings": {
+      "title": "Configuració de planificació",
+      "body": "S'aplica a tots els productes tret que en tinguin una de pròpia.",
+      "defaultsNote": "Aquests són els valors per defecte fins que en desis de propis.",
+      "leadTime": "Termini de lliurament (dies)",
+      "targetCover": "Cobertura objectiu (dies)",
+      "safetyStock": "Estoc de seguretat (dies)",
+      "save": "Desa la configuració",
+      "saved": "Configuració desada",
+      "saveFailed": "No s'ha pogut desar la configuració",
+      "loadFailed": "No s'ha pogut carregar la configuració de planificació",
+      "invalid": "Introdueix dies sencers entre %{min} i %{max}",
+      "readOnly": "Només els membres que poden editar l'inventari la poden canviar."
+    },
+    "overrides": {
+      "title": "Configuració per producte",
+      "empty": "Cap producte no té configuració pròpia.",
+      "emptyEditable": "Cap producte no té configuració pròpia. Selecciona un producte al pla per donar-li la seva.",
+      "inherit": "configuració de la botiga",
+      "value": "%{label}: %{value}",
+      "remove": "Elimina",
+      "removed": "S'ha eliminat la configuració del producte",
+      "removeFailed": "No s'ha pogut eliminar la configuració del producte",
+      "dialogTitle": "Configuració d'aquest producte",
+      "hint": "Deixa un camp buit per fer servir la configuració de la botiga.",
+      "placeholder": "Botiga: %{value}",
+      "save": "Desa",
+      "saved": "S'ha desat la configuració del producte",
+      "saveFailed": "No s'ha pogut desar la configuració del producte"
+    },
+    "how": {
+      "title": "Com es calculen aquestes xifres",
+      "sales": "Les vendes són unitats de comandes pagades i no cancel·lades, menys les unitats reemborsades. Una venda compta a la ubicació on es va cobrar o recollir; si no, a la teva ubicació per defecte.",
+      "demand": "La demanda diària combina els últims 28 dies (60 %) amb els últims 90 dies (40 %). Un producte més nou es mesura sobre la seva pròpia antiguitat, mai menys de 7 dies.",
+      "cover": "Els dies de cobertura són les existències disponibles dividides per la demanda diària; la data d'exhauriment és avui més aquests dies.",
+      "suggest": "Comanda suggerida = demanda × (termini de lliurament + cobertura objectiu + estoc de seguretat) − existències disponibles, arrodonida cap amunt i mai per sota de zero. «Cal reposar» vol dir que les existències no duraran el termini de lliurament més l'estoc de seguretat.",
+      "incoming": "Mercaria no coneix les existències que ja has demanat als proveïdors, així que descompta-les tu del suggeriment.",
+      "noOrders": "És una llista per exportar: Mercaria mai no fa cap comanda a un proveïdor en nom teu."
+    }
+  },
   "settings": {
     "documentTitle": "Configuració | Wholesale by Mercaria",
     "fees": {

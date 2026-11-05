@@ -1553,6 +1553,92 @@
       "title": "Media"
     }
   },
+  "replenishment": {
+    "documentTitle": "Replenishment | Wholesale by Mercaria",
+    "title": "Replenishment",
+    "subtitle": "A demand forecast and purchase suggestions from your own sales and stock",
+    "toolDescription": "Forecast demand per location and get suggested order quantities you can export.",
+    "loadFailed": "Couldn't load the replenishment plan",
+    "planRefused": "Replenishment planning isn't part of your current plan.",
+    "exportCsv": "Export CSV",
+    "exportFailed": "Couldn't export the plan",
+    "truncated": "Your catalogue is very large, so this plan covers the first 20,000 tracked variants.",
+    "emptyTitle": "Nothing to plan here",
+    "emptyBody": "Active products with tracked inventory appear here, with their stock and recent sales.",
+    "moreRows": "Showing %{shown} of %{total}. Export CSV for the full list.",
+    "status": {
+      "stockedOut": "Stocked out",
+      "reorderNow": "Reorder now",
+      "healthy": "Healthy",
+      "noRecentSales": "No recent sales"
+    },
+    "filters": {
+      "location": "Location",
+      "allLocations": "All locations",
+      "status": "Status",
+      "allStatuses": "All statuses"
+    },
+    "summary": {
+      "suggestedUnits": "Units suggested"
+    },
+    "columns": {
+      "product": "Product",
+      "suggested": "Order",
+      "stockout": "Runs out",
+      "cover": "Cover",
+      "stock": "Available / on hand",
+      "demand": "Per day",
+      "sold": "Sold 28d / 90d"
+    },
+    "values": {
+      "noForecast": "No forecast",
+      "days": "%{days} days",
+      "sold": "Sold %{recent} in 28 days, %{long} in 90",
+      "perDay": "%{rate} a day",
+      "stock": "%{available} available / %{onHand} on hand",
+      "suggest": "Suggested order: %{count}",
+      "ownSettings": "own settings"
+    },
+    "settings": {
+      "title": "Planning settings",
+      "body": "Used for every product unless it has settings of its own.",
+      "defaultsNote": "These are the defaults until you save your own.",
+      "leadTime": "Lead time (days)",
+      "targetCover": "Target cover (days)",
+      "safetyStock": "Safety stock (days)",
+      "save": "Save settings",
+      "saved": "Settings saved",
+      "saveFailed": "Couldn't save the settings",
+      "loadFailed": "Couldn't load the planning settings",
+      "invalid": "Enter whole days between %{min} and %{max}",
+      "readOnly": "Only members who can edit inventory can change these."
+    },
+    "overrides": {
+      "title": "Product settings",
+      "empty": "No product has settings of its own.",
+      "emptyEditable": "No product has settings of its own. Select a product in the plan to give it its own.",
+      "inherit": "store setting",
+      "value": "%{label}: %{value}",
+      "remove": "Remove",
+      "removed": "Product settings removed",
+      "removeFailed": "Couldn't remove the product settings",
+      "dialogTitle": "Settings for this product",
+      "hint": "Leave a field empty to use the store's setting.",
+      "placeholder": "Store: %{value}",
+      "save": "Save",
+      "saved": "Product settings saved",
+      "saveFailed": "Couldn't save the product settings"
+    },
+    "how": {
+      "title": "How these numbers are worked out",
+      "sales": "Sales are units from paid orders that weren't cancelled, minus refunded units. A sale counts at the location it was rung up or picked up at, otherwise at your default location.",
+      "demand": "Demand per day blends the last 28 days (60%) with the last 90 days (40%). A product newer than that is measured over its own age, never less than 7 days.",
+      "cover": "Days of cover is available stock divided by demand per day; the run-out date is today plus those days.",
+      "suggest": "Suggested order = demand × (lead time + target cover + safety stock) − available stock, rounded up and never below zero. Reorder now means stock won't last the lead time plus safety stock.",
+      "incoming": "Stock you've already ordered from suppliers isn't known to Mercaria, so take it off the suggestion yourself.",
+      "noOrders": "This is a list to export: Mercaria never places an order with a supplier for you."
+    }
+  },
   "settings": {
     "documentTitle": "Settings | Wholesale by Mercaria",
     "fees": {
