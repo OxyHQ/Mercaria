@@ -17,11 +17,11 @@
  * the sync can refresh COPY forever and can never reinterpret a plan somebody
  * already published against it.
  *
- * ## Every capability is `postponed`, and that is the honest state
+ * ## A capability is `postponed` until it is built, and that is the honest state
  *
  * Issue #89's binding constraint is that this work must not put an EXISTING
- * capability behind a plan. None of the eight below exists, so every one is
- * `postponed` — which makes a paid plan naming any of them UNACTIVATABLE
+ * capability behind a plan. None of the eight existed when this domain shipped,
+ * so each started `postponed` — which makes a paid plan naming it UNACTIVATABLE
  * (`activateMerchantPlan` refuses it), which is "do not sell a placeholder plan
  * whose advertised features are not implemented" holding as a mechanism rather
  * than as a promise. The day one of them ships, its entry here moves to
@@ -71,9 +71,15 @@ export const MERCHANT_CAPABILITY_CATALOG: Readonly<
     key: 'competitive_price_analytics',
     name: 'Competitive price analytics',
     description:
-      "How a merchant's own offers are priced against the rest of the comparison, over time.",
+      "How a store's own live listings are priced against the other offers in their public " +
+      'comparisons — how many other sellers, their lowest and median price, where the store sits ' +
+      '(lowest, within 5%, at or below the median, above it) — and how that moved by day or week ' +
+      'over 30 or 90 days, with a CSV export. Aggregates only, never another seller by name; it ' +
+      'never changes a price. Free claimed-merchant competitiveness (#82) is unchanged.',
     limitKind: 'flag',
-    availability: 'postponed',
+    // Built: `services/store-price-benchmark/`, `/admin/stores/:storeId/price-analytics`
+    // and the dashboard's `tools/price-analytics`.
+    availability: 'available',
   },
   automation_rules: {
     key: 'automation_rules',

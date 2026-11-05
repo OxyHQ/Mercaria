@@ -2101,5 +2101,75 @@
     "notIncluded": "プランに含まれていません",
     "emptyTitle": "まだツールはありません",
     "emptyBody": "プランで追加されるツールがここに表示されます。"
+  },
+  "priceAnalytics": {
+    "toolLabel": "競合価格分析",
+    "toolDescription": "同じ商品のほかの販売者と比べて、出品の価格がどうなっているかを、現在と推移で確認できます。",
+    "title": "価格分析",
+    "documentTitle": "価格分析 | Wholesale by Mercaria",
+    "subtitle": "公開中の出品と、同じ商品のほかの出品との比較",
+    "detailTitle": "価格の推移",
+    "loadFailed": "価格分析を読み込めませんでした",
+    "planEndedTitle": "現在のプランには含まれていません",
+    "planEndedBody": "価格分析は Mercaria のプランに含まれています。出品と価格は変わりません。",
+    "noPolicyTitle": "価格比較はまだ利用できません",
+    "noPolicyBody": "Mercaria が価格比較のルールをまだ公開していないため、比較は表示されません。",
+    "computedAt": "比較日時：%{when}",
+    "exportCsv": "CSV をエクスポート",
+    "exporting": "エクスポート中…",
+    "exportFailed": "エクスポートできませんでした。もう一度お試しください。",
+    "truncated": "照合済みの出品 %{total} 件のうち最初の %{analysed} 件を表示しています。エクスポートも同じ出品が対象です。",
+    "emptyTitle": "比較できる出品はまだありません",
+    "emptyBody": "Mercaria のカタログの商品に照合された公開中の出品がここに表示されます。",
+    "filterEmpty": "このグループに出品はありません。",
+    "method": "ほかの販売者は、公開比較の出品にもとづく件数と最安値・中央値でのみ表示されます。ほかの通貨の価格は表示のためだけに換算されます。このツールが価格を変更することはありません。",
+    "yourPrice": "あなたの価格：%{price}",
+    "noPrice": "価格が未設定です",
+    "marketLine": "ほかの販売者：%{sellers} · 最安 %{lowest} · 中央値 %{median}",
+    "notShown": "現在、公開比較には表示されていません",
+    "matchedTo": "照合先：%{product}",
+    "positionLine": "あなたの位置：%{band}",
+    "deltaLine": "最安値比 %{toLowest}% · 中央値比 %{toMedian}%",
+    "converted": "ほかの通貨は %{provider} の %{date} のレートで換算",
+    "summary": {
+      "unmeasured": "比較なし"
+    },
+    "filter": {
+      "all": "すべて"
+    },
+    "band": {
+      "lowest": "最安値",
+      "nearLowest": "最安値から 5% 以内",
+      "atOrBelowMedian": "中央値以下",
+      "aboveMedian": "中央値より上"
+    },
+    "reason": {
+      "noActivePolicy": "価格比較はまだ利用できません。",
+      "priceMissing": "この出品には価格がありません。",
+      "currencyNotComparable": "この出品の通貨は比較できません。",
+      "conditionUnknown": "この出品の状態は比較できません。",
+      "tooFewOffers": "比較できるほかの出品がまだ足りません。",
+      "tooFewSellers": "比較できるほかの販売者がまだ足りません。"
+    },
+    "trend": {
+      "title": "推移",
+      "lastDays": "%{days} 日",
+      "daily": "日別",
+      "weekly": "週別",
+      "loadFailed": "価格履歴を読み込めませんでした",
+      "unavailable": "比較できる価格履歴がありません",
+      "empty": "この期間の価格履歴はまだありません。",
+      "chartLabel": "あなたの価格と、ほかの販売者の中央値・最安値の推移",
+      "legendOwn": "あなたの価格",
+      "legendMedian": "ほかの販売者の中央値",
+      "legendLowest": "ほかの販売者の最安値",
+      "colPeriod": "期間",
+      "colOwn": "あなた",
+      "colLowest": "最安",
+      "colMedian": "中央値",
+      "colSellers": "販売者",
+      "footnote": "ほかの販売者の価格は、十分な数が観測された期間にのみ表示されます。",
+      "noValue": "—"
+    }
   }
 }

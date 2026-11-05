@@ -2101,5 +2101,75 @@
     "notIncluded": "不在你的套餐中",
     "emptyTitle": "暂无工具",
     "emptyBody": "套餐增加的工具会显示在这里。"
+  },
+  "priceAnalytics": {
+    "toolLabel": "竞争价格分析",
+    "toolDescription": "查看你的商品价格与同一产品其他卖家的价格相比如何，包括当前情况和随时间的变化。",
+    "title": "价格分析",
+    "documentTitle": "价格分析 | Wholesale by Mercaria",
+    "subtitle": "你在售的商品与同一产品其他报价的对比",
+    "detailTitle": "价格走势",
+    "loadFailed": "无法加载价格分析",
+    "planEndedTitle": "不包含在你当前的套餐中",
+    "planEndedBody": "价格分析是 Mercaria 套餐的一部分。你的商品和价格不会改变。",
+    "noPolicyTitle": "价格比较暂不可用",
+    "noPolicyBody": "Mercaria 尚未发布价格比较规则，因此不显示比较。",
+    "computedAt": "比较时间：%{when}",
+    "exportCsv": "导出 CSV",
+    "exporting": "正在导出…",
+    "exportFailed": "导出失败，请重试。",
+    "truncated": "正在显示 %{total} 个已匹配商品中的前 %{analysed} 个。导出包含相同的商品。",
+    "emptyTitle": "暂无可比较的商品",
+    "emptyBody": "与 Mercaria 目录中的产品匹配的在售商品会显示在这里。",
+    "filterEmpty": "此分组中没有商品。",
+    "method": "其他卖家仅以数量以及最低价和中位价显示，数据来自公开比较中的报价。其他货币的价格仅为显示而换算。此工具绝不会更改你的价格。",
+    "yourPrice": "你的价格：%{price}",
+    "noPrice": "未设置价格",
+    "marketLine": "其他卖家：%{sellers} · 最低 %{lowest} · 中位数 %{median}",
+    "notShown": "目前未在公开比较中显示",
+    "matchedTo": "已匹配到 %{product}",
+    "positionLine": "你的位置：%{band}",
+    "deltaLine": "较最低价 %{toLowest}% · 较中位数 %{toMedian}%",
+    "converted": "其他货币按 %{provider} 在 %{date} 的汇率换算",
+    "summary": {
+      "unmeasured": "未比较"
+    },
+    "filter": {
+      "all": "全部"
+    },
+    "band": {
+      "lowest": "最低价",
+      "nearLowest": "在最低价 5% 以内",
+      "atOrBelowMedian": "不高于中位数",
+      "aboveMedian": "高于中位数"
+    },
+    "reason": {
+      "noActivePolicy": "价格比较暂不可用。",
+      "priceMissing": "此商品没有价格。",
+      "currencyNotComparable": "此商品的货币无法比较。",
+      "conditionUnknown": "此商品的成色无法比较。",
+      "tooFewOffers": "其他报价暂时不足，无法比较。",
+      "tooFewSellers": "其他卖家暂时不足，无法比较。"
+    },
+    "trend": {
+      "title": "走势",
+      "lastDays": "%{days} 天",
+      "daily": "按天",
+      "weekly": "按周",
+      "loadFailed": "无法加载价格历史",
+      "unavailable": "没有可比较的价格历史",
+      "empty": "此期间暂无价格历史。",
+      "chartLabel": "你的价格以及其他卖家的中位价和最低价随时间的变化",
+      "legendOwn": "你的价格",
+      "legendMedian": "其他卖家中位数",
+      "legendLowest": "其他卖家最低价",
+      "colPeriod": "期间",
+      "colOwn": "你",
+      "colLowest": "最低",
+      "colMedian": "中位数",
+      "colSellers": "卖家",
+      "footnote": "仅在观测到足够多的其他卖家时，才会显示该期间的其他卖家价格。",
+      "noValue": "—"
+    }
   }
 }

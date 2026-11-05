@@ -414,6 +414,11 @@ export * from './price-history';
 // measured negative, and every published figure keeps #78's FX basis.
 export * from './price-signals';
 
+// Competitive price analytics for a native store (#89's `competitive_price_analytics`
+// tool): #82's disclosure rules applied to a store's own listings — aggregates only,
+// behind the policy's seller floor, and no field for another seller.
+export * from './store-price-analytics';
+
 // Grounded product comparison and multi-merchant basket optimization (#96).
 // Follows `./offer-ranking`, `./constraint` and `./condition` in this list
 // because it composes all three and defines none of them again: a comparison is

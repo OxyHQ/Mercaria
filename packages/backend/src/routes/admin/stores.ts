@@ -39,6 +39,7 @@ import merchantActivationRouter from './merchant-activation.js';
 import referralPartnerRouter from './referral-partner.js';
 import planRouter from './plan.js';
 import analyticsRouter from './analytics.js';
+import priceAnalyticsRouter from './price-benchmark.js';
 
 /**
  * Store-admin router, mounted at `/admin/stores`.
@@ -155,5 +156,11 @@ router.use('/:storeId/feeds', feedsRouter);
 // figures, and this is discovery telemetry with privacy thresholds. Merging
 // them would put a suppressed number next to an exact one under one heading.
 router.use('/:storeId/analytics', analyticsRouter);
+// Competitive price analytics (#89's paid `competitive_price_analytics` tool): the
+// store's own native listings against the other offers in their public
+// comparisons. NOT #82's free `/merchant-competitiveness/:merchantId`, which is
+// about a claimed canonical merchant and stays free; this one is about a native
+// store's listings and is gated by plan inside its router.
+router.use('/:storeId/price-analytics', priceAnalyticsRouter);
 
 export default router;

@@ -16,14 +16,13 @@
  * is advisory by construction — it reads a counter that anyone may move a
  * microsecond later — and the consume is the decision.
  *
- * ## Nothing in Mercaria calls either of these today, and that is deliberate
+ * ## Paid tools call these through `enforce.ts`, never directly
  *
- * Every capability in `MERCHANT_ENTITLEMENT_CAPABILITIES` is `postponed`,
- * because #89's binding constraint is that this work must not put an EXISTING
- * capability behind a plan. So this is the framework a future paid feature is
- * built against, complete and exercised against a real server, with no caller
- * yet — which is a different thing from a stub: it works, and the day somebody
- * ships `scheduled_exports` the only new code is the feature itself.
+ * A capability stays `postponed` until its tool is built, because #89's binding
+ * constraint is that this work must not put an EXISTING capability behind a
+ * plan. A built tool (the first was `competitive_price_analytics`) reaches these
+ * through `enforce.ts`, which turns a refusal into the API's 403; the only new
+ * code a tool needs is the feature itself.
  */
 
 import type { EntitlementDecision, MerchantEntitlementCapability } from '@mercaria/shared-types';

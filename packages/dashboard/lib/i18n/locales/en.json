@@ -2102,5 +2102,75 @@
     "notIncluded": "Not in your plan",
     "emptyTitle": "No tools yet",
     "emptyBody": "Tools a plan adds will appear here."
+  },
+  "priceAnalytics": {
+    "toolLabel": "Competitive price analytics",
+    "toolDescription": "See how your listings' prices compare with other sellers of the same product, now and over time.",
+    "title": "Price analytics",
+    "documentTitle": "Price analytics | Wholesale by Mercaria",
+    "subtitle": "Your live listings against the other offers for the same product",
+    "detailTitle": "Price over time",
+    "loadFailed": "Couldn't load price analytics",
+    "planEndedTitle": "Not included in your current plan",
+    "planEndedBody": "Price analytics is part of a Mercaria plan. Your listings and prices are unchanged.",
+    "noPolicyTitle": "Price comparisons aren't available yet",
+    "noPolicyBody": "Mercaria hasn't published its price-comparison rules yet, so no comparison is shown.",
+    "computedAt": "Compared %{when}",
+    "exportCsv": "Export CSV",
+    "exporting": "Exporting…",
+    "exportFailed": "Couldn't export. Please try again.",
+    "truncated": "Showing the first %{analysed} of %{total} matched listings. The export covers the same listings.",
+    "emptyTitle": "No listings to compare yet",
+    "emptyBody": "Live listings matched to a product in Mercaria's catalogue appear here.",
+    "filterEmpty": "No listings in this group.",
+    "method": "Other sellers are shown only as counts and lowest and median prices, from offers on the public comparison. Prices in another currency are converted for display only. This tool never changes your prices.",
+    "yourPrice": "Your price: %{price}",
+    "noPrice": "No price set",
+    "marketLine": "Other sellers: %{sellers} · lowest %{lowest} · median %{median}",
+    "notShown": "Not currently shown in the public comparison",
+    "matchedTo": "Matched to %{product}",
+    "positionLine": "Your position: %{band}",
+    "deltaLine": "%{toLowest}% vs lowest · %{toMedian}% vs median",
+    "converted": "Other currencies converted at %{provider} rates of %{date}",
+    "summary": {
+      "unmeasured": "Not compared"
+    },
+    "filter": {
+      "all": "All"
+    },
+    "band": {
+      "lowest": "Lowest price",
+      "nearLowest": "Within 5% of lowest",
+      "atOrBelowMedian": "At or below median",
+      "aboveMedian": "Above median"
+    },
+    "reason": {
+      "noActivePolicy": "Price comparisons aren't available yet.",
+      "priceMissing": "This listing has no price.",
+      "currencyNotComparable": "This listing's currency can't be compared.",
+      "conditionUnknown": "This listing's condition can't be compared.",
+      "tooFewOffers": "Not enough other offers to compare yet.",
+      "tooFewSellers": "Not enough other sellers to compare yet."
+    },
+    "trend": {
+      "title": "Over time",
+      "lastDays": "%{days} days",
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "loadFailed": "Couldn't load the price history",
+      "unavailable": "No price history to compare",
+      "empty": "No price history in this period yet.",
+      "chartLabel": "Your price, the median and the lowest of other sellers over time",
+      "legendOwn": "Your price",
+      "legendMedian": "Median of other sellers",
+      "legendLowest": "Lowest of other sellers",
+      "colPeriod": "Period",
+      "colOwn": "You",
+      "colLowest": "Lowest",
+      "colMedian": "Median",
+      "colSellers": "Sellers",
+      "footnote": "A period shows other sellers' prices only when enough of them were observed.",
+      "noValue": "—"
+    }
   }
 }

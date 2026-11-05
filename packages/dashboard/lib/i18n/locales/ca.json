@@ -2123,5 +2123,75 @@
     "notIncluded": "No és al teu pla",
     "emptyTitle": "Encara no hi ha eines",
     "emptyBody": "Aquí apareixeran les eines que afegeix un pla."
+  },
+  "priceAnalytics": {
+    "toolLabel": "Anàlisi de preus competitius",
+    "toolDescription": "Mira com es comparen els preus dels teus anuncis amb els d'altres venedors del mateix producte, ara i al llarg del temps.",
+    "title": "Anàlisi de preus",
+    "documentTitle": "Anàlisi de preus | Wholesale by Mercaria",
+    "subtitle": "Els teus anuncis actius davant de les altres ofertes del mateix producte",
+    "detailTitle": "Preu al llarg del temps",
+    "loadFailed": "No s'ha pogut carregar l'anàlisi de preus",
+    "planEndedTitle": "No inclòs al teu pla actual",
+    "planEndedBody": "L'anàlisi de preus forma part d'un pla de Mercaria. Els teus anuncis i preus no canvien.",
+    "noPolicyTitle": "Les comparacions de preus encara no estan disponibles",
+    "noPolicyBody": "Mercaria encara no ha publicat les seves regles de comparació de preus, així que no es mostra cap comparació.",
+    "computedAt": "Comparat %{when}",
+    "exportCsv": "Exporta en CSV",
+    "exporting": "S'està exportant…",
+    "exportFailed": "No s'ha pogut exportar. Torna-ho a provar.",
+    "truncated": "Es mostren els primers %{analysed} de %{total} anuncis associats. L'exportació inclou els mateixos anuncis.",
+    "emptyTitle": "Encara no hi ha anuncis per comparar",
+    "emptyBody": "Aquí apareixen els anuncis actius associats a un producte del catàleg de Mercaria.",
+    "filterEmpty": "No hi ha anuncis en aquest grup.",
+    "method": "Els altres venedors només es mostren com a recompte i preu més baix i mitjà, a partir de les ofertes de la comparació pública. Els preus en una altra moneda es converteixen només per mostrar-los. Aquesta eina no canvia mai els teus preus.",
+    "yourPrice": "El teu preu: %{price}",
+    "noPrice": "Sense preu",
+    "marketLine": "Altres venedors: %{sellers} · més baix %{lowest} · mediana %{median}",
+    "notShown": "Ara no es mostra a la comparació pública",
+    "matchedTo": "Associat a %{product}",
+    "positionLine": "La teva posició: %{band}",
+    "deltaLine": "%{toLowest} % respecte al més baix · %{toMedian} % respecte a la mediana",
+    "converted": "Altres monedes convertides amb tipus de %{provider} del %{date}",
+    "summary": {
+      "unmeasured": "Sense comparar"
+    },
+    "filter": {
+      "all": "Tots"
+    },
+    "band": {
+      "lowest": "Preu més baix",
+      "nearLowest": "Fins a un 5 % per sobre del més baix",
+      "atOrBelowMedian": "A la mediana o per sota",
+      "aboveMedian": "Per sobre de la mediana"
+    },
+    "reason": {
+      "noActivePolicy": "Les comparacions de preus encara no estan disponibles.",
+      "priceMissing": "Aquest anunci no té preu.",
+      "currencyNotComparable": "La moneda d'aquest anunci no es pot comparar.",
+      "conditionUnknown": "L'estat d'aquest anunci no es pot comparar.",
+      "tooFewOffers": "Encara no hi ha prou altres ofertes per comparar.",
+      "tooFewSellers": "Encara no hi ha prou altres venedors per comparar."
+    },
+    "trend": {
+      "title": "Al llarg del temps",
+      "lastDays": "%{days} dies",
+      "daily": "Diari",
+      "weekly": "Setmanal",
+      "loadFailed": "No s'ha pogut carregar l'historial de preus",
+      "unavailable": "No hi ha historial de preus per comparar",
+      "empty": "Encara no hi ha historial de preus en aquest període.",
+      "chartLabel": "El teu preu, la mediana i el més baix d'altres venedors al llarg del temps",
+      "legendOwn": "El teu preu",
+      "legendMedian": "Mediana d'altres venedors",
+      "legendLowest": "Més baix d'altres venedors",
+      "colPeriod": "Període",
+      "colOwn": "Tu",
+      "colLowest": "Més baix",
+      "colMedian": "Mediana",
+      "colSellers": "Venedors",
+      "footnote": "Un període només mostra els preus d'altres venedors quan se n'han observat prou.",
+      "noValue": "—"
+    }
   }
 }

@@ -2123,5 +2123,75 @@
     "notIncluded": "No está en tu plan",
     "emptyTitle": "Todavía no hay herramientas",
     "emptyBody": "Aquí aparecerán las herramientas que añade un plan."
+  },
+  "priceAnalytics": {
+    "toolLabel": "Análisis de precios competitivos",
+    "toolDescription": "Mira cómo se comparan los precios de tus anuncios con los de otros vendedores del mismo producto, ahora y a lo largo del tiempo.",
+    "title": "Análisis de precios",
+    "documentTitle": "Análisis de precios | Wholesale by Mercaria",
+    "subtitle": "Tus anuncios activos frente a las demás ofertas del mismo producto",
+    "detailTitle": "Precio a lo largo del tiempo",
+    "loadFailed": "No se pudo cargar el análisis de precios",
+    "planEndedTitle": "No incluido en tu plan actual",
+    "planEndedBody": "El análisis de precios forma parte de un plan de Mercaria. Tus anuncios y precios no cambian.",
+    "noPolicyTitle": "Las comparaciones de precios aún no están disponibles",
+    "noPolicyBody": "Mercaria aún no ha publicado sus reglas de comparación de precios, así que no se muestra ninguna comparación.",
+    "computedAt": "Comparado %{when}",
+    "exportCsv": "Exportar CSV",
+    "exporting": "Exportando…",
+    "exportFailed": "No se pudo exportar. Inténtalo de nuevo.",
+    "truncated": "Se muestran los primeros %{analysed} de %{total} anuncios emparejados. La exportación incluye los mismos anuncios.",
+    "emptyTitle": "Aún no hay anuncios que comparar",
+    "emptyBody": "Aquí aparecen los anuncios activos emparejados con un producto del catálogo de Mercaria.",
+    "filterEmpty": "No hay anuncios en este grupo.",
+    "method": "Los demás vendedores solo se muestran como recuento y precio más bajo y mediano, a partir de ofertas de la comparación pública. Los precios en otra moneda se convierten solo para mostrarlos. Esta herramienta nunca cambia tus precios.",
+    "yourPrice": "Tu precio: %{price}",
+    "noPrice": "Sin precio",
+    "marketLine": "Otros vendedores: %{sellers} · más bajo %{lowest} · mediana %{median}",
+    "notShown": "Ahora no se muestra en la comparación pública",
+    "matchedTo": "Emparejado con %{product}",
+    "positionLine": "Tu posición: %{band}",
+    "deltaLine": "%{toLowest} % frente al más bajo · %{toMedian} % frente a la mediana",
+    "converted": "Otras monedas convertidas con tipos de %{provider} del %{date}",
+    "summary": {
+      "unmeasured": "Sin comparar"
+    },
+    "filter": {
+      "all": "Todos"
+    },
+    "band": {
+      "lowest": "Precio más bajo",
+      "nearLowest": "Hasta un 5 % sobre el más bajo",
+      "atOrBelowMedian": "En la mediana o por debajo",
+      "aboveMedian": "Por encima de la mediana"
+    },
+    "reason": {
+      "noActivePolicy": "Las comparaciones de precios aún no están disponibles.",
+      "priceMissing": "Este anuncio no tiene precio.",
+      "currencyNotComparable": "La moneda de este anuncio no se puede comparar.",
+      "conditionUnknown": "El estado de este anuncio no se puede comparar.",
+      "tooFewOffers": "Aún no hay suficientes ofertas para comparar.",
+      "tooFewSellers": "Aún no hay suficientes vendedores para comparar."
+    },
+    "trend": {
+      "title": "A lo largo del tiempo",
+      "lastDays": "%{days} días",
+      "daily": "Diario",
+      "weekly": "Semanal",
+      "loadFailed": "No se pudo cargar el historial de precios",
+      "unavailable": "No hay historial de precios que comparar",
+      "empty": "Aún no hay historial de precios en este periodo.",
+      "chartLabel": "Tu precio, la mediana y el precio más bajo de otros vendedores a lo largo del tiempo",
+      "legendOwn": "Tu precio",
+      "legendMedian": "Mediana de otros vendedores",
+      "legendLowest": "Más bajo de otros vendedores",
+      "colPeriod": "Periodo",
+      "colOwn": "Tú",
+      "colLowest": "Más bajo",
+      "colMedian": "Mediana",
+      "colSellers": "Vendedores",
+      "footnote": "Un periodo muestra los precios de otros vendedores solo cuando se observaron suficientes.",
+      "noValue": "—"
+    }
   }
 }

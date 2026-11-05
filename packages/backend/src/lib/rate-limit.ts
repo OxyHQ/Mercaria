@@ -138,6 +138,12 @@ export type RateLimitScope =
   // the `'admin'` budget would let a merchant refreshing a dashboard exhaust the
   // allowance they need to run their shop.
   | 'merchantCompetitiveness'
+  // A NATIVE store's competitive price analytics (#89's paid tool,
+  // `/admin/stores/:storeId/price-analytics`). Its own bucket for the reason
+  // `merchantCompetitiveness` has one: an overview costs a comparison read per
+  // listing (up to 200), and sharing `'admin'` would let a merchant refreshing
+  // the report exhaust the allowance they need to run their shop.
+  | 'storePriceAnalytics'
   // Natural-language intent parsing (#95 safety rule 8). Its own bucket
   // (`rl:search-intent:`) and a small one, because a parse is the one read on
   // this API that may call an outbound MODEL: sharing the `'listings'` budget
