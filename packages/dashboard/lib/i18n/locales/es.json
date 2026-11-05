@@ -738,6 +738,57 @@
     "historyTitle": "Historial de exportaciones programadas",
     "onDemandLink": "¿Necesitas un archivo ahora? Exporta tus datos bajo demanda en Ajustes → Exportar datos, gratis en todos los planes."
   },
+  "demandAnalytics": {
+    "label": "Análisis de demanda",
+    "description": "Conversión del pago de cada anuncio, con tendencias y exportaciones",
+    "documentTitle": "Análisis de demanda | Wholesale by Mercaria",
+    "title": "Análisis de demanda",
+    "subtitle": "Cómo los pagos iniciados en tus anuncios se convierten en pedidos pagados",
+    "lastDays": "Últimos %{days} días",
+    "daily": "Por día",
+    "weekly": "Por semana",
+    "exportListings": "Exportar anuncios (CSV)",
+    "exportTrend": "Exportar tendencia (CSV)",
+    "exportFailed": "No se pudo exportar el informe. Inténtalo de nuevo.",
+    "loadFailed": "No se pudo cargar el informe",
+    "planChangedTitle": "No está incluido en tu plan actual",
+    "planChangedBody": "El plan de tu tienda ya no incluye este informe. Tus pedidos y el resumen gratuito de la tienda no cambian.",
+    "suppressedTitle": "Todavía no hay suficientes pagos",
+    "suppressedBody": "Las cifras aparecen cuando un periodo tiene al menos %{minimum} pagos iniciados, para que no se pueda identificar a ningún comprador.",
+    "noComparison": "Sin comparación con el periodo anterior",
+    "changeRelative": "%{value} frente al periodo anterior",
+    "changePoints": "%{value} pts frente al periodo anterior",
+    "stats": {
+      "checkoutsStarted": "Pagos iniciados",
+      "paidCheckouts": "Pagos completados",
+      "conversionRate": "Tasa de conversión",
+      "abandonedCheckouts": "Pagos abandonados",
+      "openCheckoutsCount": "%{open} pendientes de pago"
+    },
+    "utcRange": "%{from} – %{to} (UTC)",
+    "trend": {
+      "titleDaily": "Pagos iniciados por día",
+      "titleWeekly": "Pagos iniciados por semana",
+      "point": "%{date}: %{started} pagos iniciados, %{paid} pagados (%{rate})",
+      "suppressedPoint": "%{date}: menos de %{minimum} pagos, oculto",
+      "inspect": "Selecciona una barra para ver sus cifras"
+    },
+    "best": {
+      "title": "Mejor conversión"
+    },
+    "worst": {
+      "title": "Menor conversión"
+    },
+    "rankedEmpty": "Ningún anuncio tiene todavía %{minimum} o más pagos iniciados en este periodo.",
+    "listings": {
+      "title": "Anuncios",
+      "empty": "Ningún anuncio tiene %{minimum} o más pagos iniciados en este periodo.",
+      "suppressed": "%{hidden} anuncios más tuvieron menos de %{minimum} pagos iniciados y no se muestran.",
+      "row": "%{started} iniciados · %{paid} pagados · %{abandoned} abandonados"
+    },
+    "notMeasured": "Se calcula con tus propios pedidos. No incluye visitas a productos ni términos de búsqueda: Mercaria no recopila analítica de navegación para las tiendas.",
+    "definitions": "Un pago iniciado es un pedido que un comprador hizo en Mercaria; no se cuentan los pedidos del punto de venta, los borradores ni los importados. Se convierte cuando su pago se liquida, y un reembolso posterior sigue contando. Un pedido con varios anuncios cuenta una vez para cada uno."
+  },
   "discounts": {
     "create": {
       "amountOffLabel": "Importe de descuento (⊜)",

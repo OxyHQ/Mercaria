@@ -726,6 +726,57 @@
     "historyTitle": "Verlauf geplanter Exporte",
     "onDemandLink": "Brauchst du sofort eine Datei? Exportiere deine Daten auf Abruf unter Einstellungen → Daten exportieren, in jedem Tarif kostenlos."
   },
+  "demandAnalytics": {
+    "label": "Nachfrageanalyse",
+    "description": "Checkout-Konversion pro Angebot, mit Trends und Exporten",
+    "documentTitle": "Nachfrageanalyse | Wholesale by Mercaria",
+    "title": "Nachfrageanalyse",
+    "subtitle": "Wie aus begonnenen Checkouts für deine Angebote bezahlte Bestellungen werden",
+    "lastDays": "Letzte %{days} Tage",
+    "daily": "Täglich",
+    "weekly": "Wöchentlich",
+    "exportListings": "Angebote exportieren (CSV)",
+    "exportTrend": "Verlauf exportieren (CSV)",
+    "exportFailed": "Der Bericht konnte nicht exportiert werden. Bitte versuche es erneut.",
+    "loadFailed": "Der Bericht konnte nicht geladen werden",
+    "planChangedTitle": "Nicht in deinem aktuellen Tarif enthalten",
+    "planChangedBody": "Der Tarif deines Shops enthält diesen Bericht nicht mehr. Deine Bestellungen und die kostenlose Shop-Übersicht bleiben unverändert.",
+    "suppressedTitle": "Noch nicht genug Checkouts",
+    "suppressedBody": "Zahlen erscheinen, sobald ein Zeitraum mindestens %{minimum} Checkouts hat, damit niemand einzelne Käufer erkennen kann.",
+    "noComparison": "Kein Vergleich mit dem vorherigen Zeitraum",
+    "changeRelative": "%{value} ggü. vorherigem Zeitraum",
+    "changePoints": "%{value} Pkt. ggü. vorherigem Zeitraum",
+    "stats": {
+      "checkoutsStarted": "Begonnene Checkouts",
+      "paidCheckouts": "Bezahlte Checkouts",
+      "conversionRate": "Konversionsrate",
+      "abandonedCheckouts": "Abgebrochene Checkouts",
+      "openCheckoutsCount": "%{open} warten noch auf Zahlung"
+    },
+    "utcRange": "%{from} – %{to} (UTC)",
+    "trend": {
+      "titleDaily": "Begonnene Checkouts pro Tag",
+      "titleWeekly": "Begonnene Checkouts pro Woche",
+      "point": "%{date}: %{started} Checkouts begonnen, %{paid} bezahlt (%{rate})",
+      "suppressedPoint": "%{date}: weniger als %{minimum} Checkouts, ausgeblendet",
+      "inspect": "Wähle einen Balken, um seine Zahlen zu sehen"
+    },
+    "best": {
+      "title": "Beste Konversion"
+    },
+    "worst": {
+      "title": "Niedrigste Konversion"
+    },
+    "rankedEmpty": "Noch kein Angebot hat in diesem Zeitraum %{minimum} oder mehr Checkouts.",
+    "listings": {
+      "title": "Angebote",
+      "empty": "Kein Angebot hat in diesem Zeitraum %{minimum} oder mehr Checkouts.",
+      "suppressed": "%{hidden} weitere Angebote hatten weniger als %{minimum} Checkouts und werden nicht angezeigt.",
+      "row": "%{started} begonnen · %{paid} bezahlt · %{abandoned} abgebrochen"
+    },
+    "notMeasured": "Berechnet aus deinen eigenen Bestellungen. Produktaufrufe und Suchbegriffe sind nicht enthalten: Mercaria erfasst für Shops keine Browsing-Analysen.",
+    "definitions": "Ein begonnener Checkout ist eine Bestellung, die ein Käufer auf Mercaria aufgegeben hat; Kassen-, Entwurfs- und importierte Bestellungen zählen nicht. Er gilt als konvertiert, wenn die Zahlung eingegangen ist, und eine spätere Erstattung zählt weiterhin mit. Eine Bestellung mit mehreren Angeboten zählt für jedes davon einmal."
+  },
   "discounts": {
     "create": {
       "amountOffLabel": "Rabattbetrag (⊜)",

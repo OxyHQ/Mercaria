@@ -726,6 +726,57 @@
     "historyTitle": "定时导出记录",
     "onDemandLink": "现在就需要文件？在 设置 → 导出数据 中手动导出，所有方案均免费。"
   },
+  "demandAnalytics": {
+    "label": "需求分析",
+    "description": "每个商品的结账转化，含趋势和导出",
+    "documentTitle": "需求分析 | Wholesale by Mercaria",
+    "title": "需求分析",
+    "subtitle": "你的商品上开始的结账有多少变成了已付款订单",
+    "lastDays": "最近 %{days} 天",
+    "daily": "按天",
+    "weekly": "按周",
+    "exportListings": "导出商品（CSV）",
+    "exportTrend": "导出趋势（CSV）",
+    "exportFailed": "无法导出报告，请重试。",
+    "loadFailed": "无法加载报告",
+    "planChangedTitle": "当前套餐不包含此功能",
+    "planChangedBody": "你店铺的套餐已不再包含此报告。你的订单和免费的店铺概览不受影响。",
+    "suppressedTitle": "结账数量还不够",
+    "suppressedBody": "一个时间段内至少有 %{minimum} 次结账后才会显示数据，以免识别出任何单个买家。",
+    "noComparison": "无法与上一时间段比较",
+    "changeRelative": "较上一时间段 %{value}",
+    "changePoints": "较上一时间段 %{value} 个百分点",
+    "stats": {
+      "checkoutsStarted": "开始的结账",
+      "paidCheckouts": "已付款结账",
+      "conversionRate": "转化率",
+      "abandonedCheckouts": "放弃的结账",
+      "openCheckoutsCount": "%{open} 个仍在等待付款"
+    },
+    "utcRange": "%{from} – %{to}（UTC）",
+    "trend": {
+      "titleDaily": "每天开始的结账",
+      "titleWeekly": "每周开始的结账",
+      "point": "%{date}：开始 %{started} 次结账，已付款 %{paid} 次（%{rate}）",
+      "suppressedPoint": "%{date}：少于 %{minimum} 次结账，已隐藏",
+      "inspect": "选择一个柱形查看数据"
+    },
+    "best": {
+      "title": "转化最好"
+    },
+    "worst": {
+      "title": "转化最低"
+    },
+    "rankedEmpty": "这个时间段内还没有商品达到 %{minimum} 次或以上的结账。",
+    "listings": {
+      "title": "商品",
+      "empty": "这个时间段内没有商品达到 %{minimum} 次或以上的结账。",
+      "suppressed": "另有 %{hidden} 个商品的结账少于 %{minimum} 次，未显示。",
+      "row": "开始 %{started} · 已付款 %{paid} · 放弃 %{abandoned}"
+    },
+    "notMeasured": "根据你自己的订单计算。不包括商品浏览量和搜索词：Mercaria 不为店铺收集浏览分析数据。",
+    "definitions": "开始的结账是买家在 Mercaria 下的订单；不计入收银台、草稿和导入的订单。付款到账即视为转化，之后退款仍然计入。包含多个商品的订单会为每个商品各计一次。"
+  },
   "discounts": {
     "create": {
       "amountOffLabel": "减免金额（⊜）",

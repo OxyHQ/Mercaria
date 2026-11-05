@@ -738,6 +738,57 @@
     "historyTitle": "Historial d’exportacions programades",
     "onDemandLink": "Necessites un fitxer ara? Exporta les dades a demanda a Configuració → Exportar dades, gratuït en tots els plans."
   },
+  "demandAnalytics": {
+    "label": "Anàlisi de demanda",
+    "description": "Conversió del pagament de cada anunci, amb tendències i exportacions",
+    "documentTitle": "Anàlisi de demanda | Wholesale by Mercaria",
+    "title": "Anàlisi de demanda",
+    "subtitle": "Com els pagaments iniciats als teus anuncis es converteixen en comandes pagades",
+    "lastDays": "Últims %{days} dies",
+    "daily": "Per dia",
+    "weekly": "Per setmana",
+    "exportListings": "Exporta els anuncis (CSV)",
+    "exportTrend": "Exporta la tendència (CSV)",
+    "exportFailed": "No s'ha pogut exportar l'informe. Torna-ho a provar.",
+    "loadFailed": "No s'ha pogut carregar l'informe",
+    "planChangedTitle": "No està inclòs al teu pla actual",
+    "planChangedBody": "El pla de la teva botiga ja no inclou aquest informe. Les teves comandes i el resum gratuït de la botiga no canvien.",
+    "suppressedTitle": "Encara no hi ha prou pagaments",
+    "suppressedBody": "Les xifres apareixen quan un període té almenys %{minimum} pagaments iniciats, perquè no es pugui identificar cap comprador.",
+    "noComparison": "Sense comparació amb el període anterior",
+    "changeRelative": "%{value} respecte al període anterior",
+    "changePoints": "%{value} pts respecte al període anterior",
+    "stats": {
+      "checkoutsStarted": "Pagaments iniciats",
+      "paidCheckouts": "Pagaments completats",
+      "conversionRate": "Taxa de conversió",
+      "abandonedCheckouts": "Pagaments abandonats",
+      "openCheckoutsCount": "%{open} pendents de pagament"
+    },
+    "utcRange": "%{from} – %{to} (UTC)",
+    "trend": {
+      "titleDaily": "Pagaments iniciats per dia",
+      "titleWeekly": "Pagaments iniciats per setmana",
+      "point": "%{date}: %{started} pagaments iniciats, %{paid} pagats (%{rate})",
+      "suppressedPoint": "%{date}: menys de %{minimum} pagaments, amagat",
+      "inspect": "Selecciona una barra per veure'n les xifres"
+    },
+    "best": {
+      "title": "Millor conversió"
+    },
+    "worst": {
+      "title": "Menor conversió"
+    },
+    "rankedEmpty": "Encara cap anunci té %{minimum} o més pagaments iniciats en aquest període.",
+    "listings": {
+      "title": "Anuncis",
+      "empty": "Cap anunci té %{minimum} o més pagaments iniciats en aquest període.",
+      "suppressed": "%{hidden} anuncis més van tenir menys de %{minimum} pagaments iniciats i no es mostren.",
+      "row": "%{started} iniciats · %{paid} pagats · %{abandoned} abandonats"
+    },
+    "notMeasured": "Es calcula amb les teves pròpies comandes. No inclou visites a productes ni termes de cerca: Mercaria no recull analítica de navegació per a les botigues.",
+    "definitions": "Un pagament iniciat és una comanda que un comprador ha fet a Mercaria; no es compten les comandes del punt de venda, els esborranys ni les importades. Es converteix quan el pagament es liquida, i un reemborsament posterior continua comptant. Una comanda amb diversos anuncis compta una vegada per a cadascun."
+  },
   "discounts": {
     "create": {
       "amountOffLabel": "Import de descompte (⊜)",

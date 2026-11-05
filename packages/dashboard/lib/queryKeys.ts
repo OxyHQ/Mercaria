@@ -58,6 +58,15 @@ export const queryKeys = {
       ['stores', storeId, 'reports', 'sales', interval] as const,
     topProducts: (storeId: string) => ['stores', storeId, 'reports', 'top-products'] as const,
   },
+  // The paid checkout conversion report (`advanced_demand_analytics`). Under the
+  // store, beside `reports`, and NOT under `plan`: a plan change refetches the
+  // gate (`storeCapabilities`), which unmounts or mounts these queries anyway.
+  conversionReport: {
+    listings: (storeId: string, from: string, to: string) =>
+      ['stores', storeId, 'conversion-report', 'listings', from, to] as const,
+    trend: (storeId: string, from: string, to: string, interval: string) =>
+      ['stores', storeId, 'conversion-report', 'trend', from, to, interval] as const,
+  },
   collections: {
     featured: (storeId: string) => ['stores', storeId, 'featured-collections'] as const,
     list: (storeId: string) => ['stores', storeId, 'collections'] as const,

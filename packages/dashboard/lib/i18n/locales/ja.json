@@ -726,6 +726,57 @@
     "historyTitle": "定期エクスポートの履歴",
     "onDemandLink": "今すぐファイルが必要ですか？ 設定 → データのエクスポートから手動でエクスポートできます。すべてのプランで無料です。"
   },
+  "demandAnalytics": {
+    "label": "需要分析",
+    "description": "出品ごとのチェックアウト転換率（推移とエクスポート付き）",
+    "documentTitle": "需要分析 | Wholesale by Mercaria",
+    "title": "需要分析",
+    "subtitle": "出品で始まったチェックアウトがどれだけ支払い済みの注文になったか",
+    "lastDays": "過去%{days}日間",
+    "daily": "日別",
+    "weekly": "週別",
+    "exportListings": "出品をエクスポート（CSV）",
+    "exportTrend": "推移をエクスポート（CSV）",
+    "exportFailed": "レポートをエクスポートできませんでした。もう一度お試しください。",
+    "loadFailed": "レポートを読み込めませんでした",
+    "planChangedTitle": "現在のプランには含まれていません",
+    "planChangedBody": "ストアのプランにこのレポートが含まれなくなりました。注文と無料のストア概要はそのままです。",
+    "suppressedTitle": "チェックアウトがまだ十分にありません",
+    "suppressedBody": "特定の購入者がわからないよう、期間内のチェックアウトが%{minimum}件以上になると数値が表示されます。",
+    "noComparison": "前の期間との比較はありません",
+    "changeRelative": "前の期間比 %{value}",
+    "changePoints": "前の期間比 %{value}ポイント",
+    "stats": {
+      "checkoutsStarted": "開始されたチェックアウト",
+      "paidCheckouts": "支払い済みチェックアウト",
+      "conversionRate": "転換率",
+      "abandonedCheckouts": "放棄されたチェックアウト",
+      "openCheckoutsCount": "支払い待ち %{open}件"
+    },
+    "utcRange": "%{from} – %{to}（UTC）",
+    "trend": {
+      "titleDaily": "日別の開始チェックアウト数",
+      "titleWeekly": "週別の開始チェックアウト数",
+      "point": "%{date}：開始 %{started}件、支払い済み %{paid}件（%{rate}）",
+      "suppressedPoint": "%{date}：%{minimum}件未満のため非表示",
+      "inspect": "棒を選ぶと数値が表示されます"
+    },
+    "best": {
+      "title": "転換率が高い出品"
+    },
+    "worst": {
+      "title": "転換率が低い出品"
+    },
+    "rankedEmpty": "この期間にチェックアウトが%{minimum}件以上ある出品はまだありません。",
+    "listings": {
+      "title": "出品",
+      "empty": "この期間にチェックアウトが%{minimum}件以上ある出品はありません。",
+      "suppressed": "ほかに%{hidden}件の出品はチェックアウトが%{minimum}件未満のため表示されません。",
+      "row": "開始 %{started} · 支払い済み %{paid} · 放棄 %{abandoned}"
+    },
+    "notMeasured": "ストア自身の注文から集計しています。商品の閲覧数や検索語句は含まれません。Mercariaはストア向けに閲覧分析を収集していないためです。",
+    "definitions": "開始されたチェックアウトとは、購入者がMercariaで行った注文です。POS、下書き、インポートされた注文は数えません。支払いが確定すると転換とみなし、その後に返金されても転換のままです。複数の出品を含む注文は、出品ごとに1回ずつ数えます。"
+  },
   "discounts": {
     "create": {
       "amountOffLabel": "割引額（⊜）",
