@@ -281,11 +281,15 @@ async function ensureSellerAccount(
 /**
  * Whether this deployment can start or resume onboarding at all.
  *
- * The rail must be on: an account opened on a deployment that cannot charge
- * would show the seller "ready" for a checkout that does not exist.
+ * It needs the gateway's account events to be HEARD — a webhook secret, which
+ * mounts `/webhooks/peable` — and NOT `PEABLE_ENABLED`. The rollout order is
+ * the point: sellers onboard and reach `ready` first, and only then does
+ * `PEABLE_ENABLED` let a buyer pay them. Gating onboarding on the buyer lever
+ * would make the first seller impossible to onboard before the first buyer can
+ * pay, and with that lever off no buyer is charged whatever a seller's state.
  */
 function onboardingAvailable(): boolean {
-  return config.payments.peable.enabled;
+  return config.payments.peable.webhooksEnabled;
 }
 
 /** The seller-facing payments settings: their standing plus what this deployment can do. */
@@ -312,7 +316,7 @@ export async function createSellerOnboardingLink(input: {
   country?: string;
 }): Promise<ProviderOnboardingLink> {
   if (!onboardingAvailable()) {
-    throw serviceUnavailable('Card payments are not available on this deployment yet.');
+    throw serviceUnavailable('Payment onboarding is not available on this deployment yet.');
   }
   const row = await ensureSellerAccount(input.owner, input.country);
   const url = returnUrlFor(input.owner);

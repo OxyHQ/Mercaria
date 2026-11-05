@@ -216,6 +216,27 @@ describe('opening a seller account', () => {
     expect(await rowFor(owner)).toBeUndefined();
   });
 
+  it('onboards with PEABLE_ENABLED off — sellers come first, buyers after', async () => {
+    const { config } = await import('../../../../config/index.js');
+    const peable = config.payments.peable as { enabled: boolean; webhooksEnabled: boolean };
+    peable.enabled = false;
+    try {
+      const owner = store();
+      await accounts.createSellerOnboardingLink({ owner, country: 'ES' });
+      expect((await rowFor(owner))?.onboardingState).toBe('action_required');
+      expect((await accounts.readSellerPaymentSettings(owner)).onboardingAvailable).toBe(true);
+
+      // Without the webhook secret the account's events could never be heard.
+      peable.webhooksEnabled = false;
+      await expect(
+        accounts.createSellerOnboardingLink({ owner: store(), country: 'ES' }),
+      ).rejects.toMatchObject({ httpStatus: 503 });
+    } finally {
+      peable.enabled = true;
+      peable.webhooksEnabled = true;
+    }
+  });
+
   it('reports a not-connected seller as a real settings answer, not an error', async () => {
     const owner = store();
     const settings = await accounts.readSellerPaymentSettings(owner);

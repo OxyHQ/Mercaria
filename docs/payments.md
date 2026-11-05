@@ -532,6 +532,10 @@ knows its shape:
   clicks one account; the owner index is the second line. The FairCoin half is
   never requested: a seller's key comes only from the seller (Peable ADR 0012)
   and Mercaria's checkout has no FairCoin rail.
+- **When.** Onboarding needs only the gateway's account events to be heard
+  (`PEABLE_WEBHOOK_SECRET`, which mounts `/webhooks/peable`), NOT
+  `PEABLE_ENABLED`: sellers onboard and reach `ready` first, and only then does
+  `PEABLE_ENABLED` let a buyer pay them.
 - **The link.** `connectedAccounts.createAccountLink(…, { rail: 'card' })`,
   minted per request and never stored, with `refresh_url` = `return_url` = the
   seller's own settings screen (`DASHBOARD_URL/settings/payments` for a store,
