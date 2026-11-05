@@ -430,6 +430,13 @@ The billing transport is Peable's native engine. A new paid offer still
 requires the following commercial readiness checks; transport registration
 alone does not prove an offer exists.
 
+State on 2026-11-05: step 5's endpoint and secret are done (endpoint
+`we_82b5f363eb495108b252e607`, test delivery verified in production), and the
+ADR 0015 routing in step 4 is decided: Mercaria's merchant is `first_party`, so
+plan revenue is Oxy Platforms, Inc.'s. Steps 1–4, 6 and 7 are open. The order
+and the decisions the owner owes are in
+[`runbooks/merchant-plans-live.md`](runbooks/merchant-plans-live.md).
+
 1. A paid capability is actually implemented, and its
    `MERCHANT_CAPABILITY_CATALOG` entry moves to `available` in the same change.
 2. `POST /internal/payments/merchant-plans/definitions/sync` is run, so the

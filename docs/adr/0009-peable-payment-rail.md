@@ -213,6 +213,17 @@ Recorded so the other two are decisions rather than oversights.
 Billing has moved, so no deployed Mercaria task needs a Stripe credential, and
 the direct marketplace rail is deleted (D13 "As built").
 
+**Merchant subscriptions in production (2026-11-05).** The owner decided that
+merchant-plan revenue goes to Oxy Platforms, Inc. Mercaria's Peable merchant
+(`merch_bd106296a0fef49a861ee6b7`) stays `first_party`, so Peable ADR 0015
+routing makes each plan charge a platform charge on Oxy Platforms' live Stripe
+account. Endpoint `we_82b5f363eb495108b252e607` delivers to `/webhooks/peable`
+in production, which verifies it. No plan is on sale: no paid capability exists
+and no price is approved, so `MERCHANT_BILLING_ENABLED` stays off
+(`docs/runbooks/merchant-plans-live.md`). The plan checkout sends no
+`automatic_tax`, so as built a plan invoice carries no tax. Whether it should is
+an owner decision recorded in that runbook.
+
 ### D18. What a new rail has to prove before it carries money
 
 `runPaymentProviderContract` (`services/payments/__tests__/provider-contract.ts`)

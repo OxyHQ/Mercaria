@@ -76,6 +76,13 @@ every closed value set) · `contracts` (the `/public/v1` zod source; regen
 - **Peable is the only card rail** (ADR 0009 D13 deleted direct Stripe): no
   provider SDK beside `PaymentProvider`. No Peable seller onboarding yet, so
   `PEABLE_ENABLED` refuses every seller.
+- **One Peable webhook endpoint, one secret.** Production's is
+  `we_82b5f363eb495108b252e607` → `/webhooks/peable`, verified with
+  `PEABLE_WEBHOOK_SECRET` (SSM). A new event type is added to its
+  `enabled_events`; a second endpoint would sign with a secret Mercaria lacks.
+  Merchant plans (#89) are routed (revenue to Oxy Platforms, Inc.) and their
+  events flow, but `MERCHANT_BILLING_ENABLED` stays off until a plan is sellable:
+  `docs/runbooks/merchant-plans-live.md`.
 
 ## PostgreSQL
 
