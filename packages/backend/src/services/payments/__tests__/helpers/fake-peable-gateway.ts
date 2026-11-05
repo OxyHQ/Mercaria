@@ -90,6 +90,12 @@ export interface FakeIntent {
    * a suite can tell which of the two reached a handoff.
    */
   payerSecret?: string;
+  /**
+   * The conversion the acquirer applied to this charge's money on the platform
+   * balance (units of settlement currency per unit of the charge's), when it
+   * converted. A refund's settled figure is its amount at this rate.
+   */
+  settlementRate?: number;
 }
 
 /** One transfer to a seller's connected account. */
@@ -131,6 +137,19 @@ export interface FakeRefund {
   externalRef: string | null;
   origin: 'merchant' | 'provider';
   failureCode: string | null;
+}
+
+/** One dispute as the gateway's books hold it, with its withdrawal when there is one. */
+export interface FakeDispute {
+  id: string;
+  intentId: string;
+  amount: bigint;
+  currency: string;
+  status: 'needs_response' | 'under_review' | 'won' | 'lost';
+  reason: string;
+  /** The balance withdrawal; `null` is an INQUIRY, which moves no money. */
+  withdrawal: { gross: bigint; fee: bigint } | null;
+  dueBy: number | null;
 }
 
 /** One payout of a seller's connected account to their bank. */
@@ -247,6 +266,50 @@ export function renderRefund(refund: FakeRefund): Record<string, unknown> {
   };
 }
 
+/** A dispute as the gateway renders it — for API answers and event payloads alike. */
+export function renderDispute(dispute: FakeDispute): Record<string, unknown> {
+  const now = Math.floor(Date.now() / 1000);
+  const closed = dispute.status === 'won' || dispute.status === 'lost';
+  return {
+    id: dispute.id,
+    object: 'dispute',
+    livemode: false,
+    amount: minor(dispute.amount),
+    currency: dispute.currency,
+    charge: null,
+    payment_intent: dispute.intentId,
+    status: dispute.status,
+    reason: dispute.reason,
+    is_charge_refundable: false,
+    evidence_details: {
+      due_by: closed ? null : dispute.dueBy,
+      has_evidence: false,
+      past_due: false,
+      submission_count: 0,
+      submitted_at: null,
+    },
+    metadata: {},
+    created: now,
+    updated_at: now,
+  };
+}
+
+/** A settlement the gateway has no figure for: every number `null`, never `0`. */
+function unknownSettlement(references: Record<string, string | null>): Record<string, unknown> {
+  return {
+    object: 'settlement',
+    livemode: false,
+    ...references,
+    status: 'unknown',
+    gross: null,
+    fee: null,
+    net: null,
+    currency: null,
+    available_on: null,
+    exchange_rate: null,
+  };
+}
+
 /** A payout as the gateway renders it — for API answers and event payloads alike. */
 export function renderPayout(payout: FakePayout): Record<string, unknown> {
   return {
@@ -323,6 +386,7 @@ export function createFakePeableGateway() {
   const transfers = new Map<string, FakeTransfer>();
   const accounts = new Map<string, FakeAccount>();
   const refunds = new Map<string, FakeRefund>();
+  const disputes = new Map<string, FakeDispute>();
   const payouts = new Map<string, FakePayout>();
   /** A create's `Idempotency-Key` → the intent it made, re-rendered on replay. */
   const intentsByKey = new Map<string, string>();
@@ -477,6 +541,33 @@ export function createFakePeableGateway() {
         if (!refund) return Promise.reject(refusal(`No such refund: '${id}'`, 'resource_missing'));
         return Promise.resolve(renderRefund(refund));
       },
+      /**
+       * What the refund took off the platform balance: its amount at the
+       * charge's settlement rate, `unknown` once it failed or was canceled.
+       */
+      refundSettlement: (id: string) => {
+        const refund = refunds.get(id);
+        if (!refund) return Promise.reject(refusal(`No such refund: '${id}'`, 'resource_missing'));
+        const references = { payment_intent: refund.intentId, refund: refund.id, dispute: null };
+        if (refund.status === 'failed' || refund.status === 'canceled') {
+          return Promise.resolve(unknownSettlement(references));
+        }
+        const rate = intentOf(refund.intentId).settlementRate;
+        const gross =
+          rate === undefined ? refund.amount : BigInt(Math.round(Number(refund.amount) * rate));
+        return Promise.resolve({
+          object: 'settlement',
+          livemode: false,
+          ...references,
+          status: refund.status === 'succeeded' ? 'available' : 'pending',
+          gross: minor(gross),
+          fee: '0',
+          net: `-${minor(gross)}`,
+          currency: refund.currency,
+          available_on: Math.floor(Date.now() / 1000),
+          exchange_rate: rate ?? null,
+        });
+      },
       listForPaymentIntent: (intentId: string) => {
         const intent = intentOf(intentId);
         return Promise.resolve({
@@ -536,6 +627,37 @@ export function createFakePeableGateway() {
           livemode: false,
           url: `https://connect.peable.test/onboarding/${id}/${String(state.linkCalls.length)}`,
           expires_at: Math.floor(Date.now() / 1000) + 300,
+        });
+      },
+    },
+    disputes: {
+      retrieve: (id: string) => {
+        const dispute = disputes.get(id);
+        if (!dispute) {
+          return Promise.reject(refusal(`No such dispute: '${id}'`, 'resource_missing'));
+        }
+        return Promise.resolve(renderDispute(dispute));
+      },
+      /** The dispute's withdrawal from the balance, or `unknown` for an inquiry. */
+      settlement: (id: string) => {
+        const dispute = disputes.get(id);
+        if (!dispute) {
+          return Promise.reject(refusal(`No such dispute: '${id}'`, 'resource_missing'));
+        }
+        const references = { payment_intent: dispute.intentId, refund: null, dispute: dispute.id };
+        if (!dispute.withdrawal) return Promise.resolve(unknownSettlement(references));
+        const { gross, fee } = dispute.withdrawal;
+        return Promise.resolve({
+          object: 'settlement',
+          livemode: false,
+          ...references,
+          status: 'available',
+          gross: minor(gross),
+          fee: minor(fee),
+          net: `-${minor(gross + fee)}`,
+          currency: dispute.currency,
+          available_on: Math.floor(Date.now() / 1000),
+          exchange_rate: null,
         });
       },
     },
@@ -659,6 +781,23 @@ export function createFakePeableGateway() {
       return refund;
     },
 
+    /**
+     * Open or move a dispute — the network's side. `withdrawal: null` is an
+     * inquiry; a chargeback withdraws its principal and the dispute fee.
+     */
+    putDispute(input: Omit<FakeDispute, 'currency'> & { currency?: string }): FakeDispute {
+      const dispute: FakeDispute = { currency: 'EUR', ...input };
+      disputes.set(dispute.id, dispute);
+      return dispute;
+    },
+
+    /** The gateway's record of one dispute; throws for one it never opened. */
+    dispute(id: string): FakeDispute {
+      const dispute = disputes.get(id);
+      if (!dispute) throw new Error(`no such fake dispute ${id}`);
+      return dispute;
+    },
+
     /** A payout the acquirer made from a seller's balance, mirrored by Peable. */
     putPayout(input: Omit<FakePayout, 'id'>): FakePayout {
       const payout: FakePayout = { id: nextId('po'), ...input };
@@ -751,6 +890,7 @@ export function createFakePeableGateway() {
       transfers.clear();
       accounts.clear();
       refunds.clear();
+      disputes.clear();
       payouts.clear();
       intentsByKey.clear();
       byKey.clear();

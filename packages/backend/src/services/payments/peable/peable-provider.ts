@@ -65,6 +65,7 @@ import type {
 import { createPeableClient } from './client.js';
 import { fromGatewayAmount, toGatewayAmount } from './amounts.js';
 import { callPeable } from './errors.js';
+import { settledMovement, type SettledMovement } from './settlement.js';
 import { verifyPeableSignature } from './verify.js';
 
 /** The gateway's transfer statuses, as the wire contract closes them. */
@@ -288,6 +289,14 @@ export class PeablePaymentProvider
       this.client.refunds.listForPaymentIntent(request.providerObjectId, { limit: 1 }),
     );
 
+    // What the refund took off the platform balance, in the SETTLEMENT
+    // currency, read from the acquirer's own record of it. Absent — never
+    // thrown — when Peable has no figure yet or cannot be read: the refund has
+    // already been made, and a thrown permanent error here would record a
+    // refund the buyer received as one the rail refused. The executor retries
+    // a missing figure (`refund_settlement_unavailable`) instead.
+    const platform = await this.refundPlatformFigure(refund.id, request.amount.currency);
+
     return {
       providerObjectId: refund.id,
       status: refunds.remaining_refundable === '0' ? 'refunded' : 'partially_refunded',
@@ -304,7 +313,20 @@ export class PeablePaymentProvider
               ? 'canceled'
               : 'pending',
       ...(refund.failure_code ? { failureCode: refund.failure_code } : {}),
+      ...(platform ? { platform: { amount: platform.amount, rate: platform.rate } } : {}),
     };
+  }
+
+  /** See {@link refund}: the settled figure of one refund, or `undefined`. */
+  private async refundPlatformFigure(
+    refundId: string,
+    from: CurrencyCode,
+  ): Promise<SettledMovement | undefined> {
+    try {
+      return settledMovement(await this.client.refunds.refundSettlement(refundId), from, 'refund');
+    } catch {
+      return undefined;
+    }
   }
 
   async getStatus(providerObjectId: string): Promise<ProviderPaymentResult> {

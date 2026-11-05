@@ -32,13 +32,12 @@ take a buyer's money (ADR 0009 D13):
   pay page in the system browser, because Peable's payer SDK has no native card
   path (see "The storefront's card step"). Neither has confirmed a real
   payment (ADR 0009 D18).
-- **No dispute events.** The Peable router applies `payment_intent.*`,
-  `charge.refunded`, `refund.*`, `payout.*` and `connected_account.updated`, so
-  `disputes` has no writer and `payment_disputed` no producer.
-- **No processor fee and no settlement figure.** A Peable success books no
-  `processor_expense`, and the adapter's refund result carries no platform
-  figure, so a refund's money leg retries `refund_settlement_unavailable` until
-  its outbox row dead-letters (see "Refunds, disputes and payouts").
+- **No processor fee on a charge, and no conversion recorded for one.** A Peable
+  success books no `processor_expense` and no `platform` figure, so a charge is
+  booked and settled in its presentment currency (`settlementBasis`). Refunds
+  and disputes DO book what Peable reports in the settlement currency (below),
+  which agrees only while the charge settled in the currency it was made in —
+  see "The settlement currency" under the Peable ingress.
 - **No reconciliation of the gateway's settled movements.** The deleted
   `provider_objects` sweep had nothing on Peable to read.
 - **No referral payout rail.** The payout-rail port is empty and batches fail
@@ -503,6 +502,37 @@ redelivery. What bounds the work instead is real: `express.raw`'s 1 MB limit,
 refusal before any database access, and a duplicate costing one conflicting
 indexed insert.
 
+
+### Not every intent on the endpoint is a marketplace payment
+
+Merchant-plan invoices (#89) are paid on the same Peable merchant and their
+`payment_intent.*` events arrive on the same endpoint. `verify.ts` stores
+Mercaria's own marker (`metadata.mercaria_payment_id`, set by `createPayment`)
+as `objectIds.mercaria_payment`, and the router retries a missing payment only
+for a marked intent — the race with the transaction that wrote the row. An
+unmarked intent is `ignored` ("not a marketplace payment"), as is a refund or
+dispute of a payment Mercaria has no row for: retrying either would only
+dead-letter it.
+
+### The settlement currency
+
+A Peable charge is a PLATFORM charge on Oxy Platforms, Inc.'s acquirer account
+(Mercaria's merchant is first-party, so `decideChargeRouting` returns no
+destination; each seller is paid by a separate `/v1/transfers` call whose source
+is that charge, ADR 0001 D3). Peable settles a transfer in the PAYMENT's
+currency only (`transferService.createTransfer` refuses any other), and the
+router records no `platform` figure for a charge, so Mercaria books and settles
+a charge in its presentment currency. Refunds and disputes book what Peable
+reports in the SETTLEMENT currency.
+
+The two agree exactly when the charge settled in the currency it was made in —
+which is the case to start live sales with. A charge in a currency the platform
+account converts out of (its default settlement currency is the acquirer
+account's, not recorded here) would need, before it can carry money: the
+charge's own settlement figure booked as `platform` (Peable already reports it,
+`refunds.settlement(intent)`), and Peable transfers denominated in the
+settlement currency of their source charge. Neither exists yet; a refund of such
+a charge is refused `settlement_currency_mismatch` rather than booked wrong.
 ---
 
 ## Seller payment readiness (#46)
@@ -1321,14 +1351,18 @@ when the task restarts, and the inventory has ALREADY been restocked by then.
 - **A refund is `refunded` while its money is `pending`.** Two different facts,
   and the DTO carries both.
 
-**Gap on the Peable rail.** `executeRefundAtProvider` books every refund leg in
-the platform figure the rail reports for the refund, and never assumes one. The
-Peable adapter's refund result carries no `platform`, so after the gateway
-accepts the refund the executor throws `refund_settlement_unavailable`
-(retryable): the `payment_refunded` row retries until it dead-letters, the
-buyer's money has moved at the gateway, and Mercaria books nothing. Until the
-adapter reports the refund's settled figure (Peable's contract has
-`refunds.settlement`), a Peable refund needs an operator.
+**The settled figure on the Peable rail.** `executeRefundAtProvider` books every
+refund leg in the platform figure the rail reports for the refund, and never
+assumes one. The Peable adapter reads it right after the refund
+(`refunds.refundSettlement`, Peable 3.1.0): `gross`, the MAGNITUDE of what the
+refund took off the balance, in the SETTLEMENT currency, with the acquirer's
+`exchange_rate` (or the identity rate when nothing converted —
+`peable/settlement.ts`). No processor-fee leg is booked, as for the charge. When
+Peable has no figure yet (`unknown`), or the read fails, the result carries no
+`platform` — it never THROWS, because the refund has already been made and a
+permanent error there would record a refund the buyer received as one the rail
+refused — and the executor retries `refund_settlement_unavailable` until it can
+book.
 
 ### Three states of one refund, and none stands in for the others
 
@@ -1422,9 +1456,15 @@ else.
 A buyer's bank reversing a charge through the card network. Mercaria is the
 merchant of record (D1), so the PLATFORM balance is debited and Mercaria answers
 the network; the seller bears the principal only once the dispute is lost.
-`dispute.service.ts` holds the whole domain below; **nothing feeds it on the
-Peable rail yet** (no dispute events), and its only live entry point is the
-operator's `retry_transfer_reversal`.
+`dispute.service.ts` holds the whole domain below. On the Peable rail every
+`charge.dispute.*` type (`created`, `updated`, `closed`, `funds_withdrawn`,
+`funds_reinstated`) lands in one handler (`peable/marketplace-events.ts`) that
+re-reads the dispute and its WITHDRAWAL (`disputes.settlement`): the principal
+is the withdrawal's `gross` and the dispute fee its `fee`, in the settlement
+currency — never the dispute's own `amount`, which an inquiry carries too. No
+withdrawal (`unknown`) is recorded as an inquiry, zero and unbooked, and the
+`funds_withdrawn` that follows a real chargeback books it. A dispute of a payment
+that is not a marketplace payment is left alone.
 
 **Disputes are not CrowdSource moderation** (#49 scope 7) and the two never
 meet. A dispute is decided by a card network on evidence Mercaria submits against
@@ -2048,8 +2088,8 @@ nothing below has been done against live money.
       `ready`.
 - [ ] The storefront card step (web Elements, native hosted page) confirms a
       real test-mode payment end to end.
-- [ ] The adapter reports a refund's settled figure, so refunds book.
-- [ ] Dispute, payout and account events are routed (or deliberately declared
+- [x] The adapter reports a refund's settled figure, so refunds book.
+- [x] Dispute, payout and account events are routed (or deliberately declared
       out of scope with their tables).
 - [ ] ADR 0009 D18: one real onboarding run, one real two-seller test-mode
       charge (one payment, two transfers, ledger zero per currency, commission in
@@ -2069,9 +2109,19 @@ nothing below has been done against live money.
 
 **Webhooks**
 
-- [ ] The endpoint is registered at Peable at `https://<api>/webhooks/peable`,
-      subscribed to `payment_intent.*` and `charge.refunded` (plus the billing
-      types `docs/merchant-plans.md` lists).
+- [ ] ONE endpoint, `we_82b5f363eb495108b252e607` at
+      `https://api.mercaria.co/webhooks/peable` (the billing endpoint;
+      `docs/runbooks/merchant-plans-live.md` §4), carries the marketplace types
+      beside the billing ones: `payment_intent.requires_action`,
+      `payment_intent.processing`, `payment_intent.succeeded`,
+      `payment_intent.payment_failed`, `payment_intent.canceled`,
+      `charge.refunded`, `refund.created`, `refund.updated`, `refund.failed`,
+      `charge.dispute.created`, `charge.dispute.updated`, `charge.dispute.closed`,
+      `charge.dispute.funds_withdrawn`, `charge.dispute.funds_reinstated`,
+      `connected_account.updated`, `payout.created`, `payout.updated`,
+      `payout.paid`, `payout.failed`, `payout.canceled`. As of 2026-11-05 it
+      carries only the seven billing types; add these (`POST
+      /v1/webhook_endpoints/:id` with the FULL list) before `PEABLE_ENABLED`.
 - [ ] `POST /webhooks/peable` with no signature answers 400 `missing_signature`,
       not 404. A 404 means the secret is unset and the endpoint is unmounted.
 

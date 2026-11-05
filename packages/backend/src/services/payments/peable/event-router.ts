@@ -123,7 +123,15 @@ async function applyIntentEvent(
 
   const payment = await findPaymentByProviderObjectId(getDb(), 'peable', intentId);
   if (!payment) {
-    throw unresolved(`no Mercaria payment is linked to Peable intent ${intentId} yet`);
+    // Only an intent Mercaria MADE can be one whose row is not visible yet: it
+    // carries Mercaria's own payment id (`createPayment`'s metadata), and a
+    // refund of one exists only after its payment. Anything else is not a
+    // marketplace payment — a merchant-plan invoice's payment arrives on the
+    // same endpoint — and retrying it would only dead-letter it.
+    if (asserted !== 'reread' && context.objectIds.mercaria_payment !== undefined) {
+      throw unresolved(`no Mercaria payment is linked to Peable intent ${intentId} yet`);
+    }
+    return { kind: 'ignored', note: `${intentId} is not a marketplace payment` };
   }
 
   const next = asserted === 'reread' ? await readPaymentStatus(intentId) : asserted;
