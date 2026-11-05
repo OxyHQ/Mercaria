@@ -250,27 +250,27 @@ beforeAll(async () => {
 });
 
 /**
- * A `DualMoney` in EUR where shop == presentment.
+ * A `DualMoney` in USD where shop == presentment.
  *
- * EUR and not FAIR, throughout this file, because the rail is ON here: ADR 0001
- * D8 makes FAIR unroutable on the card rail, so a FAIR cart is refused for its
- * CURRENCY before the readiness gate this file is about is ever consulted.
+ * USD and not FAIR, throughout this file, because the rail is ON here and
+ * marketplace card sales are USD (the default presentment set): a FAIR cart
+ * is refused for its CURRENCY before the readiness gate this file is about is ever consulted.
  */
-function eurDual(amount: number): DualMoney {
-  const money: Money = { amount, currency: 'EUR' };
+function usdDual(amount: number): DualMoney {
+  const money: Money = { amount, currency: 'USD' };
   return { shop: { ...money }, presentment: { ...money } };
 }
 
 function pricingResult(subtotal: number): PricingResult {
   return {
-    subtotal: eurDual(subtotal),
-    discountTotal: eurDual(0),
-    tax: eurDual(0),
-    shipping: eurDual(0),
-    grandTotal: eurDual(subtotal),
+    subtotal: usdDual(subtotal),
+    discountTotal: usdDual(0),
+    tax: usdDual(0),
+    shipping: usdDual(0),
+    grandTotal: usdDual(subtotal),
     appliedDiscounts: [],
     taxLines: [],
-    perLineDiscount: [eurDual(0)],
+    perLineDiscount: [usdDual(0)],
   };
 }
 
@@ -329,7 +329,7 @@ function variantRow(): VariantRecord {
     sku: null,
     barcode: null,
     priceAmount: 1000,
-    priceCurrency: 'EUR',
+    priceCurrency: 'USD',
     compareAtPriceAmount: null,
     compareAtPriceCurrency: null,
     inventoryTracked: true,
@@ -398,20 +398,20 @@ function accountRow(onboardingState: string) {
 beforeEach(() => {
   getCart.mockReset().mockResolvedValue({
     id: 'cart-gate',
-    currency: 'EUR',
+    currency: 'USD',
     items: [
       {
         listingId: LISTING,
         variantId: VARIANT,
         title: 'Thing',
         variantTitle: 'Default Title',
-        unitPrice: { amount: 1000, currency: 'EUR' as const },
+        unitPrice: { amount: 1000, currency: 'USD' as const },
         quantity: 1,
         available: 10,
-        lineTotal: { amount: 1000, currency: 'EUR' as const },
+        lineTotal: { amount: 1000, currency: 'USD' as const },
       },
     ],
-    subtotal: { amount: 1000, currency: 'EUR' },
+    subtotal: { amount: 1000, currency: 'USD' },
   });
   ensurePayment.mockReset().mockResolvedValue({
     id: 'payment-gate',
@@ -419,7 +419,7 @@ beforeEach(() => {
     provider: 'peable',
     status: 'created',
     presentmentAmount: 1000,
-    presentmentCurrency: 'EUR',
+    presentmentCurrency: 'USD',
     providerObjectId: null,
   });
   attachPaymentProviderObject.mockReset().mockResolvedValue(undefined);
@@ -447,7 +447,7 @@ beforeEach(() => {
       // payment is sized from what the order row says it charged, and a fixture
       // that omits them makes the charge NaN rather than failing on a shape.
       totalsGrandTotalPresentmentAmount: 1000,
-      totalsGrandTotalPresentmentCurrency: 'EUR',
+      totalsGrandTotalPresentmentCurrency: 'USD',
     }),
   );
   findOrdersByCheckoutGroup.mockReset();
@@ -492,7 +492,23 @@ describe('checkout with the Peable rail on', () => {
     // The message names the eligible set: switching display currency is the
     // buyer's only remedy, and a client cannot offer it without knowing to what.
     await expect(checkout(ACTOR, { addressId: ADDRESS_ID })).rejects.toThrow(
-      /not available in FAIR.*EUR or USD/is,
+      /not available in FAIR\. Switch your currency to USD and try again/is,
+    );
+    expect(reserve).not.toHaveBeenCalled();
+    expect(createPayment).not.toHaveBeenCalled();
+  });
+
+  it('refuses a EUR cart by default: marketplace card sales are USD only', async () => {
+    // The owner's 2026-11-05 decision, read from the DEFAULT (this file sets no
+    // PEABLE_PRESENTMENT_CURRENCIES): Oxy Platforms' account settles USD and a
+    // Peable transfer is denominated in its payment's currency, so a EUR charge
+    // would settle converted and every refund would be refused.
+    findProviderAccountByOwner.mockResolvedValue(accountRow('ready'));
+    const cart = (await getCart()) as { currency: string };
+    getCart.mockResolvedValue({ ...cart, currency: 'EUR' });
+
+    await expect(checkout(ACTOR, { addressId: ADDRESS_ID })).rejects.toThrow(
+      /not available in EUR\. Switch your currency to USD and try again/is,
     );
     expect(reserve).not.toHaveBeenCalled();
     expect(createPayment).not.toHaveBeenCalled();
@@ -527,7 +543,7 @@ describe('checkout with the Peable rail on', () => {
       provider: 'peable',
       providerPaymentId: 'pi_gate',
       clientSecret: 'pi_gate_secret_x',
-      amount: { amount: 1000, currency: 'EUR' },
+      amount: { amount: 1000, currency: 'USD' },
       // #107's server-authoritative payment surfaces (ADR 0006 G2/G14) — what a
       // client may RENDER, decided by the server and narrowed further by the
       // device. Buyer origin is not an input to it: this is an Oxy checkout and
@@ -539,7 +555,7 @@ describe('checkout with the Peable rail on', () => {
     expect(createPayment).toHaveBeenCalledWith(
       expect.objectContaining({
         paymentId: 'payment-gate',
-        amount: { amount: 1000, currency: 'EUR' },
+        amount: { amount: 1000, currency: 'USD' },
         idempotencyKey: 'pi:payment-gate',
       }),
     );

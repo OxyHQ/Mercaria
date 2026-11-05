@@ -608,7 +608,10 @@ function resolvePeableEnabled(): boolean {
 
 /**
  * Split a presentment-currency variable into the currencies a card checkout on
- * that rail may be denominated in — ADR 0001 D8, `EUR` and `USD` at launch.
+ * that rail may be denominated in — `USD` by default (ADR 0001 D8 as amended
+ * 2026-11-05: Oxy Platforms' acquirer account settles USD, and Peable transfers
+ * a seller's share only in the payment's own currency, so a USD charge is the
+ * one that settles, transfers and refunds without a conversion nobody books).
  *
  * VALIDATED against `ALL_CURRENCY_CODES`: a currency code has to exist in
  * Mercaria's own closed set or nothing downstream can price, convert or store
@@ -616,7 +619,7 @@ function resolvePeableEnabled(): boolean {
  * message naming a currency that does not exist.
  */
 function resolvePresentmentCurrencies(variable: string, rail: string): readonly CurrencyCode[] {
-  const configured = strEnv(variable, 'EUR,USD')
+  const configured = strEnv(variable, 'USD')
     .split(',')
     .map((code) => code.trim().toUpperCase())
     .filter((code) => code !== '');
@@ -1052,10 +1055,11 @@ export interface PeableConfig {
   /**
    * What a card checkout on this rail may be denominated in.
    *
-   * Defaults to ADR 0001 D8's launch set, which is Mercaria
-   * stating what it BELIEVES the gateway can charge — the gateway's own
-   * configuration is the authority, and a disagreement surfaces as a refusal
-   * from Peable rather than as a silently wrong checkout.
+   * Defaults to `USD` alone (ADR 0001 D8 as amended 2026-11-05), which is
+   * Mercaria stating what it BELIEVES the gateway can charge AND settle without
+   * a conversion — the gateway's own configuration is the authority, and a
+   * disagreement surfaces as a refusal from Peable rather than as a silently
+   * wrong checkout.
    */
   readonly presentmentCurrencies: readonly CurrencyCode[];
 }

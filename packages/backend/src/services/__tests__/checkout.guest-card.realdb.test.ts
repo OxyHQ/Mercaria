@@ -90,7 +90,7 @@ beforeAll(async () => {
   process.env.PEABLE_BASE_URL = 'https://api.peable.invalid';
   process.env.PEABLE_WEBHOOK_SECRET = WEBHOOK_SECRET;
   delete process.env.PEABLE_WEBHOOK_SECRET_PREVIOUS;
-  process.env.PEABLE_PRESENTMENT_CURRENCIES = 'EUR,USD';
+  process.env.PEABLE_PRESENTMENT_CURRENCIES = 'USD';
   delete process.env.HIGH_VALUE_HOLD_THRESHOLDS;
   process.env.FX_PROVIDER = 'static';
   // Guest commerce, and the two keys the M8 half-configuration rule demands.
@@ -197,7 +197,7 @@ async function seedStoreSeller(label: string): Promise<{
       name: `Guest Store ${label} ${RUN}`,
       description: 'seeded by checkout.guest-card.realdb.test',
       brandColor: '#000000',
-      defaultCurrency: 'EUR',
+      defaultCurrency: 'USD',
     })
     .returning({ id: storeSchema.stores.id });
 
@@ -234,7 +234,7 @@ async function seedStoreSeller(label: string): Promise<{
     {
       title: 'Default',
       priceAmount: 5_000,
-      priceCurrency: 'EUR',
+      priceCurrency: 'USD',
       inventoryTracked: true,
       inventoryAvailable: 5,
       position: 0,
@@ -294,7 +294,7 @@ async function seedP2PSeller(label: string): Promise<{
     {
       title: 'Default',
       priceAmount: 2_500,
-      priceCurrency: 'EUR',
+      priceCurrency: 'USD',
       inventoryTracked: true,
       inventoryAvailable: 5,
       position: 0,
@@ -355,7 +355,7 @@ describe('a guest pays for a store order', () => {
         contact: { email: 'guest.meta@example.com' },
       },
       `idem-meta-${RUN}`,
-      'EUR',
+      'USD',
     );
 
     // The row the checkout transaction really wrote — not a value the metadata
@@ -416,8 +416,8 @@ describe('a guest pays for a store order', () => {
     // and therefore with no contact record in hand — which is exactly why the
     // guest id in the metadata is read from the group rather than passed in.
     const [first, replay] = await Promise.all([
-      checkout(actor, body, key, 'EUR'),
-      checkout(actor, body, key, 'EUR'),
+      checkout(actor, body, key, 'USD'),
+      checkout(actor, body, key, 'USD'),
     ]);
 
     expect(replay.checkoutGroupId).toBe(first.checkoutGroupId);
@@ -458,7 +458,7 @@ describe('a guest cannot buy from an individual, and a mixed cart separates (#11
           contact: { email: 'guest.p2p.only@example.com' },
         },
         `idem-p2p-only-${RUN}`,
-        'EUR',
+        'USD',
       ),
     ).rejects.toThrow(/individual seller/);
 
@@ -487,7 +487,7 @@ describe('a guest cannot buy from an individual, and a mixed cart separates (#11
 
     // The whole cart is refused, and the message names the group to deselect —
     // never the store's, which is still perfectly buyable.
-    await expect(checkout(actor, body, `idem-p2p-mixed-${RUN}`, 'EUR')).rejects.toThrow(
+    await expect(checkout(actor, body, `idem-p2p-mixed-${RUN}`, 'USD')).rejects.toThrow(
       new RegExp(person.sellerKey),
     );
     expect(gateway.state.intentCalls).toHaveLength(0);
@@ -498,7 +498,7 @@ describe('a guest cannot buy from an individual, and a mixed cart separates (#11
       actor,
       { ...body, sellerKeys: [`store:${store.storeId}`] },
       `idem-p2p-mixed-store-${RUN}`,
-      'EUR',
+      'USD',
     );
 
     expect(placed.orders).toHaveLength(1);
@@ -538,7 +538,7 @@ describe('verified success hands #108 exactly one portal initialization', () => 
         contact: { email: 'guest.portal@example.com' },
       },
       `idem-portal-${RUN}`,
-      'EUR',
+      'USD',
     );
     const [intentId] = [...gateway.state.intents.keys()];
     gateway.succeed(intentId);
@@ -599,7 +599,7 @@ describe('verified success hands #108 exactly one portal initialization', () => 
     // An Oxy buyer's presentment currency is their STORED preference, and the
     // `currency` request field is ignored for them — which is exactly why it is
     // set here and passed in the guest cases above.
-    await upsertUserPreference(buyerId, { preferredCurrency: 'EUR' });
+    await upsertUserPreference(buyerId, { preferredCurrency: 'USD' });
     const cart = await ensureCart({ kind: 'oxy_user', oxyUserId: buyerId });
     await upsertCartItem(cart.id, {
       listingId: seller.listingId,
@@ -644,7 +644,7 @@ describe('the payment-status read is scoped through the guest contact record', (
         contact: { email: 'guest.status@example.com' },
       },
       `idem-status-${RUN}`,
-      'EUR',
+      'USD',
     );
 
     const mine = await readCheckoutPaymentStatus(

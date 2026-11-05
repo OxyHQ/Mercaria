@@ -281,6 +281,15 @@ jobs:
       #   return URL is where Peable's hosted pages send a merchant back. It is
       #   the incident lever: removing it stops new sales and leaves every
       #   subscription, entitlement and invoice booking running.
+      # - PEABLE_ENABLED / PEABLE_BASE_URL: the marketplace card rail is ON
+      #   (owner decision 2026-11-05; docs/runbooks/marketplace-card-rail-live.md).
+      #   It is a conjunction with the PEABLE_WEBHOOK_SECRET the task already
+      #   names. A buyer pays only a seller whose Peable account is `ready`;
+      #   every other seller's checkout is refused `seller_not_payment_ready`
+      #   before any stock is reserved, so the rail is safe with no ready
+      #   seller. Card sales are USD only (the PEABLE_PRESENTMENT_CURRENCIES
+      #   default). Removing PEABLE_ENABLED is the incident lever: no new card
+      #   payment opens (docs/payments.md "Feature flags, honestly").
       #
       # Values are JSON strings; the resolve step refuses anything else.
       RELEASE_ENVIRONMENT: |
@@ -294,7 +303,9 @@ jobs:
           "CANONICAL_SOURCE_MEDIA_BATCH_SIZE": "30",
           "CANONICAL_SOURCE_MEDIA_MAX_IN_FLIGHT": "60",
           "MERCHANT_BILLING_ENABLED": "true",
-          "MERCHANT_BILLING_RETURN_URL": "https://dashboard.mercaria.co/settings/plan"
+          "MERCHANT_BILLING_RETURN_URL": "https://dashboard.mercaria.co/settings/plan",
+          "PEABLE_ENABLED": "true",
+          "PEABLE_BASE_URL": "https://api.peable.to"
         }
     # Native arm64, matching the image this job builds.
     #
