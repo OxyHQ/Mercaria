@@ -51,6 +51,10 @@ export const queryKeys = {
   addresses: {
     all: ['addresses'] as const,
   },
+  /** The signed-in P2P seller's own Peable payment account. */
+  sellerPayments: {
+    all: ['seller', 'payments'] as const,
+  },
   /**
    * Price alerts (#79).
    *

@@ -3,6 +3,7 @@ import { useOxy } from '@oxy.so/services/ui/client';
 import { Button } from '@oxy.so/bloom/button';
 import type { SettingsModalPage, SettingsNavGroup } from '@oxy.so/bloom/settings-modal';
 import { SettingsGeneralPage } from '@oxy.so/bloom/settings-modal';
+import { RiBankCardLine } from '@oxy.so/bloom/icons/RiBankCardLine';
 import { RiBox3Line } from '@oxy.so/bloom/icons/RiBox3Line';
 import { RiEyeLine } from '@oxy.so/bloom/icons/RiEyeLine';
 import { RiFeedbackLine } from '@oxy.so/bloom/icons/RiFeedbackLine';
@@ -25,6 +26,7 @@ import { useCurrencySettingsSection } from './currency-section';
 import { AddressesSettingsPage } from './addresses-page';
 import { FeedbackSettingsPage } from './feedback-page';
 import { ReferralsSettingsPage } from './referrals-page';
+import { PaymentsSettingsPage } from './payments-page';
 import type { StorefrontSettingsPage } from './settings-routes';
 
 function GeneralSettingsPage() {
@@ -130,6 +132,13 @@ export default function StorefrontSettingsDialog(state: SettingsDialogState) {
             label: t('settings.sections.referrals'),
             icon: RiTeamLine,
           },
+          // Where a P2P seller gets paid: their own Peable connected account.
+          {
+            key: 'payments',
+            page: 'payments',
+            label: t('settings.sections.payments'),
+            icon: RiBankCardLine,
+          },
         ]
       : []),
     { key: 'feedback', page: 'feedback', label: t('feedback.title'), icon: RiFeedbackLine },
@@ -175,6 +184,7 @@ export default function StorefrontSettingsDialog(state: SettingsDialogState) {
     addresses: { title: t('settings.sections.addresses'), content: <AddressesSettingsPage /> },
     feedback: { title: t('feedback.title'), content: <FeedbackSettingsPage /> },
     referrals: { title: t('settings.sections.referrals'), content: <ReferralsSettingsPage /> },
+    payments: { title: t('settings.sections.payments'), content: <PaymentsSettingsPage /> },
   };
 
   return <SettingsDialogShell {...state} groups={groups} pages={pages} />;

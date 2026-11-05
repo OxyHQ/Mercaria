@@ -47,13 +47,66 @@
       "addresses": "Direcciones",
       "watchlists": "Listas de seguimiento",
       "shoppingAgents": "Agentes de compra",
-      "referrals": "Referidos"
+      "referrals": "Referidos",
+      "payments": "Pagos y cobros"
     },
     "currency": {
       "title": "Moneda de visualización",
       "description": "Elige la moneda en la que se muestran los precios. FairCoin (⊜) es la predeterminada.",
       "signedOut": "Inicia sesión para guardar tu moneda de visualización preferida.",
       "updateFailed": "No se ha podido actualizar tu moneda de visualización"
+    },
+    "payments": {
+      "beingReviewed": "En revisión",
+      "countryHint": "Código de dos letras, por ejemplo ES. No se puede cambiar una vez configurados los cobros.",
+      "countryLabel": "País en el que está registrado tu negocio",
+      "dueBy": "Fecha límite",
+      "itemCount": {
+        "many": "%{count} de elementos",
+        "one": "%{count} elemento",
+        "other": "%{count} elementos"
+      },
+      "loadFailed": "No se han podido cargar los ajustes de pago",
+      "neededNow": "Necesario ahora",
+      "onboardingUnavailable": "La configuración de cobros aún no está disponible en esta instalación de Mercaria.",
+      "openFailed": "No se ha podido abrir la configuración de cobros",
+      "outstandingTitle": "Pendiente con Peable",
+      "paidOutIn": "Se abona en",
+      "payoutsTitle": "Cobros",
+      "quoteToSupport": "Cita esto al soporte de Mercaria si necesitas ayuda.",
+      "registeredIn": "Registrado en",
+      "reportedByPeable": "Informado por Peable",
+      "requirementsNote": "Peable guarda estos datos y es el único sitio donde completarlos. Mercaria nunca los ve.",
+      "states": {
+        "actionRequired": {
+          "action": "Continuar con la configuración",
+          "body": "Peable necesita más información antes de poder pagarte. Hasta que lo tenga todo, los compradores no pueden finalizar la compra de tus productos.",
+          "heading": "Todavía faltan algunos datos"
+        },
+        "disabled": {
+          "body": "Peable ha cerrado esta cuenta conectada, o se ha eliminado su conexión con Mercaria. Los compradores no pueden finalizar la compra de tus productos. Ponte en contacto con el soporte de Mercaria para revisarlo.",
+          "heading": "Esta cuenta ya no se puede usar"
+        },
+        "notConnected": {
+          "action": "Configurar los cobros",
+          "body": "Tus productos se ven y puedes usar el resto de Mercaria, pero los compradores todavía no pueden finalizar la compra. Configurar los cobros lleva unos minutos.",
+          "heading": "Aún sin configurar"
+        },
+        "ready": {
+          "action": "Gestionar los datos de cobro",
+          "body": "Los compradores pueden finalizar la compra de tus productos y Peable transfiere tu saldo a tu banco.",
+          "heading": "Listo para cobrar"
+        },
+        "restricted": {
+          "action": "Resolver ahora",
+          "body": "Algo que pidió Peable está fuera de plazo, así que ha pausado los cobros y los compradores no pueden finalizar la compra de tus productos. Al completarlo se restablecen ambas cosas.",
+          "heading": "Los cobros están en pausa"
+        },
+        "underReview": {
+          "body": "Peable tiene lo que pidió y lo está revisando. No tienes que hacer nada: suele tardar uno o dos días. Los compradores no pueden finalizar la compra de tus productos hasta que termine.",
+          "heading": "En revisión"
+        }
+      }
     }
   },
   "feedback": {

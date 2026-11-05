@@ -125,6 +125,16 @@ export const ROUTE_DISPOSITIONS: Readonly<
         'off itself. In-app code opens Settings with useSettingsDialog().open() and must never ' +
         'navigate here — that would push a screen whose only act is to pop itself.',
     },
+    // Also the address Peable's hosted seller onboarding returns a P2P seller to
+    // (`peable/accounts.ts`), which is why it exists before any in-app edge.
+    '/settings/payments': {
+      kind: 'deliberate',
+      reason:
+        'A deep-link bridge into the Settings dialog (Bloom SettingsModal), kept so an old ' +
+        'link or a bookmark still lands on the right page: it opens the dialog and steps back ' +
+        'off itself. In-app code opens Settings with useSettingsDialog().open() and must never ' +
+        'navigate here — that would push a screen whose only act is to pop itself.',
+    },
     '/settings/feedback': {
       kind: 'deliberate',
       reason:
