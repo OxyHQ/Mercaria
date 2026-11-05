@@ -90,7 +90,7 @@ const require = createRequire(import.meta.url);
  * and no server — the dev server is simply its only caller today. Calling the
  * lower-level `regenerateDeclarations` instead would mean re-deriving the app
  * root here, which is the one part of this that is genuinely Expo's to know
- * (the POS resolves its config through `app.config.js`, not `app.json`).
+ * (the storefront and the POS resolve their config through `app.config.js`).
  */
 const {
   startTypescriptTypeGenerationAsync,
