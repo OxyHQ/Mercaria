@@ -35,7 +35,8 @@
 - CI (`.github/workflows/ci.yml`) runs lint, tests, the API build and the app
   builds on every push and PR.
 - **Native apps: the storefront (`co.mercaria.app`) and the POS
-  (`co.mercaria.pos`).** `android-release.yml` calls oxy's reusable
+  (`co.mercaria.pos`); `APP_VARIANT=development` builds `co.mercaria.app.dev` /
+  `co.mercaria.pos.dev`, which install beside them.** `android-release.yml` calls oxy's reusable
   `android-release.yml` on Oxy's build machine; it builds a signed AAB + APK
   only when the app's `version` has no GitHub release yet (`android-v<version>`,
   `android-pos-v<version>`), and the build number is derived from `version`

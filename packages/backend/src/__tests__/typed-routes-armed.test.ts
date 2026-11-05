@@ -54,7 +54,7 @@ const REPO_ROOT = join(import.meta.dirname, '..', '..', '..', '..');
  * passing run, and this file exists precisely to refuse that equivalence.
  */
 const TYPED_ROUTE_APPS = [
-  { name: 'frontend', config: 'app.json' },
+  { name: 'frontend', config: 'app.config.js' },
   { name: 'dashboard', config: 'app.json' },
   { name: 'pos', config: 'app.config.js' },
 ] as const;
@@ -97,8 +97,8 @@ describe('typed routes are armed in every Expo app', () => {
 
   it.each(TYPED_ROUTE_APPS)('$name: experiments.typedRoutes is on', ({ name, config }) => {
     const source = readFileSync(join(REPO_ROOT, 'packages', name, config), 'utf8');
-    // Read as TEXT because the POS carries a JS config; a `false` here is not a
-    // smaller check, it is no check at all in that app.
+    // Read as TEXT because the storefront and the POS carry a JS config; a
+    // `false` here is not a smaller check, it is no check at all in that app.
     expect(
       /["']?typedRoutes["']?\s*:\s*true/u.test(source),
       `${name}/${config} does not set experiments.typedRoutes: true, so every route ` +

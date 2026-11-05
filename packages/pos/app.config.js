@@ -1,18 +1,30 @@
 const { oxySplashScreenPlugin } = require('@oxy.so/expo-splash/config');
 
+// App variant — lets a development build sit next to the production app on the
+// SAME device by giving it a distinct applicationId/bundleId + name. Build the
+// dev variant with `APP_VARIANT=development` (e.g.
+// `APP_VARIANT=development npx expo run:android`); production is the default.
+const IS_DEV_VARIANT = process.env.APP_VARIANT === 'development';
+const APP_ID = IS_DEV_VARIANT ? 'co.mercaria.pos.dev' : 'co.mercaria.pos';
+const APP_NAME = IS_DEV_VARIANT ? 'Mercaria POS (Dev)' : 'Mercaria POS';
+
 module.exports = {
   expo: {
     owner: 'oxyhq',
-    name: 'Mercaria POS',
+    name: APP_NAME,
     slug: 'mercaria-pos',
-    version: '1.0.0',
+    // The OTA compatibility boundary (withOxyUpdates, runtime policy
+    // `appVersion`) and the source of the derived store build number
+    // (@oxy.so/app-preset: 1.2.3 → 1002003). Bump it for any native change: the
+    // next push to main releases a new Android binary (`android-release.yml`).
+    version: '1.1.0',
     orientation: 'portrait',
     icon: './assets/icon-512.png',
     scheme: 'mercariapos',
     userInterfaceStyle: 'automatic',
     ios: {
       supportsTablet: true,
-      bundleIdentifier: 'co.mercaria.pos',
+      bundleIdentifier: APP_ID,
     },
     android: {
       adaptiveIcon: {
@@ -20,7 +32,7 @@ module.exports = {
         monochromeImage: './assets/adaptive-icon-monochrome.png',
         backgroundColor: '#FFFFFF',
       },
-      package: 'co.mercaria.pos',
+      package: APP_ID,
       predictiveBackGestureEnabled: false,
     },
     web: {
