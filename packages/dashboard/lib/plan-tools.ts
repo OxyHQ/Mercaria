@@ -1,4 +1,11 @@
-import { Calculator, CalendarClock, Scale, TrendingUp, Workflow, type LucideIcon } from 'lucide-react-native';
+import {
+  Calculator,
+  CalendarClock,
+  Scale,
+  TrendingUp,
+  Workflow,
+  type LucideIcon,
+} from 'lucide-react-native';
 import type { RoutePath } from 'expo-router';
 import type { MerchantEntitlementCapability, StorePermission } from '@mercaria/shared-types';
 
