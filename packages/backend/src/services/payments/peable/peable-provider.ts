@@ -42,7 +42,6 @@ import {
   type PaymentIntent,
   type PaymentIntentStatus,
   type Peable,
-  PeableError,
 } from '@peable.to/sdk';
 import { PaymentProviderError } from '../provider.js';
 import type {
@@ -63,6 +62,7 @@ import type {
   SettlingPaymentProvider,
 } from '../provider.js';
 import { createPeableClient } from './client.js';
+import { callPeable } from './errors.js';
 import { verifyPeableSignature } from './verify.js';
 
 /** The gateway's transfer statuses, as the wire contract closes them. */
@@ -225,29 +225,11 @@ export class PeablePaymentProvider
   constructor(client: Peable = createPeableClient()) {
     this.client = client;
   }
-  private async call<T>(stage: PaymentProviderStage, operation: () => Promise<T>): Promise<T> {
-    try {
-      return await operation();
-    } catch (error) {
-      if (error instanceof PaymentProviderError) throw error;
-      const status = error instanceof PeableError ? error.statusCode : undefined;
-      throw new PaymentProviderError({
-        provider: 'peable',
-        stage,
-        message: 'The Peable operation failed; retry only with the original intent.',
-        // A truncated error body keeps its known refusal status. A lost 2xx
-        // body or transport without headers remains indeterminate/retryable.
-        retryable:
-          status === undefined || status < 400 || status >= 500 || status === 408 || status === 429,
-      });
-    }
-  }
-
   async createPayment(request: CreatePaymentRequest): Promise<ProviderPaymentResult> {
     const currency = request.amount.currency;
     if (!isCardCurrency(currency))
       throw unsupported('createPayment', 'Currency is not supported by the Peable card rail.');
-    const intent = await this.call('createPayment', () =>
+    const intent = await callPeable('createPayment', () =>
       this.client.paymentIntents.create(
         {
           rail: 'card',
@@ -294,7 +276,7 @@ export class PeablePaymentProvider
   }
 
   async cancel(request: PaymentOperationRequest): Promise<ProviderPaymentResult> {
-    const intent = await this.call('cancel', () =>
+    const intent = await callPeable('cancel', () =>
       this.client.paymentIntents.cancel(
         request.providerObjectId,
         // The one caller is the reservation sweep giving up on a checkout the
@@ -307,7 +289,7 @@ export class PeablePaymentProvider
   }
 
   async refund(request: RefundRequest): Promise<ProviderRefundResult> {
-    const refund = await this.call('refund', () =>
+    const refund = await callPeable('refund', () =>
       this.client.refunds.create(
         {
           payment_intent: request.providerObjectId,
@@ -321,7 +303,7 @@ export class PeablePaymentProvider
     // statuses (ADR 0019); the payment's refund budget is — `remaining_refundable`
     // counts pending refunds beside succeeded ones, so a full refund still in
     // flight already closes the payment.
-    const refunds = await this.call('refund', () =>
+    const refunds = await callPeable('refund', () =>
       this.client.refunds.listForPaymentIntent(request.providerObjectId, { limit: 1 }),
     );
 
@@ -353,7 +335,7 @@ export class PeablePaymentProvider
     providerObjectId: string,
     stage: PaymentProviderStage,
   ): Promise<ProviderPaymentResult> {
-    const intent = await this.call(stage, () =>
+    const intent = await callPeable(stage, () =>
       this.client.paymentIntents.retrieve(providerObjectId),
     );
     return toResult(intent, stage);
@@ -380,7 +362,7 @@ export class PeablePaymentProvider
   // -------------------------------------------------------------------------
 
   async createTransfer(request: CreateTransferRequest): Promise<ProviderTransferResult> {
-    const transfer = await this.call('transfer', () =>
+    const transfer = await callPeable('transfer', () =>
       this.client.transfers.create(
         {
           payment_intent: request.sourcePaymentObjectId,
@@ -395,7 +377,7 @@ export class PeablePaymentProvider
   }
 
   async reverseTransfer(request: ReverseTransferRequest): Promise<ProviderTransferReversalResult> {
-    const transfer = await this.call('transfer', () =>
+    const transfer = await callPeable('transfer', () =>
       this.client.transfers.reverse(
         request.transferObjectId,
         {

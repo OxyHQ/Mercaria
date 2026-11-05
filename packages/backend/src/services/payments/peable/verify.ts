@@ -137,6 +137,29 @@ function billingIdsOf(event: WebhookEvent): Record<string, string> {
 }
 
 /**
+ * The ids a seller-side event names: the connected account an
+ * `connected_account.updated` is about, the payout and the account it is FROM,
+ * and the dispute or refund a payment event carries. Stored unredacted beside
+ * the payload for the same reason as the intent id — every handler correlates
+ * from these and re-reads the gateway, never the redacted summary.
+ */
+function sellerIdsOf(event: WebhookEvent): Record<string, string> {
+  const object = event.data.object;
+  switch (object.object) {
+    case 'connected_account':
+      return { connected_account: object.id };
+    case 'payout':
+      return { payout: object.id, connected_account: object.account };
+    case 'dispute':
+      return { dispute: object.id };
+    case 'refund':
+      return { refund: object.id };
+    default:
+      return {};
+  }
+}
+
+/**
  * Verify a delivery and normalize it.
  *
  * Every configured secret is offered at once, so a rotation does not reject the
@@ -174,6 +197,7 @@ export function verifyPeableSignature(input: ProviderEventInput): ProviderEventE
     apiVersion: event.api_version,
     objectIds: {
       ...billingIdsOf(event),
+      ...sellerIdsOf(event),
       ...(intentId === undefined ? {} : { payment_intent: intentId }),
     },
     ...(asserted === undefined || asserted === 'reread' ? {} : { paymentStatus: asserted }),

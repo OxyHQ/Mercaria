@@ -615,6 +615,7 @@
     "new": "Nou",
     "noAccess": "Sense accés",
     "noAccessBody": "No tens permís per veure aquesta àrea de la botiga activa.",
+    "none": "Cap",
     "pageOf": "Pàgina %{current} de %{total}",
     "pleaseTryAgain": "Torna-ho a provar.",
     "retry": "Torna-ho a provar",
@@ -1812,6 +1813,61 @@
       "subtitle": "Qui pot actuar per aquesta botiga i les excepcions al seu rol",
       "title": "Persones i permisos"
     },
+    "payments": {
+      "beingReviewed": "En revisió",
+      "countryHint": "Codi de dues lletres, per exemple ES. No es pot canviar un cop configurats els cobraments.",
+      "countryLabel": "País on està registrat el teu negoci",
+      "documentTitle": "Pagaments i liquidacions | Wholesale by Mercaria",
+      "dueBy": "Data límit",
+      "itemCount": {
+        "many": "%{count} d’elements",
+        "one": "%{count} element",
+        "other": "%{count} elements"
+      },
+      "loadFailed": "No s'ha pogut carregar la configuració de pagaments",
+      "neededNow": "Necessari ara",
+      "onboardingUnavailable": "La configuració de les liquidacions encara no està disponible en aquest desplegament de Mercaria.",
+      "openFailed": "No s'ha pogut obrir la configuració de les liquidacions",
+      "outstandingTitle": "Pendent amb Peable",
+      "paidOutIn": "Moneda de liquidació",
+      "payoutsTitle": "Liquidacions",
+      "quoteToSupport": "Cita això al servei d'assistència de Mercaria si necessites ajuda.",
+      "registeredIn": "Registrat a",
+      "reportedByPeable": "Informat per Peable",
+      "requirementsNote": "Peable guarda aquestes dades i és l'únic lloc on es poden completar. Mercaria no les veu mai.",
+      "states": {
+        "actionRequired": {
+          "action": "Continua la configuració",
+          "body": "Peable necessita més informació abans de poder pagar-te. Fins que no ho tingui tot, els compradors no poden finalitzar la compra amb els teus productes.",
+          "heading": "Encara falten algunes dades"
+        },
+        "disabled": {
+          "body": "Peable ha tancat aquest compte connectat, o bé se n'ha eliminat la connexió amb Mercaria. Els compradors no poden finalitzar la compra amb els teus productes. Contacta amb el servei d'assistència de Mercaria perquè ho revisin.",
+          "heading": "Aquest compte ja no es pot fer servir"
+        },
+        "notConnected": {
+          "action": "Configura les liquidacions",
+          "body": "Els teus productes es veuen i pots fer servir la resta de Mercaria, però els compradors encara no hi poden finalitzar la compra. Configurar les liquidacions només et portarà uns minuts.",
+          "heading": "Encara sense configurar"
+        },
+        "ready": {
+          "action": "Gestiona les dades de liquidació",
+          "body": "Els compradors poden finalitzar la compra amb els teus productes, i Peable transfereix el teu saldo al teu banc.",
+          "heading": "A punt per cobrar"
+        },
+        "restricted": {
+          "action": "Resol-ho ara",
+          "body": "Alguna cosa que Peable va demanar ja ha vençut, així que ha aturat les liquidacions i els compradors no poden finalitzar la compra amb els teus productes. Completar-ho restableix totes dues coses.",
+          "heading": "Les liquidacions estan aturades"
+        },
+        "underReview": {
+          "body": "Peable té el que havia demanat i ho està revisant. No has de fer res: normalment triga un dia o dos. Els compradors no poden finalitzar la compra amb els teus productes fins que acabi.",
+          "heading": "En revisió"
+        }
+      },
+      "subtitle": "Com cobres les comandes fetes a Mercaria",
+      "title": "Pagaments i liquidacions"
+    },
     "plan": {
       "alwaysIncludedBody": "Mantenir el teu catàleg, rebre i preparar comandes, fer reemborsaments, consultar els teus registres de vendes i de liquidacions i exportar les teves dades són gratuïts per a totes les botigues de Mercaria i mai no formen part d'un pla. Res d'aquesta pàgina no ho pot canviar, i cap pla no afecta com es troben ni com es classifiquen els teus productes.",
       "alwaysIncludedTitle": "Sempre inclòs",
@@ -1927,6 +1983,10 @@
       "members": {
         "description": "Qui pot actuar per la botiga i les excepcions al seu rol",
         "label": "Persones i permisos"
+      },
+      "payments": {
+        "description": "Cobra les comandes fetes a Mercaria",
+        "label": "Pagaments i liquidacions"
       },
       "plan": {
         "description": "Què obté la teva botiga i què en pagues",

@@ -27,19 +27,15 @@ adapter and event ingress (ADR 0009).
 None of these is papered over below; each is a gap before `PEABLE_ENABLED` can
 take a buyer's money (ADR 0009 D13):
 
-- **No seller onboarding.** Nothing writes `provider_accounts`, so with
-  `PEABLE_ENABLED` on, `assertSellerGroupsPaymentReady` refuses every seller and
-  no card checkout can be placed.
 - **No native card form, and the web payer UI is unverified end to end.** The
   web checkout pays with Peable's Elements; iOS and Android open Peable's hosted
   pay page in the system browser, because Peable's payer SDK has no native card
   path (see "The storefront's card step"). Neither has confirmed a real
   payment (ADR 0009 D18).
-- **No dispute, payout or account events.** The Peable router applies
-  `payment_intent.*` and `charge.refunded` only, so `disputes`, `payouts` and
-  `provider_accounts` have no writer, and `transfer_changed`, `payout_changed`,
-  `payment_disputed`, `provider_account_changed` and `refund_unmatched` have no
-  producer.
+- **No dispute or payout events.** The Peable router applies
+  `payment_intent.*`, `charge.refunded` and `connected_account.updated` only, so
+  `disputes` and `payouts` have no writer, and `transfer_changed`,
+  `payout_changed`, `payment_disputed` and `refund_unmatched` have no producer.
 - **No processor fee and no settlement figure.** A Peable success books no
   `processor_expense`, and the adapter's refund result carries no platform
   figure, so a refund's money leg retries `refund_settlement_unavailable` until
@@ -73,7 +69,7 @@ Thirteen tables, all Postgres-native.
 
 | Table | What it is |
 |---|---|
-| `provider_accounts` | One seller's standing with one rail: their connected account, its capabilities, and the single readiness verdict checkout gates on. **No writer today** (no Peable onboarding). |
+| `provider_accounts` | One seller's standing with one rail: their Peable connected account, its capabilities, and the single readiness verdict checkout gates on. Written by Peable onboarding (`services/payments/peable/accounts.ts`). |
 | `payments` | The durable payment aggregate. One per funded checkout group for native rails; one per imported order for `external`. |
 | `disputes` | A card network reversing a charge: its deadline, its evidence, its outcome and its ledger life (#49). **No writer today.** |
 | `payment_attempts` | One row per provider authorization or confirmation Mercaria asked for. Append-mostly evidence. |
@@ -515,10 +511,47 @@ indexed insert.
 rail, carrying the connected account and the verdict that decides whether their
 listings can be bought. ADR 0009 D14 keeps it in Mercaria because readiness gates
 **checkout group construction**, a Mercaria decision made before any rail is
-called. **Nothing writes it on the Peable rail yet**: the direct rail's hosted
-onboarding, its account sync, its account sweep and every onboarding route
-(`/admin/stores/:storeId/payments/*`, `/seller/payments/*`,
-`/stripe/onboarding/*`) were deleted, and Peable seller onboarding is not built.
+called.
+
+### Onboarding on Peable
+
+A seller is a Peable CONNECTED ACCOUNT of Mercaria's merchant (Peable ADR 0012),
+card half only. `services/payments/peable/accounts.ts` is the only module that
+knows its shape:
+
+- **Routes.** `GET /admin/stores/:storeId/payments/account`,
+  `POST …/account/onboarding-link` and `POST …/account/refresh` (behind
+  `store:manage`), and the same three under `/seller/payments/*` for a P2P
+  seller, where the caller IS the owner. The owner comes from the route, never
+  the body; the body carries only an optional two-letter `country` (strict —
+  anything else is a 400), needed once, before the account exists. Which
+  countries can be onboarded is Peable's answer, not a list here.
+- **Opening.** `connectedAccounts.create` with `external_ref` = the seller key
+  (`store:<id>` / `user:<id>`), `business_type` from the owner kind. Peable
+  converges a repeated create on `external_ref`, which is what makes two racing
+  clicks one account; the owner index is the second line. The FairCoin half is
+  never requested: a seller's key comes only from the seller (Peable ADR 0012)
+  and Mercaria's checkout has no FairCoin rail.
+- **The link.** `connectedAccounts.createAccountLink(…, { rail: 'card' })`,
+  minted per request and never stored, with `refresh_url` = `return_url` = the
+  seller's own settings screen (`DASHBOARD_URL/settings/payments` for a store,
+  `WEB_URL/settings/payments` for a P2P seller), composed from configuration.
+  Arriving there proves nothing.
+- **Readiness from a READ.** `connected_account.updated` on `/webhooks/peable`
+  (`peable/seller-events.ts`), the create's own answer and the seller's refresh
+  (`connectedAccounts.refresh`, the gateway re-reading the acquirer) all apply an
+  account read from Peable — never a payload — through the repository's
+  compare-and-swap on the observation time.
+- **The D9 verdict** is `services/payments/account-readiness.ts`: payouts
+  enabled, `transfers` active, Peable calling the account `payable`, nothing
+  currently or past due, no disabling reason. `payable` is a conjunct because
+  Peable refuses a transfer to an account it does not consider payable.
+
+The dashboard's **Payments & payouts** screen (`settings/payments.tsx`) asks the
+owner for the country once, opens the link in the system browser and calls
+`refresh` when it closes. The storefront has no P2P payments page yet (P2P
+selling has no storefront entry — `/sell` is awaiting a product decision); the
+P2P routes are live for it.
 
 ### One account per owner, and the index that enforces it
 
@@ -543,7 +576,7 @@ Requirements are stored as COUNTS, a deadline and filtered reason codes — real
 columns, not a summary object, so an integer column cannot hold
 `individual.verification.document`. The deleted Stripe sync also shape-checked
 reason codes (`^[a-z][a-z0-9_]*(\.[a-z0-9_]+)*$`, else `other`); the database
-refuses only an empty code, so whatever writes Peable's rows must filter again.
+refuses only an empty code, so `safeReasonCodes` filters Peable's the same way.
 
 ### The checkout gate
 
@@ -561,8 +594,8 @@ an order.
 
 **When no native rail is configured the gate returns before touching Postgres**,
 so a deployment without `PEABLE_ENABLED` places orders exactly as it did before
-#46. With it on, the gate refuses every seller today, because no seller has a
-`ready` row. Both branches are pinned: the off branch in `checkout.service.test.ts`
+#46. With it on, the gate admits exactly the sellers whose Peable account has
+reached `ready`. Both branches are pinned: the off branch in `checkout.service.test.ts`
 (`expect(findProviderAccountByOwner).not.toHaveBeenCalled()`), the on branch in
 `checkout.payment-gate.test.ts`, which also asserts `reserve` was never called.
 
@@ -573,11 +606,11 @@ not make Mercaria forget the account.
 
 ### The audit trail
 
-A seller account's creation, state transitions and revocation are meant to write
-a `provider_account_changed` outbox row — the same durable at-least-once delivery
-every other payment consequence gets, carrying ids and the two states, never
-provider detail. The handler is in place; the producer arrives with Peable
-onboarding.
+A seller account's creation and every change of its verdict write a
+`provider_account_changed` outbox row (`peable/accounts.ts`) — the same durable
+at-least-once delivery every other payment consequence gets, carrying ids and the
+two states, never provider detail. Only the observation that the compare-and-swap
+applied announces, so a slower concurrent read never announces a stale move.
 
 ---
 
@@ -1454,8 +1487,8 @@ field by field so a column added later cannot ride along. Absent by design:
 question, answered on `GET /internal/payments/trace`. `providerFailureCode` is
 shape-checked (`^[a-z][a-z0-9_]*$`) and dropped otherwise. There is no
 buyer-facing refund surface; the guest portal (#108/#110) is where one belongs.
-The dashboard's Payments & payouts screen was deleted with the direct rail;
-merchants have no payment-account surface until Peable onboarding exists.
+The dashboard's Payments & payouts screen is the store's Peable onboarding
+(see "Onboarding on Peable").
 
 ---
 
@@ -1997,7 +2030,7 @@ nothing below has been done against live money.
 
 **Blockers (each a build, not a check)**
 
-- [ ] Peable seller onboarding writes `provider_accounts`, so a seller can reach
+- [x] Peable seller onboarding writes `provider_accounts`, so a seller can reach
       `ready`.
 - [ ] The storefront card step (web Elements, native hosted page) confirms a
       real test-mode payment end to end.

@@ -9,12 +9,18 @@ import {
   fulfillOrderSchema,
   orderListQuerySchema,
 } from '../middleware/schemas.js';
+import { onboardingLinkSchema } from '../middleware/payments-schemas.js';
 import { acceptActivationPolicySchema } from '../middleware/merchant-activation-schemas.js';
 import {
   acceptSellerPolicyHandler,
   getSellerActivationPoliciesHandler,
 } from '../controllers/merchant-activation.controller.js';
 import { getMyProfile, updateMyProfile } from '../controllers/seller-profile.controller.js';
+import {
+  createSellerOnboardingLinkHandler,
+  getSellerPaymentAccountHandler,
+  refreshSellerPaymentAccountHandler,
+} from '../controllers/payments.controller.js';
 import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import {
   listMyListings,
@@ -111,6 +117,20 @@ router.post(
   makeRateLimiter('stores'),
   validateBody(acceptActivationPolicySchema),
   acceptSellerPolicyHandler,
+);
+
+// The P2P seller's own payment onboarding (ADR 0001 D9) — the caller IS the owner.
+router.get('/payments/account', getSellerPaymentAccountHandler);
+router.post(
+  '/payments/account/onboarding-link',
+  makeRateLimiter('payments'),
+  validateBody(onboardingLinkSchema),
+  createSellerOnboardingLinkHandler,
+);
+router.post(
+  '/payments/account/refresh',
+  makeRateLimiter('payments'),
+  refreshSellerPaymentAccountHandler,
 );
 
 // Seller listings (P2P).

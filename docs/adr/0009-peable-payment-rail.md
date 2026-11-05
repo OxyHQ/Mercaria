@@ -101,8 +101,11 @@ domain D14 keeps, and the Peable rail writes or will write each of them.
 end.** Removing the direct rail did not build these, and each is a gap before
 `PEABLE_ENABLED` can take a buyer's money:
 
-- seller onboarding — nothing writes `provider_accounts` now, so with
-  `PEABLE_ENABLED` on, `assertSellerGroupsPaymentReady` refuses every seller;
+- ~~seller onboarding~~ — **built**: a seller is a Peable connected account of
+  Mercaria's merchant (card half; `services/payments/peable/accounts.ts`),
+  opened with `external_ref` = the seller key and onboarded through Peable's
+  hosted link; `connected_account.updated` and the seller's refresh re-read it
+  into `provider_accounts` (see `docs/payments.md`, "Onboarding on Peable");
 - a NATIVE card form — the storefront's card step (2026-11-05) hands the payer
   SDK the gateway PaymentIntent and its own `client_secret`
   (`CheckoutPaymentHandoff.providerPaymentId` / `clientSecret`; the acquirer
@@ -113,9 +116,9 @@ end.** Removing the direct rail did not build these, and each is a gap before
   `PeableProviderFields` need a DOM). Peable's `PeableElement.on` also does not
   type the Express Checkout `confirm` event the wallet sheet waits on, so the
   step widens that one listener. Neither path has confirmed a real payment;
-- dispute, payout and connected-account events from the gateway — the Peable
-  router handles payment intents and `charge.refunded` only, so `disputes`,
-  `payouts` and `provider_accounts` have no writer. The rail-neutral entry points
+- dispute and payout events from the gateway — the Peable router handles
+  payment intents, `charge.refunded` and `connected_account.updated` only, so
+  `disputes` and `payouts` have no writer. The rail-neutral entry points
   the router will call — `dispute.service` (`recordDispute`, `closeDispute`) and
   `payout.service` (`recordPayout`) — are kept as those seams, uncalled and, for
   disputes, without a test until then (their cases were driven by Stripe
