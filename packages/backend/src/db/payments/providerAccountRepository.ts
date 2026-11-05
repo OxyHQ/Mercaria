@@ -4,13 +4,12 @@
  * `db` is the first parameter everywhere, for the reason
  * `paymentRepository.ts` gives: a helper typed only as `Database` would silently
  * run outside its caller's transaction. Nothing here interprets provider
- * vocabulary; the mapping from a Stripe account onto these columns lives in
- * `services/payments/stripe/account.service.ts`, and the readiness verdict is
- * already collapsed into `onboarding_state` by the time a row is written.
+ * vocabulary; the readiness verdict is already collapsed into
+ * `onboarding_state` by the time a row is written.
  *
  * ## Two writers, and the reason the second one is guarded
  *
- * A row's state is refreshed from BOTH the `account.updated` webhook and the
+ * A row's state is refreshed from BOTH a rail's account event and a
  * reconciliation sweep, which is the point — a missed delivery converges without
  * anyone knowing which one was missed (ADR 0001, sequence 6). But that means two
  * tasks can be holding two reads of the same account taken seconds apart, and
@@ -24,7 +23,7 @@
  * how many times Mercaria has written.
  */
 
-import { and, asc, eq, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, eq, isNull, lte, or, sql } from 'drizzle-orm';
 import type {
   PaymentProviderId,
   ProviderAccountOwnerType,
@@ -39,13 +38,10 @@ export type ProviderAccountRow = typeof providerAccounts.$inferSelect;
 /**
  * Which seller, on which rail. The natural key every read starts from.
  *
- * `provider` was `'stripe'` — narrowed here rather than at a call site, from
- * when one rail was the only one. That narrowing outlived its premise: ADR 0009
- * put a second rail on the same table (migration `0154` widened the CHECK to
- * match), and a repository that cannot NAME the second rail is a repository the
- * second rail cannot use. Which rails may hold an account is a policy question,
- * and it is answered above this layer by `native-rail.ts` — not by a type here
- * that would have to be edited every time the policy moves.
+ * `provider` is any `PaymentProviderId` rather than a narrowed literal: which
+ * rails may hold an account is a policy question, answered above this layer by
+ * `native-rail.ts` — not by a type here that would have to be edited every time
+ * the policy moves.
  */
 export interface ProviderAccountOwnerKey {
   provider: PaymentProviderId;
@@ -286,66 +282,4 @@ export async function applyProviderAccountState(
     throw new Error(`provider_accounts row ${input.id} disappeared during a state update.`);
   }
   return { row: current, applied: false };
-}
-
-/**
- * The provider revoked the platform's authorisation for this account.
- *
- * Terminal, and applied WITHOUT the freshness guard above: a deauthorization is
- * not an observation of state that a later read supersedes, it is the end of
- * Mercaria's ability to read that account at all. A sync that was in flight when
- * it arrived must not be able to put the row back.
- *
- * @returns Whether this call was the one that revoked it.
- */
-export async function revokeProviderAccount(
-  db: DatabaseOrTransaction,
-  input: { id: string; at: Date },
-): Promise<boolean> {
-  const updated = await db
-    .update(providerAccounts)
-    .set({
-      onboardingState: 'disabled',
-      payoutsEnabled: false,
-      chargesEnabled: false,
-      transfersCapability: null,
-      revokedAt: input.at,
-      lastSyncedAt: input.at,
-    })
-    .where(and(eq(providerAccounts.id, input.id), isNull(providerAccounts.revokedAt)))
-    .returning({ id: providerAccounts.id });
-  return updated.length === 1;
-}
-
-/**
- * Accounts whose provider state has not been read recently — oldest first.
- *
- * The reconciliation sweep's input. Never-synced rows sort first because
- * `last_synced_at` is NULL and `asc` puts NULLs last in Postgres by default —
- * hence the explicit `nulls first`, which is not decoration: a row that was
- * created and never read back is the one MOST likely to be stuck, and default
- * ordering would visit it after every account that has ever synced.
- *
- * Revoked accounts are excluded. There is nothing left to read: the platform's
- * authorisation is gone, so every call would 401 forever.
- */
-export async function findStaleProviderAccounts(
-  db: DatabaseOrTransaction,
-  input: { provider: PaymentProviderId; staleBefore: Date; limit: number },
-): Promise<ProviderAccountRow[]> {
-  return await db
-    .select()
-    .from(providerAccounts)
-    .where(
-      and(
-        eq(providerAccounts.provider, input.provider),
-        isNull(providerAccounts.revokedAt),
-        or(
-          isNull(providerAccounts.lastSyncedAt),
-          lte(providerAccounts.lastSyncedAt, input.staleBefore),
-        ),
-      ),
-    )
-    .orderBy(sql`${providerAccounts.lastSyncedAt} asc nulls first`, asc(providerAccounts.createdAt))
-    .limit(input.limit);
 }

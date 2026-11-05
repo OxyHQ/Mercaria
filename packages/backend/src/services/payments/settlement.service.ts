@@ -341,8 +341,8 @@ function holdReleasableAt(input: { amount: Money; settleableSince: Date }): Date
     amount: input.amount,
     settleableSince: input.settleableSince,
     now: new Date(),
-    thresholds: config.payments.stripe.highValueHoldThresholds,
-    windowMs: config.payments.stripe.highValueHoldWindowMs,
+    thresholds: config.payments.highValueHoldThresholds,
+    windowMs: config.payments.highValueHoldWindowMs,
   });
   return decision.outcome === 'hold' ? decision.releasableAt : undefined;
 }

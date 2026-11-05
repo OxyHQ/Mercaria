@@ -1,11 +1,12 @@
 /**
  * The payout RAIL — a named, fail-closed seam that #146 fills (#145).
  *
- * ADR 0005 D14 selects one launch rail: Stripe Connect transfers to a
- * payment-ready connected account, reusing #46's `provider_accounts` so a
- * referral payout can never mint a second one. **#146 FILLED this**: the
- * implementation is `services/referral-payouts/rail.ts`, registered at boot,
- * and this file stays the request shape, the outcome union and the registry.
+ * ADR 0005 D14 pays a partner to a payment-ready connected account, reusing
+ * #46's `provider_accounts` so a referral payout can never mint a second one.
+ * #146 filled this with a direct Stripe Connect transfer; that implementation
+ * went with the direct Stripe rail (Mercaria ADR 0009 D13), so the registry is
+ * EMPTY again until a Peable payout rail registers. This file stays the request
+ * shape, the outcome union and the registry.
  *
  * The registry is still a PORT rather than a direct call, and the reason has
  * outlived the seam: the implementation lives OUTSIDE both walled domains, so
@@ -14,16 +15,16 @@
  * ## Why it was empty, and why the alternatives were both worse
  *
  * A `console.log` rail looks like a working feature in every test and pays
- * nobody in production. A direct Stripe client here would put the card rail
+ * nobody in production. A payment-rail client here would put the card rail
  * inside the referral domain — which `reward-funding-isolation.test.ts` refuses
  * by name, and rightly: a partner payout and a buyer's charge are different
  * money with different compliance, and one import is how they stop being.
  *
- * While the registry was empty every settlement failed `rail_not_configured`,
+ * While the registry is empty every settlement fails `rail_not_configured`,
  * VISIBLY, with the batch intact, its items still claimed and its idempotency
- * key unchanged — which is what made #146 a registration rather than a
- * migration: `rail_not_configured` is retryable, so a batch queued back then
- * settles on its next pass, on its own key, with no replay.
+ * key unchanged — which makes a rail a registration rather than a migration:
+ * `rail_not_configured` is retryable, so a queued batch settles on the next
+ * pass after a rail registers, on its own key, with no replay.
  *
  * ## The request carries no beneficiary DETAIL, deliberately
  *

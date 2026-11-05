@@ -1,17 +1,13 @@
 /**
  * Turning a verified Peable event into a Mercaria payment status.
  *
- * Much shorter than `stripe/stripe-event-router.ts`, and the reason is the whole
- * point of ADR 0009: the gateway has already interpreted the acquirer. Stripe's
- * router re-reads the `PaymentIntent`, walks `latest_charge` to a balance
- * transaction, maps four object types and reconciles a status it did not expect.
- * Peable sends a decided event about one object, so this maps and applies.
+ * Short, and the reason is the whole point of ADR 0009: the gateway has already
+ * interpreted the acquirer. Peable sends a decided event about one object, so
+ * this maps and applies.
  *
  * ## When it re-reads, and when it does not
  *
- * A `payment_intent.*` event is not re-read. Stripe's router re-reads because a
- * Stripe event is a snapshot that may be stale by the time a retry runs; here
- * the event type IS the assertion — `payment_intent.succeeded` does not become
+ * A `payment_intent.*` event is not re-read: the event type IS the assertion — `payment_intent.succeeded` does not become
  * untrue later — and `applyPaymentStatus`'s compare-and-swap already discards a
  * late duplicate.
  *
@@ -25,9 +21,8 @@
  *
  * ## The fee gap, stated rather than defaulted
  *
- * A Stripe success carries settlement detail: what the charge became on the
- * platform balance and what the acquirer kept (`settlement-read.ts`). Peable's
- * events carry neither. Its contract now has the figures —
+ * A card success has settlement detail behind it: what the charge became on the
+ * platform balance and what the acquirer kept. Peable's events carry neither. Its contract now has the figures —
  * `refunds.settlement(intent)`'s gross, fee and net in the SETTLEMENT currency
  * (`null` with a status, never `0`), and the balance transactions — but which
  * of them Mercaria books, and at what rate, is a ledger decision (ADR 0001 D5,
@@ -47,8 +42,13 @@ import type { PaymentStatus } from '@mercaria/shared-types';
 import { findPaymentByProviderObjectId } from '../../../db/payments/paymentRepository.js';
 import { getDb } from '../../../db/postgres.js';
 import { log } from '../../../lib/logger.js';
+import { recordSupervisedCancellation } from '../../supervised-shopping/purchase.service.js';
 import { PaymentProviderError } from '../provider.js';
-import { applyPaymentStatus, canTransitionPaymentStatus } from '../payment.service.js';
+import {
+  applyPaymentStatus,
+  canTransitionPaymentStatus,
+  flagSucceededAfterRelease,
+} from '../payment.service.js';
 import { resolvePaymentProvider } from '../registry.js';
 import { PEABLE_BILLING_EVENT_HANDLERS } from '../../billing/peable/events.js';
 import { isPeablePaymentEvent, PAYMENT_STATUS_FOR_EVENT } from './verify.js';
@@ -82,7 +82,7 @@ export interface PeableEventOutcome {
 /**
  * A correlation this task cannot make YET.
  *
- * Retryable on purpose, exactly as in the Stripe router: the gateway can deliver
+ * Retryable on purpose: the gateway can deliver
  * `payment_intent.succeeded` before the transaction that wrote Mercaria's payment
  * row is visible to this task. Failing terminally there would discard a real
  * settlement over a race measured in milliseconds. Backoff plus eventual
@@ -128,6 +128,10 @@ async function applyIntentEvent(
   const next = asserted === 'reread' ? await readPaymentStatus(intentId) : asserted;
 
   if (payment.status === next) {
+    // A gateway-confirmed cancellation is what lets a supervised purchase's
+    // approval be released (the sweep path records its own), and a redelivery
+    // must still record it if the first attempt did not get that far.
+    if (next === 'canceled') await recordSupervisedCancellation(payment.id, true);
     // Already there. Reported as applied rather than ignored because the state
     // the event asserts IS the state of the payment — an operator reading this
     // row wants "yes, and it was already so", not "nothing happened".
@@ -139,6 +143,25 @@ async function applyIntentEvent(
   }
 
   if (!canTransitionPaymentStatus(payment.status, next)) {
+    // Money arrived for goods Mercaria already released: the reservation timed
+    // out, the sweep cancelled the orders and the stock went back. Re-committing
+    // the stock would oversell, so this raises ONE durable exception for an
+    // operator (#50) and changes nothing else — `flagSucceededAfterRelease`
+    // says why every automatic answer is worse.
+    if (next === 'succeeded' && payment.status === 'canceled') {
+      const outboxEventId = await flagSucceededAfterRelease({
+        paymentId: payment.id,
+        providerEventId: context.providerEventId,
+      });
+      return {
+        kind: 'applied',
+        paymentId: payment.id,
+        note:
+          `EXCEPTION: the gateway captured ${intentId} after Mercaria released the payment. No ` +
+          'inventory, order or ledger change was made; raised for an operator decision (#50)' +
+          `${outboxEventId === undefined ? ' — already raised by an earlier delivery' : ` as ${outboxEventId}`}.`,
+      };
+    }
     // Deferred, not thrown. The gateway is describing a real transition Mercaria
     // cannot make from where it is — which is evidence of a divergence a person
     // has to look at, and retrying it would never resolve since neither side
@@ -169,6 +192,8 @@ async function applyIntentEvent(
     // is the honest encoding of "the gateway did not tell us", and it is said
     // out loud in the note below rather than inferred from a zero.
   });
+
+  if (next === 'canceled') await recordSupervisedCancellation(payment.id, true);
 
   const noted =
     next === 'succeeded'

@@ -602,7 +602,7 @@ a repo secret other than its job token.
 ```bash
 # set or rotate (the owner, never a workflow)
 aws ssm put-parameter --profile oxy --region us-west-2 --type SecureString \
-  --overwrite --name /oxy/mercaria/STRIPE_SECRET_KEY --value '…'
+  --overwrite --name /oxy/mercaria/PEABLE_WEBHOOK_SECRET --value '…'
 # then roll the service so new tasks read it
 aws ecs update-service --profile oxy --region us-west-2 --cluster oxy-cluster \
   --service mercaria --force-new-deployment
@@ -628,10 +628,14 @@ out: a task naming a parameter that does not exist fails at start.
   a recall or approve a payout batch. Pre-launch lists:
   `docs/payments.md`, `docs/retail-eligibility.md` and `docs/referral-pilots.md`
   §"Production-readiness checklist".
-- **Referral payouts need FOUR things, not one:** `referrals.operate` seeded and
-  held by the operators;
-  `STRIPE_ENABLED` plus a payment-ready connected account per partner (with the
-  rail off every partner's readiness reads `unknown`, which BLOCKS); a partner
+- **Referral payouts cannot settle today: no payout rail is registered.** Its
+  only implementation was the direct Stripe Connect transfer, deleted with that
+  rail (ADR 0009 D13), so every batch fails `rail_not_configured`, retryably,
+  with its claims intact. Once a Peable payout rail registers, they need FOUR
+  things: `referrals.operate` seeded and held by the operators;
+  `PEABLE_ENABLED` plus a payment-ready connected account per partner (with no
+  native rail every partner's readiness reads `unknown`, which BLOCKS — and
+  nothing writes a Peable `provider_accounts` row yet); a partner
   who actually enrolled — agreement AND tax questionnaire
   (`REFERRAL_PARTNER_ENROLLMENT_ENABLED`, ADR 0005 D15 gate 2); and a published
   pilot cohort, since a programme with no active cohort attributes NOTHING.

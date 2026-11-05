@@ -14,8 +14,8 @@
  * {@link GUEST_PORTAL_MESSAGE_TRIGGERS} names the enqueuer for every kind, or
  * the issue that owes one. `guest-portal-message-triggers.test.ts` fails the
  * build if a kind is neither triggered nor deferred with an issue number — the
- * `deferred: #NN` device from the Stripe event ingress, applied to a
- * notification catalogue instead of an event router. A kind with no trigger is
+ * `deferred: #NN` device, applied to a notification catalogue instead of an
+ * event router. A kind with no trigger is
  * a template nobody has proved works, and the honest way to say so is a table
  * rather than silence.
  *

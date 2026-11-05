@@ -1,8 +1,8 @@
 /**
- * Guest checkout on the Stripe rail, end to end, against a REAL Postgres
- * database (#107, ADR 0006).
+ * Guest card checkout on the Peable rail (ADR 0009 D13), end to end, against a
+ * REAL Postgres database (#107, ADR 0006).
  *
- * `checkout.stripe.realdb.test.ts` proves the rail for an Oxy buyer. This file
+ * `checkout.card.realdb.test.ts` proves the rail for an Oxy buyer. This file
  * proves the four things that are only true of a GUEST, and every one of them
  * lives in a gap a mock has no way to reach:
  *
@@ -18,6 +18,10 @@
  *  - the payment-status read is scoped through `guest_checkouts.guest_session_id`
  *    — a JOIN, so another guest's session answers 404 rather than 403.
  *
+ * The adapter, the registry and the signed ingress (`ingestPeableDelivery`)
+ * are the production code; only the gateway behind `createPeableClient` is
+ * faked (`payments/__tests__/helpers/fake-peable-gateway.ts`).
+ *
  * ## Fixtures are scoped, never truncated
  *
  * `*.realdb.test.ts` files share ONE throwaway database and run in PARALLEL, so
@@ -26,7 +30,6 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
-import Stripe from 'stripe';
 import { and, eq } from 'drizzle-orm';
 
 /**
@@ -40,76 +43,13 @@ vi.mock('../../queue/producers.js', () => ({
   enqueueRecomputeAggregate: vi.fn(async () => undefined),
 }));
 
-const PLATFORM_SECRET = 'whsec_guest_checkout_not_a_real_one';
+/** The gateway, replaced at the ONE seam Mercaria reaches it through. */
+const gateway = await vi.hoisted(async () =>
+  (await import('../payments/__tests__/helpers/fake-peable-gateway.js')).createFakePeableGateway(),
+);
+vi.mock('../payments/peable/client.js', () => gateway.clientModule());
 
-/** The fake Stripe API. Hoisted so the `vi.mock` factory can close over it. */
-const api = vi.hoisted(() => ({
-  intents: new Map<string, Record<string, unknown>>(),
-  charges: new Map<string, Record<string, unknown>>(),
-  transfers: new Map<string, Record<string, unknown>>(),
-  /** Idempotency key → the object that key already produced (Stripe's own rule). */
-  byKey: new Map<string, Record<string, unknown>>(),
-  intentCalls: [] as { params: Record<string, unknown>; idempotencyKey: string }[],
-  nextId: 0,
-}));
-
-vi.mock('../payments/stripe/client.js', () => ({
-  STRIPE_API_VERSION: '2026-07-29.dahlia',
-  getStripeClient: () => {
-    throw new Error('This suite must not construct a real Stripe client.');
-  },
-  resetStripeClient: () => undefined,
-  createStripePaymentIntent: (params: Record<string, unknown>, idempotencyKey: string) => {
-    api.intentCalls.push({ params, idempotencyKey });
-    const existing = api.byKey.get(idempotencyKey);
-    if (existing) return Promise.resolve(existing);
-
-    api.nextId += 1;
-    const id = `pi_guest_${String(api.nextId)}`;
-    const intent = {
-      id,
-      object: 'payment_intent',
-      status: 'requires_payment_method',
-      amount: params.amount,
-      currency: params.currency,
-      metadata: params.metadata,
-      client_secret: `${id}_secret_guest`,
-    };
-    api.intents.set(id, intent);
-    api.byKey.set(idempotencyKey, intent);
-    return Promise.resolve(intent);
-  },
-  retrieveStripePaymentIntent: (id: string) => {
-    const intent = api.intents.get(id);
-    if (!intent) throw new Error(`No fake PaymentIntent registered for ${id}`);
-    return Promise.resolve(intent);
-  },
-  cancelStripePaymentIntent: (id: string) => {
-    const intent = api.intents.get(id);
-    if (!intent) throw new Error(`No fake PaymentIntent registered for ${id}`);
-    intent.status = 'canceled';
-    return Promise.resolve(intent);
-  },
-  retrieveStripeChargeWithBalance: (id: string) => {
-    const charge = api.charges.get(id);
-    if (!charge) throw new Error(`No fake charge registered for ${id}`);
-    return Promise.resolve(charge);
-  },
-  createStripeTransfer: (params: Record<string, unknown>, idempotencyKey: string) => {
-    api.nextId += 1;
-    const id = `tr_guest_${String(api.nextId)}`;
-    const transfer = { id, object: 'transfer', ...params };
-    api.transfers.set(id, transfer);
-    api.byKey.set(idempotencyKey, transfer);
-    return Promise.resolve(transfer);
-  },
-  createStripeRefund: () => {
-    throw new Error('This suite makes no refunds.');
-  },
-  createStripeTransferReversal: () => {
-    throw new Error('This suite makes no reversals.');
-  },
-}));
+const WEBHOOK_SECRET = 'pwhsec_guest_checkout_not_a_real_one';
 
 /** A per-run suffix, so nothing this file writes can collide with a sibling's. */
 const RUN = Math.random().toString(36).slice(2, 10);
@@ -118,7 +58,7 @@ let db: import('../../db/postgres.js').Database;
 let closePostgres: typeof import('../../db/postgres.js').closePostgres;
 let checkout: typeof import('../checkout.service.js').checkout;
 let readCheckoutPaymentStatus: typeof import('../payments/checkout-payment.service.js').readCheckoutPaymentStatus;
-let ingestStripeDelivery: typeof import('../payments/stripe/ingress.js').ingestStripeDelivery;
+let ingestPeableDelivery: typeof import('../payments/peable/ingress.js').ingestPeableDelivery;
 let issueGuestSession: typeof import('../guest-session.service.js').issueGuestSession;
 let insertVariants: typeof import('../../db/catalog/variantRepository.js').insertVariants;
 let insertLocation: typeof import('../../db/stores/locationRepository.js').insertLocation;
@@ -144,14 +84,14 @@ const INLINE_ADDRESS = {
 
 beforeAll(async () => {
   // Set BEFORE any import that reads config: `config/index.ts` reads the
-  // environment once at module load and freezes the result.
-  process.env.STRIPE_ENABLED = 'true';
-  process.env.STRIPE_SECRET_KEY = 'sk_test_guest_not_a_real_key';
-  process.env.STRIPE_WEBHOOK_SECRET = PLATFORM_SECRET;
-  process.env.STRIPE_CONNECT_WEBHOOK_SECRET = 'whsec_guest_connect_not_a_real_one';
-  process.env.STRIPE_PUBLISHABLE_KEY = 'pk_test_guest_not_a_real_key';
-  process.env.STRIPE_PLATFORM_CURRENCY = 'EUR';
-  process.env.STRIPE_PRESENTMENT_CURRENCIES = 'EUR,USD';
+  // environment once at module load and freezes the result. Everything
+  // `resolvePeableEnabled` requires, or the rail stays off.
+  process.env.PEABLE_ENABLED = 'true';
+  process.env.PEABLE_BASE_URL = 'https://api.peable.invalid';
+  process.env.PEABLE_WEBHOOK_SECRET = WEBHOOK_SECRET;
+  delete process.env.PEABLE_WEBHOOK_SECRET_PREVIOUS;
+  process.env.PEABLE_PRESENTMENT_CURRENCIES = 'EUR,USD';
+  delete process.env.HIGH_VALUE_HOLD_THRESHOLDS;
   process.env.FX_PROVIDER = 'static';
   // Guest commerce, and the two keys the M8 half-configuration rule demands.
   process.env.GUEST_COMMERCE_ENABLED = 'true';
@@ -176,7 +116,7 @@ beforeAll(async () => {
 
   ({ checkout } = await import('../checkout.service.js'));
   ({ readCheckoutPaymentStatus } = await import('../payments/checkout-payment.service.js'));
-  ({ ingestStripeDelivery } = await import('../payments/stripe/ingress.js'));
+  ({ ingestPeableDelivery } = await import('../payments/peable/ingress.js'));
   ({ issueGuestSession } = await import('../guest-session.service.js'));
   ({ insertVariants } = await import('../../db/catalog/variantRepository.js'));
   ({ insertLocation } = await import('../../db/stores/locationRepository.js'));
@@ -198,12 +138,41 @@ afterAll(async () => {
 });
 
 beforeEach(() => {
-  api.intents.clear();
-  api.charges.clear();
-  api.transfers.clear();
-  api.byKey.clear();
-  api.intentCalls.length = 0;
+  gateway.reset();
 });
+
+/**
+ * A `ready` account on the Peable rail, seeded through the repository — there
+ * is no Peable onboarding code path yet (ADR 0009 D13 "As built").
+ */
+async function seedReadyAccount(input: {
+  ownerType: 'user' | 'store';
+  ownerId: string;
+  providerAccountId: string;
+}): Promise<void> {
+  const account = await insertProviderAccount(db, {
+    provider: 'peable',
+    ownerType: input.ownerType,
+    ownerId: input.ownerId,
+    providerAccountId: input.providerAccountId,
+    country: 'ES',
+  });
+  await applyProviderAccountState(db, {
+    id: account.id,
+    state: {
+      onboardingState: 'ready',
+      chargesEnabled: false,
+      payoutsEnabled: true,
+      transfersCapability: 'active',
+      requirementsCurrentlyDue: 0,
+      requirementsEventuallyDue: 0,
+      requirementsPastDue: 0,
+      requirementsPendingVerification: 0,
+      disabledReasonCodes: [],
+      syncedAt: new Date(),
+    },
+  });
+}
 
 /**
  * A payment-ready STORE and its listing.
@@ -226,33 +195,16 @@ async function seedStoreSeller(label: string): Promise<{
       oxyAccountId: 'oxy-account-fixture',
       handle: `guest-${RUN}-${label}`,
       name: `Guest Store ${label} ${RUN}`,
-      description: 'seeded by checkout.guest-stripe.realdb.test',
+      description: 'seeded by checkout.guest-card.realdb.test',
       brandColor: '#000000',
       defaultCurrency: 'EUR',
     })
     .returning({ id: storeSchema.stores.id });
 
-  const account = await insertProviderAccount(db, {
-    provider: 'stripe',
+  await seedReadyAccount({
     ownerType: 'store',
     ownerId: store.id,
-    providerAccountId: `acct_guest_${RUN}_${label}`,
-    country: 'ES',
-  });
-  await applyProviderAccountState(db, {
-    id: account.id,
-    state: {
-      onboardingState: 'ready',
-      chargesEnabled: false,
-      payoutsEnabled: true,
-      transfersCapability: 'active',
-      requirementsCurrentlyDue: 0,
-      requirementsEventuallyDue: 0,
-      requirementsPastDue: 0,
-      requirementsPendingVerification: 0,
-      disabledReasonCodes: [],
-      syncedAt: new Date(),
-    },
+    providerAccountId: `ca_guest_${RUN}_${label}`,
   });
 
   // A store's stock lives at a LOCATION, so the reservation needs a default one
@@ -320,27 +272,10 @@ async function seedP2PSeller(label: string): Promise<{
   sellerKey: string;
 }> {
   const sellerOxyUserId = `p2p-seller-${RUN}-${label}`;
-  const account = await insertProviderAccount(db, {
-    provider: 'stripe',
+  await seedReadyAccount({
     ownerType: 'user',
     ownerId: sellerOxyUserId,
-    providerAccountId: `acct_p2p_${RUN}_${label}`,
-    country: 'ES',
-  });
-  await applyProviderAccountState(db, {
-    id: account.id,
-    state: {
-      onboardingState: 'ready',
-      chargesEnabled: false,
-      payoutsEnabled: true,
-      transfersCapability: 'active',
-      requirementsCurrentlyDue: 0,
-      requirementsEventuallyDue: 0,
-      requirementsPastDue: 0,
-      requirementsPendingVerification: 0,
-      disabledReasonCodes: [],
-      syncedAt: new Date(),
-    },
+    providerAccountId: `ca_p2p_${RUN}_${label}`,
   });
 
   const [listing] = await db
@@ -387,58 +322,21 @@ async function seedGuestCart(
   return { guestSessionId: issued.session.id };
 }
 
-/** Make the fake rail report a successful capture, with its balance transaction. */
-function fundIntent(intentId: string): void {
-  const intent = api.intents.get(intentId);
-  if (!intent) throw new Error(`No fake PaymentIntent registered for ${intentId}`);
-  const chargeId = `ch_${intentId}`;
-  intent.status = 'succeeded';
-  intent.latest_charge = chargeId;
-  api.charges.set(chargeId, {
-    id: chargeId,
-    object: 'charge',
-    payment_intent: intentId,
-    balance_transaction: {
-      id: `txn_${intentId}`,
-      object: 'balance_transaction',
-      amount: Number(intent.amount),
-      currency: 'eur',
-      exchange_rate: null,
-      fee: 155,
-      created: Math.floor(Date.now() / 1000),
-    },
-  });
-}
-
-/** Deliver a signed PaymentIntent event to the REAL platform-scope ingress. */
+/** Deliver a signed `payment_intent.*` event to the REAL Peable ingress. */
 async function deliverIntentEvent(input: {
   eventId: string;
   type: string;
   intentId: string;
 }): Promise<void> {
-  const intent = api.intents.get(input.intentId);
-  if (!intent) throw new Error(`No fake PaymentIntent registered for ${input.intentId}`);
-
-  const payload = JSON.stringify({
-    id: `${input.eventId}-${RUN}`,
-    object: 'event',
-    api_version: '2026-07-29.dahlia',
-    created: Math.floor(Date.now() / 1000),
-    livemode: false,
-    type: input.type,
-    data: { object: { ...intent } },
-    pending_webhooks: 1,
-    request: { id: null, idempotency_key: null },
-  });
-  const signature = await Stripe.webhooks.generateTestHeaderStringAsync({
-    payload,
-    secret: PLATFORM_SECRET,
-  });
-  await ingestStripeDelivery({
-    payload: Buffer.from(payload, 'utf8'),
-    signature,
-    scope: 'platform',
-  });
+  const result = await ingestPeableDelivery(
+    gateway.intentDelivery({
+      eventId: `evt_guest_${input.eventId}_${RUN}`,
+      type: input.type,
+      intentId: input.intentId,
+      secret: WEBHOOK_SECRET,
+    }),
+  );
+  expect(result.outcome).toBe('accepted');
 }
 
 describe('a guest pays for a store order', () => {
@@ -468,13 +366,25 @@ describe('a guest pays for a store order', () => {
       .where(eq(guestSchema.guestCheckouts.checkoutGroupId, result.checkoutGroupId));
     expect(contact).toBeDefined();
 
-    const [call] = api.intentCalls;
+    const [order] = await db
+      .select({ id: orderSchema.orders.id })
+      .from(orderSchema.orders)
+      .where(eq(orderSchema.orders.checkoutGroupId, result.checkoutGroupId));
+    const paymentId = result.payment?.paymentId;
+    expect(paymentId).toBeDefined();
+
+    // ADR 0006 G7's three Mercaria keys plus the adapter's own two correlation
+    // ids — every one a server-issued id, and exhaustive so a sixth is a
+    // decision rather than a spread that grew.
+    const [call] = gateway.state.intentCalls;
     expect(call.params.metadata).toEqual({
-      paymentId: expect.any(String) as unknown as string,
+      paymentId,
       checkoutGroupId: result.checkoutGroupId,
       guestCheckoutId: contact.id,
       orderCount: '1',
-      orderIds: expect.any(String) as unknown as string,
+      orderIds: order.id,
+      mercaria_payment_id: paymentId,
+      mercaria_checkout_group_id: result.checkoutGroupId,
     });
     // The whole point of the key: it is durable and inert. Nothing about the
     // SESSION is in there, and the session is the thing that can be purged.
@@ -523,11 +433,11 @@ describe('a guest pays for a store order', () => {
     // is byte-identical — which is what keeps the reused `pi:<paymentId>`
     // idempotency key valid at the rail. A differing key or a differing body
     // would be a SECOND charge for the same goods.
-    const bodies = api.intentCalls.map((call) => JSON.stringify(call.params.metadata));
+    const bodies = gateway.state.intentCalls.map((call) => JSON.stringify(call.params.metadata));
     expect(new Set(bodies).size).toBe(1);
-    expect(new Set(api.intentCalls.map((call) => call.idempotencyKey)).size).toBe(1);
+    expect(new Set(gateway.state.intentCalls.map((call) => call.idempotencyKey)).size).toBe(1);
     expect(bodies[0]).toContain(contact.id);
-    expect(api.intents.size).toBe(1);
+    expect(gateway.state.intents.size).toBe(1);
   });
 });
 
@@ -553,8 +463,8 @@ describe('a guest cannot buy from an individual, and a mixed cart separates (#11
     ).rejects.toThrow(/individual seller/);
 
     // No rail call at all — the gate runs before the reservation loop, so the
-    // refusal has taken no stock and told Stripe nothing.
-    expect(api.intentCalls).toHaveLength(0);
+    // refusal has taken no stock and told the gateway nothing.
+    expect(gateway.state.intentCalls).toHaveLength(0);
     const [variant] = await db
       .select({ available: catalogSchema.productVariants.inventoryAvailable })
       .from(catalogSchema.productVariants)
@@ -580,7 +490,7 @@ describe('a guest cannot buy from an individual, and a mixed cart separates (#11
     await expect(checkout(actor, body, `idem-p2p-mixed-${RUN}`, 'EUR')).rejects.toThrow(
       new RegExp(person.sellerKey),
     );
-    expect(api.intentCalls).toHaveLength(0);
+    expect(gateway.state.intentCalls).toHaveLength(0);
 
     // Deselecting it is the documented remedy, and it works: one order, one
     // intent, and the P2P line is still sitting in the cart untouched.
@@ -592,7 +502,7 @@ describe('a guest cannot buy from an individual, and a mixed cart separates (#11
     );
 
     expect(placed.orders).toHaveLength(1);
-    expect(api.intentCalls).toHaveLength(1);
+    expect(gateway.state.intentCalls).toHaveLength(1);
 
     // The charge covers the store order and nothing else. This is acceptance 6
     // read off the rail: a mixed cart cannot accidentally charge a P2P group.
@@ -605,7 +515,7 @@ describe('a guest cannot buy from an individual, and a mixed cart separates (#11
       .where(eq(orderSchema.orders.checkoutGroupId, placed.checkoutGroupId));
     expect(orders).toHaveLength(1);
     expect(orders[0].sellerType).toBe('store');
-    expect(api.intentCalls[0].params.metadata).toMatchObject({
+    expect(gateway.state.intentCalls[0].params.metadata).toMatchObject({
       orderCount: '1',
       orderIds: orders[0].id,
     });
@@ -630,19 +540,19 @@ describe('verified success hands #108 exactly one portal initialization', () => 
       `idem-portal-${RUN}`,
       'EUR',
     );
-    const [intentId] = [...api.intents.keys()];
-    fundIntent(intentId);
+    const [intentId] = [...gateway.state.intents.keys()];
+    gateway.succeed(intentId);
 
     await deliverIntentEvent({
-      eventId: `evt-portal-1`,
+      eventId: 'portal-1',
       type: 'payment_intent.succeeded',
       intentId,
     });
     // A REDELIVERY of the same success, with a different provider event id —
-    // which is the ordinary case (Stripe retries) and the one a counter would
+    // which is the ordinary case (the gateway retries) and the one a counter would
     // get wrong.
     await deliverIntentEvent({
-      eventId: `evt-portal-2`,
+      eventId: 'portal-2',
       type: 'payment_intent.succeeded',
       intentId,
     });
@@ -702,9 +612,9 @@ describe('verified success hands #108 exactly one portal initialization', () => 
       { destination: { type: 'inline_shipping_address', address: INLINE_ADDRESS } },
       `idem-oxy-${RUN}`,
     );
-    const [intentId] = [...api.intents.keys()];
-    fundIntent(intentId);
-    await deliverIntentEvent({ eventId: 'evt-oxy-1', type: 'payment_intent.succeeded', intentId });
+    const [intentId] = [...gateway.state.intents.keys()];
+    gateway.succeed(intentId);
+    await deliverIntentEvent({ eventId: 'oxy-1', type: 'payment_intent.succeeded', intentId });
 
     const rows = await db
       .select({ id: paymentSchema.paymentOutboxes.id })

@@ -499,10 +499,6 @@
     },
     "backToOrders": "返回你的订单",
     "checkLaterFromOrders": "稍后到订单里查看",
-    "claim": {
-      "optional": "可选。无论如何你的订单都已确认。",
-      "saveToOxy": "把这些订单保存到 Oxy"
-    },
     "deliverElsewhere": "寄到其他地址",
     "destination": {
       "collectInPerson": "到店自取",
@@ -589,46 +585,24 @@
       "reservedSignedIn": "你的订单已保留。可以在订单里完成付款。"
     },
     "useSavedAddress": "使用已保存的地址",
-    "viewOrder": "查看订单",
-    "viewOrders": "查看你的订单"
+    "viewOrder": "查看订单"
   },
   "payment": {
     "cancelled": {
-      "body": "这笔付款已取消，未产生任何扣款。",
       "bodyItemsReturned": "这笔付款已取消，未产生任何扣款。商品已经退回店铺。",
       "title": "付款已取消"
     },
-    "card": {
-      "detailsNotConfirmed": "无法确认你的付款信息。",
-      "expressHeading": "一键付款",
-      "notCompleted": "付款未能完成。",
-      "notConfigured": "此应用尚未配置银行卡付款。",
-      "orPayByCard": "或使用银行卡付款",
-      "payNow": "立即付款"
-    },
-    "cardDetailsNotice": "你的银行卡信息直接发送给我们的支付服务商，不会经过 Mercaria。",
     "confirming": {
       "bankStillCompleting": "你的银行还在处理这笔付款，可能需要一点时间。",
-      "checkingWithBank": "我们正在向你的银行确认。在此期间订单会为你保留。",
-      "continueWithoutWaiting": "不等待，继续",
-      "pageTitle": "正在确认付款 — Mercaria",
-      "returnBody": "银行已经把你带回这里，我们正在确认付款，通常只需几秒。",
       "title": "正在确认付款"
     },
-    "continue": "继续",
+    "notConfigured": "此应用尚未配置银行卡付款。",
     "received": {
       "body": "谢谢。你的订单已确认，我们已通知卖家。",
       "title": "已收到付款"
     },
-    "return": {
-      "missingGroup": "这个链接缺少所属的结算信息。如果你已经完成付款，订单不受影响——这个页面不会改变它。"
-    },
     "title": "付款",
-    "totalToPay": "应付总额",
-    "unreadable": {
-      "body": "我们无法从这里核对这笔付款。如果付款成功，订单不受影响——这个页面也无法改变它。",
-      "title": "无法读取这笔付款"
-    }
+    "totalToPay": "应付总额"
   },
   "sellers": {
     "fallbackName": "卖家",

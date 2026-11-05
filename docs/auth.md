@@ -31,8 +31,8 @@ augmentations.
   `expectedAudience`), reading the principal off the SDK's own `OxyAuthRequest`. There
   is deliberately NO pre-exported unmounted service-auth middleware to reach
   for. Never build a second verifier.
-- **A provider webhook is a different principal.** Stripe, Shopify, WooCommerce,
-  CrowdSource and supplier callbacks verify their own signatures on their own
+- **A provider webhook is a different principal.** Peable, Shopify, WooCommerce,
+  CrowdSource, Oxy Files and supplier callbacks verify their own signatures on their own
   raw-body mounts; none may be satisfied by an Oxy credential, or the reverse,
   because it arrives as a bearer-shaped string.
 - **`ANALYTICS_INTERNAL_TRAFFIC_TOKEN` is NOT auth** and was deliberately kept:

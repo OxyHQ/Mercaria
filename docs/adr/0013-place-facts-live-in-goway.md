@@ -107,7 +107,7 @@ from what they were shown — which is the convention's one allowed copy.
   Nearby answers `503` rather than an empty page. A collection checkout uses a
   last-good place when GoWay is down and fails closed (`503`, retryable, saying
   why) when there is none. Delivery checkouts never ask GoWay
-  (`checkout.stripe.realdb.test.ts`). The merchant-activation count of
+  (`checkout.card.realdb.test.ts`). The merchant-activation count of
   collectable locations reads an outage as "not collectable". This is the
   accepted cost of one source of truth; the cache bounds it.
 - **Privacy.** A shopper's coordinate is forwarded to GoWay for the length of

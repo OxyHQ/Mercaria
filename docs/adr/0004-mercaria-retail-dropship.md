@@ -1,6 +1,9 @@
 # ADR 0004: Mercaria retail and dropship — commercial roles, zero-markup cost recovery, and Stripe capture boundaries
 
 - **Status:** Accepted
+- **History:** the direct Stripe rail (`provider: 'stripe'`) was deleted on
+  2026-11-05 under ADR 0009 D13; a retail charge is a card charge on the Peable
+  rail, and the retail evidence kinds are `card_*`.
 - **Date:** 2026-08-09
 - **Issue:** [#117](https://github.com/OxyHQ/Mercaria/issues/117), part of epic [#116](https://github.com/OxyHQ/Mercaria/issues/116)
 - **Stripe docs current as of:** 2026-08-09, API release train **Dahlia** (`2026-07-29.dahlia`, unchanged from ADR 0001)

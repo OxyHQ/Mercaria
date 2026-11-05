@@ -913,7 +913,7 @@ export async function checkout(
   // to carry any of them is the surface where one would eventually be trusted.
   // A display currency is a different kind of thing — it selects among the
   // currencies the SERVER already permits (4e refuses anything outside
-  // `STRIPE_PRESENTMENT_CURRENCIES`) and every figure is still computed by the
+  // `PEABLE_PRESENTMENT_CURRENCIES`) and every figure is still computed by the
   // pricing engine from native catalogue prices at server-held rates — and it
   // rides the same carriage `/cart` gave it in #104.
   if (supervisedPurchase) {
@@ -1073,7 +1073,7 @@ export async function checkout(
   // queries per seller — a checkout that cannot be priced at all should not be
   // spending indexed reads to discover that its sellers are fine.
   //
-  // A no-op when the Stripe rail is off, without touching Postgres — see
+  // A no-op when no card rail is configured, without touching Postgres — see
   // `assertSellerGroupsPaymentReady`.
   await assertSellerGroupsPaymentReady([...groups.keys()]);
 

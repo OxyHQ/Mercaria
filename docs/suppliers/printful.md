@@ -483,6 +483,7 @@ paths reads any of them.
    `provider_unconfigured`, which blocks; stored rows are untouched and turning
    it back on drains the backlog.
 
-**Do not use `STRIPE_ENABLED=false` as a rollback.** It unmounts the webhook
-endpoints and strands verified events — ADR 0006's rule, and it applies here
-unchanged.
+**Do not remove `PEABLE_WEBHOOK_SECRET` as a rollback.** It unmounts
+`/webhooks/peable` and stops its drain, stranding verified events — ADR 0006's
+rule, and it applies here unchanged. `PEABLE_ENABLED=false` stops new card
+payments and leaves the webhook mounted.

@@ -1,20 +1,17 @@
 /**
  * Payment readiness, provider-neutrally — the half of #46 checkout may see.
  *
- * ## Why this is not in `stripe/account.service.ts`
- *
- * `checkout.service` must not import a Stripe module. ADR 0001's last
+ * `checkout.service` must not import an adapter module. ADR 0001's last
  * consequence is that everything provider-specific stays behind the payment
- * domain's own boundary, so that a future rail plugs into the same seams;
- * a `import { … } from './payments/stripe/…'` in the checkout path would make
- * the card rail structural to placing an order, which is the coupling the
+ * domain's own boundary; an adapter import in the checkout path would make the
+ * card rail structural to placing an order, which is the coupling the
  * `PaymentProvider` interface exists to prevent.
  *
  * So the split is by VOCABULARY, not by convenience: this file knows what a
  * seller key is, what `ready` means and what a client may be told. It does not
- * know what an `acct_…` is, how a capability becomes active, or that requirements
- * have names. The Stripe adapter owns all of that and has already collapsed its
- * answer into `onboarding_state` by the time anything here reads a row.
+ * know what a provider account id is, how a capability becomes active, or that
+ * requirements have names; the synchronisation that writes a `provider_accounts`
+ * row has already collapsed all of that into `onboarding_state`.
  *
  * ## Readiness is READ, never computed here
  *
@@ -25,7 +22,7 @@
  * checkout.
  */
 
-import type { ProviderAccountOwnerType, ProviderAccountStatus } from '@mercaria/shared-types';
+import type { ProviderAccountOwnerType } from '@mercaria/shared-types';
 import { getDb } from '../../db/postgres.js';
 import {
   findProviderAccountByOwner,
@@ -33,15 +30,9 @@ import {
   type ProviderAccountRow,
 } from '../../db/payments/providerAccountRepository.js';
 import { checkoutRefusal } from '../checkout/refusal.js';
-import { NATIVE_RAIL_PREFERENCE, resolveNativeRail } from './native-rail.js';
+import { NATIVE_RAIL, resolveNativeRail } from './native-rail.js';
 
-/**
- * The rail a native checkout funds through — see `native-rail.ts`.
- *
- * Re-exported rather than imported directly by this module's callers so that
- * `NATIVE_RAIL`'s former readers keep one import site while the question they
- * ask changes from a constant to a resolution.
- */
+/** The rail a native checkout funds through — see `native-rail.ts`. */
 export { resolveNativeRail } from './native-rail.js';
 
 /** Which seller a group belongs to, decomposed from its key. */
@@ -81,11 +72,9 @@ export async function findSellerAccount(
   // Deliberately NOT gated on the rail being configured. Which account a seller
   // is connected to is a different question from whether this deployment can
   // charge on it today, and only the second is configuration-dependent: turning
-  // a rail off during an incident must not make Mercaria forget the account, and
-  // `resolvePartnerTransferDestination` asks exactly the first question. The
+  // a rail off during an incident must not make Mercaria forget the account. The
   // gates above and below DO return early, which is where that property belongs.
-  const rail = resolveNativeRail() ?? NATIVE_RAIL_PREFERENCE[0]!;
-  return await findProviderAccountByOwner(getDb(), { provider: rail, ...owner });
+  return await findProviderAccountByOwner(getDb(), { provider: NATIVE_RAIL, ...owner });
 }
 
 /**
@@ -111,7 +100,7 @@ export async function isSellerPaymentReady(sellerKey: string): Promise<boolean> 
  * a read of twenty offers twenty-one round trips. The verdict is identical:
  * ADR 0001 D9's one stored `onboarding_state`, never re-derived here.
  *
- * With `STRIPE_ENABLED` off it returns before touching Postgres, exactly as
+ * With no native rail configured it returns before touching Postgres, exactly as
  * {@link assertSellerGroupsPaymentReady} does and for the same reason: there is
  * no rail to be ready for, so no account can exist and the question is not
  * merely unanswered but meaningless. Every key maps to `false`, which is the
@@ -163,7 +152,7 @@ export async function readSellerPaymentReadiness(
  *
  * ## The gate is the RAIL, and the disabled branch touches nothing
  *
- * With `STRIPE_ENABLED` off there is no rail to be ready for: no account can
+ * With no native rail configured there is no rail to be ready for: no account can
  * exist, no webhook is mounted, and the only path to `paid` is the dev-only
  * `mockPay` seam. Returning here — before `getDb()`, before any query — is what
  * makes "checkout behaves exactly as it did" a mechanism rather than a claim,
@@ -181,98 +170,11 @@ export async function assertSellerGroupsPaymentReady(sellerKeys: readonly string
   // A CLASSIFIED refusal (#106): the message is unchanged and so is the 409,
   // but the reason code is what lets #77 count a rejected checkout without
   // matching on this sentence. The import is one type and one factory from the
-  // checkout domain — this module still knows nothing about Stripe or about
+  // checkout domain — this module still knows nothing about an adapter or about
   // analytics.
   throw checkoutRefusal(
     'seller_not_payment_ready',
     `These sellers cannot accept payment right now: ${unready.join(', ')}. ` +
       'Remove them from your order to check out with the rest.',
   );
-}
-
-/**
- * A stored row as the ONLY thing Mercaria says about a provider account.
- *
- * Every field is named explicitly rather than spread, which is the point: the
- * row carries the provider's account id and this projection does not, and a
- * spread would have carried it the day someone added a column. `paymentReady` is
- * derived here and never stored — see `@mercaria/shared-types`'s
- * `provider-account.ts` for why there is exactly one verdict.
- */
-export function toProviderAccountStatus(row: ProviderAccountRow): ProviderAccountStatus {
-  return {
-    provider: row.provider,
-    ownerType: row.ownerType,
-    ownerId: row.ownerId,
-    onboardingState: row.onboardingState,
-    paymentReady: row.onboardingState === 'ready',
-    chargesEnabled: row.chargesEnabled,
-    payoutsEnabled: row.payoutsEnabled,
-    ...(row.transfersCapability ? { transfersCapability: row.transfersCapability } : {}),
-    country: row.country,
-    ...(row.defaultCurrency ? { payoutCurrency: row.defaultCurrency } : {}),
-    ...(row.payoutScheduleInterval
-      ? {
-          payoutSchedule: {
-            interval: row.payoutScheduleInterval,
-            ...(row.payoutScheduleDelayDays !== null
-              ? { delayDays: row.payoutScheduleDelayDays }
-              : {}),
-          },
-        }
-      : {}),
-    requirements: {
-      currentlyDue: row.requirementsCurrentlyDue,
-      eventuallyDue: row.requirementsEventuallyDue,
-      pastDue: row.requirementsPastDue,
-      pendingVerification: row.requirementsPendingVerification,
-      ...(row.requirementsDeadlineAt
-        ? { currentDeadline: row.requirementsDeadlineAt.toISOString() }
-        : {}),
-    },
-    disabledReasonCodes: row.disabledReasonCodes,
-    ...(row.lastSyncedAt ? { lastSyncedAt: row.lastSyncedAt.toISOString() } : {}),
-    ...(row.activatedAt ? { activatedAt: row.activatedAt.toISOString() } : {}),
-    ...(row.revokedAt ? { revokedAt: row.revokedAt.toISOString() } : {}),
-  };
-}
-
-/**
- * What a seller who has never started looks like.
- *
- * A real DTO rather than a 404, because "you have no payment account" is the
- * FIRST state of the onboarding surface, not a missing resource — the dashboard
- * renders it as the connect call to action. A 404 would make the client's first
- * render an error path.
- */
-export function notConnectedStatus(owner: SellerAccountOwner): ProviderAccountStatus {
-  return {
-    // The rail they WOULD connect to. On a deployment with no rail at all there
-    // is no true answer and every other field in this DTO already says so, so
-    // naming the preferred rail is the stable one — a seller reading this is
-    // being shown a connect call to action, and the first rail this codebase
-    // would connect them to is the honest subject of it.
-    provider: resolveNativeRail() ?? NATIVE_RAIL_PREFERENCE[0]!,
-    ownerType: owner.ownerType,
-    ownerId: owner.ownerId,
-    onboardingState: 'not_connected',
-    paymentReady: false,
-    chargesEnabled: false,
-    payoutsEnabled: false,
-    requirements: {
-      currentlyDue: 0,
-      eventuallyDue: 0,
-      pastDue: 0,
-      pendingVerification: 0,
-    },
-    disabledReasonCodes: [],
-  };
-}
-
-/** The seller's account status, or the `not_connected` shape when there is none. */
-export async function readSellerAccountStatus(
-  owner: SellerAccountOwner,
-): Promise<ProviderAccountStatus> {
-  const account = await findSellerAccount(owner);
-  return account ? toProviderAccountStatus(account) : notConnectedStatus(owner);
 }

@@ -499,10 +499,6 @@
     },
     "backToOrders": "Back to your orders",
     "checkLaterFromOrders": "Check later from your orders",
-    "claim": {
-      "optional": "Optional. Your order is confirmed either way.",
-      "saveToOxy": "Save these orders to Oxy"
-    },
     "deliverElsewhere": "Deliver somewhere else",
     "destination": {
       "collectInPerson": "Collect in person",
@@ -589,46 +585,24 @@
       "reservedSignedIn": "Your order is reserved. You can pay for it from your orders."
     },
     "useSavedAddress": "Use a saved address",
-    "viewOrder": "View your order",
-    "viewOrders": "View your orders"
+    "viewOrder": "View your order"
   },
   "payment": {
     "cancelled": {
-      "body": "This payment was cancelled and nothing was charged.",
       "bodyItemsReturned": "This payment was cancelled and nothing was charged. Your items have been returned to the shop.",
       "title": "Payment cancelled"
     },
-    "card": {
-      "detailsNotConfirmed": "Your payment details could not be confirmed.",
-      "expressHeading": "Pay in one tap",
-      "notCompleted": "Your payment could not be completed.",
-      "notConfigured": "Card payments are not configured for this app yet.",
-      "orPayByCard": "or pay by card",
-      "payNow": "Pay now"
-    },
-    "cardDetailsNotice": "Your card details go straight to our payment provider and never reach Mercaria.",
     "confirming": {
       "bankStillCompleting": "Your bank is still completing this payment. This can take a moment.",
-      "checkingWithBank": "We are confirming this with your bank. Your order is reserved meanwhile.",
-      "continueWithoutWaiting": "Continue without waiting",
-      "pageTitle": "Confirming your payment — Mercaria",
-      "returnBody": "Your bank has sent you back to us and we are confirming the payment. This usually takes a few seconds.",
       "title": "Confirming your payment"
     },
-    "continue": "Continue",
+    "notConfigured": "Card payments are not configured for this app yet.",
     "received": {
       "body": "Thank you. Your order is confirmed and the seller has been notified.",
       "title": "Payment received"
     },
-    "return": {
-      "missingGroup": "This link is missing the checkout it belongs to. If you completed a payment, your order is safe — nothing here changes it."
-    },
     "title": "Payment",
-    "totalToPay": "Total to pay",
-    "unreadable": {
-      "body": "We could not check this payment from here. If it went through, your order is safe — this page cannot change it either way.",
-      "title": "We could not read this payment"
-    }
+    "totalToPay": "Total to pay"
   },
   "sellers": {
     "fallbackName": "Seller",

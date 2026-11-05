@@ -502,10 +502,6 @@
     },
     "backToOrders": "Voltar para seus pedidos",
     "checkLaterFromOrders": "Conferir depois nos seus pedidos",
-    "claim": {
-      "optional": "Opcional. Seu pedido está confirmado de qualquer forma.",
-      "saveToOxy": "Salvar estes pedidos no Oxy"
-    },
     "deliverElsewhere": "Entregar em outro endereço",
     "destination": {
       "collectInPerson": "Retirar pessoalmente",
@@ -592,46 +588,24 @@
       "reservedSignedIn": "Seu pedido está reservado. Você pode pagar nos seus pedidos."
     },
     "useSavedAddress": "Usar um endereço salvo",
-    "viewOrder": "Ver seu pedido",
-    "viewOrders": "Ver seus pedidos"
+    "viewOrder": "Ver seu pedido"
   },
   "payment": {
     "cancelled": {
-      "body": "Este pagamento foi cancelado e nada foi cobrado.",
       "bodyItemsReturned": "Este pagamento foi cancelado e nada foi cobrado. Seus itens voltaram para a loja.",
       "title": "Pagamento cancelado"
     },
-    "card": {
-      "detailsNotConfirmed": "Não foi possível confirmar seus dados de pagamento.",
-      "expressHeading": "Pague com um toque",
-      "notCompleted": "Não foi possível concluir seu pagamento.",
-      "notConfigured": "Os pagamentos com cartão ainda não estão configurados neste aplicativo.",
-      "orPayByCard": "ou pague com cartão",
-      "payNow": "Pagar agora"
-    },
-    "cardDetailsNotice": "Os dados do seu cartão vão direto para o nosso provedor de pagamentos e nunca chegam à Mercaria.",
     "confirming": {
       "bankStillCompleting": "Seu banco ainda está concluindo este pagamento. Isso pode levar um momento.",
-      "checkingWithBank": "Estamos confirmando isso com o seu banco. Seu pedido fica reservado enquanto isso.",
-      "continueWithoutWaiting": "Continuar sem esperar",
-      "pageTitle": "Confirmando seu pagamento — Mercaria",
-      "returnBody": "Seu banco trouxe você de volta e estamos confirmando o pagamento. Isso costuma levar alguns segundos.",
       "title": "Confirmando seu pagamento"
     },
-    "continue": "Continuar",
+    "notConfigured": "Os pagamentos com cartão ainda não estão configurados neste aplicativo.",
     "received": {
       "body": "Obrigado. Seu pedido está confirmado e o vendedor foi avisado.",
       "title": "Pagamento recebido"
     },
-    "return": {
-      "missingGroup": "Falta neste link a compra a que ele pertence. Se você concluiu um pagamento, seu pedido está seguro — nada aqui muda isso."
-    },
     "title": "Pagamento",
-    "totalToPay": "Total a pagar",
-    "unreadable": {
-      "body": "Não conseguimos verificar este pagamento daqui. Se ele passou, seu pedido está seguro — esta página não muda isso de nenhum jeito.",
-      "title": "Não conseguimos ler este pagamento"
-    }
+    "totalToPay": "Total a pagar"
   },
   "sellers": {
     "fallbackName": "Vendedor",

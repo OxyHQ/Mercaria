@@ -55,7 +55,7 @@ afterAll(async () => {
  * ALWAYS currency-scoped, and each test scopes to a currency no other suite
  * prices in: the throwaway database is shared by parallel test FILES, and an
  * unscoped ACTIVE schedule left behind here would start matching the real
- * checkouts `checkout.stripe.realdb.test.ts` runs in EUR — changing their
+ * checkouts `checkout.card.realdb.test.ts` runs in EUR — changing their
  * ledger assertions from another file. Scope is the isolation, not cleanup.
  */
 function draft(

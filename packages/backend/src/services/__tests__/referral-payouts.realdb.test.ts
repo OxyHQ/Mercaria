@@ -22,17 +22,15 @@ import { closePostgres, connectPostgres, getDb, type Database } from '../../db/p
 import { withTriggerToggleLock } from '../../db/__tests__/trigger-toggle-lock.js';
 import { referralPartners, referralTaxProfiles } from '../../db/schema/referrals.js';
 import { providerAccounts } from '../../db/schema/payments.js';
-import { NATIVE_RAIL_PREFERENCE, resolveNativeRail } from '../payments/native-rail.js';
+import { NATIVE_RAIL } from '../payments/native-rail.js';
+import { findSellerAccount } from '../payments/provider-account.service.js';
 import { insertPartner } from '../../db/referrals/partnerRepository.js';
 import {
   findLatestTaxProfile,
   listTaxProfileRevisions,
 } from '../../db/referrals/taxProfileRepository.js';
 import { declareTaxProfile, deriveTaxReadiness } from '../referrals/tax-profile.service.js';
-import {
-  readPartnerPayoutReadiness,
-  resolvePartnerTransferDestination,
-} from '../referral-payouts/readiness.js';
+import { readPartnerPayoutReadiness } from '../referral-payouts/readiness.js';
 import { REFERRAL_TAX_QUESTIONNAIRE_TERMS } from '../referrals/tax-terms.js';
 
 const TAG = uuidv7().slice(-8);
@@ -284,7 +282,7 @@ describe('the tax questionnaire is the D15 gate 2 record', () => {
 
 describe('identity and payout readiness come from #46, and fail closed', () => {
   it('answers `unknown` with no rail configured, and names no beneficiary', async () => {
-    // `STRIPE_ENABLED` is off in the test environment, which is the state of
+    // `PEABLE_ENABLED` is off in the test environment, which is the state of
     // every deployment that has not configured the rail. `unknown` BLOCKS in
     // `deriveRewardPayability`, which is the fail-closed direction — and it is
     // deliberately not `blocked`, which would assert something is wrong with
@@ -302,7 +300,7 @@ describe('identity and payout readiness come from #46, and fail closed', () => {
 
   it('resolves the partner to the account #46 keyed by their OWN owner', async () => {
     // ADR 0005 D14's "reuses the SAME account": the account below is created
-    // under the seller key for the partner's own owner, and the destination
+    // under the seller key for the partner's own owner, and the seller-account
     // lookup finds it with no referral-specific id anywhere in the path.
     const partner = await makePartner('rdy2');
     const accountId = uuidv7();
@@ -311,13 +309,7 @@ describe('identity and payout readiness come from #46, and fail closed', () => {
       .insert(providerAccounts)
       .values({
         id: accountId,
-        // The rail this deployment resolves, not a literal. The subject here is
-        // ADR 0005 D14's "reuses the SAME account" — that the destination is
-        // found by the partner's OWN owner key with no referral-specific id in
-        // the path — and naming a rail would make the case fail on a deployment
-        // whose rail is the other one, for a reason that has nothing to do with
-        // what it asserts.
-        provider: resolveNativeRail() ?? NATIVE_RAIL_PREFERENCE[0]!,
+        provider: NATIVE_RAIL,
         ownerType: 'user',
         ownerId: partner.ownerId,
         providerAccountId: `acct_${TAG}${partner.ownerId.slice(-4)}`,
@@ -325,21 +317,15 @@ describe('identity and payout readiness come from #46, and fail closed', () => {
         onboardingState: 'ready',
       });
 
-    const destination = await resolvePartnerTransferDestination({
-      ownerType: 'user',
-      ownerId: partner.ownerId,
-    });
-    expect(destination?.accountId).toBe(`acct_${TAG}${partner.ownerId.slice(-4)}`);
-    expect(destination?.onboardingState).toBe('ready');
+    const account = await findSellerAccount({ ownerType: 'user', ownerId: partner.ownerId });
+    expect(account?.providerAccountId).toBe(`acct_${TAG}${partner.ownerId.slice(-4)}`);
+    expect(account?.onboardingState).toBe('ready');
 
     // And a partner with no account resolves to nothing rather than to
     // somebody else's row — the property `UNIQUE(provider, owner_type,
     // owner_id)` is what guarantees.
     expect(
-      await resolvePartnerTransferDestination({
-        ownerType: 'user',
-        ownerId: `absent-${TAG}`,
-      }),
+      await findSellerAccount({ ownerType: 'user', ownerId: `absent-${TAG}` }),
     ).toBeUndefined();
   });
 });

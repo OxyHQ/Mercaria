@@ -1,6 +1,10 @@
 # ADR 0006: Stripe guest checkout and provider-identity boundaries
 
 - **Status:** Accepted
+- **History:** the direct Stripe rail this ADR was written against (its client
+  surfaces, `STRIPE_*` settings, `services/payments/stripe/`) was deleted on
+  2026-11-05 under ADR 0009 D13. Its rail-neutral guest decisions still bind
+  the card rail, now Peable.
 - **Date:** 2026-08-09
 - **Issue:** [#114](https://github.com/OxyHQ/Mercaria/issues/114), part of epic
   [#101](https://github.com/OxyHQ/Mercaria/issues/101) and epic

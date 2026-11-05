@@ -69,6 +69,7 @@ import {
   type AcquisitionCandidateWithMerchant,
 } from '../../db/merchantDemand/merchantAcquisitionRepository.js';
 import { findProviderAccountByOwner } from '../../db/payments/providerAccountRepository.js';
+import { NATIVE_RAIL } from '../payments/native-rail.js';
 import { merchants, nativeStoreLinks } from '../../db/schema/merchants.js';
 import { offers } from '../../db/schema/offers.js';
 import { notFound } from '../../lib/errors/error-codes.js';
@@ -189,7 +190,7 @@ export async function deriveConversionStage(
   // here and none may be added: a stale copy on a candidate row is exactly the
   // failure `onboarding_state` exists to prevent, moved to a dashboard.
   const account = await findProviderAccountByOwner(db, {
-    provider: 'stripe',
+    provider: NATIVE_RAIL,
     ownerType: 'store',
     ownerId: storeId,
   });

@@ -51,11 +51,9 @@ import channelsWebhooksRouter from './routes/channels-webhooks.js';
 import channelsIngestRouter from './routes/channels-ingest.js';
 import reportsRouter from './routes/reports.js';
 import crowdSourceWebhookRouter from './routes/crowdsource-webhook.js';
-import stripeWebhookRouter from './routes/stripe-webhook.js';
 import peableWebhookRouter from './routes/peable-webhook.js';
 import oxyFilesWebhookRouter from './routes/oxy-files-webhook.js';
 import supplierWebhookRouter from './routes/supplier-webhook.js';
-import stripeOnboardingRouter from './routes/stripe-onboarding.js';
 import internalPaymentsRouter from './routes/internal-payments.js';
 import merchantsRouter from './routes/merchants.js';
 import storefrontsRouter from './routes/storefronts.js';
@@ -316,29 +314,18 @@ export function createApp(): express.Express {
   // `typeof req.body === 'undefined'` inside a route on this path.
   app.use('/webhooks/crowdsource', crowdSourceWebhookRouter);
 
-  // Inbound Stripe webhooks — the platform and Connect endpoints (ADR 0001).
-  // Same raw-body rule as the two above: Stripe signs the bytes it sent, so a
-  // parser reaching the stream first breaks every delivery rather than weakening
-  // the check. The router mounts its own express.raw on each path.
+  // Inbound PEABLE webhooks (ADR 0009). The THIRD raw-body mount: the gateway
+  // signs the bytes it sent, so a parser reaching the stream first breaks every
+  // delivery. The router mounts its own express.raw.
   //
-  // The MOUNT is gated, not just the handler. A deployment with no Stripe
-  // configuration answers 404 here, which is the truthful answer — and it stops
-  // an endpoint being registered in the Stripe dashboard against a deployment
-  // that has no secret and therefore could never tell a real delivery from a
-  // forged one. There is nothing to park, unlike the outbox dispatchers, because
-  // without a secret nothing could be verified to park in the first place.
-  if (config.payments.stripe.enabled) {
-    app.use('/webhooks/stripe', stripeWebhookRouter);
-  }
-
-  // Inbound PEABLE webhooks (ADR 0009). The FIFTH raw-body mount, gated on its
-  // secret for the same reasons the Stripe one is: a deployment with no secret
-  // answers 404, which is truthful and stops an endpoint being registered
-  // against a deployment that could never tell a real delivery from a forged
-  // one. The payment rail's events and merchant billing's (#89) share it.
-  //
-  // ONE path where Stripe has two — the gateway signs everything with a single
-  // secret, so there is no scope to get wrong. See `routes/peable-webhook.ts`.
+  // The MOUNT is gated on the secret, not just the handler. A deployment with no
+  // secret answers 404, which is the truthful answer — and it stops an endpoint
+  // being registered against a deployment that could never tell a real delivery
+  // from a forged one. There is nothing to park, unlike the outbox dispatchers,
+  // because without a secret nothing could be verified to park in the first
+  // place. The payment rail's events and merchant billing's (#89) share it; one
+  // path, because the gateway signs everything with a single secret. See
+  // `routes/peable-webhook.ts`.
   if (config.payments.peable.webhooksEnabled) {
     app.use('/webhooks/peable', peableWebhookRouter);
   }
@@ -347,7 +334,7 @@ export function createApp(): express.Express {
   // rule: a supplier signs the bytes it sent, so a parser reaching the stream
   // first breaks every delivery. The router mounts its own express.raw.
   //
-  // The mount is NOT gated on a flag, unlike Stripe's, and the difference is
+  // The mount is NOT gated on a flag, unlike Peable's, and the difference is
   // real rather than an inconsistency: what makes a delivery verifiable here is
   // the ACCOUNT named in the path and the credential behind it, so an
   // unconfigured deployment already answers 401 to every delivery through the
@@ -356,10 +343,10 @@ export function createApp(): express.Express {
   // where their configuration is exactly what somebody is fixing.
   app.use('/webhooks/suppliers', supplierWebhookRouter);
 
-  // Oxy's file events (Oxy ADR 0043 D9) — the SIXTH raw-body mount: Oxy signs
+  // Oxy's file events (Oxy ADR 0043 D9) — the FIFTH raw-body mount: Oxy signs
   // the bytes it sent, so a parser reaching the stream first breaks every
   // delivery. Gated on `OXY_FILE_EVENTS_ENABLED` (404 when off). Unlike the
-  // Stripe mount it is NOT gated on the secret too: Oxy shows the secret only
+  // Peable mount it is NOT gated on the secret too: Oxy shows the secret only
   // after the endpoint echoed its challenge, so the route must answer that
   // challenge first and refuses events (503, retried) until the secret is set.
   // See `routes/oxy-files-webhook.ts`.
@@ -460,7 +447,7 @@ export function createApp(): express.Express {
   app.use('/addresses', addressesRouter);
   app.use('/checkout', checkoutRouter);
   app.use('/supervised-shopping', supervisedShoppingRouter);
-  // Guest sessions (ADR 0003, #103). The MOUNT is gated like the Stripe routes
+  // Guest sessions (ADR 0003, #103). The MOUNT is gated like the Peable webhook
   // above and for the same reason: a deployment without guest commerce answers
   // 404 — the truthful answer — rather than advertising a credential surface
   // it will refuse. The issuance KILL SWITCH is a different lever
@@ -483,7 +470,7 @@ export function createApp(): express.Express {
   /**
    * Digital commerce (#1015, ADR 0010). ONE mount carrying two routers: the
    * creator surface under `/digital/stores/:storeId/*`, whose own mount is gated
-   * on `DIGITAL_UPLOADS_ENABLED` inside the router (the `STRIPE_ENABLED` rule —
+   * on `DIGITAL_UPLOADS_ENABLED` inside the router (the webhook-mount rule —
    * an unconfigured deployment answers 404, never 401), and the buyer surface
    * (`/digital/library`, `/digital/downloads`, `/digital/claims`).
    *
@@ -530,17 +517,6 @@ export function createApp(): express.Express {
   app.use('/channels/oauth', channelsOauthRouter);
   // Token-free channel ingestion (external push client authenticated by a channel key).
   app.use('/channels/ingest', channelsIngestRouter);
-  // Public Stripe hosted-onboarding round trip (browser redirects; no session,
-  // authenticated by the signed state this API issued). Mounted HERE and not in
-  // the pre-json block above: these carry query parameters, not a signed raw
-  // body, so there is nothing a parser could consume before it is verified.
-  //
-  // Gated on the rail exactly as the webhook mount is, and for the same reason —
-  // a deployment with no Stripe configuration cannot have issued a state, so 404
-  // is the truthful answer rather than a route that can only ever refuse.
-  if (config.payments.stripe.enabled) {
-    app.use('/stripe/onboarding', stripeOnboardingRouter);
-  }
   // The platform operator surface (#50). Mounted OUTSIDE `/admin` deliberately:
   // that whole tree is scoped to one store by `loadStore` + `requireStorePermission`,
   // and this reads across every store and every P2P seller — so there is no
@@ -606,7 +582,7 @@ export function createApp(): express.Express {
    * different risk — collapsing them would put the strongest external-facing
    * risk in this repository behind the more permissive of the two designs.
    *
-   * The MOUNT is gated, unlike most levers here, and for the Stripe webhook's
+   * The MOUNT is gated, unlike most levers here, and for the Peable webhook's
    * reason rather than the "gate the loop, never the record" one: the token is
    * HMAC-signed, so without a secret there is nothing to verify and resolving
    * one would be acting on a stranger's opinion about which offer to redirect
@@ -1029,7 +1005,7 @@ export function createApp(): express.Express {
   // needs to read why.
   app.use('/internal/referrals', internalReferralsRouter);
   // Client analytics ingestion (#77). Mounted UNCONDITIONALLY, unlike the guest
-  // and Stripe routes above: a deployment that collects nothing answers 202 and
+  // and Peable routes above: a deployment that collects nothing answers 202 and
   // records nothing rather than 404, because the endpoint's existence is not a
   // secret and a client that got a 404 would retry it forever. The handler's own
   // `config.analytics.enabled` check is the gate.
@@ -1227,7 +1203,6 @@ export function createApp(): express.Express {
         '/channels/oauth',
         '/channels/ingest',
         '/channels/webhooks',
-        '/stripe/onboarding',
         '/merchants',
         '/storefronts',
         '/brand-relationships',

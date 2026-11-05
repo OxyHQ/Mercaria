@@ -1,6 +1,9 @@
 # ADR 0005: Referral program — attribution, commission bases, participant roles and payout model
 
 - **Status:** Accepted
+- **History:** D14's launch rail (Stripe Connect transfers) was deleted on
+  2026-11-05 with the direct Stripe rail (ADR 0009 D13); no payout rail is
+  registered, and batches fail `rail_not_configured`, retryably.
 - **Date:** 2026-08-09
 - **Issue:** [#141](https://github.com/OxyHQ/Mercaria/issues/141), part of epic [#140](https://github.com/OxyHQ/Mercaria/issues/140)
 

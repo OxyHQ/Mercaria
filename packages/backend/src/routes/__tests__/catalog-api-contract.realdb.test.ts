@@ -261,7 +261,6 @@ beforeAll(async () => {
   ]) {
     process.env[lever] = 'true';
   }
-  process.env.STRIPE_ENABLED = 'false';
   // `config/index.ts` freezes `process.env` at import, and `app.ts` decides every
   // mount from that frozen value — so the levers have to be set before the module
   // graph loads. `catalog-rollout.realdb.test.ts`'s device.

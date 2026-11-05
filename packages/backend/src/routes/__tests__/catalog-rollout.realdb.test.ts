@@ -160,7 +160,6 @@ async function build(options: {
 }): Promise<Deployment & { readonly graph: typeof import('../../db/postgres.js') }> {
   vi.resetModules();
   for (const lever of LEVERS) process.env[lever] = options.levers ? 'true' : 'false';
-  process.env.STRIPE_ENABLED = 'false';
 
   const graph = await import('../../db/postgres.js');
   await graph.connectPostgres();
@@ -191,10 +190,6 @@ beforeAll(async () => {
 
 afterAll(async () => {
   for (const lever of LEVERS) delete process.env[lever];
-  // `build()` sets this too. Vitest isolates files, so leaving it set changes
-  // nothing today — but an afterAll that unsets some of what its setup set is a
-  // half-cleanup somebody later trusts.
-  delete process.env.STRIPE_ENABLED;
   for (const deployment of [leversOn, leversOff]) {
     if (deployment) await deployment.close();
   }

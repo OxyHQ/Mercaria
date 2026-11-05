@@ -386,7 +386,13 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // validation job status, and move `FeedRefusalReason` into shared-types: four
     // type aliases and no property: +4 types. Measured by the real guard.
     // Pure money-format and bidi modules add no contract types or properties.
-    'walked 141 contract module(s), 2388 exported type(s), 7975 property signature(s)',
+    // The direct Stripe rail's seller-onboarding DTOs LEFT (Mercaria ADR 0009
+    // D13): `SellerPaymentSettings`, `ProviderOnboardingLink`,
+    // `ProviderAccountStatus`, `ProviderAccountRequirements` and
+    // `ProviderPayoutSchedule` went, and `CheckoutPaymentHandoff` lost
+    // `publishableKey` and `returnUrl`: -5 types, -30 properties. Measured by the
+    // real guard.
+    'walked 141 contract module(s), 2383 exported type(s), 7945 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });

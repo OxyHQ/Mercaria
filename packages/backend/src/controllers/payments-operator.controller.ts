@@ -196,14 +196,19 @@ export async function replayEventHandler(req: Request, res: Response): Promise<v
   const eventId = routeParam(req, 'id');
   const actor = operatorId(req);
 
-  if (!config.payments.stripe.enabled) {
-    sendError(res, ErrorCodes.CONFLICT, 'The card rail is not configured on this deployment', 409);
+  if (!config.payments.peable.webhooksEnabled) {
+    sendError(
+      res,
+      ErrorCodes.CONFLICT,
+      'No provider event stream is configured on this deployment',
+      409,
+    );
     return;
   }
 
   try {
-    const { replayProviderEvent } = await import('../services/payments/stripe/event-processor.js');
-    const replayed = await replayProviderEvent(eventId);
+    const { replayPeableEvent } = await import('../services/payments/peable/event-processor.js');
+    const replayed = await replayPeableEvent(eventId);
     log.general.warn({ actor, eventId, replayed }, '[Payments] operator replayed a provider event');
     sendSuccess(res, {
       eventId,
@@ -224,7 +229,7 @@ export async function refetchPaymentHandler(req: Request, res: Response): Promis
   const body = req.body as PaymentRefetchInput;
   const actor = operatorId(req);
 
-  if (!config.payments.stripe.enabled) {
+  if (!config.payments.peable.enabled) {
     sendError(res, ErrorCodes.CONFLICT, 'The card rail is not configured on this deployment', 409);
     return;
   }
@@ -236,7 +241,7 @@ export async function refetchPaymentHandler(req: Request, res: Response): Promis
       return;
     }
 
-    // The SAME function the sweep runs. An operator asking "what does Stripe
+    // The SAME function the sweep runs. An operator asking "what does the rail
     // actually say" and a sweep asking it must get one answer through one code
     // path, or the answer an incident is resolved on is not the answer the
     // system acts on.
@@ -390,7 +395,7 @@ async function resolveTrace(query: PaymentTraceQueryInput): Promise<PaymentTrace
   if (query.orderId) return await tracePayment({ byOrderId: query.orderId });
   if (query.providerObjectId) {
     return await tracePayment({
-      byProviderObjectId: { provider: 'stripe', providerObjectId: query.providerObjectId },
+      byProviderObjectId: { provider: 'peable', providerObjectId: query.providerObjectId },
     });
   }
   if (query.orderNumber) {

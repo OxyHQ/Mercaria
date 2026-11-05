@@ -25,7 +25,7 @@
  * ## The sweep does not read the thresholds, and that is deliberate
  *
  * Its predicate is `held_until <= now()` and nothing else. So turning the hold
- * OFF — clearing `STRIPE_HIGH_VALUE_HOLD_THRESHOLDS`, shortening the window —
+ * OFF — clearing `HIGH_VALUE_HOLD_THRESHOLDS`, shortening the window —
  * releases everything already held on schedule instead of stranding it. A sweep
  * gated on the current configuration would make disabling the feature the one
  * action that guarantees the outstanding money never moves.

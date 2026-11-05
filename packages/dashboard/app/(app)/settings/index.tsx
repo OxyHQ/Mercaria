@@ -8,7 +8,6 @@ import {
   Bell,
   MapPin,
   Plug,
-  CreditCard,
   Sparkles,
   Receipt,
   ChevronRight,
@@ -87,24 +86,10 @@ const ITEMS: SettingsItem[] = [
     href: '/channels',
     permission: 'channels:write',
   },
-  // Deliberately a separate row from "Sales channels", and worded so the two
-  // cannot be read as the same thing: a sales channel is where a catalogue is
-  // listed, this is where money is settled. A store can have either without the
-  // other, and merging them would make connecting Shopify look like a payments
-  // decision.
-  {
-    key: 'payments',
-    labelKey: 'settings.sections.payments.label',
-    descriptionKey: 'settings.sections.payments.description',
-    icon: CreditCard,
-    href: '/settings/payments',
-    permission: 'store:manage',
-  },
-  // A third money row, and the one a store does not choose: "Payments & payouts"
-  // is money coming IN, "Plan & billing" is what the store buys, and this is
-  // what Mercaria takes from each sale. It sits beside them rather than inside
-  // either, because accepting these terms is a precondition of selling at all —
-  // an unaccepted schedule refuses the store's checkouts.
+  // A money row the store does not choose: "Plan & billing" is what the store
+  // buys, and this is what Mercaria takes from each sale. It sits beside that
+  // row rather than inside it, because accepting these terms is a precondition
+  // of selling at all — an unaccepted schedule refuses the store's checkouts.
   {
     key: 'fees',
     labelKey: 'settings.sections.fees.label',
@@ -113,10 +98,8 @@ const ITEMS: SettingsItem[] = [
     href: '/settings/fees',
     permission: 'store:manage',
   },
-  // A sibling of "Payments & payouts" and deliberately worded the other way
-  // round: that row is money coming IN for orders, this one is what a store pays
-  // Mercaria for tooling. Two directions, two lifecycles, and merging them would
-  // make a plan look like a condition of getting paid.
+  // What a store pays Mercaria for tooling — never money coming IN for orders,
+  // and worded so a plan cannot read as a condition of getting paid.
   {
     key: 'plan',
     labelKey: 'settings.sections.plan.label',

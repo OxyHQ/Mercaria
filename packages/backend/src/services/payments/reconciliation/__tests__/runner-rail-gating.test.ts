@@ -1,17 +1,13 @@
 /**
  * A sweep that cannot run is SKIPPED with a reason, never silently absent.
  *
- * `startPaymentReconciler` used to open with
- * `if (!config.payments.stripe.enabled) return;` — the whole timer, off, on any
- * deployment without Stripe, with no log line. That was sound reasoning while
- * Stripe was the only rail that could produce a payment.
- *
- * ADR 0009 made the premise false. A Peable deployment has payments; they book
- * the ledger; `mock` books it too. So `ledger_audit` — the one sweep whose job
- * is to notice a succeeded payment with no charge behind it — had a real
- * question to ask and a timer that never started to ask it. `withheld_transfers`
- * is the same: it re-enters settlement through the provider PORT and is the ONLY
- * thing that releases a held payout.
+ * `startPaymentReconciler` once opened with a check on one rail's flag — the
+ * whole timer, off, on any deployment without that rail, with no log line.
+ * Payments book the ledger on every booking rail (`mock` included), so
+ * `ledger_audit` — the one sweep whose job is to notice a succeeded payment with
+ * no charge behind it — had a real question to ask and a timer that never
+ * started to ask it. `withheld_transfers` is the same: it re-enters settlement
+ * through the provider PORT and is the ONLY thing that releases a held payout.
  *
  * That is the shape this file guards. "Not configured" and "never ran" looked
  * identical from outside, and the second is the one that hides a finding.
@@ -38,16 +34,11 @@ describe('which sweeps a deployment can serve', () => {
     expect(reconciliationJobIsServable('withheld_transfers')).toBe(true);
   });
 
-  it('holds the three that genuinely need a provider read to that provider', () => {
+  it('holds the one that genuinely needs a rail read to that rail', () => {
     // Asserted as "agrees with the config", not as a fixed boolean: the suite
-    // runs with Stripe off, and hard-coding `false` here would pass for the
+    // runs with Peable off, and hard-coding `false` here would pass for the
     // wrong reason the day someone turned it on.
-    for (const job of ['open_payments', 'provider_objects', 'account_readiness'] as const) {
-      expect([job, reconciliationJobIsServable(job)]).toEqual([
-        job,
-        config.payments.stripe.enabled,
-      ]);
-    }
+    expect(reconciliationJobIsServable('open_payments')).toBe(config.payments.peable.enabled);
   });
 
   it('answers for every job the runner actually ticks', () => {
@@ -65,7 +56,7 @@ describe('which sweeps a deployment can serve', () => {
     // one means a reconciler that ticks nothing — which is precisely the state
     // this file exists to make impossible to reach quietly.
     expect(JOB_ORDER.length).toBe(PAYMENT_RECONCILIATION_JOBS.length);
-    expect(JOB_ORDER.length).toBeGreaterThanOrEqual(5);
+    expect(JOB_ORDER.length).toBeGreaterThanOrEqual(3);
   });
 
   it('leaves at least one sweep runnable on a deployment with no rail configured', () => {
@@ -79,16 +70,15 @@ describe('which sweeps a deployment can serve', () => {
    * The change itself, observed rather than inferred.
    *
    * Every case above is about the PREDICATE, and all of them keep passing with
-   * the old `if (!config.payments.stripe.enabled) return;` restored at the top
-   * of `startPaymentReconciler` — because the predicate is never reached when
-   * the loop never starts. That gap is exactly the bug's shape one level up, so
-   * it gets its own case.
+   * a rail-flag gate restored at the top of `startPaymentReconciler` — because
+   * the predicate is never reached when the loop never starts. That gap is
+   * exactly the bug's shape one level up, so it gets its own case.
    *
-   * This suite runs with Stripe OFF, which is what makes the observation
-   * discriminating: under the old gate the timer is never created.
+   * This suite runs with the card rail OFF, which is what makes the observation
+   * discriminating: under a rail gate the timer is never created.
    */
-  it('starts the loop on a deployment with no Stripe', () => {
-    expect(config.payments.stripe.enabled).toBe(false);
+  it('starts the loop on a deployment with no card rail', () => {
+    expect(config.payments.peable.enabled).toBe(false);
     expect(config.payments.reconciliation.enabled).toBe(true);
 
     try {

@@ -656,9 +656,9 @@ export interface GuestSecuritySignalDefinition {
  *    `guest-portal-isolation.test.ts` fails the build if one starts to;
  *  - guest P2P, because ADR 0003 D18 refuses it at group construction with no
  *    flag, deliberately, until #112;
- *  - the Stripe CLIENT PATH, because ADR 0006 G2 puts both actor kinds on one
+ *  - the card CLIENT PATH, because ADR 0006 G2 puts both actor kinds on one
  *    component and a guest-only path lever would be a second answer to
- *    `STRIPE_ENABLED`.
+ *    `PEABLE_ENABLED`.
  *
  * Guest PICKUP was a fourth until #93 landed, and the correction is the reason
  * this register is worth keeping accurate: `null` here does not mean "nobody
@@ -671,9 +671,9 @@ export const GUEST_FEATURE_GATES = [
   'session_issuance',
   'cart_read_write',
   'checkout_ui',
-  'stripe_payment_creation',
+  'card_payment_creation',
   'payment_methods',
-  'stripe_client_path',
+  'card_client_path',
   'order_portal',
   'recovery_email',
   'oxy_claim',
@@ -775,10 +775,10 @@ export type GuestSignoffDiscipline = (typeof GUEST_SIGNOFF_DISCIPLINES)[number];
 /** The fourteen launch gates, in the issue's order. */
 export const GUEST_LAUNCH_GATES = [
   'actor_identity_privacy_adr_approved',
-  'stripe_guest_amendment_approved',
+  'guest_payment_amendment_approved',
   'security_review_complete',
   'privacy_and_retention_review_complete',
-  'stripe_architecture_production_ready',
+  'card_rail_production_ready',
   'webhooks_reconciliation_runbooks_operational',
   'transactional_sender_authenticated',
   'merchant_readiness_includes_guest',
@@ -1692,12 +1692,12 @@ export const GUEST_FEATURE_GATE_REGISTER: readonly GuestFeatureGateRecord[] = [
     rollbackOrder: 2,
   },
   {
-    gate: 'stripe_payment_creation',
+    gate: 'card_payment_creation',
     title: 'Opening a payment for a guest checkout',
     lever: 'GUEST_CHECKOUT_BLOCKED_MARKETS',
     scopes: ['platform', 'country', 'merchant', 'fulfilment'],
     whenOff:
-      'The four ADR 0006 block lists refuse the checkout BEFORE a PaymentIntent is opened, under ' +
+      'The four ADR 0006 block lists refuse the checkout BEFORE a payment is opened, under ' +
       'one reason code that names no lever. There is deliberately no separate "may a guest open ' +
       'a payment" switch: a checkout that may be created and not paid is a reservation nobody ' +
       'can complete.',
@@ -1707,20 +1707,20 @@ export const GUEST_FEATURE_GATE_REGISTER: readonly GuestFeatureGateRecord[] = [
   {
     gate: 'payment_methods',
     title: 'Specific payment methods',
-    lever: 'STRIPE_PAYMENT_SURFACE_METHODS',
+    lever: 'CHECKOUT_PAYMENT_SURFACE_METHODS',
     scopes: ['payment_method'],
     whenOff: 'The method is not offered to either actor kind — one component serves both.',
     affectsPlacedOrders: false,
     rollbackOrder: 4,
   },
   {
-    gate: 'stripe_client_path',
-    title: 'The Stripe client path',
+    gate: 'card_client_path',
+    title: 'The card client path',
     lever: null,
     scopes: [],
     whenOff:
-      'STRUCTURAL: ADR 0006 G2 puts both actor kinds on one CardPaymentStep, so a guest-only path ' +
-      'lever would be a second answer to STRIPE_ENABLED and would make the two paths diverge ' +
+      'STRUCTURAL: ADR 0006 G2 puts both actor kinds on one payment step, so a guest-only path ' +
+      'lever would be a second answer to PEABLE_ENABLED and would make the two paths diverge ' +
       'exactly where they must not.',
     affectsPlacedOrders: false,
     rollbackOrder: 99,
@@ -1823,7 +1823,7 @@ export const GUEST_LAUNCH_GATE_REGISTER: readonly GuestLaunchGateDefinition[] = 
     criterion: 'ADR 0003 is merged and its decisions D1–D18 are the ones the code implements.',
   },
   {
-    gate: 'stripe_guest_amendment_approved',
+    gate: 'guest_payment_amendment_approved',
     title: 'ADR 0006 approved',
     discipline: 'privacy',
     evidenceKind: 'document_approval',
@@ -1851,12 +1851,12 @@ export const GUEST_LAUNCH_GATE_REGISTER: readonly GuestLaunchGateDefinition[] = 
       'recorded. It is also what unblocks ANALYTICS_COLLECTION_MODE moving off `off`.',
   },
   {
-    gate: 'stripe_architecture_production_ready',
-    title: 'Core Stripe architecture and the guest path production-ready',
+    gate: 'card_rail_production_ready',
+    title: 'The card rail and the guest path production-ready',
     discipline: 'engineering',
     evidenceKind: 'automated_check',
     requiredFromStage: 'stage_1_staff_canary',
-    criterion: 'STRIPE_ENABLED is true with a key and BOTH webhook secrets configured.',
+    criterion: 'PEABLE_ENABLED is true with its gateway origin and webhook secret configured.',
   },
   {
     gate: 'webhooks_reconciliation_runbooks_operational',
@@ -1865,7 +1865,7 @@ export const GUEST_LAUNCH_GATE_REGISTER: readonly GuestLaunchGateDefinition[] = 
     evidenceKind: 'operational_verification',
     requiredFromStage: 'stage_1_staff_canary',
     criterion:
-      'Both webhook endpoints receive verified deliveries, the four reconciliation sweeps run, ' +
+      'The Peable webhook endpoint receives verified deliveries, the reconciliation sweeps run, ' +
       'and payments.operate is seeded and held by at least one person so a repair can be driven.',
   },
   {

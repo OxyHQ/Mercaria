@@ -502,10 +502,6 @@
     },
     "backToOrders": "Retour à vos commandes",
     "checkLaterFromOrders": "Vérifier plus tard depuis vos commandes",
-    "claim": {
-      "optional": "Facultatif. Votre commande est confirmée dans tous les cas.",
-      "saveToOxy": "Enregistrer ces commandes dans Oxy"
-    },
     "deliverElsewhere": "Livrer à une autre adresse",
     "destination": {
       "collectInPerson": "Retrait en personne",
@@ -592,46 +588,24 @@
       "reservedSignedIn": "Votre commande est réservée. Vous pouvez la régler depuis vos commandes."
     },
     "useSavedAddress": "Utiliser une adresse enregistrée",
-    "viewOrder": "Voir votre commande",
-    "viewOrders": "Voir vos commandes"
+    "viewOrder": "Voir votre commande"
   },
   "payment": {
     "cancelled": {
-      "body": "Ce paiement a été annulé et rien n'a été débité.",
       "bodyItemsReturned": "Ce paiement a été annulé et rien n'a été débité. Vos articles ont été remis en boutique.",
       "title": "Paiement annulé"
     },
-    "card": {
-      "detailsNotConfirmed": "Vos informations de paiement n'ont pas pu être confirmées.",
-      "expressHeading": "Payer en un geste",
-      "notCompleted": "Votre paiement n'a pas pu aboutir.",
-      "notConfigured": "Les paiements par carte ne sont pas encore configurés pour cette application.",
-      "orPayByCard": "ou payer par carte",
-      "payNow": "Payer maintenant"
-    },
-    "cardDetailsNotice": "Les données de votre carte vont directement à notre prestataire de paiement et n'atteignent jamais Mercaria.",
     "confirming": {
       "bankStillCompleting": "Votre banque finalise encore ce paiement. Cela peut prendre un instant.",
-      "checkingWithBank": "Nous le confirmons auprès de votre banque. Votre commande reste réservée en attendant.",
-      "continueWithoutWaiting": "Continuer sans attendre",
-      "pageTitle": "Confirmation de votre paiement — Mercaria",
-      "returnBody": "Votre banque vous a renvoyé vers nous et nous confirmons le paiement. Cela prend généralement quelques secondes.",
       "title": "Confirmation de votre paiement"
     },
-    "continue": "Continuer",
+    "notConfigured": "Les paiements par carte ne sont pas encore configurés pour cette application.",
     "received": {
       "body": "Merci. Votre commande est confirmée et le vendeur a été prévenu.",
       "title": "Paiement reçu"
     },
-    "return": {
-      "missingGroup": "Il manque à ce lien la commande à laquelle il se rapporte. Si vous avez réglé un paiement, votre commande est en sécurité — rien ne change ici."
-    },
     "title": "Paiement",
-    "totalToPay": "Total à payer",
-    "unreadable": {
-      "body": "Nous n'avons pas pu vérifier ce paiement depuis ici. S'il est passé, votre commande est en sécurité — cette page n'y change rien de toute façon.",
-      "title": "Nous n'avons pas pu lire ce paiement"
-    }
+    "totalToPay": "Total à payer"
   },
   "sellers": {
     "fallbackName": "Vendeur",

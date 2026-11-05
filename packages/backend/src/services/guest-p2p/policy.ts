@@ -178,9 +178,9 @@ interface GuestP2PCriterionEntry {
  * of `unknown` describes today.
  */
 const GUEST_P2P_CRITERION_REGISTRY: Readonly<Record<GuestP2PCriterion, GuestP2PCriterionEntry>> = {
-  stripe_payout_ready: {
+  payout_ready: {
     kind: 'seller',
-    requirement: 'Stripe connected-account and payout readiness.',
+    requirement: 'Connected-account and payout readiness on the card rail.',
     availability: { state: 'evaluated' },
   },
   oxy_identity_state: {

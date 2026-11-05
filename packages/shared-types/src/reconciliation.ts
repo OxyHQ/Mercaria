@@ -9,7 +9,7 @@
  *
  * Every value below names a distinct operator ACTION, which is the same test
  * `PaymentOutboxEventType`'s exception types are chosen by. A queue that
- * collapsed "Stripe took money Mercaria never recorded" and "Mercaria's ledger
+ * collapsed "the rail took money Mercaria never recorded" and "Mercaria's ledger
  * is missing a transaction it should have" into one `mismatch` kind with a free
  * text field would be a queue whose triage step is reading prose — and the first
  * thing anyone would build on top of it is the enumeration this file already is.
@@ -56,34 +56,6 @@ export type PaymentDiscrepancyKind =
    */
   | 'payment_local_paid_provider_unpaid'
   /**
-   * The rail holds a charge no Mercaria payment corresponds to.
-   *
-   * Money on the platform balance that Mercaria cannot attribute to a checkout.
-   * Distinct from the pair above because there is no local row to converge —
-   * the question is what the charge WAS, and only a person can answer it.
-   */
-  | 'payment_missing_locally'
-  /** The rail's amount for a charge is not the amount Mercaria recorded for it. */
-  | 'payment_amount_mismatch'
-  /** The rail made a transfer Mercaria has no `transfers` row for. */
-  | 'transfer_missing_locally'
-  /** A transfer's amount, or its reversed total, disagrees with the local row. */
-  | 'transfer_amount_mismatch'
-  /**
-   * The rail made a refund Mercaria has no refund record for.
-   *
-   * The sweep's analogue of #49's `refund_unmatched` outbox exception, and it is
-   * a separate mechanism on purpose: that one is raised by an EVENT, so it can
-   * only ever see a refund whose event was delivered. This one sees a refund
-   * nothing told Mercaria about at all, which is the case a reconciliation job
-   * exists for.
-   */
-  | 'refund_missing_locally'
-  /** What a refund took off the platform balance is not what the ledger booked. */
-  | 'refund_amount_mismatch'
-  /** The rail paid a seller out and Mercaria has no `payouts` row for it. */
-  | 'payout_missing_locally'
-  /**
    * A payment succeeded on a rail that books, and no `charge_succeeded` ledger
    * transaction exists for it.
    *
@@ -111,34 +83,15 @@ export type PaymentDiscrepancyKind =
    * MEAN in accounts. Unexplained, it is a seller who is owed money nobody is
    * tracking, or one who owes Mercaria money nobody is recovering.
    */
-  | 'merchant_payable_unexplained'
-  /**
-   * A connected account's stored state was not what the rail said on re-read.
-   *
-   * Not an error — the sweep has already corrected it. It is recorded because a
-   * correction means an `account.updated` was never delivered, and a seller
-   * whose readiness silently lagged is a seller who silently could not sell.
-   */
-  | 'account_state_drift'
-  /** The rail would not return a connected account the sweep asked for. */
-  | 'account_sync_failed';
+  | 'merchant_payable_unexplained';
 
 /** {@link PaymentDiscrepancyKind} as the tuple the column type and CHECK read. */
 export const PAYMENT_DISCREPANCY_KINDS: readonly PaymentDiscrepancyKind[] = [
   'payment_provider_paid_local_unpaid',
   'payment_local_paid_provider_unpaid',
-  'payment_missing_locally',
-  'payment_amount_mismatch',
-  'transfer_missing_locally',
-  'transfer_amount_mismatch',
-  'refund_missing_locally',
-  'refund_amount_mismatch',
-  'payout_missing_locally',
   'ledger_transaction_missing',
   'ledger_unbalanced',
   'merchant_payable_unexplained',
-  'account_state_drift',
-  'account_sync_failed',
 ];
 
 /**
@@ -193,9 +146,9 @@ export const PAYMENT_DISCREPANCY_STATUSES: readonly PaymentDiscrepancyStatus[] =
 export type PaymentRepairAction =
   /**
    * Re-attempt a transfer ADR 0001 D4 withheld because its seller had lost
-   * readiness. The account is re-read from the rail FIRST — a stale local `ready`
-   * would send the money at an account the rail will refuse, which is the same
-   * failure that produced the exception.
+   * readiness, or that a high-value hold is waiting on. The seller's STORED
+   * account is consulted — the same row automatic settlement reads — and an
+   * account that is not `ready` is refused rather than paid.
    */
   | 'retry_withheld_transfer'
   /**
@@ -264,18 +217,14 @@ export const PAYMENT_REPAIR_OUTCOMES: readonly PaymentRepairOutcome[] = [
  * `role-separation.test.ts` (#118) forbids anything under `services/payments/`
  * from importing the procurement domain. So it lives in
  * `services/retail-reconciliation/runner.ts` and claims only its own row, while
- * `services/payments/reconciliation/runner.ts` dispatches only the five it owns
+ * `services/payments/reconciliation/runner.ts` dispatches only the three it owns
  * and REFUSES any other job by name rather than falling through to one of them.
  */
 export type ReconciliationJob =
   /** Open local payments against the rail's current state (jobs 1 and 4). */
   | 'open_payments'
-  /** The rail's own balance movements against Mercaria's rows (jobs 2 and 3). */
-  | 'provider_objects'
   /** The ledger against itself and against the payments it describes (jobs 5). */
   | 'ledger_audit'
-  /** Connected-account readiness, independently of onboarding redirects (jobs 6). */
-  | 'account_readiness'
   /** Retail orders against their supplier and provider evidence (#128). */
   | 'retail_reconciliation'
   /**
@@ -293,9 +242,7 @@ export type ReconciliationJob =
 /** {@link ReconciliationJob} as the tuple the column type and CHECK read. */
 export const RECONCILIATION_JOBS: readonly ReconciliationJob[] = [
   'open_payments',
-  'provider_objects',
   'ledger_audit',
-  'account_readiness',
   'retail_reconciliation',
   'withheld_transfers',
 ];
@@ -312,8 +259,6 @@ export const RECONCILIATION_JOBS: readonly ReconciliationJob[] = [
  */
 export const PAYMENT_RECONCILIATION_JOBS: readonly ReconciliationJob[] = [
   'open_payments',
-  'provider_objects',
   'ledger_audit',
-  'account_readiness',
   'withheld_transfers',
 ];

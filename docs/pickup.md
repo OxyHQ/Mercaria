@@ -271,7 +271,7 @@ what they were shown.
 `resolvePickupForCheckout` reads the place once. A last-good copy stands in
 while GoWay cannot answer; with none, the collection is refused with a `503`
 that says why, before any stock moves. A delivery checkout never reaches the
-gate and never asks GoWay (`checkout.stripe.realdb.test.ts`).
+gate and never asks GoWay (`checkout.card.realdb.test.ts`).
 
 The recipient name is the literal word `Collection` and **never a person's
 name**: `NormalizedCheckoutContact` carries no name field, reading one off an Oxy

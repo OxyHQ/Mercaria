@@ -238,7 +238,6 @@ async function build(cohorts: string): Promise<Deployment> {
   vi.resetModules();
   for (const lever of LEVERS) process.env[lever] = 'true';
   process.env.CATALOG_ROLLOUT_COHORTS = cohorts;
-  process.env.STRIPE_ENABLED = 'false';
 
   const { createApp } = await import('../../app.js');
   const { server, url } = await listen(createApp());
@@ -285,7 +284,6 @@ beforeAll(async () => {
 afterAll(async () => {
   for (const lever of LEVERS) delete process.env[lever];
   delete process.env.CATALOG_ROLLOUT_COHORTS;
-  delete process.env.STRIPE_ENABLED;
   for (const deployment of opened) await deployment.close();
 });
 

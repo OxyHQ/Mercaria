@@ -103,12 +103,14 @@
 
 ## Raw-body mounts
 
-Six routers must stay mounted BEFORE `express.json()` in `app.ts`:
+Five routers must stay mounted BEFORE `express.json()` in `app.ts`:
 
-`/channels/webhooks` · `/webhooks/crowdsource` · `/webhooks/stripe` and
-`/webhooks/stripe/connect` · `/webhooks/peable` (ADR 0009) ·
+`/channels/webhooks` · `/webhooks/crowdsource` · `/webhooks/peable` (ADR 0009,
+mounted while `PEABLE_WEBHOOK_SECRET` is set) ·
 `/webhooks/suppliers/:supplierAccountId` · `/webhooks/oxy-files` (Oxy ADR 0043
-D9, gated on `OXY_FILE_EVENTS_ENABLED`).
+D9, gated on `OXY_FILE_EVENTS_ENABLED`). The direct Stripe mounts
+(`/webhooks/stripe`, `/webhooks/stripe/connect`) were deleted with that rail
+(ADR 0009 D13, 2026-11-05).
 
 **No route reads a large body, and none may start to.** Every Oxy API hostname
 sits behind a proxy that refuses a request body over 100 MB and gives an origin
@@ -121,19 +123,18 @@ deliverable already worked this way. A file that has to reach Mercaria goes to
 storage first; a request carries its id.
 
 Asserted against the REAL middleware chain by
-`routes/__tests__/stripe-webhook.integration.test.ts`,
-`routes/__tests__/peable-webhook.integration.test.ts` and
-`routes/__tests__/oxy-files-webhook.integration.test.ts`. `app.ts` exists so the
+`routes/__tests__/{crowdsource,peable,supplier,oxy-files}-webhook.integration.test.ts`
+(`/channels/webhooks` has no such file yet). `app.ts` exists so the
 app can be built without listening, which is what makes that assertion possible.
 
-**The assertion is PER MOUNT, and that is why there are two files rather than a
-shared one.** A raw-body test proves something about the router it sends bytes
-to; the Stripe file staying green says nothing about a router added afterwards,
+**The assertion is PER MOUNT, and that is why there is one file per router rather
+than a shared one.** A raw-body test proves something about the router it sends
+bytes to; one file staying green says nothing about a router added afterwards,
 which is exactly how a new webhook acquires a parser above it and nobody notices.
 Each has its own vacuity guard — the same router mounted behind `express.json()`,
 required to REFUSE the identical delivery — so an accepted delivery is positive
 evidence the handler read raw bytes rather than a green that cannot fail. A
-seventh mount brings its own file, as the sixth (`/webhooks/oxy-files`) did.
+sixth mount brings its own file, as `/webhooks/oxy-files` did.
 
 ## Operator desks (application roles)
 

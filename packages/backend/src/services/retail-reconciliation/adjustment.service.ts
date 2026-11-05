@@ -137,6 +137,10 @@ export async function settleRetailCustomerAdjustment(input: {
 
   const paymentId = order.paymentId;
   if (!paymentId) return { adjustment, blocked: 'payment_not_settled' };
+  // The refund moves on the rail the buyer paid through, so it is recorded
+  // against THAT rail rather than a constant.
+  const payment = await findPaymentById(db, paymentId);
+  if (!payment) return { adjustment, blocked: 'payment_not_settled' };
 
   // The commerce record and its outbox row commit together (#49). The ledger
   // posting that closes the liability goes in the SAME transaction: the
@@ -172,7 +176,7 @@ export async function settleRetailCustomerAdjustment(input: {
           // together — a task dying before it calls the rail leaves a refund
           // that is visibly unfinished rather than one that silently never had
           // a provider side.
-          providerOperation: { provider: 'stripe', paymentId },
+          providerOperation: { provider: payment.provider, paymentId },
         },
         tx,
       );

@@ -144,23 +144,18 @@ export const PROVIDER_BOOKS_LEDGER: Record<PaymentProviderId, boolean> = {
   // The dev seam. It books, because the ledger is what it exists to exercise —
   // and it is hard-gated off in production by `config.orders.mockPayEnabled`.
   mock: true,
-  // The Peable rail (ADR 0009). It books for exactly the same reason `stripe`
-  // does, and the ADR is explicit that this is unchanged: Mercaria remains
-  // merchant of record (ADR 0001 D1 is inherited), the money still arrives on
-  // the platform balance, and the commission is still `gross − Σnets` in the
-  // ledger. Only WHO Mercaria calls to move it changed.
+  // The card rail (ADR 0009). Mercaria is merchant of record (ADR 0001 D1, which
+  // ADR 0009 inherits): the money arrives on the platform balance, Mercaria owes
+  // each seller their share, and the difference is its commission — which
+  // exists nowhere but this ledger.
   peable: true,
-  // The card rail. Mercaria is merchant of record (ADR 0001 D1): the money
-  // arrives on the platform balance, Mercaria owes each seller their share, and
-  // the difference is its commission — which exists nowhere but this ledger.
-  stripe: true,
 };
 
 /**
  * Whether `next` is a legal successor of `from`.
  *
  * The read-only view of the same `TRANSITIONS` table the compare-and-swap is
- * built from, exported because #48's Stripe event router needs to ask the
+ * built from, exported because a rail's event router needs to ask the
  * question BEFORE acting: an event whose status is not reachable from where the
  * payment already is cannot be applied from its payload alone, and the correct
  * response is to re-read the provider's current state rather than to submit a
@@ -548,7 +543,7 @@ function attemptStatusFor(next: PaymentStatus): 'pending' | 'succeeded' | 'faile
  * seller's payable, the fee and the commission are all booked in the PLATFORM's
  * settlement currency. That is where the money is: a USD charge on a EUR
  * platform arrives as euros, and a `provider_clearing` leg in dollars would
- * describe a balance Stripe does not hold.
+ * describe a balance the platform does not hold.
  *
  * Without a conversion the charge settled in the currency it was made in, and
  * the presentment side is both what the buyer paid and what the platform

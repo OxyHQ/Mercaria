@@ -319,7 +319,7 @@ recipe and saved appearance are not changed by a merchant scope. Do not recreate
 this scope with manually duplicated CSS aliases or a second theme provider.
 
 There is deliberately no `payment_onboarding` member and no `inventory_location`
-member. A Stripe onboarding address is a legal-entity record a seller gave a
+member. A payment-onboarding address is a legal-entity record a seller gave a
 payment processor (trust rule 2) and an `inventory_locations` row is a warehouse
 rather than a shop somebody chose to publish (trust rule 3). Neither has a
 member here, and the isolation gate fails the build if any module in the domain

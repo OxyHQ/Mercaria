@@ -9,10 +9,10 @@
  * nothing is wrong, but because it never looked, which is the failure mode that
  * reads exactly like health.
  *
- * That is not hypothetical. The audit's list was hand-written as
- * `['stripe', 'mock']` under a comment calling it "an ASSERTION, not a copy";
- * no assertion existed, and ADR 0009's `peable` was added to the booking table
- * without being added here. An entire money-moving rail was uncovered.
+ * That is not hypothetical. The audit's list was once hand-written under a
+ * comment calling it "an ASSERTION, not a copy"; no assertion existed, and ADR
+ * 0009's `peable` was added to the booking table without being added here. An
+ * entire money-moving rail was uncovered.
  *
  * `BOOKING_PROVIDERS` is now derived, so the two cannot disagree by
  * construction. This file is the floor under that: it fails if the derivation
@@ -46,11 +46,8 @@ describe('the rails the ledger audit covers', () => {
     expect(BOOKING_PROVIDERS).toContain('peable');
   });
 
-  it('covers `stripe` while both rails coexist', () => {
-    // ADR 0009 D13: the two rails run side by side until the Peable one is
-    // verified end to end. Until then a Stripe payment can still be created, so
-    // the audit that would notice an unbooked one still has to run.
-    expect(BOOKING_PROVIDERS).toContain('stripe');
+  it('covers the dev seam, which books because the ledger is what it exercises', () => {
+    expect(BOOKING_PROVIDERS).toContain('mock');
   });
 
   it('excludes the rails that book nothing by design', () => {
@@ -65,6 +62,6 @@ describe('the rails the ledger audit covers', () => {
     // The real floor. A `filter` whose predicate silently became false-y would
     // satisfy every case above except this one: an empty `providers` filter
     // makes the sweep scan nothing and report clean, forever.
-    expect(BOOKING_PROVIDERS.length).toBeGreaterThanOrEqual(3);
+    expect(BOOKING_PROVIDERS.length).toBeGreaterThanOrEqual(2);
   });
 });

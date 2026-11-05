@@ -2,16 +2,14 @@
  * What the rail is told, and what the buyer's client is handed (#107, ADR 0006
  * G7/G10/G14).
  *
- * Three properties, and the reason they are asserted here rather than only in
+ * Two properties, and the reason they are asserted here rather than only in
  * the realdb suite is that each is a decision made in ONE pure-ish function
  * whose inputs a mocked provider can drive exhaustively:
  *
- *  - the PaymentIntent's metadata carries exactly ADR 0006 G7's keys, gains
+ *  - the payment's metadata carries exactly ADR 0006 G7's keys, gains
  *    `guestCheckoutId` on a guest-origin group and nothing else on an Oxy one;
  *  - the handoff's payment SURFACES come from the server and take no buyer as
- *    an input;
- *  - the return URL is composed by the server from a configured origin and
- *    carries one opaque id.
+ *    an input, and the handoff carries no key of any kind.
  *
  * The realdb sibling proves the guest id is the REAL row's, which needs a real
  * `guest_checkouts` insert. This file proves what is composed from it.
@@ -41,7 +39,7 @@ vi.mock('../payment.service.js', () => ({
 }));
 vi.mock('../registry.js', () => ({
   resolvePaymentProvider: () => ({
-    id: 'stripe',
+    id: 'peable',
     createPayment: (...args: unknown[]) => createPayment(...args),
   }),
 }));
@@ -76,15 +74,12 @@ function capturedMetadata(): Record<string, string> {
 }
 
 beforeAll(async () => {
-  process.env.STRIPE_ENABLED = 'true';
-  process.env.STRIPE_SECRET_KEY = 'sk_test_handoff_not_a_real_key';
-  process.env.STRIPE_WEBHOOK_SECRET = 'whsec_handoff_platform_not_a_real_one';
-  process.env.STRIPE_CONNECT_WEBHOOK_SECRET = 'whsec_handoff_connect_not_a_real_one';
-  process.env.STRIPE_PUBLISHABLE_KEY = 'pk_test_handoff_not_a_real_key';
-  process.env.STRIPE_CHECKOUT_RETURN_URL = 'https://mercaria.co/checkout/return';
+  process.env.PEABLE_ENABLED = 'true';
+  process.env.PEABLE_BASE_URL = 'https://api.peable.test';
+  process.env.PEABLE_WEBHOOK_SECRET = 'pwhsec_handoff_not_a_real_one';
   // Explicit, not inherited: a sibling file narrowing this would silently
   // change what this file's surface assertions mean.
-  delete process.env.STRIPE_PAYMENT_SURFACE_METHODS;
+  delete process.env.CHECKOUT_PAYMENT_SURFACE_METHODS;
 
   service = await import('../checkout-payment.service.js');
 });
@@ -99,7 +94,7 @@ beforeEach(() => {
   guestCheckoutId.mockReset();
 });
 
-describe('the PaymentIntent metadata (ADR 0006 G7)', () => {
+describe('the payment metadata (ADR 0006 G7)', () => {
   it('carries the guest correlation on a guest-origin group', async () => {
     guestCheckoutId.mockResolvedValue(GUEST_CHECKOUT_ID);
 
@@ -171,8 +166,8 @@ describe('the PaymentIntent metadata (ADR 0006 G7)', () => {
   });
 });
 
-describe('the handoff (ADR 0006 G10/G14)', () => {
-  it('names the server-authoritative surfaces and a server-composed return url', async () => {
+describe('the handoff (ADR 0006 G14)', () => {
+  it('names the server-authoritative surfaces and carries no key', async () => {
     guestCheckoutId.mockResolvedValue(GUEST_CHECKOUT_ID);
 
     const handoff = await service.openCheckoutPayment({
@@ -182,7 +177,13 @@ describe('the handoff (ADR 0006 G10/G14)', () => {
     });
 
     expect(handoff?.methods).toEqual(['card', 'apple_pay', 'google_pay', 'link']);
-    expect(handoff?.returnUrl).toBe(`https://mercaria.co/checkout/return?checkoutGroupId=${GROUP}`);
+    expect(handoff?.provider).toBe('peable');
+    expect(handoff?.clientSecret).toBe('pi_handoff_secret');
+    // The client secret is the ONLY client material: no publishable key, no
+    // Mercaria credential, no return url (ADR 0009 D20).
+    expect(Object.keys(handoff ?? {}).sort()).toEqual(
+      ['amount', 'clientSecret', 'methods', 'paymentId', 'provider'].sort(),
+    );
   });
 
   it('gives a guest and an Oxy buyer the SAME surfaces (ADR 0006 B11)', async () => {
@@ -206,12 +207,5 @@ describe('the handoff (ADR 0006 G10/G14)', () => {
     // no arguments at all, so buyer origin is not merely unused — it is
     // unrepresentable as an input.
     expect(service.checkoutPaymentSurfaces.length).toBe(0);
-  });
-
-  it('carries ONE opaque id in the return url and no credential', () => {
-    const url = new URL(service.checkoutReturnUrl(GROUP) ?? '');
-    expect([...url.searchParams.keys()]).toEqual(['checkoutGroupId']);
-    expect(url.searchParams.get('checkoutGroupId')).toBe(GROUP);
-    expect(url.origin).toBe('https://mercaria.co');
   });
 });

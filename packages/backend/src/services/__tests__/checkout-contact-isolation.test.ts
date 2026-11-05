@@ -125,8 +125,8 @@ function checkoutNamedModules(readDir: DirectoryReader = readDirectory): string[
  * The rest are other domains' modules, each already inside the gate that owns
  * it: #123's retail checkout (five modules,
  * `retail-checkout-isolation.test.ts`), the card rail
- * (`guest-stripe-checkout-isolation.test.ts` — and #105's whole point is that
- * `checkout.service` imports no Stripe module, so the rail living outside this
+ * (`guest-card-checkout-isolation.test.ts` — and #105's whole point is that
+ * `checkout.service` imports no adapter module, so the rail living outside this
  * path is the invariant rather than a gap), #85's activation gate
  * (`merchant-activation-isolation.test.ts`), #93's pickup gate
  * (`pickup-isolation.test.ts`) and #122's preflight contract

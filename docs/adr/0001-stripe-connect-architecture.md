@@ -10,6 +10,9 @@
 > into the same seams" — is what ADR 0009 exercised.
 
 - **Status:** Accepted (rail superseded by ADR 0009; D1 and D3–D12 stand)
+- **History:** the direct Stripe rail this ADR describes (adapter, Connect
+  onboarding, `/webhooks/stripe`, every `STRIPE_*` setting) was deleted on
+  2026-11-05 under ADR 0009 D13; Peable is the only card rail.
 - **Date:** 2026-08-08
 - **Issue:** [#43](https://github.com/OxyHQ/Mercaria/issues/43), part of epic [#35](https://github.com/OxyHQ/Mercaria/issues/35)
 - **Stripe docs current as of:** 2026-08-08, API release train **Dahlia** (`2026-07-29.dahlia`)

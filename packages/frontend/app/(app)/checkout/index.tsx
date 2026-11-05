@@ -44,7 +44,6 @@ import { useAddresses } from '@/lib/hooks/use-addresses';
 import { useCheckout, useCheckoutPaymentStatus } from '@/lib/hooks/use-checkout';
 import { usePortalConfirmation } from '@/lib/hooks/use-guest-portal';
 import { useTranslation } from '@/lib/i18n';
-import { CardPaymentStep } from '@/components/payment/CardPaymentStep';
 
 /** The stable seller-group key, matching the backend (`store:<id>` / `user:<id>`). */
 function groupKey(group: CartGroup): string {
@@ -234,8 +233,7 @@ function OrderSummaryCard({ groups }: { groups: CartGroup[] }) {
  * ## Every state here is REPORTED, never assumed
  *
  * `status` comes from the server's payment-status endpoint, which answers from
- * the payment aggregate — a value only a verified provider webhook can move. The
- * card sheet's own result decides only whether to START asking. That separation
+ * the payment aggregate — a value only a verified provider webhook can move. That
  * is why a client cannot forge a paid order, and it is why "we are confirming
  * your payment" is a real state with its own screen rather than an optimistic
  * success message.
@@ -244,30 +242,30 @@ function OrderSummaryCard({ groups }: { groups: CartGroup[] }) {
  * the buyer's side both mean the bank has not finished, and inventing a
  * difference would be describing a provider's internals to somebody who cannot
  * act on them.
+ *
+ * ## This app cannot take the payment yet, and says so
+ *
+ * The storefront has no payer UI for the configured card rail (ADR 0009), so an
+ * open payment renders its total and a plain notice rather than a form. The
+ * orders stay reserved and payable until the reservation expires; leaving is the
+ * one action offered, and the poll keeps reporting whatever the server learns.
  */
 function PaymentStep({
   payment,
   status,
-  awaiting,
-  error,
   isGuest,
   orderNumbers,
-  onCompleted,
-  onCancelled,
-  onFailed,
+  onLeave,
   onDone,
 }: {
   payment: CheckoutPaymentHandoff;
   status: CheckoutPaymentStatus['status'];
-  awaiting: boolean;
-  error: string | null;
   /** Whether this purchase was placed without an Oxy account (#107 client rule 8). */
   isGuest: boolean;
   /** The placed orders' numbers — what a guest keeps instead of a link. */
   orderNumbers: string[];
-  onCompleted: () => void;
-  onCancelled: () => void;
-  onFailed: (message: string) => void;
+  /** The buyer leaves an unpaid checkout. Their orders stay reserved. */
+  onLeave: () => void;
   onDone: () => void;
 }) {
   const { t } = useTranslation();
@@ -348,15 +346,13 @@ function PaymentStep({
     );
   }
 
-  if (awaiting) {
+  if (status === 'requires_action' || status === 'processing') {
     return (
       <View className="px-4" accessibilityLiveRegion="polite">
         <SectionHeader title={t('payment.confirming.title')} />
         <View className="gap-4">
           <Text className="text-sm text-muted-foreground">
-            {status === 'requires_action' || status === 'processing'
-              ? t('payment.confirming.bankStillCompleting')
-              : t('payment.confirming.checkingWithBank')}
+            {t('payment.confirming.bankStillCompleting')}
           </Text>
           <Button appearance="outline" tone="neutral" onPress={onDone}>
             {isGuest ? t('checkout.keepShopping') : t('checkout.checkLaterFromOrders')}
@@ -373,30 +369,20 @@ function PaymentStep({
         <View className="flex-row items-baseline justify-between">
           <Text className="text-sm text-muted-foreground">{t('payment.totalToPay')}</Text>
           {/*
-            `formatMoney` and NOT `PriceDisplay`: this figure is what the card
-            will actually be charged, in the currency the payment was created in.
+            `formatMoney` and NOT `PriceDisplay`: this figure is what the rail
+            will actually charge, in the currency the payment was created in.
             `PriceDisplay` converts into whatever the shopper is browsing in,
             which is right for a catalogue price and wrong here — a buyer must
             see the amount their bank will show them (issue #47, client 4).
           */}
           <Text className="text-lg font-bold text-foreground">{formatMoney(payment.amount)}</Text>
         </View>
-        {error ? (
-          <View
-            accessibilityRole="alert"
-            accessibilityLiveRegion="assertive"
-            className="rounded-2xl border border-destructive/40 bg-destructive/10 p-4"
-          >
-            <Text className="text-sm text-foreground">{error}</Text>
-          </View>
-        ) : null}
-        <CardPaymentStep
-          payment={payment}
-          onCompleted={onCompleted}
-          onCancelled={onCancelled}
-          onFailed={onFailed}
-        />
-        <Text className="text-xs text-muted-foreground">{t('payment.cardDetailsNotice')}</Text>
+        <View className="rounded-2xl border border-border bg-card p-4">
+          <Text className="text-sm text-muted-foreground">{t('payment.notConfigured')}</Text>
+        </View>
+        <Button appearance="outline" tone="neutral" onPress={onLeave}>
+          {t('common.back')}
+        </Button>
       </View>
       <View className="h-24" />
     </View>
@@ -457,8 +443,6 @@ function CheckoutBody() {
     orderNumbers: string[];
     payment: CheckoutPaymentHandoff;
   } | null>(null);
-  const [sheetDone, setSheetDone] = useState(false);
-  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   /**
    * ONE `Idempotency-Key` per "place order" press, stable across retries.
@@ -470,10 +454,9 @@ function CheckoutBody() {
    */
   const idempotencyKey = useRef<string | null>(null);
 
-  // Poll the SERVER for the outcome once the buyer has finished with the sheet.
-  // The sheet's own result says what the buyer did; only a verified webhook
-  // makes an order paid.
-  const paymentStatus = useCheckoutPaymentStatus(placed?.checkoutGroupId, sheetDone);
+  // Poll the SERVER for the outcome once the orders exist: only a verified
+  // webhook makes an order paid, and nothing on this screen can assert it.
+  const paymentStatus = useCheckoutPaymentStatus(placed?.checkoutGroupId, placed !== null);
 
   // Target groups: the sellers `?seller=` names, else the whole cart.
   const sellerKeys = useMemo(() => parseSellerKeys(seller), [seller]);
@@ -642,8 +625,6 @@ function CheckoutBody() {
             leaveCheckout(first?.id, result.checkoutGroupId);
             return;
           }
-          setPaymentError(null);
-          setSheetDone(false);
           setPlaced({
             checkoutGroupId: result.checkoutGroupId,
             firstOrderId: first?.id,
@@ -660,36 +641,22 @@ function CheckoutBody() {
 
   // The payment step replaces the form once the orders exist: the address and
   // the contact are already snapshotted onto them, and editing either would
-  // change nothing. This is also why no draft has to survive a bank redirect —
-  // by then there is no draft left to lose.
+  // change nothing.
   if (placed) {
     return (
       <PaymentStep
         payment={placed.payment}
         status={paymentStatus.data?.status}
-        awaiting={sheetDone}
-        error={paymentError}
         isGuest={!isAuthenticated}
         orderNumbers={placed.orderNumbers}
-        onCompleted={() => {
-          // The buyer finished the sheet. Nothing is marked paid here — the
-          // poll above asks the server, which answers from a verified event.
-          idempotencyKey.current = null;
-          setSheetDone(true);
-        }}
-        onCancelled={() => {
+        onLeave={() => {
           setPlaced(null);
-          setSheetDone(false);
           toast.info(
             isAuthenticated
               ? t('checkout.toast.reservedSignedIn')
               : t('checkout.toast.reservedGuest'),
           );
           leaveCheckout(placed.firstOrderId, placed.checkoutGroupId);
-        }}
-        onFailed={(message) => {
-          setSheetDone(false);
-          setPaymentError(message);
         }}
         onDone={() => {
           setPlaced(null);

@@ -604,7 +604,6 @@
     "new": "Neu",
     "noAccess": "Kein Zugriff",
     "noAccessBody": "Sie haben keine Berechtigung, diesen Bereich für den aktiven Shop zu sehen.",
-    "none": "Keine",
     "pageOf": "Seite %{current} von %{total}",
     "pleaseTryAgain": "Bitte versuchen Sie es erneut.",
     "retry": "Erneut versuchen",
@@ -1795,63 +1794,6 @@
       "subtitle": "Wer für diesen Shop handeln darf und Ausnahmen zu ihrer Rolle",
       "title": "Personen und Berechtigungen"
     },
-    "payments": {
-      "beingReviewed": "Wird geprüft",
-      "documentTitle": "Zahlungen und Auszahlungen | Wholesale by Mercaria",
-      "dueBy": "Fällig bis",
-      "itemCount": {
-        "one": "%{count} Angabe",
-        "other": "%{count} Angaben"
-      },
-      "loadFailed": "Die Zahlungseinstellungen konnten nicht geladen werden",
-      "neededNow": "Jetzt erforderlich",
-      "onboardingUnavailable": "Die Einrichtung von Auszahlungen ist auf dieser Mercaria-Installation noch nicht verfügbar.",
-      "openFailed": "Die Einrichtung der Auszahlungen konnte nicht geöffnet werden",
-      "outstandingTitle": "Offen bei Stripe",
-      "paidOutIn": "Auszahlung in",
-      "payoutsTitle": "Auszahlungen",
-      "quoteToSupport": "Nennen Sie dies dem Mercaria-Support, wenn Sie Hilfe brauchen.",
-      "registeredIn": "Registriert in",
-      "reportedByStripe": "Von Stripe gemeldet",
-      "requirementsNote": "Stripe verwahrt diese Angaben und ist der einzige Ort, an dem Sie sie vervollständigen können. Mercaria sieht sie nie.",
-      "schedule": "Zeitplan",
-      "scheduleWithDelay": {
-        "one": "%{interval}, nach %{count} Tag",
-        "other": "%{interval}, nach %{count} Tagen"
-      },
-      "states": {
-        "actionRequired": {
-          "action": "Einrichtung fortsetzen",
-          "body": "Stripe benötigt weitere Angaben, bevor es Sie auszahlen kann. Bis alles vorliegt, können Käufer mit Ihren Angeboten nicht bezahlen.",
-          "heading": "Es fehlen noch ein paar Angaben"
-        },
-        "disabled": {
-          "body": "Stripe hat dieses verbundene Konto geschlossen, oder seine Verbindung zu Mercaria wurde entfernt. Käufer können mit Ihren Angeboten nicht bezahlen. Wenden Sie sich an den Mercaria-Support.",
-          "heading": "Dieses Konto kann nicht mehr verwendet werden"
-        },
-        "notConnected": {
-          "action": "Auszahlungen einrichten",
-          "body": "Ihre Angebote sind sichtbar und Sie können jeden anderen Teil von Mercaria nutzen, Käufer können damit aber noch nicht bezahlen. Die Einrichtung der Auszahlungen dauert nur ein paar Minuten.",
-          "heading": "Noch nicht eingerichtet"
-        },
-        "ready": {
-          "action": "Auszahlungsdaten verwalten",
-          "body": "Käufer können mit Ihren Angeboten bezahlen, und Stripe zahlt Ihr Guthaben auf Ihr Bankkonto aus.",
-          "heading": "Bereit für Auszahlungen"
-        },
-        "restricted": {
-          "action": "Jetzt erledigen",
-          "body": "Etwas, das Stripe angefordert hat, ist inzwischen überfällig, deshalb wurden Auszahlungen pausiert und Käufer können mit Ihren Angeboten nicht bezahlen. Wenn Sie es erledigen, wird beides wiederhergestellt.",
-          "heading": "Auszahlungen sind pausiert"
-        },
-        "underReview": {
-          "body": "Stripe hat alles Angeforderte erhalten und prüft es. Für Sie gibt es nichts zu tun — das dauert meist ein bis zwei Tage. Bis dahin können Käufer mit Ihren Angeboten nicht bezahlen.",
-          "heading": "Wird geprüft"
-        }
-      },
-      "subtitle": "Wie Sie für Bestellungen auf Mercaria bezahlt werden",
-      "title": "Zahlungen und Auszahlungen"
-    },
     "plan": {
       "alwaysIncludedBody": "Ihren Katalog zu pflegen, Bestellungen anzunehmen und auszuführen, Rückerstattungen auszustellen, Ihre eigenen Verkaufs- und Auszahlungsdaten einzusehen und Ihre Daten zu exportieren, ist für jeden Mercaria-Shop kostenlos und nie Teil eines Tarifs. Nichts auf dieser Seite kann daran etwas ändern, und kein Tarif beeinflusst, wie Ihre Angebote gefunden oder platziert werden.",
       "alwaysIncludedTitle": "Immer enthalten",
@@ -1966,10 +1908,6 @@
       "members": {
         "description": "Wer für den Shop handeln darf und Ausnahmen zu ihrer Rolle",
         "label": "Personen und Berechtigungen"
-      },
-      "payments": {
-        "description": "Für Bestellungen auf Mercaria bezahlt werden",
-        "label": "Zahlungen und Auszahlungen"
       },
       "plan": {
         "description": "Was Ihr Shop bekommt und was Sie dafür zahlen",

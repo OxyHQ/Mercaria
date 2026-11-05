@@ -48,6 +48,7 @@ import {
 import { findSettledPaymentsForReconciliation } from '../../../db/payments/paymentRepository.js';
 import { PROVIDER_BOOKS_LEDGER } from '../payment.service.js';
 import { PAYMENT_PROVIDER_IDS } from '@mercaria/shared-types';
+import { NATIVE_RAIL } from '../native-rail.js';
 import { explainOpenPayable } from './payable-explanations.js';
 import { config } from '../../../config/index.js';
 import { reportDiscrepancy, resolveDetectedDiscrepancy } from './discrepancy.service.js';
@@ -58,12 +59,11 @@ import { listDiscrepanciesOfKind } from '../../../db/payments/discrepancyReposit
  *
  * DERIVED from `PROVIDER_BOOKS_LEDGER`, which is the table
  * `payment.service.transition` actually branches on when it decides to book. It
- * used to be a hand-written literal — `['stripe', 'mock']` — justified by a
- * comment claiming the restatement was "an ASSERTION, not a copy". Nothing
- * asserted it. When ADR 0009 added `peable` to the booking table, this list was
- * not updated, so every Peable payment became invisible to the one audit whose
- * job is to notice a succeeded payment with no charge behind it: it would have
- * found nothing wrong, forever, because it never looked.
+ * used to be a hand-written literal, and when ADR 0009 added `peable` to the
+ * booking table the list was not updated, so every Peable payment became
+ * invisible to the one audit whose job is to notice a succeeded payment with no
+ * charge behind it: it would have found nothing wrong, forever, because it never
+ * looked.
  *
  * Deriving it means the audit's coverage cannot drift from the writer's
  * behaviour again — a new booking rail joins both at once or neither. `external`
@@ -132,7 +132,7 @@ async function auditGlobalBalance(): Promise<number> {
   for (const entry of imbalances) {
     await reportDiscrepancy({
       kind: 'ledger_unbalanced',
-      provider: 'stripe',
+      provider: NATIVE_RAIL,
       // The CURRENCY is the whole identity of this finding: the ledger balances
       // per currency (ADR 0001's cross-currency rule), so EUR being out by two
       // cents and USD being out by a dollar are two independent problems.
@@ -181,7 +181,7 @@ async function auditOpenPayables(input: { now: Date; limit: number }): Promise<n
 
     await reportDiscrepancy({
       kind: 'merchant_payable_unexplained',
-      provider: 'stripe',
+      provider: NATIVE_RAIL,
       // Per order AND per currency, because the aggregate groups by both and one
       // order can legitimately carry a payable in more than one.
       correlationKey: `${payable.orderId}:${payable.currency}`,

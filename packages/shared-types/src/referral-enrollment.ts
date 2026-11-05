@@ -482,7 +482,7 @@ export const REFERRAL_ACTIVE_PARTNER_AGREEMENT_VERSION: ReferralPartnerAgreement
 /**
  * One application, as its own applicant may see it.
  *
- * Every field named, nothing spread (the `ProviderAccountStatus` precedent).
+ * Every field named, nothing spread.
  * The reviewer's identity and free-text note are ABSENT rather than filtered:
  * a projection that spread the row would carry both the day somebody added a
  * column, and #146 review rule 9 is exactly what that would break.

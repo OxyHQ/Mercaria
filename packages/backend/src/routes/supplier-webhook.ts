@@ -6,10 +6,10 @@
  * A supplier signs (or HMACs) the exact BYTES it sent, and
  * `JSON.stringify(req.body)` reproduces them only by luck — key order, unicode
  * escaping and number formatting all differ. A parser reaching the stream first
- * does not weaken verification, it breaks every delivery. This is the FOURTH
- * router in this application with that property, after `/channels/webhooks`,
- * `/webhooks/crowdsource` and `/webhooks/stripe`, and `app.ts` mounts all four
- * together for exactly this reason.
+ * does not weaken verification, it breaks every delivery. It shares that
+ * property with `/channels/webhooks`, `/webhooks/crowdsource`, `/webhooks/peable`
+ * and `/webhooks/oxy-files`, and `app.ts` mounts all five together for exactly
+ * this reason.
  *
  * ## The account is in the PATH, and the body cannot claim otherwise
  *
@@ -32,7 +32,7 @@
  * by a sweep that never re-checked (#124 polling and webhooks 8). Without a
  * credential there is nothing to verify against, so the answer is 401 rather
  * than accepting bytes to interpret later: that would be storing a stranger's
- * opinion, which is the `STRIPE_ENABLED` mount rule.
+ * opinion, which is the webhook-mount rule.
  *
  * A refusal is COUNTED (`readSupplierEventIngestCounters`) so a spray of forged
  * callbacks is visible on the operator metrics, and the log line carries the
@@ -48,8 +48,7 @@
  * ## No Oxy auth, and no rate limiter
  *
  * A supplier is not an Oxy principal and the signature is the entire
- * authenticity story. No scoped limiter is added either, for the reason
- * `/webhooks/stripe` records: a per-IP bucket is one bucket for a provider that
+ * authenticity story. No scoped limiter is added either: a per-IP bucket is one bucket for a provider that
  * delivers from a small pool, so a legitimate retry burst would trip it. What
  * bounds the work is real — `express.raw`'s size limit caps the bytes, an
  * unverifiable body is refused before any database write, and a duplicate costs

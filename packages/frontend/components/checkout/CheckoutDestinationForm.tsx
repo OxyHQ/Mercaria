@@ -153,8 +153,7 @@ export function CheckoutDestinationForm({
     <View className="gap-4">
       {/*
         Contact FIRST. It is what a receipt and every order update are sent to,
-        and Stripe's integration expects an email to be collected before the
-        payment surface renders (#105 frontend rule 5).
+        so it is collected before any payment step (#105 frontend rule 5).
       */}
       {collectContact ? (
         <Field label={t('checkout.form.emailLabel')} description={t('checkout.form.emailHelp')}>

@@ -318,9 +318,9 @@ describe('no feature gate reaches a placed order (#111 acceptance 7 and 13)', ()
     // flip. Reading `null` there sends them to a broader lever: taking the
     // guest cart or guest checkout down to withdraw one fulfilment mode.
     expect(structural.map((gate) => gate.gate).sort()).toEqual([
+      'card_client_path',
       'order_portal',
       'p2p',
-      'stripe_client_path',
     ]);
     for (const gate of structural) {
       // A structural absence must EXPLAIN itself. A gate with no lever and no

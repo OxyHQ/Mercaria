@@ -116,7 +116,6 @@ function listen(app: express.Express): Promise<{ server: Server; url: string }> 
 /** Build the deployment with its own frozen config and its own module graph. */
 async function build(): Promise<Deployment> {
   vi.resetModules();
-  process.env.STRIPE_ENABLED = 'false';
 
   const graph = await import('../../db/postgres.js');
   const db = await graph.connectPostgres();
@@ -148,7 +147,6 @@ afterAll(async () => {
   // the release, the release included, must still reach `closePostgres`.
   // `db/__tests__/slot-teardown-census.test.ts` fails the build otherwise.
   try {
-    delete process.env.STRIPE_ENABLED;
     await enabled.closeServer();
     if (slot) await slot.release();
   } finally {

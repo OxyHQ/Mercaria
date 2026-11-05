@@ -1,29 +1,26 @@
 /**
- * The seller-readiness gate on a deployment whose native rail is NOT Stripe.
+ * The seller-readiness gate on the Peable rail.
  *
- * This is the mutation check for the bug the rail resolution closes, and it is
- * a `realdb` file because the property is a property of the query: the gate has
- * to reach `provider_accounts`, look for an account ON THE RESOLVED RAIL, and
- * refuse when there is none. A mocked repository would accept whichever
- * provider the caller passed and answer whatever the test wired, which is
- * exactly the disagreement being tested.
+ * A `realdb` file because the property is a property of the query: the gate has
+ * to reach `provider_accounts`, look for an account ON THE NATIVE RAIL, and
+ * refuse when there is none or it is not `ready`. A mocked repository would
+ * accept whichever provider the caller passed and answer whatever the test
+ * wired, which is exactly the disagreement being tested.
  *
- * ## The bug, stated so the assertions below are readable
+ * ## The bug this pins, stated so the assertions below are readable
  *
- * `assertSellerGroupsPaymentReady` opened with
- * `if (!config.payments.stripe.enabled) return;`. On a Peable-only deployment
- * that returned BEFORE looking at anything, so a checkout admitted every seller
- * — including one with no connected account at all, on any rail. ADR 0001 D4
- * exists to refuse exactly that seller, and the gate that enforces it was
- * skipping itself. It failed OPEN while the two readiness READS beside it
- * (`readSellerPaymentReadiness`, `isSellerPaymentReady`) failed closed, so the
+ * `assertSellerGroupsPaymentReady` once opened with a check on a DIFFERENT
+ * rail's flag, so on a Peable-only deployment it returned before looking at
+ * anything and a checkout admitted every seller — including one with no
+ * connected account at all. ADR 0001 D4 exists to refuse exactly that seller.
+ * It failed OPEN while the two readiness READS beside it failed closed, so the
  * dashboard told the seller they were not ready while checkout sold through
  * them anyway.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { uuidv7 } from '@oxy.so/db';
 
-const rails = { peable: false, stripe: false };
+const rails = { peable: false };
 
 vi.mock('../../../config/index.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../config/index.js')>();
@@ -39,12 +36,6 @@ vi.mock('../../../config/index.js', async (importOriginal) => {
             return rails.peable;
           },
         },
-        stripe: {
-          ...actual.config.payments.stripe,
-          get enabled() {
-            return rails.stripe;
-          },
-        },
       },
     },
   };
@@ -54,6 +45,8 @@ let assertSellerGroupsPaymentReady: typeof import('../provider-account.service.j
 let isSellerPaymentReady: typeof import('../provider-account.service.js')['isSellerPaymentReady'];
 let readSellerPaymentReadiness: typeof import('../provider-account.service.js')['readSellerPaymentReadiness'];
 let closePostgres: typeof import('../../../db/postgres.js')['closePostgres'];
+let getDb: typeof import('../../../db/postgres.js')['getDb'];
+let accounts: typeof import('../../../db/payments/providerAccountRepository.js');
 
 beforeAll(async () => {
   // Dynamic, for the reason the refund lifecycle file gives: a STATIC import of
@@ -63,7 +56,8 @@ beforeAll(async () => {
   // but the connection still has to be opened before the first query.
   const postgres = await import('../../../db/postgres.js');
   await postgres.connectPostgres();
-  ({ closePostgres } = postgres);
+  ({ closePostgres, getDb } = postgres);
+  accounts = await import('../../../db/payments/providerAccountRepository.js');
   ({ assertSellerGroupsPaymentReady, isSellerPaymentReady, readSellerPaymentReadiness } =
     await import('../provider-account.service.js'));
 });
@@ -77,17 +71,41 @@ function unconnectedSellerKey(): string {
   return `store:native-rail-${uuidv7()}`;
 }
 
+/** A seller this run owns whose Peable account the stored verdict calls `ready`. */
+async function readySellerKey(): Promise<string> {
+  const ownerId = `native-rail-${uuidv7()}`;
+  const row = await accounts.insertProviderAccount(getDb(), {
+    provider: 'peable',
+    ownerType: 'store',
+    ownerId,
+    providerAccountId: `acct_ready_${uuidv7()}`,
+    country: 'ES',
+  });
+  await accounts.applyProviderAccountState(getDb(), {
+    id: row.id,
+    state: {
+      onboardingState: 'ready',
+      chargesEnabled: false,
+      payoutsEnabled: true,
+      transfersCapability: 'active',
+      requirementsCurrentlyDue: 0,
+      requirementsEventuallyDue: 0,
+      requirementsPastDue: 0,
+      requirementsPendingVerification: 0,
+      disabledReasonCodes: [],
+      syncedAt: new Date(),
+    },
+  });
+  return `store:${ownerId}`;
+}
+
 beforeEach(() => {
   rails.peable = false;
-  rails.stripe = false;
 });
 
-describe('seller readiness follows the resolved rail', () => {
-  /**
-   * THE regression. With Stripe off and Peable on, the gate used to return
-   * without a query and the checkout proceeded.
-   */
-  it('refuses an unconnected seller on a Peable-only deployment', async () => {
+describe('seller readiness follows the native rail', () => {
+  /** THE regression: the gate queries, and refuses a seller with no account. */
+  it('refuses an unconnected seller when Peable is configured', async () => {
     rails.peable = true;
     const sellerKey = unconnectedSellerKey();
 
@@ -96,14 +114,14 @@ describe('seller readiness follows the resolved rail', () => {
     );
   });
 
-  /** Unchanged behaviour on the rail that already worked, so this is a widening. */
-  it('refuses an unconnected seller on a Stripe-only deployment', async () => {
-    rails.stripe = true;
-    const sellerKey = unconnectedSellerKey();
+  /** The positive half, so the refusal above is not vacuous. */
+  it('admits a seller whose Peable account is ready', async () => {
+    rails.peable = true;
+    const sellerKey = await readySellerKey();
 
-    await expect(assertSellerGroupsPaymentReady([sellerKey])).rejects.toThrow(
-      /cannot accept payment right now/,
-    );
+    await expect(assertSellerGroupsPaymentReady([sellerKey])).resolves.toBeUndefined();
+    expect(await isSellerPaymentReady(sellerKey)).toBe(true);
+    expect((await readSellerPaymentReadiness([sellerKey])).get(sellerKey)).toBe(true);
   });
 
   /**
@@ -121,14 +139,9 @@ describe('seller readiness follows the resolved rail', () => {
    * before — the gate skipped while the reads said `false` — and a seller shown
    * "not ready" who is nevertheless sold through is the worst of both answers.
    */
-  it('reads and gate agree, on each rail and on none', async () => {
-    for (const [peable, stripe] of [
-      [true, false],
-      [false, true],
-      [false, false],
-    ] as const) {
+  it('reads and gate agree, with the rail and without it', async () => {
+    for (const peable of [true, false]) {
       rails.peable = peable;
-      rails.stripe = stripe;
       const sellerKey = unconnectedSellerKey();
 
       const gateRefused = await assertSellerGroupsPaymentReady([sellerKey]).then(
@@ -142,7 +155,7 @@ describe('seller readiness follows the resolved rail', () => {
       // when there is a rail to be unready for.
       expect(readReady).toBe(false);
       expect(bulk.get(sellerKey)).toBeUndefined();
-      expect(gateRefused).toBe(peable || stripe);
+      expect(gateRefused).toBe(peable);
     }
   });
 });

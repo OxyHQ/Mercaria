@@ -423,7 +423,7 @@ describe('the population the walls above are applied to (#460)', () => {
       'db/referralIntegrity/enforcementRepository.ts',
       'db/referralPilot/pilotRepository.ts',
       'services/referral-pilot/pilot.service.ts',
-      'services/referral-payouts/rail.ts',
+      'services/referral-payouts/readiness.ts',
       'routes/admin/referral-partner.ts',
     ]) {
       expect(population, `${named} is outside every wall again`).toContain(named);

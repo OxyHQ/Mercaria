@@ -489,10 +489,13 @@ jobs:
                    # still carries instead of rendering it forward forever.
                    # MERCHANT_BILLING_PEABLE_COHORT routed merchant billing
                    # through the retired Peable Stripe-Billing proxy; billing is
-                   # native Peable now and nothing reads it.
+                   # native Peable now and nothing reads it. Every STRIPE_
+                   # setting belonged to the direct Stripe rail, deleted under
+                   # ADR 0009 D13, so none is rendered forward.
                    | .environment = (
                        ((.environment // []) | map(select(
                          (.name as $n | $pinned_names | index($n) | not) and
+                         (.name | startswith("STRIPE_") | not) and
                          .name != "AWS_S3_BUCKET" and
                          .name != "SERVICE_SECRET" and
                          .name != "MERCHANT_BILLING_PEABLE_COHORT"
@@ -507,18 +510,16 @@ jobs:
                    # SERVICE_SECRET has no runtime reader; never inherit the
                    # retired shared-secret reference from a historical revision.
                    # Mercaria holds no Stripe credential: merchant billing is
-                   # native Peable (ADR 0009 D17) and the Stripe marketplace
-                   # rail is off, so the key and both webhook secrets go too.
+                   # native Peable (ADR 0009 D17) and the direct Stripe rail is
+                   # deleted (D13), so every STRIPE_ secret goes too.
                    | .secrets = (
                        (.secrets // []) | map(select(
+                         (.name | startswith("STRIPE_") | not) and
                          .name != "OXY_APPLICATION_KEY" and
                          .name != "OXY_APPLICATION_SECRET" and
                          .name != "PEABLE_APP_PUBLIC_KEY" and
                          .name != "PEABLE_APP_SECRET" and
-                         .name != "SERVICE_SECRET" and
-                         .name != "STRIPE_SECRET_KEY" and
-                         .name != "STRIPE_WEBHOOK_SECRET" and
-                         .name != "STRIPE_CONNECT_WEBHOOK_SECRET"
+                         .name != "SERVICE_SECRET"
                        ))
                      )
                  else . end

@@ -219,12 +219,11 @@ const EXTRA_NAVIGATION_PATHS = [
   'app/(app)/nearby.tsx',
   'components/nearby/NearbyAvailability.tsx',
   'components/nearby/NearbyOriginControl.tsx',
-  // The two checkout screens, on the same terms as the listing page above: #93
-  // added exactly one navigation target to each — a guest leaving checkout now
-  // goes to #108's portal rather than the storefront — and that link is held to
-  // the route gate and to nothing else.
+  // The checkout screen, on the same terms as the listing page above: #93 added
+  // exactly one navigation target to it — a guest leaving checkout now goes to
+  // #108's portal rather than the storefront — and that link is held to the
+  // route gate and to nothing else.
   'app/(app)/checkout/index.tsx',
-  'app/(app)/checkout/return.tsx',
 ];
 
 /** Every file WALL 6 reads navigation targets out of: this page's, plus the extras. */

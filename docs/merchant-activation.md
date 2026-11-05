@@ -40,7 +40,7 @@ Activation readiness has no such row. Its inputs sit on `merchants`,
 `orders` and this domain's own three tables — eleven tables in eight domains,
 none of which this one owns. A stored verdict would be a twelfth
 representation, and it would go stale at exactly the moment that matters: the
-instant Stripe restricts a seller, a jury restricts a catalogue, or a connector
+instant the rail restricts a seller, a jury restricts a catalogue, or a connector
 stops delivering.
 
 So this is `deriveNativeCheckoutEligibility`'s (#57) divergence, taken for the
@@ -226,7 +226,7 @@ UPDATE and DELETE by trigger.
 
 ## The audit trail is an OBSERVATION
 
-Most activation transitions have no actor and no hook: Stripe restricts an
+Most activation transitions have no actor and no hook: the rail restricts an
 account, a connector stops delivering, a jury restricts a catalogue — and not one
 of those domains knows this one exists. Adding a hook to each was rejected for
 #57's converger reason: eight callers that must all remember is seven ways to
@@ -307,14 +307,14 @@ image writes is broken by it.
 
 | # | Criterion | State |
 |---|---|---|
-| 1 | A verified merchant with a real connector and Stripe test account completes the flow and accepts a test native order | **SEAM.** Every derivation, gate, surface and step exists and is tested; there is no Stripe account, no connected store and no Shopify/WooCommerce install in this repository (see #69's own acceptance 7, still open). Nothing here may be read as evidence that one has been exercised. |
+| 1 | A verified merchant with a real connector and Stripe test account completes the flow and accepts a test native order | **SEAM.** Every derivation, gate, surface and step exists and is tested; there is no card-rail seller account (Peable has no seller onboarding yet, ADR 0009 D13), no connected store and no Shopify/WooCommerce install in this repository (see #69's own acceptance 7, still open). Nothing here may be read as evidence that one has been exercised. |
 | 2 | Skipping a client step cannot enable checkout when an authoritative requirement is missing | **MET.** Every verdict is server-derived; the merchant schema is `.strict()` and declares four fields, none of them a capability, a requirement or a verdict; a scanned gate asserts the patch type carries none either. |
 | 3 | External referral offers remain separate before and after native activation | **MET.** Structurally: `offers_kind_shape_check` forces `product_variant_id` NULL on every kind but `native`, so nothing this domain does could turn an external offer into a native one. Nothing here writes `offers`. |
 | 4 | Losing payment readiness removes new native checkout without deleting products or existing orders | **MET.** `payment_provider_ready` withholds `authenticated_native_checkout`; `refund_and_return_operations` does not depend on it; this domain issues no DELETE against any catalogue or order table. |
 | 5 | The flow resumes idempotently and creates no duplicate stores, connections or provider accounts | **MET.** Reading creates nothing (there is no progress record), and each of the three creations is held by an index in the domain that owns it. |
 | 6 | Every readiness failure has an owner-facing explanation and an operator trace | **MET.** A closed reason-code set per requirement, plus the transition trail. |
 | 7 | Feature flags support pilot merchants and market-by-market activation | **PARTIAL, and stated.** The per-merchant and per-market levers exist (`GUEST_CHECKOUT_BLOCKED_SELLER_KEYS`, `GUEST_CHECKOUT_BLOCKED_MARKETS`, `CHECKOUT_DESTINATION_COUNTRIES`) and this domain reads them. A POSITIVE cohort model is #111's, and `guest_cohort_enabled` reads the block list rather than claiming a cohort that does not exist. |
-| 8 | Guest readiness is separate from general native checkout and cannot be inferred from Stripe readiness alone | **MET.** Two disjoint registries; guest names twelve facts Stripe does not answer. |
+| 8 | Guest readiness is separate from general native checkout and cannot be inferred from Stripe readiness alone | **MET.** Two disjoint registries; guest names twelve facts the rail does not answer. |
 | 9 | A signed-out buyer sees guest checkout only for an actually eligible offer and fulfilment path | **MET on the server.** `readGuestSellerActivation` answers the guest conjunction and the gate refuses. The storefront affordance is #111's rollout work. |
 | 10 | Merchant staff can fulfil, refund and support guest orders without an Oxy buyer profile or access to guest security data | **MET, and it was #106's.** `MerchantOrder` `Omit`s the buyer fields and `order_status_history.actor_guest_session_id` is in `PROTECTED_COLUMNS`. What #85 adds is `guest_buyer_data_permissions_scoped` — a requirement that SOMEBODY on the store holds the permission. Since ADR 0012 it is met by construction: the store's owning Oxy account holds every permission and no override can take one from it, so the requirement (and `guest_refund_operations_available`) stays in the published registry and is satisfied structurally rather than by a read. |
 | 11 | Pausing new guest checkout preserves portal, support, refund and fulfilment operations for existing orders | **MET.** The pause is an intent column read only by the derivation; #108's portal router mounts unconditionally and a scanned gate there forbids a read path from reading a guest lever. |
@@ -362,7 +362,7 @@ image writes is broken by it.
 - **The ten TEST ORDERS #85 lists** — authenticated card, guest card, an express
   method, shipping, pickup, a payment failure, a refund request, transactional
   email, a guest feature pause and a mixed cart. Not modelled, because eight of
-  the ten need an external account or a capability nobody has built (a Stripe
+  the ten need an external account or a capability nobody has built (a card-rail
   test account, #93's pickup, #108's mail). What IS derived is
   `test_order_completed` — a completed order on the rail this deployment is
   configured for — which is honest and checkable.

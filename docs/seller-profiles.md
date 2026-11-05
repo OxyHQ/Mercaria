@@ -144,7 +144,7 @@ families, each on the list for its own reason:
 - **contact and location** — a P2P seller's home is where the goods are. Coarse
   location belongs to a LISTING that opted into local discovery, never to the
   person.
-- **payment onboarding** — whether a seller finished Stripe onboarding is
+- **payment onboarding** — whether a seller finished payment onboarding is
   commercially and personally revealing, and it is already derivable where it
   legitimately matters (checkout's readiness gate).
 - **follower identities and the viewer graph** — see above.

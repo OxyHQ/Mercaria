@@ -73,8 +73,9 @@ every closed value set) · `contracts` (the `/public/v1` zod source; regen
   transaction sums to zero PER CURRENCY.
 - **Nothing auto-deletes or rewrites financial history.** Repairs are explicit,
   audited operator actions from a CLOSED set.
-- **Use `constructEventAsync`, never `constructEvent`** — production runs on Bun,
-  where the sync Stripe crypto entry points throw (vitest on Node hides it).
+- **Peable is the only card rail** (ADR 0009 D13 deleted direct Stripe): no
+  provider SDK beside `PaymentProvider`. No Peable seller onboarding yet, so
+  `PEABLE_ENABLED` refuses every seller.
 
 ## PostgreSQL
 
@@ -114,7 +115,7 @@ every closed value set) · `contracts` (the `/public/v1` zod source; regen
 - **A store is owned by an Oxy account; Oxy decides who gets in** (ADR 0012). No
   member list: `oxyClient.accountAccessFor` (THEIR session, fail closed, fresh on
   writes) → `STORE_ROLE_PERMISSIONS` ± overrides.
-  `admin` lacks only `store:manage`, which gates payment, fee and identity routes.
+  `admin` lacks only `store:manage`, which gates fee and identity routes.
 - **Buyer, seller and `oxy_user_id` ids are Oxy's keys** and carry no foreign key.
 - **CORS:** `packages/backend/src/lib/allowed-origins.ts` is the ONE origin authority
   (CORS and the bounded referral-cookie migration gate) and must carry `mercaria.co`, `dashboard.mercaria.co`
@@ -124,7 +125,7 @@ every closed value set) · `contracts` (the `/public/v1` zod source; regen
 
 ## Things that break silently if you change them
 
-- **Six webhook routers stay mounted BEFORE `express.json()`**
+- **Five webhook routers stay mounted BEFORE `express.json()`**
   (`docs/house-invariants.md`), asserted PER MOUNT on the real chain.
 - **No request body carries a feed** (the proxy refuses >100 MB): parts go to
   storage presigned; validation is a polled 202 job (`docs/feed-importer.md`).

@@ -152,7 +152,7 @@ offer blocked by `listing_restricted` or `listing_not_active`.
 **Two reasons and not the whole set**, deliberately: `out_of_stock` and
 `seller_not_payment_ready` also block checkout and are NOT removals. An
 out-of-stock listing is still the product's price, and a seller who has not
-finished Stripe onboarding has not withdrawn anything.
+finished payment onboarding has not withdrawn anything.
 
 A product whose every offer has lapsed **keeps its result and carries NO
 summary** — #70 freshness rule 1 (the product is still a useful answer) and rule

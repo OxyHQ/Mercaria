@@ -4,8 +4,9 @@
  *
  * ## This module sits OUTSIDE both walled domains, and that is the design
  *
- * ADR 0005 D14 selects one launch rail — Stripe Connect transfers to a
- * payment-ready connected account, through exactly #46's `provider_accounts`.
+ * ADR 0005 D14 pays a partner to a payment-ready connected account, through
+ * exactly #46's `provider_accounts` (its launch rail, a direct Stripe Connect
+ * transfer, was removed with the direct Stripe rail — ADR 0009 D13).
  * So a referral payout needs the referral domain (which partner, which batch)
  * and the payment domain (which account, and the money) in one place, and
  * NEITHER may import the other:
@@ -13,8 +14,8 @@
  *  - `reward-funding-isolation.test.ts` forbids everything under
  *    `services/referrals/` from reaching `services/payments/`, `db/payments`,
  *    `schema/ledger` or `refund.service`, exempting three named seams and no
- *    others. A Stripe client under `services/referrals/` is exactly what that
- *    wall refuses.
+ *    others. A payment-rail client under `services/referrals/` is exactly what
+ *    that wall refuses.
  *  - The reverse edge does not exist today (measured: no file under
  *    `services/payments/` names a referral), and creating one to satisfy this
  *    join is what #123 warned about in the same shape — satisfying a step by
@@ -92,7 +93,7 @@ export function referralPayoutBeneficiaryRef(partner: ReferralPayoutPartnerIdent
  * is the ONLY function that writes either, so they cannot disagree. That is not
  * laziness about a distinction — under ADR 0001 D9 the connected account's
  * `onboarding_state` already IS the conjunction of identity verification and a
- * usable payout destination, and Stripe publishes no verdict that separates
+ * usable payout destination, and the rail publishes no verdict that separates
  * them. Deriving two columns from one source through two functions is how they
  * would drift; deriving them through one is how the schema keeps room for a rail
  * that does distinguish them, without pretending today's rail does.

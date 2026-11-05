@@ -176,7 +176,6 @@ interface PublicValue {
 
 beforeAll(async () => {
   vi.resetModules();
-  process.env.STRIPE_ENABLED = 'false';
   const { createApp } = await import('../../app.js');
   const app = createApp();
   server = await new Promise<Server>((resolve) => {

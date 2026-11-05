@@ -138,7 +138,7 @@ export async function readGuestP2PFacts(input: {
     completedSales: profiles.length > 0 ? known(profiles[0].salesCount) : unknown('seller'),
     // The connected account's country is the only market fact Mercaria holds
     // about a person. No account yet ⇒ nothing to read, and the seller supplies
-    // it by onboarding — which `stripe_payout_ready` already reports on.
+    // it by onboarding — which `payout_ready` already reports on.
     sellerPayoutCountry: account ? known(account.country) : unknown('seller'),
     // A missing acceptance is a KNOWN false rather than an unknown: the policy
     // is published, the surface exists and the seller has not used it. Reporting

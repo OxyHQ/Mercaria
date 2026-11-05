@@ -1,6 +1,7 @@
 /**
  * The high-value transfer HOLD and the sweep that releases it (#988), against a
- * REAL Postgres and a fake Stripe.
+ * REAL Postgres and a fake Peable gateway
+ * (`payments/__tests__/helpers/fake-peable-gateway.ts`).
  *
  * ## The three properties this file exists to pin
  *
@@ -60,7 +61,7 @@
  * ## Fixtures are scoped, never truncated
  *
  * `*.realdb.test.ts` files share ONE throwaway database and run in PARALLEL.
- * Every id here carries this run's own suffix. `STRIPE_HIGH_VALUE_HOLD_THRESHOLDS`
+ * Every id here carries this run's own suffix. `HIGH_VALUE_HOLD_THRESHOLDS`
  * is deleted in `afterAll` because vitest reuses a worker PROCESS across files:
  * left set, it would make a LATER file in this process hold its own transfers
  * and fail for a reason nothing in it names. The threshold is also two orders of
@@ -80,7 +81,7 @@ const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toStrin
  * The EUR bar, in minor units — 50,000.00 €.
  *
  * Absurd for a marketplace fixture on purpose. It travels through the REAL
- * `STRIPE_HIGH_VALUE_HOLD_THRESHOLDS` grammar and `resolveHighValueHoldThresholds`,
+ * `HIGH_VALUE_HOLD_THRESHOLDS` grammar and `resolveHighValueHoldThresholds`,
  * so this file also proves the env → config → settlement chain is connected; and
  * being far above anything a sibling settles means a leaked variable could not
  * hold another file's transfer.
@@ -90,37 +91,31 @@ const THRESHOLD_EUR = 5_000_000;
 const HELD_TOTAL = 10_000_000;
 /** A seller share BELOW it — the control that proves the rail is reachable. */
 const SETTLED_TOTAL = 1_000_000;
-/** The EUR→USD ratio the rail is pretended to have applied on the USD case. */
+/** The EUR→USD ratio the settlement is pretended to have landed at on the USD case. */
 const USD_RATE = 1.1;
 /** The Oxy account every repair below is run as. */
 const OPERATOR = `oxy-operator-${RUN}`;
 
 /**
- * The fake Stripe API's state. Hoisted so the `vi.mock` factory can close over
- * it — a factory is hoisted above every `const` in this file.
+ * The fake gateway. Hoisted so the `vi.mock` factory below can close over it —
+ * a factory is hoisted above every `const` in this file.
  */
-const api = vi.hoisted(() => ({
-  intents: new Map<string, Record<string, unknown>>(),
-  charges: new Map<string, Record<string, unknown>>(),
-  transfers: new Map<string, Record<string, unknown>>(),
-  /** Idempotency key → the object that key already produced (Stripe's own rule). */
-  byKey: new Map<string, Record<string, unknown>>(),
-  /** Connected accounts, keyed by `acct_…`, as `accounts.retrieve` would return them. */
-  accounts: new Map<string, Record<string, unknown>>(),
-  transferCalls: [] as { params: Record<string, unknown>; idempotencyKey: string }[],
-  nextId: 0,
-}));
+const gateway = await vi.hoisted(async () =>
+  (await import('../../__tests__/helpers/fake-peable-gateway.js')).createFakePeableGateway(),
+);
 
 /**
  * The hold WINDOW this deployment is configured with, made mutable.
  *
  * `config` reads `process.env` once at module load and freezes the result, so a
  * window that changes between two settlement runs — the deployment raising
- * `STRIPE_HIGH_VALUE_HOLD_WINDOW_MS` while a hold is already in force — cannot
- * be produced through the environment at all. The mock below replaces exactly
- * one leaf with a getter over this holder and spreads the rest of the real
- * config through unchanged, so every other reader (the connection string, the
- * outbox, the rail) is the genuine article.
+ * `HIGH_VALUE_HOLD_WINDOW_MS` while a hold is already in force — cannot be
+ * produced through the environment at all. The mock below replaces that leaf
+ * with a getter over this holder, switches the Peable rail on (the one other
+ * leaf it touches — `PEABLE_ENABLED` also needs an Oxy identity this suite does
+ * not have, and the client is faked anyway) and spreads the rest of the real
+ * config through unchanged, so every other reader — the connection string, the
+ * outbox, the thresholds parsed from the environment — is the genuine article.
  *
  * Deliberately NOT the 72h production default: if the mock ever stopped
  * applying, `stamps when the share becomes releasable` would fail on the exact
@@ -139,73 +134,16 @@ vi.mock('../../../../config/index.js', async (importOriginal) => {
       ...actual.config,
       payments: {
         ...actual.config.payments,
-        stripe: {
-          ...actual.config.payments.stripe,
-          get highValueHoldWindowMs() {
-            return hold.windowMs;
-          },
+        peable: { ...actual.config.payments.peable, enabled: true },
+        get highValueHoldWindowMs() {
+          return hold.windowMs;
         },
       },
     },
   };
 });
 
-vi.mock('../../stripe/client.js', () => ({
-  STRIPE_API_VERSION: '2026-07-29.dahlia',
-  getStripeClient: () => {
-    throw new Error('This suite must not construct a real Stripe client.');
-  },
-  resetStripeClient: () => undefined,
-  retrieveStripePaymentIntent: (id: string) => {
-    const intent = api.intents.get(id);
-    if (!intent) throw new Error(`No fake PaymentIntent registered for ${id}`);
-    return Promise.resolve(intent);
-  },
-  retrieveStripeChargeWithBalance: (id: string) => {
-    const charge = api.charges.get(id);
-    if (!charge) throw new Error(`No fake charge registered for ${id}`);
-    return Promise.resolve(charge);
-  },
-  createStripeTransfer: (params: Record<string, unknown>, idempotencyKey: string) => {
-    api.transferCalls.push({ params, idempotencyKey });
-    // Stripe's own idempotency: one key produces one object, however many times
-    // it is presented. Honoured here because a released hold re-enters the SAME
-    // settlement with the same `tr:<paymentId>:<orderId>` key, and a fake that
-    // minted a second transfer would hide the one mistake this domain cannot
-    // recover from.
-    const existing = api.byKey.get(idempotencyKey);
-    if (existing) return Promise.resolve(existing);
-    api.nextId += 1;
-    const transfer = {
-      id: `tr_hold_${String(api.nextId)}`,
-      object: 'transfer',
-      amount_reversed: 0,
-      ...params,
-    };
-    api.transfers.set(String(transfer.id), transfer);
-    api.byKey.set(idempotencyKey, transfer);
-    return Promise.resolve(transfer);
-  },
-  retrieveStripeTransfer: (id: string) => {
-    const transfer = api.transfers.get(id);
-    if (!transfer) throw new Error(`No fake transfer registered for ${id}`);
-    return Promise.resolve(transfer);
-  },
-  retrieveStripeAccount: (id: string) => {
-    const account = api.accounts.get(id);
-    if (!account) throw new Error(`No fake account registered for ${id}`);
-    return Promise.resolve(account);
-  },
-  createStripeRefund: () => {
-    throw new Error('This suite does not exercise the refund rail.');
-  },
-  retrieveStripeRefund: () => {
-    throw new Error('This suite does not exercise the refund rail.');
-  },
-  createStripeTransferReversal: () => {
-    throw new Error('This suite does not exercise the reversal rail.');
-  },
-}));
+vi.mock('../../peable/client.js', () => gateway.clientModule());
 
 type Database = import('../../../../db/postgres.js').Database;
 let db: Database;
@@ -236,15 +174,9 @@ beforeAll(async () => {
   // process.env once at module load and freezes the result, and vitest reuses a
   // worker PROCESS across files while giving each its own module registry, so a
   // sibling's write survives into this one.
-  process.env.STRIPE_ENABLED = 'true';
-  process.env.STRIPE_SECRET_KEY = 'sk_test_not_a_real_key';
-  process.env.STRIPE_WEBHOOK_SECRET = 'whsec_high_value_hold_not_a_real_one';
-  process.env.STRIPE_CONNECT_WEBHOOK_SECRET = 'whsec_high_value_hold_connect';
-  process.env.STRIPE_PLATFORM_CURRENCY = 'EUR';
-  process.env.STRIPE_PRESENTMENT_CURRENCIES = 'EUR,USD';
   // EUR only. USD is deliberately ABSENT — an unconfigured currency settles, and
   // `settles a currency with no configured threshold` is what proves it.
-  process.env.STRIPE_HIGH_VALUE_HOLD_THRESHOLDS = `EUR:${String(THRESHOLD_EUR)}`;
+  process.env.HIGH_VALUE_HOLD_THRESHOLDS = `EUR:${String(THRESHOLD_EUR)}`;
 
   const postgres = await import('../../../../db/postgres.js');
   db = await postgres.connectPostgres();
@@ -273,17 +205,12 @@ beforeAll(async () => {
 afterAll(async () => {
   // See the file docblock: left set, this makes a LATER file in this worker
   // process hold its own transfers.
-  delete process.env.STRIPE_HIGH_VALUE_HOLD_THRESHOLDS;
+  delete process.env.HIGH_VALUE_HOLD_THRESHOLDS;
   await closePostgres();
 });
 
 beforeEach(() => {
-  api.intents.clear();
-  api.charges.clear();
-  api.transfers.clear();
-  api.byKey.clear();
-  api.accounts.clear();
-  api.transferCalls.length = 0;
+  gateway.reset();
   hold.windowMs = WINDOW_MS;
 });
 
@@ -307,9 +234,11 @@ function eur(amount: number) {
  *
  * @param options.totalMinor The order's EUR grand total, and the buyer's
  *   presentment amount.
- * @param options.settled What LANDED on Mercaria's balance, when the rail
- *   converted. `settlementBasis` sizes the transfer from this, so it is what
- *   decides which currency's threshold the hold policy looks up.
+ * @param options.settled What LANDED on Mercaria's balance, when the charge was
+ *   converted. Supplied to `applyPaymentStatus` directly — the Peable event
+ *   path states no settlement figure yet — and `settlementBasis` sizes the
+ *   transfer from it, so it is what decides which currency's threshold the hold
+ *   policy looks up.
  */
 async function seedScenario(
   label: string,
@@ -321,10 +250,10 @@ async function seedScenario(
 ) {
   const suffix = `${label}-${RUN}-${uuidv7()}`;
   const ownerId = `owner-${suffix}`;
-  // From the uuid's TAIL, not the label's head: `acct_` ids are bounded, and
+  // From the uuid's TAIL, not the label's head: seller account ids are bounded, and
   // truncating a `<label>-<run>-<uuid>` suffix from the FRONT makes two
   // scenarios that share a label collide on `UNIQUE(provider, provider_account_id)`.
-  const providerAccountId = `acct_${suffix.replace(/-/g, '').slice(-24)}`;
+  const providerAccountId = `ca_${suffix.replace(/-/g, '').slice(-24)}`;
   const settled = options.settled ?? { amountMinor: options.totalMinor, currency: 'EUR' as const };
 
   const store = await insertStore({
@@ -351,14 +280,13 @@ async function seedScenario(
   });
 
   const account = await insertProviderAccount(db, {
-    provider: 'stripe',
+    provider: 'peable',
     ownerType: 'store',
     ownerId: store.id,
     providerAccountId,
     country: 'ES',
   });
   await setAccountState(account.id, options.ready);
-  setRailAccount(providerAccountId, options.ready);
 
   const [listing] = await db
     .insert(catalogSchema.listings)
@@ -430,35 +358,15 @@ async function seedScenario(
   });
 
   const intentId = `pi_${suffix.replace(/-/g, '')}`;
-  const chargeId = `ch_${suffix.replace(/-/g, '')}`;
-  api.intents.set(intentId, {
+  gateway.putIntent({
     id: intentId,
-    object: 'payment_intent',
     status: 'succeeded',
-    amount: options.totalMinor,
-    currency: 'eur',
-    latest_charge: chargeId,
-    metadata: {},
-  });
-  api.charges.set(chargeId, {
-    id: chargeId,
-    object: 'charge',
-    amount: options.totalMinor,
-    currency: 'eur',
-    amount_refunded: 0,
-    balance_transaction: {
-      id: `txn_${chargeId}`,
-      object: 'balance_transaction',
-      amount: settled.amountMinor,
-      currency: settled.currency.toLowerCase(),
-      fee: 0,
-      exchange_rate: settled.currency === 'EUR' ? null : USD_RATE,
-      created: Math.floor(Date.now() / 1_000),
-    },
+    amount: BigInt(options.totalMinor),
+    currency: 'EUR',
   });
 
   const payment = await ensurePayment({
-    provider: 'stripe',
+    provider: 'peable',
     checkoutGroupId,
     presentment: { amount: options.totalMinor, currency: 'EUR' },
     buyerOxyUserId: `buyer-${suffix}`,
@@ -477,7 +385,7 @@ async function seedScenario(
         from: 'EUR',
         to: settled.currency,
         rate: settled.amountMinor / options.totalMinor,
-        provider: 'stripe',
+        provider: 'peable',
         asOf: new Date().toISOString(),
       },
     },
@@ -489,7 +397,6 @@ async function seedScenario(
     accountRowId: account.id,
     orderId: order.id,
     paymentId: payment.id,
-    providerAccountId,
   };
 }
 
@@ -509,28 +416,6 @@ async function setAccountState(accountRowId: string, ready: boolean): Promise<vo
       disabledReasonCodes: [],
       syncedAt: new Date(),
     },
-  });
-}
-
-/** What `accounts.retrieve` will report for this connected account. */
-function setRailAccount(providerAccountId: string, ready: boolean): void {
-  api.accounts.set(providerAccountId, {
-    id: providerAccountId,
-    object: 'account',
-    country: 'ES',
-    default_currency: 'eur',
-    charges_enabled: ready,
-    payouts_enabled: ready,
-    capabilities: { transfers: ready ? 'active' : 'inactive' },
-    requirements: {
-      currently_due: [],
-      eventually_due: [],
-      past_due: ready ? [] : ['individual.verification.document'],
-      pending_verification: [],
-      disabled_reason: ready ? null : 'requirements.past_due',
-      current_deadline: null,
-    },
-    settings: { payouts: { schedule: { interval: 'daily', delay_days: 2 } } },
   });
 }
 
@@ -630,7 +515,7 @@ describe('a high-value seller share', () => {
     expect(transfer.amountAmount).toBeGreaterThanOrEqual(THRESHOLD_EUR);
 
     // The money did not leave. Absent the hold, `provider_object_id` would carry
-    // a `tr_hold_…` and `status` would be `paid` — which is exactly what the
+    // the gateway's `tr_…` and `status` would be `paid` — which is exactly what the
     // control below reports for a smaller share in this same configuration.
     expect(transfer.providerObjectId).toBeNull();
     expect(transfer.status).toBe('pending');
@@ -638,7 +523,7 @@ describe('a high-value seller share', () => {
     // The rail was never asked. This is the assertion that would report 1
     // instead of 0 if the hold were removed, and 0 either way if the fixture
     // could not reach the rail at all — which is why the control matters.
-    expect(api.transferCalls).toHaveLength(0);
+    expect(gateway.state.transferCalls).toHaveLength(0);
 
     // EXACT, not approximate: `highValueHoldFor` anchors on the transfer row's
     // own `created_at`, so the stamp is a pure function of a stored value and
@@ -676,18 +561,17 @@ describe('a high-value seller share', () => {
     // Never held: `held_until` is NULL, so this row is not in the release
     // sweep's population at all.
     expect(transfer.heldUntil).toBeNull();
-    expect(api.transferCalls).toHaveLength(1);
+    expect(gateway.state.transferCalls).toHaveLength(1);
     // The seller's receivable is settled — the whole of "the money reached the
     // seller" in this system.
     expect(await payableBalance(scenario.orderId)).toBe(0n);
   });
 
   it('settles a currency with NO configured threshold, however large', async () => {
-    // The rail converted to USD, so `settlementBasis` sizes the transfer in USD
+    // The charge landed in USD, so `settlementBasis` sizes the transfer in USD
     // and the policy looks USD up — and finds nothing, because only EUR is
-    // configured. An absent threshold SETTLES; that default is the deliberate
-    // opposite of `three-d-secure.ts`, where an unconfigured currency gets the
-    // protective branch.
+    // configured. An absent threshold SETTLES: the hold delays a seller, and a
+    // deployment nobody configured must not freeze its payouts.
     const scenario = await seedScenario('no-threshold', {
       ready: true,
       totalMinor: HELD_TOTAL,
@@ -703,7 +587,7 @@ describe('a high-value seller share', () => {
     expect(transfer.amountAmount).toBeGreaterThanOrEqual(THRESHOLD_EUR);
     expect(transfer.heldUntil).toBeNull();
     expect(transfer.providerObjectId).toBeTruthy();
-    expect(api.transferCalls).toHaveLength(1);
+    expect(gateway.state.transferCalls).toHaveLength(1);
     expect(await payableBalance(scenario.orderId)).toBe(0n);
   });
 });
@@ -726,7 +610,7 @@ describe('the hold is decided once', () => {
     // that never expires. The gate itself is measured two cases below.
     expect(after.heldUntil?.getTime()).toBe(held.heldUntil?.getTime());
     expect(after.providerObjectId).toBeNull();
-    expect(api.transferCalls).toHaveLength(0);
+    expect(gateway.state.transferCalls).toHaveLength(0);
 
     // ONE exception after three settlements. `transferWithheldEventId` is
     // derived from (payment, order), so the outbox insert conflicts with itself;
@@ -749,7 +633,7 @@ describe('the hold is decided once', () => {
     const settled = await transferFor(scenario);
     expect(settled.providerObjectId).toBeTruthy();
     expect(settled.status).toBe('paid');
-    expect(api.transferCalls).toHaveLength(1);
+    expect(gateway.state.transferCalls).toHaveLength(1);
     expect(await payableBalance(scenario.orderId)).toBe(0n);
     // The spent stamp is left behind rather than cleared, and that is harmless
     // BECAUSE the sweep's predicate also requires `provider_object_id IS NULL`.
@@ -764,7 +648,7 @@ describe('the hold is decided once', () => {
     const stamped = held.heldUntil?.getTime();
     expect(stamped).toBe(held.createdAt.getTime() + WINDOW_MS);
 
-    // The deployment raises `STRIPE_HIGH_VALUE_HOLD_WINDOW_MS` tenfold while
+    // The deployment raises `HIGH_VALUE_HOLD_WINDOW_MS` tenfold while
     // this hold is in force, and settlement runs again — an outbox retry, a
     // sibling seller settling in the same group, the release sweep.
     hold.windowMs = WINDOW_MS * 10;
@@ -805,7 +689,7 @@ describe('the release sweep', () => {
     // still be NULL, and would stay NULL until an operator ran a repair.
     expect(settled.providerObjectId).toBeTruthy();
     expect(settled.status).toBe('paid');
-    expect(api.transferCalls).toHaveLength(1);
+    expect(gateway.state.transferCalls).toHaveLength(1);
     // The release re-entered SETTLEMENT rather than transferring by itself, so
     // the ledger leg is booked by the same code path that books it on the
     // ordinary path. A second money-moving path would be the thing that drifts.
@@ -817,9 +701,8 @@ describe('the release sweep', () => {
     const scenario = await seedScenario('permanent', { ready: true, totalMinor: HELD_TOTAL });
     const held = await transferFor(scenario);
 
-    // The seller's account lapses while the transfer waits. Only the STORED
-    // verdict is moved, because that is what settlement reads on this path — the
-    // rail is consulted by the operator repair, not by the sweep.
+    // The seller's account lapses while the transfer waits. The STORED verdict
+    // is what settlement reads — on this path and on the operator repair's.
     await setAccountState(scenario.accountRowId, false);
     await expireHold(held.id);
     expect(await isReleasable(held.id)).toBe(true);
@@ -833,7 +716,7 @@ describe('the release sweep', () => {
     // The money did not move — readiness is still required, and a released hold
     // is not permission to skip that gate.
     expect(after.providerObjectId).toBeNull();
-    expect(api.transferCalls).toHaveLength(0);
+    expect(gateway.state.transferCalls).toHaveLength(0);
     // …and the hold is SPENT. Delete `clearTransferHold` from the job and this
     // reports the same past instant it had before the pass, which is the
     // retry-forever the column exists to prevent: one settlement attempt against
@@ -848,7 +731,7 @@ describe('the release sweep', () => {
     const unchanged = await transferFor(scenario);
     expect(unchanged.providerObjectId).toBeNull();
     expect(unchanged.heldUntil).toBeNull();
-    expect(api.transferCalls).toHaveLength(0);
+    expect(gateway.state.transferCalls).toHaveLength(0);
 
     // The exception an operator reads is still the one settlement wrote when the
     // hold was imposed — one case per withheld seller, not one per pass.
@@ -882,7 +765,7 @@ describe('the operator repair', () => {
     expect(settled.providerObjectId).toBeTruthy();
     expect(settled.status).toBe('paid');
     expect(settled.heldUntil).toBeNull();
-    expect(api.transferCalls).toHaveLength(1);
+    expect(gateway.state.transferCalls).toHaveLength(1);
     expect(await payableBalance(scenario.orderId)).toBe(0n);
 
     const [audit] = await repairsFor(`${scenario.paymentId}:${scenario.orderId}`);
@@ -895,10 +778,10 @@ describe('the operator repair', () => {
     const held = await transferFor(scenario);
     expect(held.heldUntil).not.toBeNull();
 
-    // The seller lapses at the RAIL. The stored row still says `ready`, so a
-    // repair that trusted the local copy would send money at an account Stripe
-    // will refuse.
-    setRailAccount(scenario.providerAccountId, false);
+    // The seller's account lapses while the hold is in force. The repair reads
+    // the STORED verdict — the same row `settlePaymentTransfers` consults — so
+    // it decides exactly as the automatic path would.
+    await setAccountState(scenario.accountRowId, false);
 
     await expect(
       runRepair({
@@ -912,7 +795,7 @@ describe('the operator repair', () => {
 
     const after = await transferFor(scenario);
     expect(after.providerObjectId).toBeNull();
-    expect(api.transferCalls).toHaveLength(0);
+    expect(gateway.state.transferCalls).toHaveLength(0);
     // The hold survives the refusal, because `clearTransferHold` sits AFTER the
     // readiness gate. Move it above and this reports NULL: the transfer would
     // leave the sweep's population without ever having been paid, so the one

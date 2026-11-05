@@ -116,7 +116,7 @@ let healthCache: { data: HealthSnapshot; expiry: number } | null = null;
 const HEALTH_CACHE_TTL_MS = 10_000; // 10 seconds
 
 /**
- * Read the Stripe event queue's depth, or nothing.
+ * Read the Peable event queue's depth, or nothing.
  *
  * Never throws and never degrades the probe. The queue counts are diagnostics
  * about a payment rail, not a statement about whether this task can serve
@@ -125,12 +125,12 @@ const HEALTH_CACHE_TTL_MS = 10_000; // 10 seconds
  * snapshot cache is also what bounds how often this query runs.
  */
 async function getWebhookHealth(): Promise<WebhookHealth | undefined> {
-  if (!config.payments.stripe.enabled) return undefined;
+  if (!config.payments.peable.enabled) return undefined;
   try {
-    const { stripeWebhookStats } = await import('../services/payments/stripe/event-processor.js');
-    return { ...(await stripeWebhookStats()) };
+    const { peableWebhookStats } = await import('../services/payments/peable/event-processor.js');
+    return { ...(await peableWebhookStats()) };
   } catch (error: unknown) {
-    log.general.warn({ err: error }, 'Stripe webhook stats unavailable for the health probe');
+    log.general.warn({ err: error }, 'Peable webhook stats unavailable for the health probe');
     return undefined;
   }
 }
@@ -145,7 +145,7 @@ async function getWebhookHealth(): Promise<WebhookHealth | undefined> {
  * also what bounds how often the aggregate runs.
  */
 async function getReconciliationHealth(): Promise<ReconciliationHealth | undefined> {
-  if (!config.payments.stripe.enabled) return undefined;
+  if (!config.payments.peable.enabled) return undefined;
   try {
     const { discrepancyStats } = await import('../db/payments/discrepancyRepository.js');
     const { getDb } = await import('../db/postgres.js');

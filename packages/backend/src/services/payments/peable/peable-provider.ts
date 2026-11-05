@@ -23,11 +23,10 @@
  *
  * ## What this rail cannot do, and says so out loud
  *
- * `authorize` and `capture` both THROW, exactly as the Stripe adapter next door
- * does and for the same two reasons. My first version returned a read from
- * both, which is the mistake that file's own docblock names: it reports success
- * for an operation that did nothing, so a caller that genuinely needed a
- * capture would never learn it had not happened. The contract suite caught it.
+ * `authorize` and `capture` both THROW, for two reasons. Returning a read from
+ * either would report success for an operation that did nothing, so a caller
+ * that genuinely needed a capture would never learn it had not happened. The
+ * contract suite pins it.
  *
  *  - **Capture is immediate** (ADR 0001 D3, inherited by ADR 0009). The gateway
  *    captures on the buyer's confirmation, so there is no second step to take.
@@ -296,7 +295,7 @@ export class PeablePaymentProvider
     // Where the PAYMENT stands after this refund. Refunds are not intent
     // statuses (ADR 0019); the payment's refund budget is — `remaining_refundable`
     // counts pending refunds beside succeeded ones, so a full refund still in
-    // flight already closes the payment, as it does on the Stripe rail.
+    // flight already closes the payment.
     const refunds = await this.call('refund', () =>
       this.client.refunds.listForPaymentIntent(request.providerObjectId, { limit: 1 }),
     );

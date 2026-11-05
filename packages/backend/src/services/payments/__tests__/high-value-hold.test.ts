@@ -74,7 +74,7 @@ describe('which transfers wait', () => {
   });
 
   it('settles when the window is zero or negative, however large the amount', () => {
-    // `STRIPE_HIGH_VALUE_HOLD_WINDOW_MS=0` is how a deployment turns the hold
+    // `HIGH_VALUE_HOLD_WINDOW_MS=0` is how a deployment turns the hold
     // off without editing the thresholds. Without the guard the releasable
     // instant would equal `settleableSince`, which the `>=` comparison would
     // then settle anyway — so this case is not redundant with the boundary
@@ -122,7 +122,7 @@ describe('when the wait ends', () => {
   });
 });
 
-describe('reading STRIPE_HIGH_VALUE_HOLD_THRESHOLDS', () => {
+describe('reading HIGH_VALUE_HOLD_THRESHOLDS', () => {
   it('accepts a per-currency map in minor units', () => {
     expect(parseHighValueHoldThresholds('EUR:100000, usd:250000', isKnown)).toEqual({
       thresholds: { EUR: 100_000, USD: 250_000 },

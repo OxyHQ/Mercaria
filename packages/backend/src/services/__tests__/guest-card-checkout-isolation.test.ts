@@ -1,26 +1,32 @@
 /**
- * The guest Stripe checkout path's structural boundaries (#107, ADR 0006),
- * asserted by SCAN rather than by fixture.
+ * The guest card checkout path's structural boundaries (#107, ADR 0006), on
+ * the Peable rail (ADR 0009 D13), asserted by SCAN rather than by fixture.
  *
  * `checkout-contact-isolation.test.ts` makes this argument for #105's contact
  * path and this file makes it for the payment one: a behavioural test can only
- * ever say "it did not this time", while a module that cannot NAME a Stripe
+ * ever say "it did not this time", while a module that cannot NAME a provider
  * Customer cannot create one, a metadata composer that cannot reach a token
  * cannot put one in a provider object, and a webhook handler that cannot read a
  * rollout flag cannot strand a captured payment when somebody flips it.
+ * `checkout.guest-card.realdb.test.ts` is the behavioural half: it proves the
+ * metadata a guest payment really carries; this proves what the modules that
+ * compose it cannot reach.
  *
  * Both defences from `~/Oxy/AGENTS.md` are carried: a vacuity floor (a moved or
  * emptied file fails the gate instead of shrinking it silently) and a mutation
  * self-test (every detector runs against seeded text that should trip it, so a
  * regex broken into matching nothing fails here rather than passing every scan).
  *
- * ## It scans the STOREFRONT too
+ * ## It no longer scans the storefront, and why
  *
- * Three of these claims are about a client — "no Customer is configured", "no
- * save-my-info surface exists", "no FairCoin copy" — and the client is where
- * they would be broken, by adding one option to a Stripe SDK call. The
- * storefront has no test runner of its own, which is the same reason
- * `seller-identity-isolation.test.ts` reaches across the package boundary.
+ * Three of this gate's claims used to be about a client — "no Customer is
+ * configured", "no save-my-info surface exists", "no FairCoin copy" — and it
+ * walked `frontend/components/payment` for them. D13 deleted that directory
+ * with the direct Stripe rail: the storefront has no card payer UI at all and
+ * says card payments are unavailable. There is no client population left to
+ * scan, and a wall over an empty one would report the same green as a clean
+ * directory. A Peable payer UI is one of D13's open gaps; whoever builds it
+ * owns bringing the client half of these walls back over it.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -28,64 +34,33 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import {
-  readPackagesDirectory,
-  walkOwnedDirectory,
-  walkPackagesDirectory,
-  type DirectoryReader,
-} from '../../__tests__/domain-population.js';
+import { walkOwnedDirectory } from '../../__tests__/domain-population.js';
 
-/** `packages/`, so a path below can name either package explicitly. */
+/** `packages/`, so a path below names its package explicitly. */
 const PACKAGES_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..');
 
 /**
- * The BACKEND half of the guest Stripe path — still named, and now honestly.
+ * The backend modules a GUEST payment is composed in — NAMED, and honestly.
  *
- * This docblock used to cover all six paths and said "a new module in this path
- * belongs on the list; the vacuity floor is what forces whoever adds one to
- * look here". **That was false** (#460). The only assertion on the list was
- * `expect(GUEST_PAYMENT_PATHS.length).toBe(6)` — an exact count OF THE LIST,
- * which fires when somebody edits the list and never when somebody adds a
- * module elsewhere. It is a change-detector for the array, not a floor on the
- * population, and it could only be tripped by the very person it claimed to
- * force here. A claim that a guard exists where it does not is worse than
- * silence, because it is read as evidence.
+ * A deliberate selection, not a population (#460's second sanctioned
+ * resolution): two of them (`checkout-payment.service`, `peable-provider`) are
+ * named for neither `guest` nor the rail's checkout, and the patterns that
+ * would reach them pull in modules carrying the OPPOSITE obligation —
+ * `guest-rollout.ts` exists to read the flag the durable half may not. The
+ * exact-size assertion below is a change-detector for this list and claims
+ * nothing more.
  *
- * These four stay NAMED for the reason the file's own §"Why this gate gets no
- * whole-tree assertion" already gives: two of them (`checkout-payment.service`,
- * `stripe-provider`) are named for neither `guest` nor `stripe-checkout`, and
- * the patterns that would reach them pull in modules carrying the OPPOSITE
- * obligation. What changes is that the comment now claims only what the list
- * IS, which is #460's second sanctioned resolution.
- *
- * The two that ARE derivable are derived: see {@link guestPaymentClientPaths}.
+ * `peable/peable-provider.ts` replaced `stripe/stripe-provider.ts` under D13:
+ * it is the adapter that turns the composed metadata into the gateway request,
+ * so it is where a Customer, a token or a contact value would cross the
+ * boundary.
  */
-const GUEST_PAYMENT_BACKEND_PATHS = [
+const GUEST_PAYMENT_PATHS = [
   'backend/src/services/payments/checkout-payment.service.ts',
   'backend/src/services/payments/guest-correlation.ts',
-  'backend/src/services/payments/stripe/stripe-provider.ts',
+  'backend/src/services/payments/peable/peable-provider.ts',
   'backend/src/services/checkout/guest-rollout.ts',
 ];
-
-/**
- * The CLIENT half — WALKED (#460).
- *
- * Three of this gate's claims are about a client ("no Customer is configured",
- * "no save-my-info surface exists", "no FairCoin copy") and the client is where
- * they would be broken, by adding one option to a Stripe SDK call. The list
- * named the two `CardPaymentStep` files; the directory holds a third,
- * `types.ts`, which was therefore behind none of those walls — and a NEW
- * component beside them (a wallet step, a saved-card row) would have been too.
- *
- * A directory rather than a name rule: `payment` as a token reaches the whole
- * payment domain, and what these files have in common is that they are the
- * payment UI, which is a fact about where they live.
- */
-function guestPaymentClientPaths(read: DirectoryReader = readPackagesDirectory): string[] {
-  return walkPackagesDirectory('frontend/components/payment', read);
-}
-
-const GUEST_PAYMENT_PATHS = [...GUEST_PAYMENT_BACKEND_PATHS, ...guestPaymentClientPaths()];
 
 /**
  * The paths that decide what a payment DOES once the rail has spoken.
@@ -96,30 +71,17 @@ const GUEST_PAYMENT_PATHS = [...GUEST_PAYMENT_BACKEND_PATHS, ...guestPaymentClie
  * terminal state. The way to make that true is for these modules to have no way
  * to read the flag.
  *
- * WALKED, not listed (#460). It was NINE hand-named paths and the domain is
- * **44** modules: the list held three of the thirteen under
- * `services/payments/stripe/`, so `event-dispatcher.ts`, `verify.ts`,
- * `account.service.ts` and seven more — every one of them a durable path a
- * captured payment travels — could have read the rollout flag with nothing
- * saying so. Measured before widening: **zero of the 44 trip the detector**, so
- * this is a widening rather than a false wall.
+ * WALKED, not listed (#460): a module added to `services/payments/` — a new
+ * Peable event handler, a new reconciliation sweep — is under this wall by
+ * default.
  *
  * ## Why this gate gets no whole-tree assertion
  *
- * #460's device does not fit here and forcing it would produce something broad
- * and green. The population is a deliberate CROSS-PACKAGE selection — paths
- * relative to `packages/`, naming backend modules and storefront components —
- * while the shared `assertNothingOutsideDomainPopulation` derives one relative
- * to `packages/backend/src`. And there is no domain NAME to sweep for: the two
- * modules actually named for this work are `guest-correlation.ts` and
- * `guest-rollout.ts`, so a pattern narrow enough to be right would assert over
- * two files, while `/stripe/i` or `/guest/i` would pull in domains carrying the
- * OPPOSITE obligation — `guest-rollout.ts` exists to read the flag these
- * modules may not.
- *
- * What the walk above buys instead is the same guarantee for the half that has
- * a directory: a module added to `services/payments/` is under this wall by
- * default.
+ * There is no domain NAME to sweep for: the two modules actually named for this
+ * work are `guest-correlation.ts` and `guest-rollout.ts`, so a pattern narrow
+ * enough to be right would assert over two files, while `/peable/i` or
+ * `/guest/i` would pull in domains carrying the OPPOSITE obligation. The walk
+ * is the guarantee instead.
  */
 const DURABLE_PAYMENT_PATHS = walkOwnedDirectory('services/payments').map(
   (relative) => `backend/src/${relative}`,
@@ -135,47 +97,34 @@ const DURABLE_PAYMENT_PATHS = walkOwnedDirectory('services/payments').map(
  * marketplace's preferred presentment currency. What is forbidden is FairCoin as
  * a payment rail.
  *
- * **This applies to the GUEST half only, since ADR 0009.** That ADR is the
- * "Future OxyPay" this rule was written against arriving: OxyPay is Peable, and
- * Peable is now Mercaria's card rail. A durable payment module may therefore
- * NAME the gateway and its other rail — `services/payments/peable/verify.ts`
- * maps the gateway's chain-progress event, and has to say what it is mapping.
- * The guest rule is untouched and is the sharper one anyway: a guest has no Oxy
- * identity, so a chain payment is not a thing they could complete.
+ * **This applies to the GUEST half only, since ADR 0009.** OxyPay is Peable,
+ * and Peable is now Mercaria's card rail, so a durable payment module may NAME
+ * the gateway and its other rail. The guest rule is untouched and is the
+ * sharper one anyway: a guest has no Oxy identity, so a chain payment is not a
+ * thing they could complete.
  */
 const OXYPAY_OR_FAIRCOIN_REFERENCE = /oxy_?[Pp]ay|OxyPay|[Ff]air[Cc]oin/;
 
 /**
  * What the durable half is still forbidden from doing, now that naming the
- * gateway is legitimate.
- *
- * The rule that survives ADR 0009 is not "do not say FairCoin" — it is **do not
- * BUILD the FairCoin rail here**. Mercaria creates `rail: 'card'` intents and
- * nothing else; the chain rail is the gateway's, and a Mercaria module that
- * minted a `faircoin` intent or offered one as a selectable option would be
- * building a second definition of a payment method Mercaria does not operate.
- *
- * Narrower than the guest pattern and deliberately so: a wall that forbids a
- * WORD stops being about the thing it was protecting the moment the word
- * becomes legitimate, and then it is only ever satisfied by rewording.
+ * gateway is legitimate: BUILDING the FairCoin rail. Mercaria creates
+ * `rail: 'card'` intents and nothing else; the chain rail is the gateway's.
  */
 const FAIRCOIN_RAIL_CONSTRUCTION =
   /rail:\s*['"]faircoin['"]|['"]faircoin['"]\s*(?:as const)?\s*,?\s*\/\/\s*provider|PAYMENT_PROVIDER_IDS[^;]*faircoin/;
 
 /**
- * ADR 0006 G4/G5: a guest payment creates NO Stripe Customer and saves NO
- * payment method, and neither client surface can offer saving — the Payment
- * Element's save flows and PaymentSheet's "Save my info" checkbox exist only
- * when a Customer and a CustomerSession are configured, so configuring none is
- * what removes the surface.
+ * ADR 0006 G4/G5: a guest payment creates NO provider Customer and saves NO
+ * payment method.
  *
- * The pattern names the API surfaces that would create one, rather than the
- * word "customer" alone: `customerId`, a `customer:` option on an intent, a
- * `SetupIntent`, `setup_future_usage`, an ephemeral key. Each is a specific
- * thing somebody would have to write.
+ * The pattern names the API surfaces that would create one — on the gateway's
+ * SDK (`customers.create`, `setupIntents`, `paymentMethods.attach`, a
+ * `customer:` or `setup_future_usage` on an intent) and the acquirer-shaped
+ * spellings that preceded it — rather than the word "customer" alone. Each is a
+ * specific thing somebody would have to write.
  */
-const STRIPE_CUSTOMER_REFERENCE =
-  /setup_future_usage|SetupIntent|setupIntent|customerEphemeralKeySecret|CustomerSession|customerSessionClientSecret|customers\.create|stripeCustomerId|allowsRemovalOfLastSavedPaymentMethod|savePaymentMethod/;
+const PROVIDER_CUSTOMER_REFERENCE =
+  /setup_future_usage|SetupIntent|setupIntent|customerEphemeralKeySecret|CustomerSession|customerSessionClientSecret|customers\.create|paymentMethods\.attach|\bcustomer\s*:|stripeCustomerId|allowsRemovalOfLastSavedPaymentMethod|savePaymentMethod/;
 
 /**
  * ADR 0006 B4/G7: no token, no session id, no email and no hash may reach a
@@ -209,12 +158,12 @@ const GUEST_ROLLOUT_CONFIG_REFERENCE = /checkoutRollout|guest-rollout|config\.gu
 
 /**
  * #107 identity rule 13 and #105's own rule: referral attribution is not a
- * buyer identity and never enters payment authority or Stripe metadata.
+ * buyer identity and never enters payment authority or provider metadata.
  */
 const REFERRAL_REFERENCE =
   /referrals?\/|referralAttribution|referral_attributions|referral_touches|partnerId/;
 
-/** Read a path in either package, refusing an empty or moved file. */
+/** Read a path, refusing an empty or moved file. */
 function readSource(relative: string): string {
   const source = readFileSync(join(PACKAGES_ROOT, relative), 'utf8');
   expect(source.length, `${relative} looks empty — did it move?`).toBeGreaterThan(200);
@@ -225,8 +174,8 @@ function readSource(relative: string): string {
  * The same source with comments removed — what the REACHABILITY detectors scan.
  *
  * Not a convenience: every module in these lists documents what it refuses to
- * do in exactly the vocabulary the detectors look for ("no Stripe Customer",
- * "the token never reaches the payment domain", "a card fingerprint cannot
+ * do in exactly the vocabulary the detectors look for ("no Customer", "the
+ * token never reaches the payment domain", "a card fingerprint cannot
  * authorize"). Scanning prose would make every honest explanation a violation,
  * and a gate that cries wolf gets disabled by whoever hits it next.
  *
@@ -259,35 +208,25 @@ function expectNoneOf(
   expect(scanned).toBe(paths.length);
 }
 
-describe('the guest Stripe checkout path cannot reach what it must not', () => {
+describe('the guest card checkout path cannot reach what it must not', () => {
   it('scans a real population, and the durable half is the whole payment domain', () => {
-    // Vacuity floors PER SHAPE. Neither list had one: the only assertion on
-    // either was `expect(scanned).toBe(LIST.length)`, which compares the loop's
-    // own counter to the list it just iterated and holds for ANY list including
-    // an empty one. Measured (#460): with the durable list shrunk from 44
-    // entries to ONE, every test in this file still passed — so the walk that
-    // replaced the nine hand-named paths was a real widening with nothing
-    // defending it.
+    // Vacuity floors PER SHAPE (#460): `expect(scanned).toBe(LIST.length)`
+    // alone holds for ANY list including an empty one, so a shrunk walk would
+    // scan clean and report the same green as a domain with no violations.
+    // Measured at D13: 39 modules, 7 of them the Peable rail.
     expect(
       DURABLE_PAYMENT_PATHS.length,
       'the payment-domain walk found too few modules; a shrunk population scans clean and ' +
         'reports the same green as a domain with no violations',
-    ).toBeGreaterThanOrEqual(40);
+    ).toBeGreaterThanOrEqual(35);
     expect(
       DURABLE_PAYMENT_PATHS.filter((path) =>
-        path.startsWith('backend/src/services/payments/stripe/'),
+        path.startsWith('backend/src/services/payments/peable/'),
       ).length,
-      'the Stripe half of the payment domain left the population',
-    ).toBeGreaterThanOrEqual(13);
-    // The BACKEND half is a deliberate selection and stays EXACT (#448); the
-    // CLIENT half is derived and gets a floor, because a count of a derived set
-    // is satisfied by that set being wrong in two compensating directions.
-    expect(GUEST_PAYMENT_BACKEND_PATHS.length, 'the named backend half changed size').toBe(4);
-    expect(
-      guestPaymentClientPaths().length,
-      'the payment-component walk found nothing — a client wall over an empty population reports ' +
-        'the same green as one over a clean directory',
-    ).toBeGreaterThanOrEqual(3);
+      'the Peable rail left the payment-domain population',
+    ).toBeGreaterThanOrEqual(7);
+    // The guest half is a deliberate selection and stays EXACT (#448).
+    expect(GUEST_PAYMENT_PATHS.length, 'the named guest half changed size').toBe(4);
     // …and every member of both is a file that exists, so a listing that has
     // started returning stale names goes red rather than handing the walls
     // paths that no longer resolve.
@@ -313,11 +252,6 @@ describe('the guest Stripe checkout path cannot reach what it must not', () => {
   /**
    * The durable half's rule after ADR 0009: Mercaria may TALK to a gateway that
    * serves FairCoin and may not BUILD that rail itself.
-   *
-   * The word was the proxy; this is the thing. Mercaria mints `rail: 'card'`
-   * and nothing else, so a module constructing a `faircoin` intent or adding
-   * one to the provider set is a second definition of a payment method this
-   * marketplace does not operate — which is what #107 was actually protecting.
    */
   it('no durable payment module BUILDS the FairCoin rail', () => {
     let scanned = 0;
@@ -331,12 +265,12 @@ describe('the guest Stripe checkout path cannot reach what it must not', () => {
     expect(scanned).toBe(DURABLE_PAYMENT_PATHS.length);
   });
 
-  it('creates no Stripe Customer and offers no payment-method saving', () => {
+  it('creates no provider Customer and offers no payment-method saving', () => {
     expectNoneOf(
       GUEST_PAYMENT_PATHS,
-      STRIPE_CUSTOMER_REFERENCE,
+      PROVIDER_CUSTOMER_REFERENCE,
       (relative) =>
-        `${relative} reaches a Stripe Customer or a saving surface; ADR 0006 G4/G5 create neither`,
+        `${relative} reaches a provider Customer or a saving surface; ADR 0006 G4/G5 create neither`,
     );
   });
 
@@ -384,9 +318,12 @@ describe('the guest Stripe checkout path cannot reach what it must not', () => {
   it('each detector actually detects, and does not over-detect', () => {
     expect(OXYPAY_OR_FAIRCOIN_REFERENCE.test("provider: 'oxy_pay'")).toBe(true);
     expect(OXYPAY_OR_FAIRCOIN_REFERENCE.test('// FairCoin checkout coming soon')).toBe(true);
-    expect(STRIPE_CUSTOMER_REFERENCE.test("setup_future_usage: 'off_session',")).toBe(true);
-    expect(STRIPE_CUSTOMER_REFERENCE.test('await stripe.customers.create({});')).toBe(true);
-    expect(STRIPE_CUSTOMER_REFERENCE.test('customerSessionClientSecret: secret,')).toBe(true);
+    expect(FAIRCOIN_RAIL_CONSTRUCTION.test("{ rail: 'faircoin', amount }")).toBe(true);
+    expect(PROVIDER_CUSTOMER_REFERENCE.test("setup_future_usage: 'off_session',")).toBe(true);
+    expect(PROVIDER_CUSTOMER_REFERENCE.test('await peable.customers.create({});')).toBe(true);
+    expect(PROVIDER_CUSTOMER_REFERENCE.test('this.client.setupIntents.create(params)')).toBe(true);
+    expect(PROVIDER_CUSTOMER_REFERENCE.test("{ rail: 'card', customer: 'cus_1' }")).toBe(true);
+    expect(PROVIDER_CUSTOMER_REFERENCE.test('customerSessionClientSecret: secret,')).toBe(true);
     expect(
       GUEST_CREDENTIAL_REFERENCE.test('metadata: { guestSessionId: actor.guestSessionId }'),
     ).toBe(true);
@@ -399,12 +336,13 @@ describe('the guest Stripe checkout path cannot reach what it must not', () => {
 
     // …and the values these modules legitimately carry, which must NOT trip.
     expect(OXYPAY_OR_FAIRCOIN_REFERENCE.test("const currency: CurrencyCode = 'FAIR';")).toBe(false);
+    expect(FAIRCOIN_RAIL_CONSTRUCTION.test("{ rail: 'card', amount }")).toBe(false);
     // The ONE guest value G7 puts in metadata. A detector that caught it would
     // make the correct implementation unshippable.
     expect(GUEST_CREDENTIAL_REFERENCE.test('metadata: { guestCheckoutId }')).toBe(false);
-    expect(STRIPE_CUSTOMER_REFERENCE.test('const payment = await ensurePayment({ … });')).toBe(
+    expect(PROVIDER_CUSTOMER_REFERENCE.test('const payment = await ensurePayment({ … });')).toBe(
       false,
     );
-    expect(GUEST_ROLLOUT_CONFIG_REFERENCE.test('config.payments.stripe.enabled')).toBe(false);
+    expect(GUEST_ROLLOUT_CONFIG_REFERENCE.test('config.payments.peable.enabled')).toBe(false);
   });
 });

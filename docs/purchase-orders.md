@@ -264,7 +264,7 @@ and the current state only ever moves forward.
 ## Webhooks and polling
 
 `POST /webhooks/suppliers/:supplierAccountId` — the **fourth** raw-body mount,
-after `/channels/webhooks`, `/webhooks/crowdsource` and `/webhooks/stripe`, and
+after `/channels/webhooks`, `/webhooks/crowdsource` and `/webhooks/peable`, and
 it must stay before `express.json()`.
 
 - **The account is in the PATH.** Nothing in the body says which account a
@@ -278,7 +278,8 @@ it must stay before `express.json()`.
 - **An unknown account gets the SAME 401** as an unverifiable delivery: a
   distinguishable response would let a caller enumerate account ids.
 - **A 200 means stored, never processed.**
-- **The mount is NOT flag-gated**, unlike Stripe's, and the difference is real:
+- **The mount is NOT flag-gated**, unlike Peable's (mounted only while its
+  webhook secret is set), and the difference is real:
   what makes a delivery verifiable here is the account in the path and its
   credential, so an unconfigured deployment already answers 401 through the
   handler's own gates. A flag would be a coarser second way to say the same

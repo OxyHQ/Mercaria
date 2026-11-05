@@ -615,7 +615,6 @@
     "new": "Novo",
     "noAccess": "Sem acesso",
     "noAccessBody": "Você não tem permissão para ver esta área na loja ativa.",
-    "none": "Nenhum",
     "pageOf": "Página %{current} de %{total}",
     "pleaseTryAgain": "Tente novamente.",
     "retry": "Tentar novamente",
@@ -1813,65 +1812,6 @@
       "subtitle": "Quem pode agir por esta loja e as exceções ao seu papel",
       "title": "Pessoas e permissões"
     },
-    "payments": {
-      "beingReviewed": "Em análise",
-      "documentTitle": "Pagamentos e repasses | Wholesale by Mercaria",
-      "dueBy": "Prazo",
-      "itemCount": {
-        "one": "%{count} item",
-        "other": "%{count} itens",
-        "many": "%{count} de itens"
-      },
-      "loadFailed": "Não foi possível carregar as configurações de pagamento",
-      "neededNow": "Necessário agora",
-      "onboardingUnavailable": "A configuração de repasses ainda não está disponível nesta instalação da Mercaria.",
-      "openFailed": "Não foi possível abrir a configuração de repasses",
-      "outstandingTitle": "Pendências com a Stripe",
-      "paidOutIn": "Repasse em",
-      "payoutsTitle": "Repasses",
-      "quoteToSupport": "Informe isto ao suporte da Mercaria se precisar de ajuda.",
-      "registeredIn": "Registrado em",
-      "reportedByStripe": "Informado pela Stripe",
-      "requirementsNote": "A Stripe guarda esses dados e é o único lugar onde eles podem ser preenchidos. A Mercaria nunca os vê.",
-      "schedule": "Frequência",
-      "scheduleWithDelay": {
-        "one": "%{interval}, após %{count} dia",
-        "other": "%{interval}, após %{count} dias",
-        "many": "%{interval}, após %{count} de dias"
-      },
-      "states": {
-        "actionRequired": {
-          "action": "Continuar configuração",
-          "body": "A Stripe precisa de mais informações antes de poder repassar seus valores. Enquanto ela não tiver tudo, os compradores não conseguem finalizar a compra dos seus anúncios.",
-          "heading": "Ainda faltam alguns dados"
-        },
-        "disabled": {
-          "body": "A Stripe encerrou esta conta conectada, ou a conexão dela com a Mercaria foi removida. Os compradores não conseguem finalizar a compra dos seus anúncios. Fale com o suporte da Mercaria para verificar.",
-          "heading": "Esta conta não pode mais ser usada"
-        },
-        "notConnected": {
-          "action": "Configurar repasses",
-          "body": "Seus anúncios estão visíveis e você pode usar todo o resto da Mercaria, mas os compradores ainda não conseguem finalizar a compra deles. Configurar os repasses leva alguns minutos.",
-          "heading": "Ainda não configurado"
-        },
-        "ready": {
-          "action": "Gerenciar dados de repasse",
-          "body": "Os compradores conseguem finalizar a compra dos seus anúncios, e a Stripe repassa seu saldo para o seu banco.",
-          "heading": "Pronto para receber"
-        },
-        "restricted": {
-          "action": "Resolver agora",
-          "body": "Algo que a Stripe pediu está atrasado, então ela pausou os repasses e os compradores não conseguem finalizar a compra dos seus anúncios. Concluir isso restabelece os dois.",
-          "heading": "Os repasses estão pausados"
-        },
-        "underReview": {
-          "body": "A Stripe recebeu o que pediu e está analisando. Não há nada a fazer da sua parte — isso costuma levar um ou dois dias. Os compradores não conseguem finalizar a compra dos seus anúncios até isso terminar.",
-          "heading": "Em análise"
-        }
-      },
-      "subtitle": "Como você recebe pelos pedidos feitos na Mercaria",
-      "title": "Pagamentos e repasses"
-    },
     "plan": {
       "alwaysIncludedBody": "Manter seu catálogo, receber e processar pedidos, emitir reembolsos, consultar seus próprios registros de vendas e de repasses e exportar seus dados são gratuitos para toda loja da Mercaria e nunca fazem parte de um plano. Nada nesta página muda isso, e nenhum plano afeta como seus anúncios são encontrados ou classificados.",
       "alwaysIncludedTitle": "Sempre incluído",
@@ -1987,10 +1927,6 @@
       "members": {
         "description": "Quem pode agir pela loja e as exceções ao seu papel",
         "label": "Pessoas e permissões"
-      },
-      "payments": {
-        "description": "Receba pelos pedidos feitos na Mercaria",
-        "label": "Pagamentos e repasses"
       },
       "plan": {
         "description": "O que sua loja recebe e quanto você paga por isso",
