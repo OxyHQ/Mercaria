@@ -76,6 +76,7 @@ const EXCLUDED: Readonly<Record<string, readonly string[]>> = {
     'src/routes/__tests__/review-helpfulness.test.ts',
     'src/routes/__tests__/review-media.test.ts',
     'src/routes/admin/__tests__/product-media.test.ts',
+    'src/routes/admin/__tests__/automations-authz.test.ts',
     'src/routes/admin/__tests__/products-pin-release-route.test.ts',
     'src/services/__tests__/catalog-description-media.test.ts',
     'src/services/__tests__/catalog-hydration-variant-axes.test.ts',

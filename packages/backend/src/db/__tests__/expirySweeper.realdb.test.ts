@@ -454,6 +454,9 @@ describe('the registry the sweeper runs over', () => {
       'analytics_query_aggregates',
       'analytics_rollups',
       'analytics_search_queries',
+      // #89's automation rules: the run HISTORY, 90 days. The rule and a stock
+      // rule's open episode are configuration and state, never swept.
+      'automation_rule_runs',
       // #367 step 5's abandoned authoring DRAFT — the only table in that
       // domain bounded by how many forms people start and do not finish. Its
       // two child tables CASCADE from it and its cache register is one row per

@@ -3128,6 +3128,23 @@ export interface MerchantActivationConfig {
   readonly observationBatchSize: number;
 }
 
+/**
+ * Automation rules (#89, `automation_rules`). `evaluatorEnabled` gates the
+ * evaluator LOOP and nothing else: the rules, their run history and every
+ * route over them stay mounted, so turning it off during an incident stops
+ * rules acting without taking them out of a merchant's hands.
+ */
+export interface AutomationRulesConfig {
+  readonly evaluatorEnabled: boolean;
+  readonly evaluateIntervalMs: number;
+  /** Enabled rules one pass evaluates; the next pass resumes after the last. */
+  readonly rulesPerPass: number;
+  /** Listings or orders one rule acts on per pass, per direction. */
+  readonly subjectsPerRule: number;
+  /** How far back an order rule looks for paid orders, at most. */
+  readonly orderLookbackMs: number;
+}
+
 export interface BuyerRequestsConfig {
   /** Gates the buyer-facing WRITE paths. Reads and decisions stay open. */
   readonly requestsEnabled: boolean;
@@ -3451,6 +3468,7 @@ export interface AppConfig {
   readonly referrals: ReferralsConfig;
   readonly merchantActivation: MerchantActivationConfig;
   readonly buyerRequests: BuyerRequestsConfig;
+  readonly automationRules: AutomationRulesConfig;
   readonly retailService: RetailServiceRequestsConfig;
   readonly analytics: AnalyticsConfig;
   readonly merchantDemand: MerchantDemandConfig;
@@ -4264,6 +4282,13 @@ export const config: AppConfig = Object.freeze({
     observationEnabled: boolEnv('MERCHANT_ACTIVATION_OBSERVATION_ENABLED', false),
     observationIntervalMs: intEnv('MERCHANT_ACTIVATION_OBSERVATION_INTERVAL_MS', 15 * MINUTE_MS),
     observationBatchSize: intEnv('MERCHANT_ACTIVATION_OBSERVATION_BATCH_SIZE', 100),
+  }),
+  automationRules: Object.freeze({
+    evaluatorEnabled: boolEnv('AUTOMATION_RULES_EVALUATOR_ENABLED', true),
+    evaluateIntervalMs: intEnv('AUTOMATION_RULES_EVALUATE_INTERVAL_MS', MINUTE_MS),
+    rulesPerPass: intEnv('AUTOMATION_RULES_RULES_PER_PASS', 500),
+    subjectsPerRule: intEnv('AUTOMATION_RULES_SUBJECTS_PER_RULE', 25),
+    orderLookbackMs: intEnv('AUTOMATION_RULES_ORDER_LOOKBACK_MS', 24 * 60 * MINUTE_MS),
   }),
   buyerRequests: Object.freeze({
     requestsEnabled: boolEnv('BUYER_REQUESTS_ENABLED', true),

@@ -205,6 +205,8 @@ describe('the code catalogue', () => {
       'scheduled_exports',
       // The checkout conversion report, `…/analytics/advanced/*`.
       'advanced_demand_analytics',
+      // `services/automation-rules/`, `/admin/stores/:storeId/automations`.
+      'automation_rules',
     ];
     for (const definition of Object.values(MERCHANT_CAPABILITY_CATALOG)) {
       expect(

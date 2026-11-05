@@ -76,6 +76,12 @@ export const queryKeys = {
     list: (storeId: string) => ['stores', storeId, 'discounts'] as const,
     detail: (storeId: string, id: string) => ['stores', storeId, 'discounts', id] as const,
   },
+  // Automation rules (#89, a paid tool) and their run history.
+  automations: {
+    all: (storeId: string) => ['stores', storeId, 'automations'] as const,
+    list: (storeId: string) => ['stores', storeId, 'automations', 'list'] as const,
+    runs: (storeId: string) => ['stores', storeId, 'automations', 'runs'] as const,
+  },
   taxRates: (storeId: string) => ['stores', storeId, 'tax-rates'] as const,
   // Named POS registers (the paid `expanded_pos_registers` tool) and their summary.
   posRegisters: {

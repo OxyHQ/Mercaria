@@ -2359,5 +2359,89 @@
       "empty": "此期间没有收银台销售。",
       "sales": "销售笔数：%{count}"
     }
+  },
+  "automations": {
+    "title": "自动化",
+    "documentTitle": "自动化 | Wholesale by Mercaria",
+    "subtitle": "替你照看商品目录和订单的规则",
+    "toolDescription": "暂停已售罄的商品，在库存不足或有大额订单时收到通知，并将已付款订单标记为处理中。",
+    "new": "新建规则",
+    "timing": "规则大约每分钟检查一次。",
+    "loadError": "无法加载你的规则",
+    "empty": {
+      "title": "暂无规则",
+      "body": "创建规则来暂停已售罄的商品、在库存不足时收到通知，或将已付款订单标记为处理中。"
+    },
+    "trigger": {
+      "stock": "当商品库存降至 %{threshold} 时",
+      "orderPaid": "当订单付款时",
+      "orderPaidMin": "当金额至少 %{amount} 的订单付款时"
+    },
+    "action": {
+      "notifyOwner": "通知店铺所有者",
+      "pauseListing": "暂停该商品",
+      "markOrderProcessing": "将其标记为处理中"
+    },
+    "ruleSummary": "%{trigger}，%{action}",
+    "tagScope": "仅限带有“%{tag}”标签的商品",
+    "republishNote": "补货后将商品重新上架",
+    "enabledLabel": "规则已开启",
+    "edit": "编辑规则",
+    "delete": "删除规则",
+    "deleteConfirmTitle": "删除此规则？",
+    "deleteConfirmBody": "此规则暂停的商品会保持暂停，直到你发布它们。删除后会释放套餐中的一个规则名额。",
+    "deleted": "规则已删除",
+    "deleteError": "无法删除规则",
+    "updateError": "无法更新规则",
+    "limitReached": "你已用完套餐包含的所有规则。删除一条规则，或查看套餐以获得更多。",
+    "notIncluded": "你的套餐不包含自动化规则。",
+    "lapsed": {
+      "title": "你的规则",
+      "body": "这些规则会被保留，但没有包含自动化的套餐时不会运行。你可以关闭或删除它们。"
+    },
+    "deletedRule": "已删除的规则",
+    "history": {
+      "title": "最近动态",
+      "empty": "尚未运行任何内容。",
+      "loadError": "无法加载动态",
+      "row": "%{rule} · %{step}"
+    },
+    "step": {
+      "notifyOwner": "已通知所有者",
+      "pauseListing": "商品已暂停",
+      "republishListing": "商品已重新上架",
+      "markOrderProcessing": "订单已标记为处理中"
+    },
+    "outcome": {
+      "succeeded": "完成",
+      "skipped": "已跳过",
+      "failed": "失败"
+    },
+    "form": {
+      "createTitle": "新建规则",
+      "editTitle": "编辑规则",
+      "name": "名称",
+      "namePlaceholder": "暂停已售罄的商品",
+      "nameRequired": "请为规则命名",
+      "trigger": "当",
+      "triggerStock": "库存不足",
+      "triggerOrder": "订单付款",
+      "action": "则",
+      "actionNotify": "通知所有者",
+      "actionPause": "暂停商品",
+      "actionProcess": "标记为处理中",
+      "threshold": "库存不高于（件）",
+      "thresholdInvalid": "请输入 0 或以上的整数",
+      "minTotal": "最低订单金额（%{currency}，可选）",
+      "minTotalInvalid": "请输入有效金额",
+      "tag": "仅限带有此标签的商品（可选）",
+      "tagPlaceholder": "季节性",
+      "republish": "补货后重新上架",
+      "pauseHint": "只会暂停在售的商品，审核中的商品绝不会被改动。",
+      "processHint": "只会处理标准和加急配送的订单，因审核而被冻结的订单绝不会被处理。",
+      "created": "规则已创建",
+      "saved": "规则已保存",
+      "error": "无法保存规则"
+    }
   }
 }

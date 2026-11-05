@@ -2378,4 +2378,18 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       ' A PRIVATE file of the Mercaria application, registered as a `data_export_file` ' +
       'reference while the run holds it and cleared at the end of its retention.',
   },
+
+  // ── Automation rules (#89, `automation_rules`) ─────────────────────────────
+  // Who wrote a rule, and the subject of a run. A run names the listing or the
+  // order a rule acted on and must outlive both: it is the rule's history, and
+  // its subject may be deleted (a listing) or simply be older than anyone cares
+  // to keep in the same table set.
+  { column: 'automation_rules.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'automation_rule_runs.subject_id',
+    reason:
+      AUDIT_CORRELATION +
+      ' Polymorphic by `subject_kind` (a listing or an order), so no single foreign key could ' +
+      'name its parent anyway.',
+  },
 ];

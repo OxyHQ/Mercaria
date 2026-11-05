@@ -109,6 +109,7 @@ import { watchlistSnapshots } from './schema/watchlists';
 import { searchIntentSessions, searchIntentTurns } from './schema/searchIntent';
 import { procurementOutboxes, supplierProviderEvents } from './schema/supplierOrders';
 import { catalogAuthoringDrafts } from './schema/catalogAuthoring';
+import { automationRuleRuns } from './schema/automationRules';
 
 /**
  * `WATCHLIST_SNAPSHOT_RETENTION_SECONDS` — 400 days, matching #78's price-history
@@ -370,6 +371,9 @@ const FEED_IMPORT_REPORT_RETENTION_SECONDS = 90 * 24 * 60 * 60;
  * and a report whose entries have been swept still reports how many there were.
  */
 const FEED_IMPORT_REPORT_ENTRY_RETENTION_SECONDS = 30 * 24 * 60 * 60;
+
+/** An automation rule's run history: 90 days, the window its dashboard shows. */
+const AUTOMATION_RULE_RUN_RETENTION_SECONDS = 90 * 24 * 60 * 60;
 
 /**
  * Every table with an expiring column, and nothing else.
@@ -860,6 +864,18 @@ export const EXPIRY_TARGETS: readonly ExpirySweepTarget[] = [
       '`notifications.dismissed_at` device: a condition the sweep cannot express, turned ' +
       'into a column it can.',
   },
+  // Automation rules (#89, `automation_rules`): the run HISTORY, never the rule.
+  {
+    table: automationRuleRuns,
+    column: automationRuleRuns.createdAt,
+    retentionSeconds: AUTOMATION_RULE_RUN_RETENTION_SECONDS,
+    reason:
+      'What an automation rule did, 90 days on. The run is also the idempotency key for an ' +
+      'order rule, and sweeping it cannot re-arm one: the evaluator only ever considers ' +
+      'orders paid within its one-day lookback, so an order whose run has been swept is ' +
+      'one no rule will look at again. A stock rule’s open episode is ' +
+      '`automation_rule_listing_states`, which this sweep does not touch.',
+  },
 ];
 
 /** Every retention, exported so the writers that stamp `expires_at` agree with the sweep. */
@@ -873,6 +889,7 @@ export const RETENTION_SECONDS = {
   referralTouchEvidenceMargin: REFERRAL_TOUCH_EVIDENCE_MARGIN_SECONDS,
   analyticsSalt: ANALYTICS_SALT_RETENTION_SECONDS,
   catalogSourceRejection: CATALOG_SOURCE_REJECTION_RETENTION_SECONDS,
+  automationRuleRun: AUTOMATION_RULE_RUN_RETENTION_SECONDS,
   syncRunRecordFailure: SYNC_RUN_RECORD_FAILURE_RETENTION_SECONDS,
   guestRecoveryAttempt: GUEST_RECOVERY_ATTEMPT_RETENTION_SECONDS,
   guestPortalMessage: GUEST_PORTAL_MESSAGE_RETENTION_SECONDS,
