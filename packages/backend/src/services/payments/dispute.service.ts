@@ -406,7 +406,7 @@ async function recoverLostDispute(input: {
  *
  * The STATUS is in the outbox id, so each state a dispute reaches is announced
  * once and every redelivery of it is a genuine no-op — the same reasoning
- * `transfer_changed` uses. Consumers (the operator surface #50, the seller
+ * `payout_changed` uses. Consumers (the operator surface #50, the seller
  * notification #108) attach HERE and not to the rail's webhook, so neither ever
  * receives provider detail.
  */
