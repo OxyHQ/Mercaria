@@ -10,14 +10,14 @@
  * `.github/workflows/publish-merchant-plans.yml`. Preview (the default) reads
  * only and prints the actions it would take. `--probe` is the live NO-MONEY
  * check: one subscription Checkout Session per published price, its hosted page
- * fetched, then expired (`plan-checkout-probe.ts`). None of the three turns
+ * fetched, then expired (`plan-sale-probe.ts`). None of the three turns
  * billing on: what sells is `MERCHANT_BILLING_ENABLED`, a separate change.
  */
 
 import { config } from '../config/index.js';
 import { closePostgres, connectPostgres } from '../db/postgres.js';
 import { createPeableClient } from '../services/payments/peable/client.js';
-import { probePlanCheckouts } from '../services/billing/plan-checkout-probe.js';
+import { probePlanCheckouts } from '../services/billing/plan-sale-probe.js';
 import { PeableError } from '@peable.to/sdk';
 import {
   CatalogueDrift,

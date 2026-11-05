@@ -127,11 +127,13 @@ const ESCAPES: Record<string, string> = {
   "'": '&#39;',
 };
 const escapeHtml = (text: string) => text.replace(/[&<>"']/g, (char) => ESCAPES[char] ?? char);
+/**
+ * The only links a terms text carries, made clickable by exact match — never
+ * by a pattern over the text, so nothing a version says can become markup.
+ */
+const LINKS = ['https://oxy.so/transparency/legal'] as const;
 const linkify = (escaped: string) =>
-  escaped.replace(
-    /https:\/\/[A-Za-z0-9./_-]+[A-Za-z0-9/_-]/g,
-    (url) => `<a href="${url}">${url}</a>`,
-  );
+  LINKS.reduce((text, url) => text.split(url).join(`<a href="${url}">${url}</a>`), escaped);
 
 /**
  * The terms as a self-contained HTML page. Every byte of text is escaped before

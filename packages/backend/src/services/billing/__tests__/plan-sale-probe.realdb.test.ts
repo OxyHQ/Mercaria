@@ -12,7 +12,7 @@ import {
   insertMerchantPlan,
   insertMerchantPlanPrice,
 } from '../../../db/merchantPlans/planRepository.js';
-import { probePlanCheckouts, type CheckoutProbeClient } from '../plan-checkout-probe.js';
+import { probePlanCheckouts, type CheckoutProbeClient } from '../plan-sale-probe.js';
 
 let db: Database;
 const N = randomUUID().replaceAll('-', '').slice(0, 12);

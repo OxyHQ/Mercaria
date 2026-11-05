@@ -48,9 +48,9 @@ export async function probePlanCheckouts(
   const customer = await client.customers.create(
     {
       name: 'Mercaria plan checkout probe',
-      metadata: { purpose: 'mercaria-plan-checkout-probe' },
+      metadata: { purpose: 'mercaria-plan-sale-probe' },
     },
-    { idempotencyKey: 'mercaria-plan-checkout-probe-customer' },
+    { idempotencyKey: 'mercaria-plan-sale-probe-customer' },
   );
 
   const plans = (await listActiveMerchantPlans(db)).filter((plan) => plan.tier === 'paid');
@@ -80,7 +80,7 @@ export async function probePlanCheckouts(
           line_items: [{ price: price.providerPriceId, quantity: 1 }],
           success_url: options.returnUrl,
           cancel_url: options.returnUrl,
-          metadata: { purpose: 'mercaria-plan-checkout-probe', plan_id: plan.id },
+          metadata: { purpose: 'mercaria-plan-sale-probe', plan_id: plan.id },
         },
         { idempotencyKey: `mercaria-plan-probe:${options.runId}:${price.providerPriceId}` },
       );
