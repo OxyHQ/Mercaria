@@ -641,3 +641,8 @@ export * from './oxyFiles';
 // queue a source-link trigger fills and a bounded dispatcher drains.
 export * from './canonicalSourceMedia';
 export * from './automationRules';
+
+// Replenishment planning (#89 `replenishment_planning`): a store's planning
+// settings and per-variant overrides. Reads `stores` and `product_variants` by
+// foreign key and is read by nothing above; the plan itself is derived on read.
+export * from './replenishment';

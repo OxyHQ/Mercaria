@@ -1571,6 +1571,92 @@
       "title": "Fotos e vídeos"
     }
   },
+  "replenishment": {
+    "documentTitle": "Reposição | Wholesale by Mercaria",
+    "title": "Reposição",
+    "subtitle": "Uma previsão de demanda e sugestões de compra a partir das suas próprias vendas e estoque",
+    "toolDescription": "Preveja a demanda por local e receba quantidades de pedido sugeridas que você pode exportar.",
+    "loadFailed": "Não foi possível carregar o plano de reposição",
+    "planRefused": "O planejamento de reposição não faz parte do seu plano atual.",
+    "exportCsv": "Exportar CSV",
+    "exportFailed": "Não foi possível exportar o plano",
+    "truncated": "Seu catálogo é muito grande, então este plano cobre as primeiras 20.000 variantes com estoque controlado.",
+    "emptyTitle": "Nada para planejar aqui",
+    "emptyBody": "Produtos ativos com estoque controlado aparecem aqui, com o estoque e as vendas recentes.",
+    "moreRows": "Mostrando %{shown} de %{total}. Exporte o CSV para ver a lista completa.",
+    "status": {
+      "stockedOut": "Esgotado",
+      "reorderNow": "Repor agora",
+      "healthy": "Suficiente",
+      "noRecentSales": "Sem vendas recentes"
+    },
+    "filters": {
+      "location": "Local",
+      "allLocations": "Todos os locais",
+      "status": "Status",
+      "allStatuses": "Todos os status"
+    },
+    "summary": {
+      "suggestedUnits": "Unidades sugeridas"
+    },
+    "columns": {
+      "product": "Produto",
+      "suggested": "Pedir",
+      "stockout": "Esgota em",
+      "cover": "Cobertura",
+      "stock": "Disponível / em estoque",
+      "demand": "Por dia",
+      "sold": "Vendido 28 d / 90 d"
+    },
+    "values": {
+      "noForecast": "Sem previsão",
+      "days": "%{days} dias",
+      "sold": "%{recent} vendidas em 28 dias, %{long} em 90",
+      "perDay": "%{rate} por dia",
+      "stock": "%{available} disponíveis / %{onHand} em estoque",
+      "suggest": "Pedido sugerido: %{count}",
+      "ownSettings": "configurações próprias"
+    },
+    "settings": {
+      "title": "Configurações de planejamento",
+      "body": "Usadas para todos os produtos, a menos que tenham configurações próprias.",
+      "defaultsNote": "Estes são os valores padrão até você salvar os seus.",
+      "leadTime": "Prazo de entrega (dias)",
+      "targetCover": "Cobertura desejada (dias)",
+      "safetyStock": "Estoque de segurança (dias)",
+      "save": "Salvar configurações",
+      "saved": "Configurações salvas",
+      "saveFailed": "Não foi possível salvar as configurações",
+      "loadFailed": "Não foi possível carregar as configurações de planejamento",
+      "invalid": "Informe dias inteiros entre %{min} e %{max}",
+      "readOnly": "Somente membros que podem editar o estoque podem alterá-las."
+    },
+    "overrides": {
+      "title": "Configurações por produto",
+      "empty": "Nenhum produto tem configurações próprias.",
+      "emptyEditable": "Nenhum produto tem configurações próprias. Selecione um produto no plano para dar a ele as suas.",
+      "inherit": "configuração da loja",
+      "value": "%{label}: %{value}",
+      "remove": "Remover",
+      "removed": "Configurações do produto removidas",
+      "removeFailed": "Não foi possível remover as configurações do produto",
+      "dialogTitle": "Configurações deste produto",
+      "hint": "Deixe um campo vazio para usar a configuração da loja.",
+      "placeholder": "Loja: %{value}",
+      "save": "Salvar",
+      "saved": "Configurações do produto salvas",
+      "saveFailed": "Não foi possível salvar as configurações do produto"
+    },
+    "how": {
+      "title": "Como estes números são calculados",
+      "sales": "Vendas são unidades de pedidos pagos e não cancelados, menos as unidades reembolsadas. Uma venda conta no local onde foi registrada ou retirada; caso contrário, no seu local padrão.",
+      "demand": "A demanda diária combina os últimos 28 dias (60%) com os últimos 90 dias (40%). Um produto mais novo é medido pela própria idade, nunca menos de 7 dias.",
+      "cover": "Os dias de cobertura são o estoque disponível dividido pela demanda diária; a data de esgotamento é hoje mais esses dias.",
+      "suggest": "Pedido sugerido = demanda × (prazo de entrega + cobertura desejada + estoque de segurança) − estoque disponível, arredondado para cima e nunca abaixo de zero. \"Repor agora\" significa que o estoque não vai durar o prazo de entrega mais o estoque de segurança.",
+      "incoming": "A Mercaria não conhece o estoque que você já pediu aos fornecedores, então desconte-o você mesmo da sugestão.",
+      "noOrders": "Esta é uma lista para exportar: a Mercaria nunca faz um pedido a um fornecedor por você."
+    }
+  },
   "settings": {
     "documentTitle": "Configurações | Wholesale by Mercaria",
     "fees": {

@@ -419,7 +419,10 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // Advanced merchandising rules (#89, `merchandising-rule.ts`) add one module
     // with their vocabulary and DTOs, and `MAX_LISTINGS_BY_ID` beside
     // `ListingQuery`: +1 module, +13 types, +69 properties. Measured by the real guard.
-    'walked 147 contract module(s), 2451 exported type(s), 8249 property signature(s)',
+    // Replenishment planning (#89 `replenishment_planning`) adds
+    // `replenishment.ts` (settings, overrides, plan rows and the plan): +1
+    // module, +11 types, +60 properties. Measured by the real guard.
+    'walked 148 contract module(s), 2462 exported type(s), 8309 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });

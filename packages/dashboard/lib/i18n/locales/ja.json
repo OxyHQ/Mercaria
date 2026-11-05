@@ -1553,6 +1553,92 @@
       "title": "写真と動画"
     }
   },
+  "replenishment": {
+    "documentTitle": "在庫補充 | Wholesale by Mercaria",
+    "title": "在庫補充",
+    "subtitle": "自店の販売と在庫にもとづく需要予測と発注の提案",
+    "toolDescription": "ロケーションごとに需要を予測し、エクスポートできる推奨発注数を確認できます。",
+    "loadFailed": "補充計画を読み込めませんでした",
+    "planRefused": "在庫補充計画は現在のプランに含まれていません。",
+    "exportCsv": "CSV をエクスポート",
+    "exportFailed": "計画をエクスポートできませんでした",
+    "truncated": "カタログが非常に大きいため、この計画は在庫管理対象の最初の 20,000 バリエーションを対象としています。",
+    "emptyTitle": "計画する商品がありません",
+    "emptyBody": "在庫を管理している公開中の商品が、在庫と最近の販売とともにここに表示されます。",
+    "moreRows": "%{total} 件中 %{shown} 件を表示しています。全件は CSV をエクスポートしてください。",
+    "status": {
+      "stockedOut": "在庫切れ",
+      "reorderNow": "今すぐ発注",
+      "healthy": "十分",
+      "noRecentSales": "最近の販売なし"
+    },
+    "filters": {
+      "location": "ロケーション",
+      "allLocations": "すべてのロケーション",
+      "status": "ステータス",
+      "allStatuses": "すべてのステータス"
+    },
+    "summary": {
+      "suggestedUnits": "推奨発注数"
+    },
+    "columns": {
+      "product": "商品",
+      "suggested": "発注",
+      "stockout": "在庫切れ予定",
+      "cover": "在庫日数",
+      "stock": "販売可能 / 手持ち",
+      "demand": "1 日あたり",
+      "sold": "販売数 28 日 / 90 日"
+    },
+    "values": {
+      "noForecast": "予測なし",
+      "days": "%{days} 日",
+      "sold": "28 日で %{recent}、90 日で %{long} 販売",
+      "perDay": "1 日 %{rate}",
+      "stock": "販売可能 %{available} / 手持ち %{onHand}",
+      "suggest": "推奨発注数: %{count}",
+      "ownSettings": "個別設定"
+    },
+    "settings": {
+      "title": "計画の設定",
+      "body": "個別設定がない限り、すべての商品に使われます。",
+      "defaultsNote": "独自の設定を保存するまでは、これらが既定値です。",
+      "leadTime": "リードタイム（日）",
+      "targetCover": "目標在庫日数（日）",
+      "safetyStock": "安全在庫（日）",
+      "save": "設定を保存",
+      "saved": "設定を保存しました",
+      "saveFailed": "設定を保存できませんでした",
+      "loadFailed": "計画の設定を読み込めませんでした",
+      "invalid": "%{min}〜%{max} の整数の日数を入力してください",
+      "readOnly": "在庫を編集できるメンバーだけが変更できます。"
+    },
+    "overrides": {
+      "title": "商品ごとの設定",
+      "empty": "個別設定のある商品はありません。",
+      "emptyEditable": "個別設定のある商品はありません。計画で商品を選ぶと個別に設定できます。",
+      "inherit": "ストアの設定",
+      "value": "%{label}: %{value}",
+      "remove": "削除",
+      "removed": "商品の設定を削除しました",
+      "removeFailed": "商品の設定を削除できませんでした",
+      "dialogTitle": "この商品の設定",
+      "hint": "空欄にするとストアの設定が使われます。",
+      "placeholder": "ストア: %{value}",
+      "save": "保存",
+      "saved": "商品の設定を保存しました",
+      "saveFailed": "商品の設定を保存できませんでした"
+    },
+    "how": {
+      "title": "数値の計算方法",
+      "sales": "販売数は、支払い済みでキャンセルされていない注文の数量から返金された数量を引いたものです。販売は会計または受け取りが行われたロケーションに計上され、それ以外は既定のロケーションに計上されます。",
+      "demand": "1 日あたりの需要は、直近 28 日（60%）と直近 90 日（40%）を組み合わせたものです。それより新しい商品は発売からの日数（最低 7 日）で計算します。",
+      "cover": "在庫日数は販売可能在庫を 1 日あたりの需要で割ったものです。在庫切れ予定日は今日にその日数を足した日です。",
+      "suggest": "推奨発注数 = 需要 ×（リードタイム + 目標在庫日数 + 安全在庫）− 販売可能在庫。切り上げ、0 未満にはなりません。「今すぐ発注」は、在庫がリードタイムと安全在庫の期間をもたないことを意味します。",
+      "incoming": "仕入先にすでに発注済みの在庫は Mercaria にはわからないため、提案からご自身で差し引いてください。",
+      "noOrders": "これはエクスポート用のリストです。Mercaria があなたに代わって仕入先に発注することはありません。"
+    }
+  },
   "settings": {
     "documentTitle": "設定 | Wholesale by Mercaria",
     "fees": {

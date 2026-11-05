@@ -210,6 +210,8 @@ describe('the code catalogue', () => {
       // `services/merchandising/`, `/admin/stores/:storeId/merchandising`, the
       // dashboard's `tools/merchandising` and `merchandising-rules.realdb.test.ts`.
       'advanced_merchandising_rules',
+      // `services/replenishment/`, `/admin/stores/:storeId/replenishment`.
+      'replenishment_planning',
     ];
     for (const definition of Object.values(MERCHANT_CAPABILITY_CATALOG)) {
       expect(

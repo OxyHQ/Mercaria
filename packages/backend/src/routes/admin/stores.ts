@@ -45,6 +45,7 @@ import analyticsRouter from './analytics.js';
 import priceAnalyticsRouter from './price-benchmark.js';
 import dataExportsRouter from './data-exports.js';
 import conversionReportRouter from './conversion-report.js';
+import replenishmentRouter from './replenishment.js';
 
 /**
  * Store-admin router, mounted at `/admin/stores`.
@@ -186,5 +187,9 @@ router.use('/:storeId/price-analytics', priceAnalyticsRouter);
 // own orders, products and customers, and the paid schedule over it. Permission
 // is per dataset, inside; only creating or keeping a schedule enabled reads the plan.
 router.use('/:storeId/exports', dataExportsRouter);
+// Replenishment planning (#89 `replenishment_planning`): the store's own demand
+// forecast and purchase suggestions. A paid tool; the capability is checked in
+// its service, and reading the settings a store saved never is.
+router.use('/:storeId/replenishment', replenishmentRouter);
 
 export default router;

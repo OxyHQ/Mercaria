@@ -101,9 +101,14 @@ export const MERCHANT_CAPABILITY_CATALOG: Readonly<
   replenishment_planning: {
     key: 'replenishment_planning',
     name: 'Replenishment planning',
-    description: 'Forecasting and purchase suggestions over multi-location inventory.',
+    description:
+      "A demand forecast and purchase suggestions over the store's own multi-location " +
+      'inventory: units sold over the last 28 and 90 days net of refunds, average daily ' +
+      'demand, days of cover, projected stock-out date and a suggested order quantity per ' +
+      'variant and location, from lead-time, cover and safety-stock settings, exportable as ' +
+      'CSV. It suggests; it never places a supplier order.',
     limitKind: 'flag',
-    availability: 'postponed',
+    availability: 'available',
   },
   advanced_merchandising_rules: {
     key: 'advanced_merchandising_rules',
