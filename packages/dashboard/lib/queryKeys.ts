@@ -78,6 +78,14 @@ export const queryKeys = {
   // Which paid tools the store holds — any member's read, under `plan` so a
   // plan change refreshes every tool screen's gate.
   storeCapabilities: (storeId: string) => ['stores', storeId, 'plan', 'capabilities'] as const,
+  // The competitive price analytics tool (#89): a computed report, never a
+  // record the store wrote — keyed apart from `plan` so a plan change does not
+  // refetch a comparison, while the gate above it re-reads `storeCapabilities`.
+  priceAnalytics: {
+    overview: (storeId: string) => ['stores', storeId, 'price-analytics'] as const,
+    trend: (storeId: string, productVariantId: string, windowDays: number, granularity: string) =>
+      ['stores', storeId, 'price-analytics', productVariantId, windowDays, granularity] as const,
+  },
   // What the store pays Mercaria PER ORDER — a sibling of `plan`, which is a
   // recurring subscription the store chose; this is the marketplace fee applied
   // to every sale, which the store accepts rather than buys. Keyed on its own so accepting the terms invalidates the

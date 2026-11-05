@@ -2123,5 +2123,75 @@
     "notIncluded": "Pas dans votre offre",
     "emptyTitle": "Aucun outil pour l'instant",
     "emptyBody": "Les outils qu'ajoute une offre apparaîtront ici."
+  },
+  "priceAnalytics": {
+    "toolLabel": "Analyse des prix concurrentiels",
+    "toolDescription": "Voyez comment les prix de vos annonces se comparent à ceux des autres vendeurs du même produit, aujourd'hui et dans le temps.",
+    "title": "Analyse des prix",
+    "documentTitle": "Analyse des prix | Wholesale by Mercaria",
+    "subtitle": "Vos annonces en ligne face aux autres offres pour le même produit",
+    "detailTitle": "Prix dans le temps",
+    "loadFailed": "Impossible de charger l'analyse des prix",
+    "planEndedTitle": "Non inclus dans votre offre actuelle",
+    "planEndedBody": "L'analyse des prix fait partie d'une offre Mercaria. Vos annonces et vos prix ne changent pas.",
+    "noPolicyTitle": "Les comparaisons de prix ne sont pas encore disponibles",
+    "noPolicyBody": "Mercaria n'a pas encore publié ses règles de comparaison des prix ; aucune comparaison n'est donc affichée.",
+    "computedAt": "Comparé %{when}",
+    "exportCsv": "Exporter en CSV",
+    "exporting": "Export en cours…",
+    "exportFailed": "Impossible d'exporter. Veuillez réessayer.",
+    "truncated": "Affichage des %{analysed} premières annonces sur %{total} associées. L'export couvre les mêmes annonces.",
+    "emptyTitle": "Aucune annonce à comparer pour l'instant",
+    "emptyBody": "Les annonces en ligne associées à un produit du catalogue Mercaria apparaissent ici.",
+    "filterEmpty": "Aucune annonce dans ce groupe.",
+    "method": "Les autres vendeurs n'apparaissent que sous forme de nombre et de prix le plus bas et médian, à partir des offres de la comparaison publique. Les prix dans une autre devise sont convertis pour l'affichage uniquement. Cet outil ne modifie jamais vos prix.",
+    "yourPrice": "Votre prix : %{price}",
+    "noPrice": "Aucun prix défini",
+    "marketLine": "Autres vendeurs : %{sellers} · le plus bas %{lowest} · médiane %{median}",
+    "notShown": "Pas affichée actuellement dans la comparaison publique",
+    "matchedTo": "Associée à %{product}",
+    "positionLine": "Votre position : %{band}",
+    "deltaLine": "%{toLowest} % par rapport au plus bas · %{toMedian} % par rapport à la médiane",
+    "converted": "Autres devises converties aux taux %{provider} du %{date}",
+    "summary": {
+      "unmeasured": "Non comparées"
+    },
+    "filter": {
+      "all": "Toutes"
+    },
+    "band": {
+      "lowest": "Prix le plus bas",
+      "nearLowest": "À 5 % maximum du plus bas",
+      "atOrBelowMedian": "À la médiane ou en dessous",
+      "aboveMedian": "Au-dessus de la médiane"
+    },
+    "reason": {
+      "noActivePolicy": "Les comparaisons de prix ne sont pas encore disponibles.",
+      "priceMissing": "Cette annonce n'a pas de prix.",
+      "currencyNotComparable": "La devise de cette annonce ne peut pas être comparée.",
+      "conditionUnknown": "L'état de cette annonce ne peut pas être comparé.",
+      "tooFewOffers": "Pas encore assez d'autres offres pour comparer.",
+      "tooFewSellers": "Pas encore assez d'autres vendeurs pour comparer."
+    },
+    "trend": {
+      "title": "Dans le temps",
+      "lastDays": "%{days} jours",
+      "daily": "Par jour",
+      "weekly": "Par semaine",
+      "loadFailed": "Impossible de charger l'historique des prix",
+      "unavailable": "Aucun historique de prix à comparer",
+      "empty": "Pas encore d'historique de prix sur cette période.",
+      "chartLabel": "Votre prix, la médiane et le prix le plus bas des autres vendeurs dans le temps",
+      "legendOwn": "Votre prix",
+      "legendMedian": "Médiane des autres vendeurs",
+      "legendLowest": "Plus bas des autres vendeurs",
+      "colPeriod": "Période",
+      "colOwn": "Vous",
+      "colLowest": "Le plus bas",
+      "colMedian": "Médiane",
+      "colSellers": "Vendeurs",
+      "footnote": "Une période n'affiche les prix des autres vendeurs que si suffisamment d'entre eux ont été observés.",
+      "noValue": "—"
+    }
   }
 }

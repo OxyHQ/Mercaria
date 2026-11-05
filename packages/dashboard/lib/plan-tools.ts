@@ -1,4 +1,4 @@
-import type { LucideIcon } from 'lucide-react-native';
+import { Scale, type LucideIcon } from 'lucide-react-native';
 import type { RoutePath } from 'expo-router';
 import type { MerchantEntitlementCapability, StorePermission } from '@mercaria/shared-types';
 
@@ -24,4 +24,15 @@ export interface PlanTool {
   permission: StorePermission;
 }
 
-export const PLAN_TOOLS: readonly PlanTool[] = [];
+export const PLAN_TOOLS: readonly PlanTool[] = [
+  {
+    capability: 'competitive_price_analytics',
+    labelKey: 'priceAnalytics.toolLabel',
+    descriptionKey: 'priceAnalytics.toolDescription',
+    icon: Scale,
+    href: '/tools/price-analytics',
+    // "What is the market doing around my products" (`STORE_PERMISSIONS`), the
+    // permission the API route requires.
+    permission: 'analytics:read',
+  },
+];

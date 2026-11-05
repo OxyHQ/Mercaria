@@ -189,18 +189,28 @@ describe('the code catalogue', () => {
     );
   });
 
-  it('ships every capability as POSTPONED, which is what makes a paid plan unactivatable', () => {
+  it('ships a capability as AVAILABLE only once its tool is built, every other one POSTPONED', () => {
     // #89's binding constraint is that this work must not put an EXISTING
-    // capability behind a plan. None of the eight exists, so every one is
-    // postponed — and `activateMerchantPlan` refuses a version naming one, which
-    // is "do not sell a placeholder plan" as a mechanism rather than a promise.
-    // When a capability genuinely ships, this test is the thing that has to
-    // change in the same diff.
+    // capability behind a plan, and `activateMerchantPlan` refuses a version
+    // naming a postponed one — "do not sell a placeholder plan" as a mechanism
+    // rather than a promise. A capability moves to `available` in the SAME diff
+    // as its tool, and that diff adds it to this list, which is the decision
+    // being recorded rather than a line that appeared.
+    const BUILT: readonly string[] = [
+      // `services/store-price-benchmark/`, `/admin/stores/:storeId/price-analytics`.
+      'competitive_price_analytics',
+    ];
     for (const definition of Object.values(MERCHANT_CAPABILITY_CATALOG)) {
-      expect(definition.availability, `${definition.key} claims to be implemented`).toBe(
-        'postponed',
-      );
+      expect(
+        definition.availability,
+        BUILT.includes(definition.key)
+          ? `${definition.key} is built and must be sellable`
+          : `${definition.key} claims to be implemented`,
+      ).toBe(BUILT.includes(definition.key) ? 'available' : 'postponed');
     }
+    // Every BUILT entry names a real capability, so the list cannot carry a typo
+    // that excuses nothing.
+    for (const key of BUILT) expect(Object.keys(MERCHANT_CAPABILITY_CATALOG)).toContain(key);
     expect(Object.keys(MERCHANT_CAPABILITY_CATALOG).length).toBeGreaterThanOrEqual(8);
   });
 

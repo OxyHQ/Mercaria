@@ -2102,5 +2102,75 @@
     "notIncluded": "Nicht in deinem Tarif",
     "emptyTitle": "Noch keine Tools",
     "emptyBody": "Tools, die ein Tarif hinzufügt, erscheinen hier."
+  },
+  "priceAnalytics": {
+    "toolLabel": "Wettbewerbs-Preisanalyse",
+    "toolDescription": "Sieh, wie die Preise deiner Angebote im Vergleich zu anderen Verkäufern desselben Produkts liegen – jetzt und im Zeitverlauf.",
+    "title": "Preisanalyse",
+    "documentTitle": "Preisanalyse | Wholesale by Mercaria",
+    "subtitle": "Deine aktiven Angebote im Vergleich zu den anderen Angeboten für dasselbe Produkt",
+    "detailTitle": "Preis im Zeitverlauf",
+    "loadFailed": "Die Preisanalyse konnte nicht geladen werden",
+    "planEndedTitle": "Nicht in deinem aktuellen Tarif enthalten",
+    "planEndedBody": "Die Preisanalyse ist Teil eines Mercaria-Tarifs. Deine Angebote und Preise bleiben unverändert.",
+    "noPolicyTitle": "Preisvergleiche sind noch nicht verfügbar",
+    "noPolicyBody": "Mercaria hat seine Regeln für Preisvergleiche noch nicht veröffentlicht, daher wird kein Vergleich angezeigt.",
+    "computedAt": "Verglichen %{when}",
+    "exportCsv": "CSV exportieren",
+    "exporting": "Wird exportiert…",
+    "exportFailed": "Export fehlgeschlagen. Bitte versuche es erneut.",
+    "truncated": "Die ersten %{analysed} von %{total} zugeordneten Angeboten werden angezeigt. Der Export umfasst dieselben Angebote.",
+    "emptyTitle": "Noch keine Angebote zum Vergleichen",
+    "emptyBody": "Aktive Angebote, die einem Produkt im Mercaria-Katalog zugeordnet sind, erscheinen hier.",
+    "filterEmpty": "Keine Angebote in dieser Gruppe.",
+    "method": "Andere Verkäufer werden nur als Anzahl sowie mit niedrigstem und mittlerem Preis angezeigt, aus Angeboten im öffentlichen Vergleich. Preise in anderen Währungen werden nur für die Anzeige umgerechnet. Dieses Tool ändert deine Preise nie.",
+    "yourPrice": "Dein Preis: %{price}",
+    "noPrice": "Kein Preis festgelegt",
+    "marketLine": "Andere Verkäufer: %{sellers} · niedrigster %{lowest} · Median %{median}",
+    "notShown": "Derzeit nicht im öffentlichen Vergleich sichtbar",
+    "matchedTo": "Zugeordnet zu %{product}",
+    "positionLine": "Deine Position: %{band}",
+    "deltaLine": "%{toLowest} % ggü. niedrigstem · %{toMedian} % ggü. Median",
+    "converted": "Andere Währungen umgerechnet zu Kursen von %{provider} vom %{date}",
+    "summary": {
+      "unmeasured": "Nicht verglichen"
+    },
+    "filter": {
+      "all": "Alle"
+    },
+    "band": {
+      "lowest": "Niedrigster Preis",
+      "nearLowest": "Bis 5 % über dem niedrigsten",
+      "atOrBelowMedian": "Höchstens Median",
+      "aboveMedian": "Über dem Median"
+    },
+    "reason": {
+      "noActivePolicy": "Preisvergleiche sind noch nicht verfügbar.",
+      "priceMissing": "Dieses Angebot hat keinen Preis.",
+      "currencyNotComparable": "Die Währung dieses Angebots kann nicht verglichen werden.",
+      "conditionUnknown": "Der Zustand dieses Angebots kann nicht verglichen werden.",
+      "tooFewOffers": "Noch nicht genug andere Angebote zum Vergleichen.",
+      "tooFewSellers": "Noch nicht genug andere Verkäufer zum Vergleichen."
+    },
+    "trend": {
+      "title": "Im Zeitverlauf",
+      "lastDays": "%{days} Tage",
+      "daily": "Täglich",
+      "weekly": "Wöchentlich",
+      "loadFailed": "Der Preisverlauf konnte nicht geladen werden",
+      "unavailable": "Kein Preisverlauf zum Vergleichen",
+      "empty": "Für diesen Zeitraum gibt es noch keinen Preisverlauf.",
+      "chartLabel": "Dein Preis, der Median und der niedrigste Preis anderer Verkäufer im Zeitverlauf",
+      "legendOwn": "Dein Preis",
+      "legendMedian": "Median anderer Verkäufer",
+      "legendLowest": "Niedrigster Preis anderer Verkäufer",
+      "colPeriod": "Zeitraum",
+      "colOwn": "Du",
+      "colLowest": "Niedrigster",
+      "colMedian": "Median",
+      "colSellers": "Verkäufer",
+      "footnote": "Ein Zeitraum zeigt die Preise anderer Verkäufer nur, wenn genug von ihnen erfasst wurden.",
+      "noValue": "—"
+    }
   }
 }
