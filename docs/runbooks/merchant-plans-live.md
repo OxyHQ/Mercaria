@@ -35,21 +35,26 @@ engineering steps below come after those decisions and are mechanical.
   The fix then belongs in the first-party URL decision (`isFirstPartyServiceUrl`
   in OxyHQ/oxy and Peable's `webhookDeliveryLane`), not in a hostname allowlist.
 
-**Not live:** `MERCHANT_BILLING_ENABLED` is unset (off) because there is nothing
-to sell yet:
+**On sale (2026-11-05, as built).** Every step of §3 is done:
 
-| Missing | Where it shows |
+| Step | Evidence |
 |---|---|
-| No paid capability is implemented | All eight `MERCHANT_CAPABILITY_CATALOG` entries are `postponed`, and `activateMerchantPlan` refuses a version that names one (#89: never sell a placeholder plan) |
-| No approved price | `merchant-plans.md` §4 says "none are set". The plan designs (`packages/dashboard/lib/merchant-plan-designs.ts`) carry no amount, currency or cadence |
-| No Orbit catalog | Mercaria's merchant has 0 products and 0 prices (read live as that merchant, 2026-11-05) |
-| No published plan | Production had 0 `merchant_plans` rows (Mercaria#1178 evidence) and no free version is active |
-| No terms version | A version names a terms document, and acceptance records it |
+| Capabilities built, `available` | #1190 (foundation), #1194 replenishment, #1195 competitive pricing, #1196 demand analytics, #1197 automation, #1198 POS registers, #1199 merchandising, #1200 scheduled exports. `ai_catalog_assistance` stays `postponed` and is in no plan (`merchant-plans.md` §2). |
+| Orbit catalog (live) | `publish-merchant-plans` apply run 42018510797: products go `prod_072ff992dfd60b4fff6f5655`, creator `prod_79e50afe1f4cdd9384534c3c`, plus `prod_6e528e80ce9cea51416a4626`, ultra `prod_31ac9870386cf15ab05bb7bc`; 16 tax-exclusive prices (`lookup_key` `mercaria_<plan>_v1_<monthly|annual>_<usd|eur>`); 7 features `mercaria:<capability>`. Preview first (run 42001051087). |
+| Plan versions | free v1 and go, creator, plus, ultra v1 `active` (same run): no trial, grace 16 days, terms `merchant-plans-2026-11-05`. Peable's dunning read back as `{1,3,5,7}`. |
+| Return URL | `MERCHANT_BILLING_RETURN_URL=https://dashboard.mercaria.co/settings/plan` (#1193). |
+| No-money check | probe run 42018755651: one live subscription Checkout Session per price (16), every page HTTP 200, every session expired. |
+| The flip | `MERCHANT_BILLING_ENABLED=true` in `RELEASE_ENVIRONMENT` (this change). |
 
-Turning the flag on in this state would sell nothing. Every checkout would fail
-because there is no active paid version.
+Re-running the publish is safe: it converges and refuses drift. A change to a
+price, limit or capability is a NEW plan version in `plan-catalogue.ts`.
 
-## 2. What the owner must decide
+**Open, owner-side:** the terms text (`merchant-plans-2026-11-05`) is
+engineering's draft — the owner and legal review it and complete the two
+placeholders (registered address, governing law) as a new terms version; tax on
+plan sales (§2 item 6) is still off.
+
+## 2. What the owner decided (2026-11-05), and what is still theirs
 
 1. **Which plan sells first, and what it unlocks.** At least one capability
    from its design has to be built and moved to `available`
