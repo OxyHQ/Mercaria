@@ -395,7 +395,12 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // `CheckoutPaymentHandoff` gains `providerPaymentId`, the gateway
     // PaymentIntent the payer SDK mounts on: +1 property. Measured by the real
     // guard.
-    'walked 141 contract module(s), 2383 exported type(s), 7946 property signature(s)',
+    // Peable seller onboarding brings four of them back on the new rail
+    // (`SellerPaymentSettings` without its country allow-list,
+    // `ProviderOnboardingLink`, `ProviderAccountStatus` without `revokedAt` or a
+    // payout schedule, `ProviderAccountRequirements`): +4 types, +23
+    // properties. Measured by the real guard.
+    'walked 141 contract module(s), 2387 exported type(s), 7969 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });
