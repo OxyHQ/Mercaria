@@ -890,7 +890,8 @@
     "closeNavigation": "Close navigation",
     "searchNavigation": "Search navigation",
     "clearSearch": "Clear navigation search",
-    "noResults": "No matching pages"
+    "noResults": "No matching pages",
+    "tools": "Tools"
   },
   "orders": {
     "detail": {
@@ -2080,5 +2081,26 @@
     "saved": "Review saved",
     "allow": "Allow reviewed text",
     "withhold": "Withhold"
+  },
+  "planTools": {
+    "title": "Tools",
+    "documentTitle": "Tools | Wholesale by Mercaria",
+    "subtitle": "Extra tools a Mercaria plan adds to your store",
+    "loadFailed": "Couldn't load your tools",
+    "unavailableTitle": "This tool isn't available",
+    "unavailableBody": "It isn't offered on Mercaria yet.",
+    "gateTitle": "Not included in your current plan",
+    "gateIncludedIn": "This tool is part of %{plans}.",
+    "gateNoPlan": "No plan on sale includes this tool right now.",
+    "gateFreeReminder": "Your catalogue, orders, refunds, records and data export stay free whatever plan you are on.",
+    "seePlans": "See plans",
+    "askOwner": "Ask the store owner if you'd like to add it.",
+    "usageIncluded": "Included",
+    "usageNoLimit": "%{used} used · no limit",
+    "usageOfLimit": "%{used} of %{limit} used",
+    "usageOfLimitPeriod": "%{used} of %{limit} used this billing period",
+    "notIncluded": "Not in your plan",
+    "emptyTitle": "No tools yet",
+    "emptyBody": "Tools a plan adds will appear here."
   }
 }

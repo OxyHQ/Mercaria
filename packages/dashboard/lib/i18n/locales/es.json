@@ -904,7 +904,8 @@
     "closeNavigation": "Cerrar la navegación",
     "searchNavigation": "Buscar en navegación",
     "clearSearch": "Borrar búsqueda de navegación",
-    "noResults": "No hay páginas coincidentes"
+    "noResults": "No hay páginas coincidentes",
+    "tools": "Herramientas"
   },
   "orders": {
     "detail": {
@@ -2101,5 +2102,26 @@
     "saved": "Revisión guardada",
     "allow": "Permitir texto revisado",
     "withhold": "No mostrar"
+  },
+  "planTools": {
+    "title": "Herramientas",
+    "documentTitle": "Herramientas | Wholesale by Mercaria",
+    "subtitle": "Herramientas adicionales que un plan de Mercaria añade a tu tienda",
+    "loadFailed": "No se han podido cargar tus herramientas",
+    "unavailableTitle": "Esta herramienta no está disponible",
+    "unavailableBody": "Mercaria todavía no la ofrece.",
+    "gateTitle": "No está incluida en tu plan actual",
+    "gateIncludedIn": "Esta herramienta forma parte de %{plans}.",
+    "gateNoPlan": "Ahora mismo ningún plan a la venta incluye esta herramienta.",
+    "gateFreeReminder": "Tu catálogo, tus pedidos, tus reembolsos, tus registros y la exportación de datos siguen siendo gratis tengas el plan que tengas.",
+    "seePlans": "Ver planes",
+    "askOwner": "Pide al propietario de la tienda que la añada si la necesitas.",
+    "usageIncluded": "Incluido",
+    "usageNoLimit": "%{used} usados · sin límite",
+    "usageOfLimit": "%{used} de %{limit} usados",
+    "usageOfLimitPeriod": "%{used} de %{limit} usados en este periodo de facturación",
+    "notIncluded": "No está en tu plan",
+    "emptyTitle": "Todavía no hay herramientas",
+    "emptyBody": "Aquí aparecerán las herramientas que añade un plan."
   }
 }

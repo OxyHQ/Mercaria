@@ -1,0 +1,27 @@
+import type { LucideIcon } from 'lucide-react-native';
+import type { RoutePath } from 'expo-router';
+import type { MerchantEntitlementCapability, StorePermission } from '@mercaria/shared-types';
+
+/**
+ * The paid tools a Mercaria plan unlocks, as the dashboard navigates to them.
+ *
+ * One entry per IMPLEMENTED capability, added in the same change as the tool's
+ * screen (`app/(app)/tools/…`). The Tools hub lists these and gates each with
+ * the store's capabilities; a capability with no entry here has no screen, and
+ * the server's catalogue will not sell a plan naming one that is postponed.
+ *
+ * KEYS rather than sentences (#398): this module is evaluated at import, before
+ * the locale store rehydrates.
+ */
+export interface PlanTool {
+  capability: MerchantEntitlementCapability;
+  labelKey: string;
+  descriptionKey: string;
+  icon: LucideIcon;
+  /** Typed against the real route tree, so renaming a screen fails the build. */
+  href: RoutePath;
+  /** The store permission the tool's screen requires. */
+  permission: StorePermission;
+}
+
+export const PLAN_TOOLS: readonly PlanTool[] = [];

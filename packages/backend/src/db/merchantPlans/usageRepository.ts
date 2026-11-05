@@ -132,3 +132,40 @@ export async function listEntitlementUsage(
       ),
     );
 }
+
+/**
+ * Give back `amount` of a `total` allowance — the merchant deleted something the
+ * limit counts (an automation rule, a merchandising rule, a register).
+ *
+ * ONE statement, floored at zero by `greatest`, so two concurrent deletions can
+ * never drive the counter negative and a release with no counter is a no-op
+ * rather than an error. Only the `total` period key is ever released: a
+ * `per_period` allowance measures USE (an export that ran, an assist that was
+ * generated), and use does not un-happen when its output is deleted.
+ *
+ * @returns The counter after the release, or `undefined` when there was none.
+ */
+export async function releaseEntitlementUsage(
+  db: DatabaseOrTransaction,
+  input: { storeId: string; capabilityKey: MerchantEntitlementCapability; amount: number },
+): Promise<EntitlementUsageRow | undefined> {
+  if (!Number.isInteger(input.amount) || input.amount <= 0) {
+    throw new RangeError(
+      `Releasing entitlement usage needs a positive whole amount; received ${String(input.amount)}.`,
+    );
+  }
+  const [row] = await db
+    .update(entitlementUsageCounters)
+    .set({
+      used: sql`greatest(${entitlementUsageCounters.used} - ${input.amount}, 0)`,
+    })
+    .where(
+      and(
+        eq(entitlementUsageCounters.storeId, input.storeId),
+        eq(entitlementUsageCounters.capabilityKey, input.capabilityKey),
+        eq(entitlementUsageCounters.periodKey, 'total'),
+      ),
+    )
+    .returning();
+  return row;
+}

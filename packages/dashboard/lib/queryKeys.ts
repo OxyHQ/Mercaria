@@ -75,6 +75,9 @@ export const queryKeys = {
   // the store is paid for orders.
   plan: (storeId: string) => ['stores', storeId, 'plan'] as const,
   planCatalog: (storeId: string) => ['stores', storeId, 'plan', 'catalog'] as const,
+  // Which paid tools the store holds — any member's read, under `plan` so a
+  // plan change refreshes every tool screen's gate.
+  storeCapabilities: (storeId: string) => ['stores', storeId, 'plan', 'capabilities'] as const,
   // What the store pays Mercaria PER ORDER — a sibling of `plan`, which is a
   // recurring subscription the store chose; this is the marketplace fee applied
   // to every sale, which the store accepts rather than buys. Keyed on its own so accepting the terms invalidates the

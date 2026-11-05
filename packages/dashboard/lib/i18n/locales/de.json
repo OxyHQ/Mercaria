@@ -890,7 +890,8 @@
     "closeNavigation": "Navigation schließen",
     "searchNavigation": "Navigation durchsuchen",
     "clearSearch": "Navigationssuche löschen",
-    "noResults": "Keine passenden Seiten"
+    "noResults": "Keine passenden Seiten",
+    "tools": "Tools"
   },
   "orders": {
     "detail": {
@@ -2080,5 +2081,26 @@
     "saved": "Prüfung gespeichert",
     "allow": "Geprüften Text freigeben",
     "withhold": "Nicht anzeigen"
+  },
+  "planTools": {
+    "title": "Tools",
+    "documentTitle": "Tools | Wholesale by Mercaria",
+    "subtitle": "Zusätzliche Tools, die ein Mercaria-Tarif deinem Shop hinzufügt",
+    "loadFailed": "Deine Tools konnten nicht geladen werden",
+    "unavailableTitle": "Dieses Tool ist nicht verfügbar",
+    "unavailableBody": "Mercaria bietet es noch nicht an.",
+    "gateTitle": "Nicht in deinem aktuellen Tarif enthalten",
+    "gateIncludedIn": "Dieses Tool ist Teil von %{plans}.",
+    "gateNoPlan": "Derzeit enthält kein angebotener Tarif dieses Tool.",
+    "gateFreeReminder": "Katalog, Bestellungen, Erstattungen, Aufzeichnungen und Datenexport bleiben unabhängig vom Tarif kostenlos.",
+    "seePlans": "Tarife ansehen",
+    "askOwner": "Bitte die Shop-Inhaberin oder den Shop-Inhaber, es hinzuzufügen.",
+    "usageIncluded": "Enthalten",
+    "usageNoLimit": "%{used} genutzt · kein Limit",
+    "usageOfLimit": "%{used} von %{limit} genutzt",
+    "usageOfLimitPeriod": "%{used} von %{limit} in diesem Abrechnungszeitraum genutzt",
+    "notIncluded": "Nicht in deinem Tarif",
+    "emptyTitle": "Noch keine Tools",
+    "emptyBody": "Tools, die ein Tarif hinzufügt, erscheinen hier."
   }
 }

@@ -7,10 +7,12 @@ import {
   FolderTree,
   Plug,
   Settings,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react-native';
 import type { RoutePath } from 'expo-router';
 import type { StorePermission } from '@mercaria/shared-types';
+import { PLAN_TOOLS } from '@/lib/plan-tools';
 
 /**
  * Canonical navigation model for the dashboard shell, shared by the desktop
@@ -92,6 +94,19 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: '/channels',
     permission: 'channels:write',
   },
+  // The paid tools a plan unlocks (`app/(app)/tools`). Listed only once at least
+  // one tool is implemented, so the shell never offers an empty destination.
+  ...(PLAN_TOOLS.length > 0
+    ? [
+        {
+          key: 'tools',
+          labelKey: 'nav.tools',
+          icon: Sparkles,
+          href: '/tools',
+          permission: 'products:read',
+        } as const,
+      ]
+    : []),
   {
     key: 'settings',
     labelKey: 'nav.settings',

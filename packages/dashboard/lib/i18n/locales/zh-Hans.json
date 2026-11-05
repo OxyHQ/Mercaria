@@ -890,7 +890,8 @@
     "closeNavigation": "关闭导航",
     "searchNavigation": "搜索导航",
     "clearSearch": "清除导航搜索",
-    "noResults": "没有匹配的页面"
+    "noResults": "没有匹配的页面",
+    "tools": "工具"
   },
   "orders": {
     "detail": {
@@ -2079,5 +2080,26 @@
     "saved": "审核已保存",
     "allow": "允许已审核文本",
     "withhold": "不予显示"
+  },
+  "planTools": {
+    "title": "工具",
+    "documentTitle": "工具 | Wholesale by Mercaria",
+    "subtitle": "Mercaria 套餐为你的店铺增加的额外工具",
+    "loadFailed": "无法加载你的工具",
+    "unavailableTitle": "此工具不可用",
+    "unavailableBody": "Mercaria 暂未提供此工具。",
+    "gateTitle": "你当前的套餐不包含此工具",
+    "gateIncludedIn": "此工具包含在 %{plans} 中。",
+    "gateNoPlan": "目前在售的套餐都不包含此工具。",
+    "gateFreeReminder": "无论使用哪种套餐，你的商品目录、订单、退款、记录和数据导出都始终免费。",
+    "seePlans": "查看套餐",
+    "askOwner": "如需添加，请联系店铺所有者。",
+    "usageIncluded": "已包含",
+    "usageNoLimit": "已用 %{used} · 无上限",
+    "usageOfLimit": "已用 %{used} / %{limit}",
+    "usageOfLimitPeriod": "本计费周期已用 %{used} / %{limit}",
+    "notIncluded": "不在你的套餐中",
+    "emptyTitle": "暂无工具",
+    "emptyBody": "套餐增加的工具会显示在这里。"
   }
 }

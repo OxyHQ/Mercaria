@@ -3,6 +3,7 @@ import type {
   MerchantBillingSessionView,
   MerchantPlanCatalogEntry,
   MerchantPlanStatusView,
+  StoreCapabilitiesView,
 } from '@mercaria/shared-types';
 import apiClient from './client';
 import { unwrap } from './unwrap';
@@ -13,6 +14,14 @@ const base = (storeId: string) => `/admin/stores/${storeId}/plan`;
 /** This store's plan, effective entitlements and usage. */
 export async function fetchPlanStatus(storeId: string): Promise<MerchantPlanStatusView> {
   const { data } = await apiClient.get<ApiResponse<MerchantPlanStatusView>>(base(storeId));
+  return unwrap(data);
+}
+
+/** Which paid tools this store holds — readable by any member. */
+export async function fetchStoreCapabilities(storeId: string): Promise<StoreCapabilitiesView> {
+  const { data } = await apiClient.get<ApiResponse<StoreCapabilitiesView>>(
+    `${base(storeId)}/capabilities`,
+  );
   return unwrap(data);
 }
 

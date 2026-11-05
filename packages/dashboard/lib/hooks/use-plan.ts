@@ -1,9 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { MerchantPlanCatalogEntry, MerchantPlanStatusView } from '@mercaria/shared-types';
+import type {
+  MerchantEntitlementCapability,
+  MerchantPlanCatalogEntry,
+  MerchantPlanStatusView,
+  StoreCapabilitiesView,
+  StoreCapabilityView,
+} from '@mercaria/shared-types';
 import {
   cancelPlan,
   fetchPlanCatalog,
   fetchPlanStatus,
+  fetchStoreCapabilities,
   openBillingPortal,
   startPlanCheckout,
 } from '../api/plan';
@@ -16,6 +23,32 @@ export function usePlanStatus(storeId: string) {
     queryFn: () => fetchPlanStatus(storeId),
     enabled: Boolean(storeId),
   });
+}
+
+/** Which paid tools this store holds. Any member may read it. */
+export function useStoreCapabilities(storeId: string) {
+  return useQuery<StoreCapabilitiesView>({
+    queryKey: queryKeys.storeCapabilities(storeId),
+    queryFn: () => fetchStoreCapabilities(storeId),
+    enabled: Boolean(storeId),
+  });
+}
+
+/**
+ * One paid tool for this store, or `undefined` while loading or when the
+ * deployment has not implemented it. The server re-decides on every write; this
+ * only decides what a screen OFFERS.
+ */
+export function useStoreCapability(
+  storeId: string,
+  capability: MerchantEntitlementCapability,
+): { isPending: boolean; isError: boolean; capability: StoreCapabilityView | undefined } {
+  const query = useStoreCapabilities(storeId);
+  return {
+    isPending: query.isPending,
+    isError: query.isError,
+    capability: query.data?.capabilities.find((entry) => entry.capability === capability),
+  };
 }
 
 /** The plan comparison, with exact current capabilities. */

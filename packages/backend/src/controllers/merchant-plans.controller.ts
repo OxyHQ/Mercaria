@@ -25,6 +25,7 @@ import { sendSuccess } from '../utils/api-response.js';
 import { routeParam } from '../utils/request.js';
 import {
   buildMerchantPlanStatus,
+  buildStoreCapabilities,
   listMerchantPlanCatalog,
 } from '../services/entitlements/projection.js';
 import {
@@ -62,6 +63,24 @@ export async function getStorePlanHandler(req: Request, res: Response): Promise<
   } catch (err) {
     log.general.error({ err }, 'Failed to read a store plan');
     respondWithError(res, err, 'Failed to read the plan');
+  }
+}
+
+/**
+ * GET /admin/stores/:storeId/plan/capabilities — which paid tools this store
+ * holds, for ANY member.
+ *
+ * The one read on this surface that is not `store:manage`: a staff member who
+ * can open a tool has to know whether it works here, and the answer carries no
+ * billing state, price or subscription — only the capability and the plans that
+ * include it.
+ */
+export async function getStoreCapabilitiesHandler(req: Request, res: Response): Promise<void> {
+  try {
+    sendSuccess(res, await buildStoreCapabilities({ storeId: routeParam(req, 'storeId') }));
+  } catch (err) {
+    log.general.error({ err }, 'Failed to read store capabilities');
+    respondWithError(res, err, 'Failed to read the store tools');
   }
 }
 

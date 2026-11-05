@@ -35,6 +35,8 @@ import type {
   MerchantPlanPriceView,
   MerchantPlanStatusView,
   MerchantSubscriptionView,
+  StoreCapabilitiesView,
+  StoreCapabilityView,
 } from '@mercaria/shared-types';
 import { merchantBillingAvailable } from '../billing/availability.js';
 import { config } from '../../config/index.js';
@@ -55,6 +57,7 @@ import { listEntitlementUsage } from '../../db/merchantPlans/usageRepository.js'
 import { getBillingProvider } from '../billing/provider.js';
 import { entitlementPeriodKey } from './capabilities.js';
 import { resolveMerchantEntitlements } from './resolve.js';
+import { MERCHANT_CAPABILITY_CATALOG } from './catalog.js';
 
 /** Which billing MODE this deployment's prices are published in. */
 function billingLivemode(): boolean {
@@ -203,6 +206,57 @@ export async function buildMerchantPlanStatus(input: {
 }
 
 /** The subscription half of the status view, with the plan's own names attached. */
+/**
+ * Every implemented paid tool for one store — what any member's screens need.
+ *
+ * Only `available` capabilities appear: a postponed one has no screen to gate.
+ * `includedIn` reads the same catalogue the plan screen shows, so "part of
+ * Mercaria Plus" on a tool can never name a plan that is not on sale.
+ */
+export async function buildStoreCapabilities(input: {
+  storeId: string;
+  at?: Date;
+}): Promise<StoreCapabilitiesView> {
+  const at = input.at ?? new Date();
+  const db = getDb();
+  const [resolved, catalog] = await Promise.all([
+    resolveMerchantEntitlements(input.storeId, { at, db }),
+    listMerchantPlanCatalog(db),
+  ]);
+
+  const periodKeys = new Set<string>();
+  for (const entitlement of resolved.entitlements.values()) {
+    if (entitlement.limitKind === 'flag') continue;
+    periodKeys.add(entitlementPeriodKey(entitlement.limitKind, at, resolved.currentPeriodStart));
+  }
+  const counters = await listEntitlementUsage(db, {
+    storeId: input.storeId,
+    periodKeys: [...periodKeys],
+  });
+  const usedByCapability = new Map<string, number>(
+    counters.map((counter) => [counter.capabilityKey, counter.used]),
+  );
+
+  const capabilities: StoreCapabilityView[] = [];
+  for (const [capability, availability] of resolved.availability) {
+    if (availability !== 'available') continue;
+    const entitlement = resolved.entitlements.get(capability);
+    const includedIn = catalog
+      .filter((plan) => plan.tier === 'paid')
+      .filter((plan) => plan.capabilities.some((offered) => offered.key === capability))
+      .map((plan) => ({ planKey: plan.planKey, name: plan.name }));
+    capabilities.push({
+      capability,
+      entitled: entitlement !== undefined,
+      limitKind: entitlement?.limitKind ?? MERCHANT_CAPABILITY_CATALOG[capability].limitKind,
+      limit: entitlement?.limit ?? null,
+      used: usedByCapability.get(capability) ?? 0,
+      includedIn,
+    });
+  }
+  return { storeId: input.storeId, capabilities };
+}
+
 async function buildSubscriptionView(
   db: DatabaseOrTransaction,
   planId: string,
