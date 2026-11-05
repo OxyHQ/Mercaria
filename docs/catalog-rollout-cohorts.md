@@ -32,17 +32,16 @@ this domain; every entry is a live production path, not a plan.
 
 ### `market` — yes, in the most places of the five
 
-These seven environment levers name a market, and they disagree about what empty
+These six environment levers name a market, and they disagree about what empty
 means — which is itself the reason a new one has to say. Every name below was
 checked to exist in `config/index.ts`; the set is what a census of the config and
-service layers found rather than a claim that no eighth exists:
+service layers found rather than a claim that no seventh exists:
 
 | Lever | Kind | Empty means |
 |---|---|---|
 | `CHECKOUT_DESTINATION_COUNTRIES` | allow | unrestricted |
 | `GUEST_CHECKOUT_BLOCKED_MARKETS` | block | no-op |
 | `RETAIL_BLOCKED_MARKETS` | block | no-op |
-| `STRIPE_SELLER_COUNTRIES` | allow | nobody may onboard (defaults to `ES`) |
 | `EBAY_MARKETS` | allow | falls back to `EBAY_ES` |
 | `MERCHANT_DEMAND_MARKETS` | allow | the undimensioned bucket only |
 | `NL_INTENT_BLOCKED_COHORTS` | block | no-op |

@@ -32,19 +32,13 @@
  *
  * ## The rail is required PER JOB, not for the loop
  *
- * This used to be `if (!config.payments.stripe.enabled) return;` — the whole
- * timer, off, silently, on any deployment without Stripe. The reasoning was
- * sound while Stripe was the only rail that could produce a payment: four of the
- * five sweeps cannot ask their question without it, and a deployment with no
- * Stripe had nothing to audit.
+ * Payments book the ledger on every booking rail (`PROVIDER_BOOKS_LEDGER`),
+ * `mock` included, so the audit that exists to notice a succeeded payment with
+ * no charge behind it has a question to ask whether or not the card rail is
+ * configured. Two of the three sweeps read only Mercaria's own rows and work on
+ * any deployment.
  *
- * ADR 0009 made that premise false. A Peable deployment has payments, they book
- * the ledger (`PROVIDER_BOOKS_LEDGER`), and `mock` books it too — so the audit
- * that exists to notice a succeeded payment with no charge behind it had a real
- * question to ask and a timer that never started to ask it. Two of the five
- * sweeps read only Mercaria's own rows and work on any deployment.
- *
- * So the requirement moved to where it belongs. `JOB_REQUIRES_RAIL` names what
+ * So the requirement lives per job. `JOB_REQUIRES_RAIL` names what
  * each sweep reads, the loop runs whenever reconciliation is enabled, and a
  * sweep whose rail is off is SKIPPED WITH A REASON rather than silently absent.
  * A skip an operator can see is the point: "not configured" and "never ran"
@@ -68,18 +62,13 @@ import {
 } from '../../../db/payments/reconciliationCursorRepository.js';
 import { log } from '../../../lib/logger.js';
 import { reconcileOpenPaymentsPage } from './open-payments.job.js';
-import {
-  providerObjectsWindowStart,
-  reconcileProviderObjectsPage,
-} from './provider-objects.job.js';
 import { auditLedgerPage } from './ledger-audit.job.js';
-import { reconcileAccountReadiness } from './account-readiness.job.js';
 import { releaseWithheldTransfersPage } from './withheld-transfers.job.js';
 
 /**
  * Which rail each sweep READS, or `null` when it reads only Mercaria's rows.
  *
- * A total record over `ReconciliationJob`, so a sixth sweep cannot be added
+ * A total record over `ReconciliationJob`, so a new sweep cannot be added
  * without its author answering this — the alternative is a job that silently
  * runs on a deployment whose rail cannot serve it, which fails as a page of
  * provider errors rather than as a skip.
@@ -91,17 +80,10 @@ import { releaseWithheldTransfersPage } from './withheld-transfers.job.js';
  * which resolves whichever rail the payment names.
  */
 const JOB_REQUIRES_RAIL: Readonly<Record<ReconciliationJob, PaymentProviderId | null>> = {
-  // Re-reads the provider's own payment object to converge a status Mercaria
-  // was never told about.
-  open_payments: 'stripe',
-  // Pages the provider's settled-movement ledger. ADR 0009 D16: Peable has no
-  // equivalent surface yet, which is why this stays named to `stripe` rather
-  // than being widened optimistically.
-  provider_objects: 'stripe',
+  // Re-reads the rail's own payment object, through the port, to converge a
+  // status Mercaria was never told about (ADR 0009 D16).
+  open_payments: 'peable',
   ledger_audit: null,
-  // Re-reads connected accounts. Also Stripe-shaped until the gateway's account
-  // surface is consumed here.
-  account_readiness: 'stripe',
   withheld_transfers: null,
   // NOT dispatched by this runner — `retail_reconciliation` shares the cursor
   // TABLE and not the runner (#128: `role-separation.test.ts` forbids anything
@@ -117,7 +99,6 @@ const JOB_REQUIRES_RAIL: Readonly<Record<ReconciliationJob, PaymentProviderId | 
 export function reconciliationJobIsServable(job: ReconciliationJob): boolean {
   const rail = JOB_REQUIRES_RAIL[job];
   if (rail === null) return true;
-  if (rail === 'stripe') return config.payments.stripe.enabled;
   if (rail === 'peable') return config.payments.peable.enabled;
   // Every other `PaymentProviderId` is a rail with no configuration to check —
   // `external`, `manual_pos` and `mock` are always "available" in the sense this
@@ -140,7 +121,7 @@ export function isPaymentReconcilerRunning(): boolean {
   return timer !== undefined;
 }
 
-/** What one job's page did, in the shape the runner needs from all five. */
+/** What one job's page did, in the shape the runner needs from all three. */
 interface JobPageOutcome {
   scanned: number;
   discrepancies: number;
@@ -171,8 +152,7 @@ export async function runReconciliationJob(
   // question here: this is the deliberate entry point — an operator driving one
   // sweep, or a suite that has substituted the provider client — and "the
   // deployment has no live credentials" does not mean the caller's job cannot
-  // run. Gating it broke exactly that, by making a directly-driven
-  // `provider_objects` return `undefined` against a mocked rail.
+  // run.
   const db = getDb();
   const now = options?.now ?? new Date();
   const limit = options?.limit ?? config.payments.reconciliation.batchSize;
@@ -250,42 +230,12 @@ async function runOnePage(input: {
     };
   }
 
-  if (job === 'provider_objects') {
-    const windowStartAt = providerObjectsWindowStart(cursor.windowStartAt, now);
-    const page = await reconcileProviderObjectsPage({
-      cursor: cursor.cursor,
-      windowStartAt,
-      limit,
-    });
-    return {
-      scanned: page.scanned,
-      discrepancies: page.discrepancies,
-      nextCursor: page.nextCursor,
-      // A completed pass has seen everything up to the moment it STARTED, so
-      // that is where the next window begins. Using `now` at the end of the pass
-      // instead would skip anything the rail recorded while it ran.
-      windowStartAt: now,
-    };
-  }
-
   if (job === 'ledger_audit') {
     const page = await auditLedgerPage({ cursor: cursor.cursor, limit, now });
     return {
       scanned: page.scanned,
       discrepancies: page.discrepancies,
       nextCursor: page.nextCursor,
-    };
-  }
-
-  if (job === 'account_readiness') {
-    const sweep = await reconcileAccountReadiness({ limit });
-    // Always a complete pass: #46's sweep carries its own cursor as a column
-    // (`provider_accounts.last_synced_at`), so there is nothing for this one to
-    // resume from — see `account-readiness.job.ts`.
-    return {
-      scanned: sweep.refreshed + sweep.failed,
-      discrepancies: sweep.discrepancies,
-      nextCursor: null,
     };
   }
 
@@ -304,8 +254,8 @@ async function runOnePage(input: {
   // importing the procurement domain.
   //
   // The refusal replaces a FALL-THROUGH, and the difference matters: a chain of
-  // `if`s ending in the account-readiness call would have run that sweep for
-  // every unrecognised job name, with a clean log line and no error. A name this
+  // `if`s ending in the last sweep's call would have run that sweep for every
+  // unrecognised job name, with a clean log line and no error. A name this
   // runner does not own is a routing defect, and it says so.
   throw new Error(
     `'${job}' is not a job services/payments/reconciliation owns. The jobs it dispatches are ` +
@@ -318,14 +268,9 @@ async function runOnePage(input: {
  *
  * Deliberate rather than alphabetical: `open_payments` first because it is the
  * only one that can still PREVENT harm (a missed success converged before the
- * reservation sweep releases the stock), then the two that compare records, then
- * account readiness, whose own timer in `account-reconciler.ts` already runs it
- * independently — this is the belt to that braces.
- *
- * `withheld_transfers` runs LAST, and after `account_readiness` specifically:
- * releasing a held transfer re-enters settlement, which refuses a seller whose
- * account is not `ready`, so a readiness that lapsed and has since been repaired
- * should be reflected in `provider_accounts` before the release asks.
+ * reservation sweep releases the stock), then the ledger audit, and
+ * `withheld_transfers` LAST: releasing a held transfer re-enters settlement, so
+ * it should see every status the sweeps before it converged.
  *
  * Exported ONLY so `reconciliation-job-coverage.test.ts` can bind it to
  * `PAYMENT_RECONCILIATION_JOBS`. It is hand-written rather than derived from
@@ -335,9 +280,7 @@ async function runOnePage(input: {
  */
 export const JOB_ORDER: readonly ReconciliationJob[] = [
   'open_payments',
-  'provider_objects',
   'ledger_audit',
-  'account_readiness',
   'withheld_transfers',
 ];
 
@@ -353,7 +296,7 @@ async function tick(): Promise<void> {
       try {
         await runReconciliationJob(job);
       } catch (error: unknown) {
-        // Per JOB, so one sweep that cannot run does not stop the other three.
+        // Per JOB, so one sweep that cannot run does not stop the others.
         // The lease has already been released by `runReconciliationJob`, so the
         // next tick retries this job from the same cursor.
         log.general.error({ err: error, job }, '[Reconciliation] job failed; continuing');
@@ -395,8 +338,8 @@ export function startPaymentReconciler(): void {
 
   // Said ONCE, at boot, and at warn level. The whole reason this file changed is
   // that a sweep which never ran was indistinguishable from one that ran and
-  // found nothing; a deployment that is missing four of its five sweeps should
-  // have to have decided that, not discover it during an incident.
+  // found nothing; a deployment that is missing a sweep should have to have
+  // decided that, not discover it during an incident.
   if (skipped.length > 0) {
     log.general.warn(
       { skipped: skipped.map((job) => ({ job, needs: JOB_REQUIRES_RAIL[job] })) },

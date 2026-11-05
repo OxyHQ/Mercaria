@@ -20,10 +20,9 @@ export function useFeeSchedule(storeId: string) {
 /**
  * Record the owner's acceptance, then refetch.
  *
- * Invalidating here is right — unlike payout onboarding, which finishes out of
- * band at Stripe — because the acceptance IS the write: the row exists the
- * moment this resolves, and the refetch reads back the server's own record of
- * it rather than a state the client assumed.
+ * Invalidating here is right because the acceptance IS the write: the row
+ * exists the moment this resolves, and the refetch reads back the server's own
+ * record of it rather than a state the client assumed.
  *
  * A stale screen resolves as a REJECTION (409 naming the current version), so
  * the caller refetches on failure too and shows the terms actually in force.

@@ -104,7 +104,7 @@ export default defineConfig({
      * 8.6s, with p99 at 842ms and p99.9 at 2895ms across 4389 measured tests —
      * nowhere near 10s. But `Deploy to AWS`'s own duplicate test job (and this
      * suite's own CI run) fails intermittently on a DIFFERENT victim each
-     * time — cart-guest.integration, checkout.stripe.realdb, cart-merge,
+     * time — cart-guest.integration, checkout.stripe.realdb (now checkout.card.realdb), cart-merge,
      * payment.service, ebay-ingestion — always the SAME message, `Test timed
      * out in 10000ms`, never an assertion mismatch. That signature (generic
      * timeout, different file each run) is resource contention on a 2-4 vCPU

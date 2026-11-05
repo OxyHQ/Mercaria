@@ -135,7 +135,6 @@ async function listen(app: express.Express): Promise<Deployment> {
  */
 async function buildApp(env: Record<string, string>): Promise<express.Express> {
   vi.resetModules();
-  process.env.STRIPE_ENABLED = 'false';
   delete process.env.CANONICAL_READS;
   delete process.env.CANONICAL_OFFER_COMPARISON;
   delete process.env.CANONICAL_PUBLIC_ROUTES_ENABLED;

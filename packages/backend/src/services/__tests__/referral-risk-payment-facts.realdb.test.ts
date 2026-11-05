@@ -40,7 +40,7 @@
  *     partner's own owner pair and consults nothing — so one partner is one
  *     account owner.
  *  3. `provider_accounts_provider_account_id_key` is unique on
- *     `(provider, provider_account_id)`, so one Stripe account is one row.
+ *     `(provider, provider_account_id)`, so one connected account is one row.
  *
  * Two partners sharing a beneficiary would have to break one of the three, and
  * this file asserts all three so the finding is a GATE rather than a paragraph
@@ -401,7 +401,7 @@ async function seedPayment(): Promise<string> {
     .values({
       id: paymentId,
       checkoutGroupId: `grp-rpf-${TAG}`,
-      provider: 'stripe',
+      provider: 'peable',
       status: 'succeeded',
       presentmentAmount: 1_000,
       presentmentCurrency: 'EUR',
@@ -443,7 +443,7 @@ describe("#344's join produces the two facts the port was declared for", () => {
         .insert(disputes)
         .values({
           id: uuidv7(),
-          provider: 'stripe',
+          provider: 'peable',
           providerDisputeId: `dp_rpf_${TAG}_${i}`,
           paymentId,
           orderId: orderIds[i],
@@ -460,7 +460,7 @@ describe("#344's join produces the two facts the port was declared for", () => {
           id: uuidv7(),
           paymentId,
           sequence: i + 1,
-          provider: 'stripe',
+          provider: 'peable',
           status: 'failed',
         });
     }
@@ -473,7 +473,7 @@ describe("#344's join produces the two facts the port was declared for", () => {
         id: uuidv7(),
         paymentId,
         sequence: DECLINED_ATTEMPTS + 1,
-        provider: 'stripe',
+        provider: 'peable',
         status: 'succeeded',
       });
   }, 180_000);
@@ -641,7 +641,7 @@ describe("#344's join produces the two facts the port was declared for", () => {
 });
 
 describe('a shared payout beneficiary is UNREPRESENTABLE, so the signal has no producer', () => {
-  it('hop 3: one Stripe account cannot be named by two `provider_accounts` rows', async () => {
+  it('hop 3: one connected account cannot be named by two `provider_accounts` rows', async () => {
     // The measured refusal that ended the producer. Two owners, one connected
     // account — the fraud shape the signal describes — is refused by the
     // database, so a count over `provider_account_id` is a count that is always
@@ -654,7 +654,7 @@ describe('a shared payout beneficiary is UNREPRESENTABLE, so the signal has no p
     trackedAccountIds.push(firstId);
     await getDb().insert(providerAccounts).values({
       id: firstId,
-      provider: 'stripe',
+      provider: 'peable',
       ownerType: 'user',
       ownerId: first.ownerId,
       providerAccountId: shared,
@@ -665,7 +665,7 @@ describe('a shared payout beneficiary is UNREPRESENTABLE, so the signal has no p
     await expectPgRejection(
       getDb().insert(providerAccounts).values({
         id: uuidv7(),
-        provider: 'stripe',
+        provider: 'peable',
         ownerType: 'user',
         ownerId: second.ownerId,
         providerAccountId: shared,

@@ -305,11 +305,13 @@ their ordinary lifecycle to payout.
 
 ## Seams, each a named contract that fails closed
 
-- **#146 — the payout RAIL — is CLOSED.** `services/referral-payouts/` registers
-  a Stripe Connect transfer into `payout-rail.port.ts` at boot, plus the
-  readiness reader that answers ADR 0005 D15 gate 1 from #46's
-  `provider_accounts`. The join sits OUTSIDE both walled domains, because
-  `reward-funding-isolation.test.ts` forbids this domain from reaching
+- **#146 — the payout RAIL — is OPEN again.** `services/referral-payouts/`
+  registers the readiness reader that answers ADR 0005 D15 gate 1 from #46's
+  `provider_accounts` (and #344's risk facts) at boot, and leaves
+  `payout-rail.port.ts` EMPTY: its only rail, a direct Stripe Connect transfer,
+  was deleted with the direct Stripe rail (ADR 0009 D13, 2026-11-05), and no
+  Peable payout rail exists yet. The join sits OUTSIDE both walled domains,
+  because `reward-funding-isolation.test.ts` forbids this domain from reaching
   `services/payments/` and satisfying the join by importing across that wall
   would widen it to admit the reverse edge. A batch that failed
   `rail_not_configured` while the registry was empty settles on its next pass,
@@ -336,10 +338,12 @@ their ordinary lifecycle to payout.
 1. `referrals.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`) before any partner earns: with
    nobody holding it, nobody can approve, settle, cancel, freeze or trace
    anything on `/internal/referrals`.
-2. Set `STRIPE_ENABLED` and onboard each partner to a payment-ready connected
-   account. The rail is registered (#146), but with Stripe off every partner's
-   identity and payout readiness derives as `unknown`, which BLOCKS — and a
-   partner with no `provider_accounts` row has no beneficiary to pay.
+2. Register a payout rail (none exists since ADR 0009 D13; batches fail
+   `rail_not_configured`, retryably), set `PEABLE_ENABLED` and onboard each
+   partner to a payment-ready connected account. With no native rail every
+   partner's identity and payout readiness derives as `unknown`, which BLOCKS —
+   and a partner with no `provider_accounts` row (nothing writes a Peable one
+   yet) has no beneficiary to pay.
 3. Publish a payout minimum for every currency partners can earn in.
    `REFERRAL_PAYOUT_MINIMUM_MINOR_BY_CURRENCY` carries EUR only, and a currency
    without one blocks every batch.

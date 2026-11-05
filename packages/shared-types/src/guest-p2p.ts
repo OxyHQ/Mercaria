@@ -46,8 +46,8 @@
  * one-to-one and the registry entry for each cites the sentence it implements.
  */
 export const GUEST_P2P_SELLER_CRITERIA = [
-  /** 1. Stripe connected-account and payout readiness (ADR 0001 D9). */
-  'stripe_payout_ready',
+  /** 1. Connected-account and payout readiness on the card rail (ADR 0001 D9). */
+  'payout_ready',
   /** 2. Required Oxy identity state — the #92 visibility verdict. */
   'oxy_identity_state',
   /** 3. Sufficient Trust or transaction history under a transparent policy. */

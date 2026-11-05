@@ -133,8 +133,7 @@ export const REFERRAL_TAX_FORBIDDEN_FIELDS: readonly string[] = [
 /**
  * One partner's current tax declaration, as a surface may read it.
  *
- * Every field is named explicitly rather than spread from the row — the
- * `ProviderAccountStatus` precedent, and the reason is the same: the row carries
+ * Every field is named explicitly rather than spread from the row: the row carries
  * who declared it, and a projection that spread would carry that the day
  * somebody added a column.
  */

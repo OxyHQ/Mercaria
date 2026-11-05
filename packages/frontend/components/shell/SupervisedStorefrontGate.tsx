@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Platform, View } from 'react-native';
-import { Redirect, Slot, Stack, useLocalSearchParams, usePathname, useRouter } from 'expo-router';
+import { Redirect, Slot, Stack, usePathname, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useOxy } from '@oxy.so/services/ui/client';
 import { useSupervision } from '@oxy.so/services/ui/client';
@@ -18,7 +18,6 @@ export function SupervisedStorefrontGate({ children }: { children: ReactNode }) 
   const supervision = useSupervision();
   const cache = useQueryClient();
   const pathname = usePathname();
-  const params = useLocalSearchParams<{ checkoutGroupId?: string }>();
   const router = useRouter();
   const { t } = useTranslation();
   const supervised =
@@ -84,16 +83,6 @@ export function SupervisedStorefrontGate({ children }: { children: ReactNode }) 
       </View>
     );
   if (!supervised || !isAuthenticated) return <>{children}</>;
-  if (pathname === '/checkout/return' && typeof params.checkoutGroupId === 'string') {
-    return (
-      <Redirect
-        href={{
-          pathname: '/supervised-shopping/checkout',
-          params: { checkoutGroupId: params.checkoutGroupId },
-        }}
-      />
-    );
-  }
   if (pathname !== '/supervised-shopping' && pathname !== '/supervised-shopping/checkout') {
     return <Redirect href="/supervised-shopping" />;
   }

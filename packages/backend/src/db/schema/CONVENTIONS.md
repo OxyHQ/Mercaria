@@ -5665,7 +5665,7 @@ no readiness column and no activation verdict anywhere in the file.
 - **The verdict is DERIVED and never stored** — the `deriveNativeCheckoutEligibility`
   (#57) divergence, taken for the reason `deriveChannelReadiness` (#87) took it.
   Its inputs sit on eleven tables in eight domains, and a stored verdict would be
-  a twelfth representation that goes stale the instant Stripe restricts a seller.
+  a twelfth representation that goes stale the instant the rail restricts a seller.
   What these three tables hold is what somebody DECIDED, plus what the derivation
   was OBSERVED to say.
 - **The only foreign key the domain owns is `stores`.** A column on `connections`,

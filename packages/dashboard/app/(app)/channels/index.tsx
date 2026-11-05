@@ -147,7 +147,7 @@ function ChannelsBody({ storeId }: { storeId: string }) {
 /**
  * The readiness axes, side by side and never collapsed (#87 UX 5 and 6).
  *
- * A merchant with a perfect Shopify sync and no Stripe account sees a healthy
+ * A merchant with a perfect Shopify sync and no payout setup sees a healthy
  * catalogue, blocked payouts, and a list naming exactly which of the two is in
  * the way. One combined badge would say "not ready" and leave them guessing.
  */

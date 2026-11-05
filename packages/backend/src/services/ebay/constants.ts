@@ -10,9 +10,8 @@
  * are compiled in and `EBAY_ALLOWED_HOSTS` is what the transport checks every
  * URL against before it opens a socket.
  *
- * The `STRIPE_API_VERSION` decision, one domain over, and for the same reason:
- * a version variable can only ever disagree with the code that parses the
- * response.
+ * A version variable can only ever disagree with the code that parses the
+ * response, so the version is a code constant.
  */
 
 import type { EbayEnvironment } from '@mercaria/shared-types';

@@ -32,7 +32,6 @@ import reportsRouter from './reports.js';
 import channelsRouter from './channels.js';
 import channelIngestRouter from './channel-ingest.js';
 import channelKeysRouter from './channel-keys.js';
-import paymentsRouter from './payments.js';
 import feedsRouter from './feeds.js';
 import feesRouter from './fees.js';
 import merchantActivationRouter from './merchant-activation.js';
@@ -110,16 +109,12 @@ router.use('/:storeId/channels', channelsRouter);
 router.use('/:storeId/channels', channelIngestRouter);
 // Channel API keys (mint / list / revoke) for the token-free ingest path.
 router.use('/:storeId/channel-keys', channelKeysRouter);
-// Payment onboarding (ADR 0001 D9). Deliberately NOT under `/channels`: a sales
-// channel is where a catalogue is listed and this is where money is settled, and
-// issue #46 (UX 5) keeps the two separate concepts everywhere they appear.
-router.use('/:storeId/payments', paymentsRouter);
 // The marketplace fee schedule the store sells under (#88): read, terms
-// acceptance and fee/net preview. Beside `/payments` and not inside it — the
-// fee is a COMMERCIAL agreement with Mercaria, not a property of any rail.
+// acceptance and fee/net preview — the fee is a COMMERCIAL agreement with
+// Mercaria, not a property of any rail.
 router.use('/:storeId/fees', feesRouter);
 // Merchant activation readiness (#85), behind `store:manage` — the same
-// permission fees and payment onboarding use, because accepting the
+// permission fees use, because accepting the
 // responsibilities that come with taking orders is the same kind of binding
 // commercial act. Deliberately NOT under `/channels`: a channel is where a
 // catalogue comes from, and activation is whether this business may sell.

@@ -87,6 +87,7 @@ import {
   PaymentProviderError,
   type SettlingPaymentProvider,
 } from './provider.js';
+import { NATIVE_RAIL } from './native-rail.js';
 import { resolvePaymentProvider } from './registry.js';
 import { redactProviderMessage } from './redact.js';
 import { log } from '../../lib/logger.js';
@@ -104,7 +105,7 @@ export interface RefundExecutionOutcome {
 /** A condition no retry can fix — the row is wrong, not the moment. */
 function permanent(message: string, code: string): PaymentProviderError {
   return new PaymentProviderError({
-    provider: 'stripe',
+    provider: NATIVE_RAIL,
     stage: 'refund',
     message,
     retryable: false,
@@ -115,7 +116,7 @@ function permanent(message: string, code: string): PaymentProviderError {
 /** A condition that will resolve on its own — the rail, or a race with a write. */
 function transient(message: string, code: string): PaymentProviderError {
   return new PaymentProviderError({
-    provider: 'stripe',
+    provider: NATIVE_RAIL,
     stage: 'refund',
     message,
     retryable: true,

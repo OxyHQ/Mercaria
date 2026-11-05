@@ -103,13 +103,11 @@ async function listen(app: express.Express): Promise<{ server: Server; url: stri
 }
 
 beforeAll(async () => {
-  process.env.STRIPE_ENABLED = 'false';
   const { createApp } = await import('../../app.js');
   ({ server, url } = await listen(createApp()));
 }, 60_000);
 
 afterAll(async () => {
-  delete process.env.STRIPE_ENABLED;
   await new Promise<void>((resolve, reject) => {
     server.close((err) => {
       if (err) reject(err);

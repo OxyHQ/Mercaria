@@ -535,7 +535,7 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
       "(`orders_snapshot_immutable`, #367 line 75), on top of ADR 0003 D6/I7's four buyer-identity columns, " +
       'which keep their own bespoke trigger because it must permit `claimed_by_oxy_user_id` value → ' +
       'NULL (an audited unclaim) and the write-once guard would refuse it. `created_at` is deliberately ' +
-      'left open: it is the RESERVATION CLOCK that `checkout.stripe.realdb.test.ts` moves to travel ' +
+      'left open: it is the RESERVATION CLOCK that `checkout.card.realdb.test.ts` moves to travel ' +
       'past the reservation TTL. DELETE stays open — `scripts/seed.ts` clears the table and eighteen ' +
       'realdb teardowns delete orders, and every child cascade depends on it.',
   },

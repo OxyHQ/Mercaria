@@ -125,7 +125,6 @@ async function listen(app: express.Express): Promise<{ server: Server; url: stri
 }
 
 beforeAll(async () => {
-  process.env.STRIPE_ENABLED = 'false';
   const { createApp } = await import('../../app.js');
   ({ server, url } = await listen(createApp()));
 }, 60_000);
@@ -182,7 +181,7 @@ async function call(
 
 describe('the payments.operate application role', () => {
   it('lets a holder of payments.operate through the gate on every path', async () => {
-    // Past the gate is the assertion, not a 200: `STRIPE_ENABLED` is off and
+    // Past the gate is the assertion, not a 200: `PEABLE_ENABLED` is off and
     // the database is stubbed, so the handlers themselves answer 409 or 500.
     // What matters here is that NONE of them answers 403 or 404 — which is
     // exactly what a gate that refused the right caller would produce.

@@ -260,7 +260,7 @@ owed and still refundable on request. It bounds automation, never classification
    `superseded_by_id`.
 2. **The refundable difference is net of PRIOR adjustments** — a later revision
    that finds the same surplus an earlier one already paid must not pay it twice.
-3. **A partial Stripe refund where supported**, through #49's existing domain:
+3. **A partial card refund where supported**, through #49's existing domain:
    the commerce record and its `payment_refunded` outbox row commit in ONE
    transaction and the rail is called from that row's handler, unchanged.
 4. **`payable_recorded` when the rail cannot serve it**, with a bounded

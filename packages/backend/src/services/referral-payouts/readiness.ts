@@ -19,7 +19,6 @@
  * question and gets a different answer.
  */
 
-import type { ProviderOnboardingState } from '@mercaria/shared-types';
 import {
   findSellerAccount,
   resolveNativeRail,
@@ -38,7 +37,7 @@ import {
 /**
  * The port's implementation.
  *
- * With `STRIPE_ENABLED` off this returns `unknown` for both summaries and no
+ * With no native rail configured this returns `unknown` for both summaries and no
  * beneficiary, BEFORE touching Postgres — and that is deliberately NOT the
  * `readSellerPaymentReadiness` treatment, which maps every seller to `false`.
  * The two questions differ: a checkout affordance asks "may this seller be sold
@@ -51,10 +50,10 @@ import {
 export async function readPartnerPayoutReadiness(
   subject: ReferralPartnerReadinessSubject,
 ): Promise<ReferralPartnerReadiness> {
-  // The NATIVE rail, not Stripe specifically. This gate exists to say "this
-  // deployment has no rail", and `findSellerAccount` below resolves the rail the
-  // same way — two different answers to one question is how a Peable-only
-  // deployment ended up reporting `unknown` for a partner who is fully onboarded.
+  // The NATIVE rail. This gate exists to say "this deployment has no rail", and
+  // `findSellerAccount` below reads the same rail's account — two different
+  // answers to one question would report `unknown` for a partner who is fully
+  // onboarded.
   if (!resolveNativeRail()) {
     return { identity: 'unknown', payout: 'unknown', payoutBeneficiaryRef: undefined };
   }
@@ -70,20 +69,4 @@ export async function readPartnerPayoutReadiness(
       ? { payoutBeneficiaryRef: referralPayoutBeneficiaryRef(subject) }
       : { payoutBeneficiaryRef: undefined }),
   };
-}
-
-/**
- * The connected-account id a transfer is addressed to, or `undefined`.
- *
- * Separate from the readiness read because the rail needs the id and the GATE
- * must never see it: an account id in `PayoutGateFacts` would be a provider
- * handle inside a pure marketing derivation, and the port's answer is carried
- * across a transaction boundary and into a batch record.
- */
-export async function resolvePartnerTransferDestination(
-  owner: SellerAccountOwner,
-): Promise<{ accountId: string; onboardingState: ProviderOnboardingState } | undefined> {
-  const account = await findSellerAccount(owner);
-  if (!account) return undefined;
-  return { accountId: account.providerAccountId, onboardingState: account.onboardingState };
 }

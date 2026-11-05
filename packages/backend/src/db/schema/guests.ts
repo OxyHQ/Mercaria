@@ -40,7 +40,7 @@
  *
  * Rotation replaces `token_hash` and parks the old hash in
  * `previous_token_hash` with a short deadline, the dual-secret window pattern
- * `STRIPE_WEBHOOK_SECRET_PREVIOUS` already uses, so a burst of in-flight
+ * `PEABLE_WEBHOOK_SECRET_PREVIOUS` already uses, so a burst of in-flight
  * requests does not race the swap.
  *
  * ## The conversion columns are a SEAM for #104/#109

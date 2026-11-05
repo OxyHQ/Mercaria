@@ -20,14 +20,10 @@
  * So this is a REVIEW hold. Calling it a dispute-window hold would be false,
  * and the difference decides how long it may reasonably be.
  *
- * ## The default is NO HOLD, which is the opposite of `three-d-secure.ts`
+ * ## The default is NO HOLD
  *
- * That asymmetry is deliberate rather than an oversight, and it is worth
- * stating because the two modules otherwise read as a pair.
- *
- * A currency with no 3DS threshold authenticates every payment: the cost of the
- * safe default is friction, which is recoverable. A currency with no HOLD
- * threshold settles immediately, because the "safe" default here would freeze
+ * A currency with no HOLD threshold settles immediately, because the "safe"
+ * default here would freeze
  * every payout on a deployment nobody configured — which is not caution, it is
  * an outage that looks like caution. The protective direction is only a default
  * when the failure it causes is cheaper than the one it prevents.
@@ -90,13 +86,7 @@ export function highValueHoldFor(input: {
 }
 
 /**
- * Parse `STRIPE_HIGH_VALUE_HOLD_THRESHOLDS` — `EUR:100000,USD:100000`, MINOR
- * units.
- *
- * Same grammar as `STRIPE_3DS_THRESHOLDS` and deliberately a SEPARATE setting:
- * the two answer different questions (authenticate the buyer / delay the
- * seller), they have different right answers, and one variable serving both
- * would make raising the authentication bar silently freeze payouts.
+ * Parse `HIGH_VALUE_HOLD_THRESHOLDS` — `EUR:100000,USD:100000`, MINOR units.
  *
  * A rejected entry leaves its currency with NO hold, which settles. That is the
  * same direction as the missing-entry default and for the same reason — see the

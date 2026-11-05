@@ -1,11 +1,19 @@
 /**
- * Checkout on the Stripe rail, end to end, against a REAL Postgres database.
+ * Card checkout on the Peable rail (ADR 0009 D13), end to end, against a REAL
+ * Postgres database.
  *
  * The cart is real, the reservation is real, the orders are real, the payment
- * aggregate and its ledger are real, the webhook is verified by the REAL Stripe
- * SDK against a REAL signature, and the settlement writes real transfers and
- * real postings. Only Stripe's own API is faked, and only because a sandbox
- * cannot make a charge succeed without a browser.
+ * aggregate and its ledger are real, the adapter (`peable-provider.ts`) and the
+ * registry are real, every outcome arrives as a delivery signed with the
+ * gateway's scheme through the REAL ingress (`ingestPeableDelivery`: verify,
+ * store, route, apply), and the settlement writes real transfers and real
+ * postings. Only the gateway on the far side of `createPeableClient` is faked
+ * (`payments/__tests__/helpers/fake-peable-gateway.ts`), because no sandbox
+ * can make a card payment succeed without a browser.
+ *
+ * Nothing here is about the acquirer. The properties are the MARKETPLACE's —
+ * ADR 0001 D1 and D3–D12, which ADR 0009 inherits unchanged — and they held on
+ * the deleted direct Stripe rail for the same reasons they hold here.
  *
  * ## Why none of this can be a mocked test
  *
@@ -23,6 +31,14 @@
  *    crosses the reservation sweep, the order state machine, the payment CAS and
  *    the webhook ingress, and any one of them being mocked would prove nothing.
  *
+ * ## What the Peable path books, stated rather than inherited
+ *
+ * The gateway's events carry no processor fee and no platform conversion
+ * (`event-router.ts`'s "fee gap"), so a success books `charge_succeeded` with
+ * NO `processor_expense` leg, and a non-EUR charge is booked and settled in the
+ * currency it was charged in. The cases below assert exactly that, so the day
+ * the ledger decision is made those assertions are where it shows.
+ *
  * ## Fixtures are scoped, never truncated
  *
  * `*.realdb.test.ts` files share ONE throwaway database and run in PARALLEL, so
@@ -33,7 +49,6 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
-import Stripe from 'stripe';
 import express from 'express';
 import type { Server } from 'node:http';
 import { startSupervisionHttpFixture } from './helpers/supervision-http.js';
@@ -52,123 +67,22 @@ vi.mock('../../queue/producers.js', () => ({
   enqueueRecomputeAggregate: vi.fn(async () => undefined),
 }));
 
-const PLATFORM_SECRET = 'whsec_checkout_stripe_not_a_real_one';
+/**
+ * The gateway, replaced at the ONE seam Mercaria reaches it through. The
+ * adapter, the registry and everything behind them are the production code.
+ */
+const gateway = await vi.hoisted(async () =>
+  (await import('../payments/__tests__/helpers/fake-peable-gateway.js')).createFakePeableGateway(),
+);
+vi.mock('../payments/peable/client.js', () => gateway.clientModule());
 
-/** The fake Stripe API. Hoisted so the `vi.mock` factory can close over it. */
-const api = vi.hoisted(() => ({
-  intents: new Map<string, Record<string, unknown>>(),
-  charges: new Map<string, Record<string, unknown>>(),
-  transfers: new Map<string, Record<string, unknown>>(),
-  /** Idempotency key → the object that key already produced (Stripe's own rule). */
-  byKey: new Map<string, Record<string, unknown>>(),
-  intentCalls: [] as { params: Record<string, unknown>; idempotencyKey: string }[],
-  transferCalls: [] as { params: Record<string, unknown>; idempotencyKey: string }[],
-  cancelCalls: [] as string[],
-  /** What the rail's conversion does to a non-EUR charge, in minor units per unit. */
-  exchangeRate: 0.9,
-  /** What Stripe keeps, in the settlement currency. */
-  fee: 155,
-  nextId: 0,
-  acceptThenTimeout: false,
-}));
+const WEBHOOK_SECRET = 'pwhsec_checkout_card_not_a_real_one';
 
-vi.mock('../payments/stripe/client.js', () => ({
-  STRIPE_API_VERSION: '2026-07-29.dahlia',
-  getStripeClient: () => {
-    throw new Error('This suite must not construct a real Stripe client.');
-  },
-  resetStripeClient: () => undefined,
-  createStripePaymentIntent: (params: Record<string, unknown>, idempotencyKey: string) => {
-    api.intentCalls.push({ params, idempotencyKey });
-    const existing = api.byKey.get(idempotencyKey);
-    if (existing) return Promise.resolve(existing);
-
-    api.nextId += 1;
-    const id = `pi_e2e_${String(api.nextId)}`;
-    const intent = {
-      id,
-      object: 'payment_intent',
-      status: 'requires_payment_method',
-      amount: params.amount,
-      currency: params.currency,
-      metadata: params.metadata,
-      client_secret: `${id}_secret_e2e`,
-    };
-    api.intents.set(id, intent);
-    api.byKey.set(idempotencyKey, intent);
-    if (api.acceptThenTimeout) {
-      api.acceptThenTimeout = false;
-      return Promise.reject(new Error('PSP response lost after acceptance'));
-    }
-    return Promise.resolve(intent);
-  },
-  retrieveStripePaymentIntent: (id: string) => {
-    const intent = api.intents.get(id);
-    if (!intent) throw new Error(`No fake PaymentIntent registered for ${id}`);
-    return Promise.resolve(intent);
-  },
-  cancelStripePaymentIntent: (id: string) => {
-    api.cancelCalls.push(id);
-    const intent = api.intents.get(id);
-    if (!intent) throw new Error(`No fake PaymentIntent registered for ${id}`);
-    if (intent.status === 'succeeded') {
-      throw Object.assign(
-        new Error('You cannot cancel this PaymentIntent because it has a status of succeeded.'),
-        { type: 'StripeInvalidRequestError', code: 'payment_intent_unexpected_state' },
-      );
-    }
-    intent.status = 'canceled';
-    return Promise.resolve(intent);
-  },
-  retrieveStripeChargeWithBalance: (id: string) => {
-    const charge = api.charges.get(id);
-    if (!charge) throw new Error(`No fake charge registered for ${id}`);
-    return Promise.resolve(charge);
-  },
-  createStripeTransfer: (params: Record<string, unknown>, idempotencyKey: string) => {
-    api.transferCalls.push({ params, idempotencyKey });
-    const existing = api.byKey.get(idempotencyKey);
-    if (existing) return Promise.resolve(existing);
-
-    api.nextId += 1;
-    const transfer = { id: `tr_e2e_${String(api.nextId)}`, object: 'transfer', ...params };
-    api.transfers.set(String(transfer.id), transfer);
-    api.byKey.set(idempotencyKey, transfer);
-    return Promise.resolve(transfer);
-  },
-  retrieveStripeTransfer: (id: string) => Promise.resolve(api.transfers.get(id)),
-  createStripeConnectedAccount: () => {
-    throw new Error('This suite creates no connected accounts.');
-  },
-  retrieveStripeAccount: () => {
-    throw new Error('This suite reads no connected accounts.');
-  },
-  createStripeAccountLink: () => {
-    throw new Error('This suite mints no account links.');
-  },
-  // #49's reads and writes. Present so the mocked module offers every export the
-  // real one does — a named import missing from a mock factory fails at link
-  // time — and each throws, which doubles as an assertion that the checkout path
-  // reaches none of them.
-  retrieveStripeChargeWithRefunds: () => {
-    throw new Error('This suite reads no charge refunds.');
-  },
-  createStripeRefund: () => {
-    throw new Error('This suite creates no refund.');
-  },
-  retrieveStripeRefund: () => {
-    throw new Error('This suite reads no refund.');
-  },
-  createStripeTransferReversal: () => {
-    throw new Error('This suite reverses no transfer.');
-  },
-  retrieveStripeDispute: () => {
-    throw new Error('This suite reads no dispute.');
-  },
-  retrieveStripePayout: () => {
-    throw new Error('This suite reads no payout.');
-  },
-}));
+/**
+ * The high-value hold threshold this file configures, in EUR minor units — far
+ * above every other case's total, so only the case that means to cross it does.
+ */
+const HOLD_THRESHOLD_EUR = 900_000;
 
 /** Unique per run, so parallel files and repeated runs never collide on an id. */
 const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
@@ -178,7 +92,7 @@ let db: Database;
 let closePostgres: typeof import('../../db/postgres.js').closePostgres;
 let checkout: typeof import('../checkout.service.js').checkout;
 let readCheckoutPaymentStatus: typeof import('../payments/checkout-payment.service.js').readCheckoutPaymentStatus;
-let ingestStripeDelivery: typeof import('../payments/stripe/ingress.js').ingestStripeDelivery;
+let ingestPeableDelivery: typeof import('../payments/peable/ingress.js').ingestPeableDelivery;
 let handleExpireReservations: typeof import('../../queue/handlers.js').handleExpireReservations;
 let insertVariants: typeof import('../../db/catalog/variantRepository.js').insertVariants;
 let findVariantsByIds: typeof import('../../db/catalog/variantRepository.js').findVariantsByIds;
@@ -213,20 +127,22 @@ beforeAll(async () => {
   });
   process.env.OXY_API_URL = supervision.url;
   // Set BEFORE importing anything that reads config: `config/index.ts` reads
-  // process.env once at module load and freezes the result.
-  process.env.STRIPE_ENABLED = 'true';
-  process.env.STRIPE_SECRET_KEY = 'sk_test_not_a_real_key';
-  process.env.STRIPE_WEBHOOK_SECRET = PLATFORM_SECRET;
-  process.env.STRIPE_CONNECT_WEBHOOK_SECRET = 'whsec_checkout_stripe_connect';
-  process.env.STRIPE_PUBLISHABLE_KEY = 'pk_test_not_a_real_key';
-  // The platform settles in EUR and accepts EUR/USD presentment — ADR 0001 D8's
-  // launch configuration, stated rather than inherited so a change to the
-  // default is a failing test here rather than a surprise in production.
-  process.env.STRIPE_PLATFORM_CURRENCY = 'EUR';
-  process.env.STRIPE_PRESENTMENT_CURRENCIES = 'EUR,USD';
-  // Deterministic FX for the cart's own native → presentment conversions. The
-  // rail's presentment → platform conversion is separate and comes from the fake
-  // balance transaction.
+  // process.env once at module load and freezes the result. Everything
+  // `resolvePeableEnabled` requires — the flag is a conjunction, and a missing
+  // half would leave the rail off and every case here testing a deployment
+  // with no rail.
+  process.env.PEABLE_ENABLED = 'true';
+  process.env.PEABLE_BASE_URL = 'https://api.peable.invalid';
+  process.env.PEABLE_WEBHOOK_SECRET = WEBHOOK_SECRET;
+  delete process.env.PEABLE_WEBHOOK_SECRET_PREVIOUS;
+  // ADR 0001 D8's launch presentment set, stated rather than inherited so a
+  // change to the default is a failing test here rather than a surprise in
+  // production.
+  process.env.PEABLE_PRESENTMENT_CURRENCIES = 'EUR,USD';
+  process.env.HIGH_VALUE_HOLD_THRESHOLDS = `EUR:${String(HOLD_THRESHOLD_EUR)}`;
+  delete process.env.HIGH_VALUE_HOLD_WINDOW_MS;
+  delete process.env.CHECKOUT_PAYMENT_SURFACE_METHODS;
+  // Deterministic FX for the cart's own native → presentment conversions.
   process.env.FX_PROVIDER = 'static';
 
   const postgres = await import('../../db/postgres.js');
@@ -234,10 +150,10 @@ beforeAll(async () => {
   db = await postgres.connectPostgres();
 
   // Dynamic, like every realdb file here: a STATIC import pulls
-  // `config/index.ts` at module load, before the STRIPE_* values above exist.
+  // `config/index.ts` at module load, before the PEABLE_* values above exist.
   ({ checkout } = await import('../checkout.service.js'));
   ({ readCheckoutPaymentStatus } = await import('../payments/checkout-payment.service.js'));
-  ({ ingestStripeDelivery } = await import('../payments/stripe/ingress.js'));
+  ({ ingestPeableDelivery } = await import('../payments/peable/ingress.js'));
   ({ handleExpireReservations } = await import('../../queue/handlers.js'));
   ({ insertVariants, findVariantsByIds } = await import('../../db/catalog/variantRepository.js'));
   ({ insertAddress } = await import('../../db/buyers/addressRepository.js'));
@@ -308,34 +224,26 @@ afterAll(async () => {
 });
 
 beforeEach(() => {
-  api.intents.clear();
-  api.charges.clear();
-  api.transfers.clear();
-  api.byKey.clear();
-  api.intentCalls.length = 0;
-  api.transferCalls.length = 0;
-  api.cancelCalls.length = 0;
-  api.exchangeRate = 0.9;
-  api.fee = 155;
-  api.acceptThenTimeout = false;
+  gateway.reset();
 });
 
-/** A payment-ready seller with a connected account, and their listing. */
-async function seedSeller(input: {
-  label: string;
-  priceMinor: number;
-  currency: 'EUR' | 'USD';
-  available?: number;
-}): Promise<{ sellerId: string; accountId: string; listingId: string; variantId: string }> {
-  const sellerId = `seller-${RUN}-${input.label}`;
-  const accountId = `acct_${RUN}_${input.label}`;
-  await ensureSellerProfile(sellerId);
-
+/**
+ * A seller's account on the Peable rail, seeded through the repository.
+ *
+ * There is no Peable onboarding code path yet (ADR 0009 D13 "As built"), so
+ * nothing in production writes this row; the repository is still the only
+ * writer, and `onboarding_state` is the stored verdict every gate reads.
+ */
+async function seedPeableAccount(input: {
+  ownerType: 'user' | 'store';
+  ownerId: string;
+  accountId: string;
+}): Promise<void> {
   const account = await insertProviderAccount(db, {
-    provider: 'stripe',
-    ownerType: 'user',
-    ownerId: sellerId,
-    providerAccountId: accountId,
+    provider: 'peable',
+    ownerType: input.ownerType,
+    ownerId: input.ownerId,
+    providerAccountId: input.accountId,
     country: 'ES',
   });
   await applyProviderAccountState(db, {
@@ -353,6 +261,23 @@ async function seedSeller(input: {
       syncedAt: new Date(),
     },
   });
+}
+
+/** A seller and their listing — payment-ready on the rail unless told otherwise. */
+async function seedSeller(input: {
+  label: string;
+  priceMinor: number;
+  currency: 'EUR' | 'USD';
+  available?: number;
+  /** `false` seeds a seller with NO account on the rail at all. */
+  paymentReady?: boolean;
+}): Promise<{ sellerId: string; accountId: string; listingId: string; variantId: string }> {
+  const sellerId = `seller-${RUN}-${input.label}`;
+  const accountId = `ca_${RUN}_${input.label}`;
+  await ensureSellerProfile(sellerId);
+  if (input.paymentReady !== false) {
+    await seedPeableAccount({ ownerType: 'user', ownerId: sellerId, accountId });
+  }
 
   // Inserted through the table rather than `insertListing`, so the column
   // defaults apply: this fixture cares about the owner, the price and the stock,
@@ -410,70 +335,34 @@ async function seedBuyer(input: {
 }
 
 /**
- * Make the fake rail report a successful capture, and register the charge and
- * BALANCE TRANSACTION the ingress reads the platform amount and fee from.
+ * Deliver a signed `payment_intent.*` event to the REAL Peable ingress.
  *
- * `platformAmount` is what the charge became in EUR: the same figure for a EUR
- * charge, and the converted one for a USD charge — which is the case that makes
- * the ledger and the transfers change currency.
+ * The body is the gateway's CURRENT rendering of the intent, as a real delivery
+ * would carry it; the event id is per run so a redelivery in a test is a real
+ * duplicate and nothing collides with a sibling file.
  */
-function fundIntent(intentId: string): { chargeId: string; platformAmount: number } {
-  const intent = api.intents.get(intentId);
-  if (!intent) throw new Error(`No fake PaymentIntent registered for ${intentId}`);
-  const chargeId = `ch_${intentId}`;
-  const converted = intent.currency === 'eur';
-  const platformAmount = converted
-    ? Number(intent.amount)
-    : Math.round(Number(intent.amount) * api.exchangeRate);
-
-  intent.status = 'succeeded';
-  intent.latest_charge = chargeId;
-  api.charges.set(chargeId, {
-    id: chargeId,
-    object: 'charge',
-    payment_intent: intentId,
-    balance_transaction: {
-      id: `txn_${intentId}`,
-      object: 'balance_transaction',
-      amount: platformAmount,
-      currency: 'eur',
-      exchange_rate: converted ? null : api.exchangeRate,
-      fee: api.fee,
-      created: Math.floor(Date.now() / 1000),
-    },
-  });
-  return { chargeId, platformAmount };
-}
-
-/** Deliver a signed PaymentIntent event to the REAL platform-scope ingress. */
 async function deliverIntentEvent(input: {
   eventId: string;
   type: string;
   intentId: string;
-}): Promise<void> {
-  const intent = api.intents.get(input.intentId);
-  if (!intent) throw new Error(`No fake PaymentIntent registered for ${input.intentId}`);
+}): Promise<Awaited<ReturnType<typeof ingestPeableDelivery>>> {
+  return await ingestPeableDelivery(
+    gateway.intentDelivery({
+      eventId: `evt_${input.eventId}_${RUN}`,
+      type: input.type,
+      intentId: input.intentId,
+      secret: WEBHOOK_SECRET,
+    }),
+  );
+}
 
-  const payload = JSON.stringify({
-    id: `${input.eventId}-${RUN}`,
-    object: 'event',
-    api_version: '2026-07-29.dahlia',
-    created: Math.floor(Date.now() / 1000),
-    livemode: false,
-    type: input.type,
-    data: { object: { ...intent } },
-    pending_webhooks: 1,
-    request: { id: null, idempotency_key: null },
-  });
-  const signature = await Stripe.webhooks.generateTestHeaderStringAsync({
-    payload,
-    secret: PLATFORM_SECRET,
-  });
-  await ingestStripeDelivery({
-    payload: Buffer.from(payload, 'utf8'),
-    signature,
-    scope: 'platform',
-  });
+/** The payment opened for a checkout group, which every case below needs. */
+async function paymentFor(checkoutGroupId: string) {
+  const payment = await findNativePaymentByCheckoutGroupId(db, checkoutGroupId);
+  if (!payment?.providerObjectId) {
+    throw new Error(`Checkout group ${checkoutGroupId} opened no payment at the rail`);
+  }
+  return { ...payment, providerObjectId: payment.providerObjectId };
 }
 
 /**
@@ -567,7 +456,7 @@ async function stockOf(variantId: string): Promise<{ available: number; committe
   return { available: variant.inventoryAvailable, committed: variant.inventoryCommitted };
 }
 
-describe('checkout on the Stripe rail — single seller', () => {
+describe('card checkout on the Peable rail — single seller', () => {
   it('creates ONE PaymentIntent carrying everything ADR 0001 D11 requires', async () => {
     const seller = await seedSeller({ label: 'eur1', priceMinor: 4_500, currency: 'EUR' });
     const buyer = await seedBuyer({
@@ -583,43 +472,43 @@ describe('checkout on the Stripe rail — single seller', () => {
     );
 
     expect(result.orders).toHaveLength(1);
-    const payment = await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId);
-    expect(payment?.provider).toBe('stripe');
+    const payment = await paymentFor(result.checkoutGroupId);
+    expect(payment.provider).toBe('peable');
 
     // The charge is the ORDER's own grand total — shipping included — not the
     // cart subtotal: the buyer must be charged the figure their order states.
+    // It crosses the boundary as the gateway's canonical integer STRING.
     const [order] = await findOrdersInCheckoutGroup(result.checkoutGroupId);
-    expect(api.intentCalls).toHaveLength(1);
-    const [call] = api.intentCalls;
-    expect(call.params).toMatchObject({
-      amount: order.totalsGrandTotalPresentmentAmount,
-      currency: 'eur',
-      capture_method: 'automatic',
-      payment_method_types: ['card'],
-      transfer_group: result.checkoutGroupId,
+    expect(gateway.state.intentCalls).toHaveLength(1);
+    const [call] = gateway.state.intentCalls;
+    expect(call.params).toEqual({
+      rail: 'card',
+      amount: String(order.totalsGrandTotalPresentmentAmount),
+      currency: 'EUR',
+      // ADR 0001 D11's metadata, plus the adapter's own two correlation keys —
+      // server-issued ids only, nothing about the buyer or the seller.
+      metadata: {
+        paymentId: payment.id,
+        checkoutGroupId: result.checkoutGroupId,
+        orderCount: '1',
+        orderIds: order.id,
+        mercaria_payment_id: payment.id,
+        mercaria_checkout_group_id: result.checkoutGroupId,
+      },
     });
-    expect(call.params.metadata).toEqual({
-      paymentId: payment?.id,
-      checkoutGroupId: result.checkoutGroupId,
-      orderCount: '1',
-      orderIds: order.id,
-    });
-    expect(call.idempotencyKey).toBe(`pi:${String(payment?.id)}`);
+    expect(call.idempotencyKey).toBe(`pi:${payment.id}`);
 
     // The handoff carries the client material and NOTHING else (issue #47,
-    // backend 7): no charge id, no connected account, no seller identity.
+    // backend 7): no charge id, no connected account, no seller identity, and
+    // — since ADR 0009 D20 — no key of any kind.
     //
-    // Exhaustive on purpose, and it earned its keep when #107 added `methods`:
-    // a field appearing in the buyer's handoff has to be a decision somebody
-    // made, not a spread that grew. `methods` is the server-authoritative
-    // payment-surface set (ADR 0006 G2/G14) — a list of what a client may
-    // RENDER, carrying nothing about the buyer, the seller or the charge.
-    // `returnUrl` is absent because this deployment configures no return origin.
+    // Exhaustive on purpose: a field appearing in the buyer's handoff has to be
+    // a decision somebody made, not a spread that grew. `methods` is the
+    // server-authoritative payment-surface set (ADR 0006 G2/G14).
     expect(result.payment).toEqual({
-      paymentId: payment?.id,
-      provider: 'stripe',
-      clientSecret: `${String(payment?.providerObjectId)}_secret_e2e`,
-      publishableKey: 'pk_test_not_a_real_key',
+      paymentId: payment.id,
+      provider: 'peable',
+      clientSecret: `${payment.providerObjectId}_secret_fixture`,
       amount: {
         amount: order.totalsGrandTotalPresentmentAmount,
         currency: 'EUR',
@@ -672,18 +561,19 @@ describe('checkout on the Stripe rail — single seller', () => {
       { addressId: buyer.addressId },
       `key-${RUN}-eur2`,
     );
-    const payment = await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId);
-    const paymentId = String(payment?.id);
-    const intentId = String(payment?.providerObjectId);
+    const payment = await paymentFor(result.checkoutGroupId);
+    const paymentId = payment.id;
+    const intentId = payment.providerObjectId;
     const [order] = await findOrdersInCheckoutGroup(result.checkoutGroupId);
     const gross = order.totalsGrandTotalPresentmentAmount;
 
-    const { chargeId } = fundIntent(intentId);
-    await deliverIntentEvent({
-      eventId: 'evt-eur2',
+    gateway.succeed(intentId);
+    const delivered = await deliverIntentEvent({
+      eventId: 'eur2',
       type: 'payment_intent.succeeded',
       intentId,
     });
+    expect(delivered.outcome).toBe('accepted');
 
     // The order is paid and its stock committed — by the ORDER transition, which
     // is the only thing that moves inventory.
@@ -700,20 +590,21 @@ describe('checkout on the Stripe rail — single seller', () => {
     // and the seller's payable closes to zero — which only happens if the two
     // modules agreed on the amount AND the currency.
     const entries = await ledgerEntriesFor(paymentId);
-    // Asserted per transaction KIND, as a multiset — see `legsOfKind`. Both
-    // ledger transactions and both leg sets are pinned exactly; what is NOT
-    // asserted is a sequence among simultaneous legs, which the ledger does not
-    // record and which #466 shows a query cannot honestly report.
-    expect(entries).toHaveLength(5);
+    // Asserted per transaction KIND, as a multiset — see `legsOfKind`.
+    expect(entries).toHaveLength(4);
+    // The gateway reports no processor fee, so the charge books NO
+    // `processor_expense` leg and the whole gross lands in clearing. That is
+    // the Peable path's stated fee gap (`event-router.ts`), asserted so the day
+    // it is closed this is where it shows.
     expect(legsOfKind(entries, 'charge_succeeded')).toEqual([
       { account: 'merchant_payable', currency: 'EUR', amount: BigInt(-gross) },
-      { account: 'processor_expense', currency: 'EUR', amount: BigInt(api.fee) },
-      { account: 'provider_clearing', currency: 'EUR', amount: BigInt(gross - api.fee) },
+      { account: 'provider_clearing', currency: 'EUR', amount: BigInt(gross) },
     ]);
     expect(legsOfKind(entries, 'transfer_created')).toEqual([
       { account: 'merchant_payable', currency: 'EUR', amount: BigInt(gross) },
       { account: 'provider_clearing', currency: 'EUR', amount: BigInt(-gross) },
     ]);
+    expect(entries.some((entry) => entry.account === 'processor_expense')).toBe(false);
     // There is no commission leg: the rate is zero until #88, so the residual
     // `chargeSucceeded` computes is zero and a zero leg is omitted rather than
     // booked. A non-zero one here would be a rounding leak reported as revenue.
@@ -721,33 +612,38 @@ describe('checkout on the Stripe rail — single seller', () => {
     // Balanced per currency, which is the invariant the whole ledger rests on.
     expect(entries.reduce((sum, entry) => sum + entry.amount, 0n)).toBe(0n);
 
-    // The transfer: one per seller order, in the PLATFORM currency, drawn from
-    // the charge, keyed on two durable Mercaria ids.
+    // No conversion happened, so none is recorded: the payment settles in the
+    // currency it was charged in.
+    const settled = await paymentFor(result.checkoutGroupId);
+    expect(settled.status).toBe('succeeded');
+    expect(settled.platformAmount).toBeNull();
+    expect(settled.platformCurrency).toBeNull();
+
+    // The transfer: one per seller order, drawn from the payment, to the
+    // seller's own account, keyed on two durable Mercaria ids. The amount is the
+    // one Mercaria computed — the gateway is never asked to split anything.
     const [transfer] = await transfersFor(paymentId);
     expect(transfer.status).toBe('paid');
     expect(transfer.amountAmount).toBe(gross);
     expect(transfer.amountCurrency).toBe('EUR');
     expect(transfer.orderId).toBe(order.id);
-    expect(api.transferCalls).toHaveLength(1);
-    expect(api.transferCalls[0].params).toEqual({
-      amount: gross,
-      currency: 'eur',
-      destination: seller.accountId,
-      source_transaction: chargeId,
-      transfer_group: result.checkoutGroupId,
-      metadata: { orderId: order.id, paymentId },
+    expect(gateway.state.transferCalls).toHaveLength(1);
+    expect(gateway.state.transferCalls[0].params).toEqual({
+      payment_intent: intentId,
+      connected_account: seller.accountId,
+      external_ref: order.id,
+      amount: String(gross),
     });
-    expect(api.transferCalls[0].idempotencyKey).toBe(`tr:${paymentId}:${order.id}`);
-    // The row names the object the rail actually made, which is what a later
-    // `transfer.*` event correlates through.
-    const [madeTransferId] = [...api.transfers.keys()];
+    expect(gateway.state.transferCalls[0].idempotencyKey).toBe(`tr:${paymentId}:${order.id}`);
+    // The row names the object the rail actually made.
+    const [madeTransferId] = [...gateway.state.transfers.keys()];
     expect(transfer.providerObjectId).toBe(madeTransferId);
 
     // No exception was raised: the only outbox row is the success itself.
     expect(await outboxTypesFor(paymentId)).toEqual(['payment_succeeded']);
   });
 
-  it('converts a USD charge once, and settles in the platform currency', async () => {
+  it('books and settles a USD charge in USD: the gateway converts nothing for Mercaria', async () => {
     const seller = await seedSeller({ label: 'usd1', priceMinor: 10_000, currency: 'USD' });
     const buyer = await seedBuyer({
       label: 'usd1',
@@ -760,42 +656,48 @@ describe('checkout on the Stripe rail — single seller', () => {
       { addressId: buyer.addressId },
       `key-${RUN}-usd1`,
     );
-    const payment = await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId);
-    const paymentId = String(payment?.id);
-    const intentId = String(payment?.providerObjectId);
+    const payment = await paymentFor(result.checkoutGroupId);
     const [order] = await findOrdersInCheckoutGroup(result.checkoutGroupId);
+    const gross = order.totalsGrandTotalPresentmentAmount;
 
     // The buyer is charged in USD — their presentment currency.
-    expect(api.intentCalls[0].params.currency).toBe('usd');
+    expect(gateway.state.intentCalls[0].params.currency).toBe('USD');
     expect(order.totalsGrandTotalPresentmentCurrency).toBe('USD');
 
-    const { platformAmount } = fundIntent(intentId);
-    await deliverIntentEvent({ eventId: 'evt-usd1', type: 'payment_intent.succeeded', intentId });
+    gateway.succeed(payment.providerObjectId);
+    await deliverIntentEvent({
+      eventId: 'usd1',
+      type: 'payment_intent.succeeded',
+      intentId: payment.providerObjectId,
+    });
 
-    // The conversion is CAPTURED on the payment with its rate, so the figure is
-    // reproducible rather than re-derived from a live rate later.
-    const settled = await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId);
-    expect(settled?.platformAmount).toBe(platformAmount);
-    expect(settled?.platformCurrency).toBe('EUR');
-    expect(settled?.platformRateFrom).toBe('USD');
-    expect(settled?.platformRateTo).toBe('EUR');
-    expect(settled?.platformRateRate).toBe(api.exchangeRate);
-    expect(settled?.platformRateProvider).toBe('stripe');
+    // No conversion was reported, so none is captured: `settlementBasis` falls
+    // to the presentment side, which is both what the buyer paid and what is
+    // owed. Every ledger leg and the transfer are in USD, so the payable closes
+    // in ONE currency rather than holding two for a single order.
+    const settled = await paymentFor(result.checkoutGroupId);
+    expect(settled.platformAmount).toBeNull();
+    expect(settled.platformCurrency).toBeNull();
+    expect(settled.platformRateProvider).toBeNull();
 
-    // Every ledger leg is in EUR — where the money actually landed — and the
-    // transfer is denominated to match, so the payable closes.
-    const entries = await ledgerEntriesFor(paymentId);
-    expect(entries.every((entry) => entry.currency === 'EUR')).toBe(true);
+    const entries = await ledgerEntriesFor(payment.id);
+    expect(entries.length).toBeGreaterThan(0);
+    expect(entries.every((entry) => entry.currency === 'USD')).toBe(true);
     expect(entries.reduce((sum, entry) => sum + entry.amount, 0n)).toBe(0n);
+    expect(
+      entries
+        .filter((entry) => entry.account === 'merchant_payable')
+        .reduce((sum, entry) => sum + entry.amount, 0n),
+    ).toBe(0n);
 
-    const [transfer] = await transfersFor(paymentId);
-    expect(transfer.amountCurrency).toBe('EUR');
-    expect(transfer.amountAmount).toBe(platformAmount);
-    expect(api.transferCalls[0].params.currency).toBe('eur');
+    const [transfer] = await transfersFor(payment.id);
+    expect(transfer.amountCurrency).toBe('USD');
+    expect(transfer.amountAmount).toBe(gross);
+    expect(gateway.state.transferCalls[0].params.amount).toBe(String(gross));
   });
 });
 
-describe('checkout on the Stripe rail — multi-seller', () => {
+describe('card checkout on the Peable rail — multi-seller', () => {
   it('funds two sellers with ONE PaymentIntent and settles each separately', async () => {
     const first = await seedSeller({ label: 'multiA', priceMinor: 3_000, currency: 'EUR' });
     const second = await seedSeller({ label: 'multiB', priceMinor: 7_000, currency: 'EUR' });
@@ -817,31 +719,37 @@ describe('checkout on the Stripe rail — multi-seller', () => {
 
     // ONE intent for the whole group (ADR 0001 D4): one statement line, one SCA
     // challenge, one charge every later refund draws from.
-    expect(api.intentCalls).toHaveLength(1);
-    const payment = await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId);
-    const paymentId = String(payment?.id);
-    const intentId = String(payment?.providerObjectId);
+    expect(gateway.state.intentCalls).toHaveLength(1);
+    const payment = await paymentFor(result.checkoutGroupId);
     const orders = await findOrdersInCheckoutGroup(result.checkoutGroupId);
     const gross = orders.reduce(
       (total, order) => total + order.totalsGrandTotalPresentmentAmount,
       0,
     );
-    expect(api.intentCalls[0].params.amount).toBe(gross);
-    expect(api.intentCalls[0].params.metadata).toMatchObject({ orderCount: '2' });
+    expect(gateway.state.intentCalls[0].params.amount).toBe(String(gross));
+    expect(gateway.state.intentCalls[0].params.metadata).toMatchObject({ orderCount: '2' });
 
-    fundIntent(intentId);
-    await deliverIntentEvent({ eventId: 'evt-multi', type: 'payment_intent.succeeded', intentId });
+    gateway.succeed(payment.providerObjectId);
+    await deliverIntentEvent({
+      eventId: 'multi',
+      type: 'payment_intent.succeeded',
+      intentId: payment.providerObjectId,
+    });
 
     // Both siblings funded together — they cannot have different outcomes.
     const paidOrders = await findOrdersInCheckoutGroup(result.checkoutGroupId);
     expect(paidOrders.map((order) => order.status)).toEqual(['paid', 'paid']);
 
-    // TWO transfers, one per seller order, summing to exactly the gross.
-    const transfers = await transfersFor(paymentId);
+    // TWO transfers, one per seller order, summing to exactly the gross, each
+    // drawn from the ONE intent.
+    const transfers = await transfersFor(payment.id);
     expect(transfers).toHaveLength(2);
     expect(transfers.reduce((sum, transfer) => sum + transfer.amountAmount, 0)).toBe(gross);
-    expect(api.transferCalls.map((call) => call.params.destination).sort()).toEqual(
-      [first.accountId, second.accountId].sort(),
+    expect(
+      gateway.state.transferCalls.map((call) => String(call.params.connected_account)).sort(),
+    ).toEqual([first.accountId, second.accountId].sort());
+    expect(new Set(gateway.state.transferCalls.map((call) => call.params.payment_intent))).toEqual(
+      new Set([payment.providerObjectId]),
     );
     // Each order's transfer matches the order's own total: the split is the
     // orders' proportions, not an even division.
@@ -850,7 +758,7 @@ describe('checkout on the Stripe rail — multi-seller', () => {
       expect(transfer?.amountAmount).toBe(order.totalsGrandTotalPresentmentAmount);
     }
 
-    const entries = await ledgerEntriesFor(paymentId);
+    const entries = await ledgerEntriesFor(payment.id);
     expect(entries.reduce((sum, entry) => sum + entry.amount, 0n)).toBe(0n);
   });
 
@@ -871,9 +779,7 @@ describe('checkout on the Stripe rail — multi-seller', () => {
       { addressId: buyer.addressId },
       `key-${RUN}-iso`,
     );
-    const payment = await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId);
-    const paymentId = String(payment?.id);
-    const intentId = String(payment?.providerObjectId);
+    const payment = await paymentFor(result.checkoutGroupId);
 
     // The seller loses readiness AFTER the buyer paid and BEFORE the transfer —
     // the window ADR 0001 D4 calls Mercaria's controlled skipped transfer.
@@ -882,13 +788,17 @@ describe('checkout on the Stripe rail — multi-seller', () => {
       .set({ onboardingState: 'restricted', payoutsEnabled: false })
       .where(
         and(
-          eq(paymentSchema.providerAccounts.provider, 'stripe'),
+          eq(paymentSchema.providerAccounts.provider, 'peable'),
           eq(paymentSchema.providerAccounts.ownerId, lapsed.sellerId),
         ),
       );
 
-    fundIntent(intentId);
-    await deliverIntentEvent({ eventId: 'evt-iso', type: 'payment_intent.succeeded', intentId });
+    gateway.succeed(payment.providerObjectId);
+    await deliverIntentEvent({
+      eventId: 'iso',
+      type: 'payment_intent.succeeded',
+      intentId: payment.providerObjectId,
+    });
 
     // BOTH orders stay paid: the buyer's side of the sale is complete either way,
     // and un-paying one because its seller cannot be paid would take goods back
@@ -898,7 +808,7 @@ describe('checkout on the Stripe rail — multi-seller', () => {
 
     // The good seller was paid; the lapsed one's transfer exists but is pending
     // and was never sent.
-    const transfers = await transfersFor(paymentId);
+    const transfers = await transfersFor(payment.id);
     expect(transfers).toHaveLength(2);
     const goodOrder = orders.find((order) => order.sellerOxyUserId === good.sellerId);
     const lapsedOrder = orders.find((order) => order.sellerOxyUserId === lapsed.sellerId);
@@ -908,18 +818,18 @@ describe('checkout on the Stripe rail — multi-seller', () => {
     expect(goodTransfer?.providerObjectId).toBeTruthy();
     expect(lapsedTransfer?.status).toBe('pending');
     expect(lapsedTransfer?.providerObjectId).toBeNull();
-    expect(api.transferCalls).toHaveLength(1);
-    expect(api.transferCalls[0].params.destination).toBe(good.accountId);
+    expect(gateway.state.transferCalls).toHaveLength(1);
+    expect(gateway.state.transferCalls[0].params.connected_account).toBe(good.accountId);
 
     // The exception is DURABLE, not a log line — money is owed and unsent.
-    expect(await outboxTypesFor(paymentId)).toEqual(['payment_succeeded', 'transfer_withheld']);
+    expect(await outboxTypesFor(payment.id)).toEqual(['payment_succeeded', 'transfer_withheld']);
     const [withheld] = await db
       .select()
       .from(paymentSchema.paymentOutboxes)
       .where(
         eq(
           paymentSchema.paymentOutboxes.id,
-          `payment:transfer_withheld:${paymentId}:${String(lapsedOrder?.id)}`,
+          `payment:transfer_withheld:${payment.id}:${String(lapsedOrder?.id)}`,
         ),
       );
     expect(withheld?.payload).toMatchObject({
@@ -930,15 +840,94 @@ describe('checkout on the Stripe rail — multi-seller', () => {
 
     // Only the settled seller's payable closed. The lapsed one's stays open,
     // which is exactly what "Mercaria still owes them" means in the accounts.
-    const entries = await ledgerEntriesFor(paymentId);
+    const entries = await ledgerEntriesFor(payment.id);
     const payableBalance = entries
       .filter((entry) => entry.account === 'merchant_payable')
       .reduce((sum, entry) => sum + entry.amount, 0n);
     expect(payableBalance).toBe(BigInt(-(lapsedOrder?.totalsGrandTotalPresentmentAmount ?? 0)));
   });
+
+  it('holds a HIGH-VALUE share for review and settles the ordinary sibling at once', async () => {
+    // One share above `HIGH_VALUE_HOLD_THRESHOLDS`, one far below it.
+    const big = await seedSeller({
+      label: 'holdA',
+      priceMinor: HOLD_THRESHOLD_EUR + 50_000,
+      currency: 'EUR',
+    });
+    const small = await seedSeller({ label: 'holdB', priceMinor: 2_000, currency: 'EUR' });
+    const buyer = await seedBuyer({
+      label: 'hold',
+      currency: 'EUR',
+      lines: [
+        { listingId: big.listingId, variantId: big.variantId, quantity: 1 },
+        { listingId: small.listingId, variantId: small.variantId, quantity: 1 },
+      ],
+    });
+
+    const result = await checkout(
+      { kind: 'oxy', oxyUserId: buyer.buyerId },
+      { addressId: buyer.addressId },
+      `key-${RUN}-hold`,
+    );
+    const payment = await paymentFor(result.checkoutGroupId);
+    gateway.succeed(payment.providerObjectId);
+    const before = Date.now();
+    await deliverIntentEvent({
+      eventId: 'hold',
+      type: 'payment_intent.succeeded',
+      intentId: payment.providerObjectId,
+    });
+
+    const orders = await findOrdersInCheckoutGroup(result.checkoutGroupId);
+    expect(orders.map((order) => order.status)).toEqual(['paid', 'paid']);
+    const bigOrder = orders.find((order) => order.sellerOxyUserId === big.sellerId);
+    const smallOrder = orders.find((order) => order.sellerOxyUserId === small.sellerId);
+
+    const transfers = await transfersFor(payment.id);
+    const held = transfers.find((row) => row.orderId === bigOrder?.id);
+    const settled = transfers.find((row) => row.orderId === smallOrder?.id);
+
+    // The high-value share waits: a pending row that never reached the rail,
+    // with its releasable instant DURABLE on the row — the column the release
+    // sweep reads — one review window after it became settleable.
+    expect(held?.status).toBe('pending');
+    expect(held?.providerObjectId).toBeNull();
+    const heldUntil = held?.heldUntil?.getTime() ?? 0;
+    const windowMs = 72 * 60 * 60 * 1_000;
+    expect(heldUntil).toBeGreaterThanOrEqual(before - 60_000 + windowMs);
+    expect(heldUntil).toBeLessThanOrEqual(Date.now() + windowMs);
+
+    // The sibling is not held hostage by it.
+    expect(settled?.status).toBe('paid');
+    expect(settled?.heldUntil).toBeNull();
+    expect(gateway.state.transferCalls).toHaveLength(1);
+    expect(gateway.state.transferCalls[0].params.connected_account).toBe(small.accountId);
+
+    // A person can see the case, and the seller is still owed in the accounts.
+    const [withheld] = await db
+      .select()
+      .from(paymentSchema.paymentOutboxes)
+      .where(
+        eq(
+          paymentSchema.paymentOutboxes.id,
+          `payment:transfer_withheld:${payment.id}:${String(bigOrder?.id)}`,
+        ),
+      );
+    expect(withheld?.payload).toMatchObject({
+      orderId: bigOrder?.id,
+      sellerKey: `user:${big.sellerId}`,
+      reason: expect.stringContaining('high-value'),
+    });
+    const entries = await ledgerEntriesFor(payment.id);
+    expect(
+      entries
+        .filter((entry) => entry.account === 'merchant_payable')
+        .reduce((sum, entry) => sum + entry.amount, 0n),
+    ).toBe(BigInt(-(bigOrder?.totalsGrandTotalPresentmentAmount ?? 0)));
+  });
 });
 
-describe('checkout on the Stripe rail — idempotency and refusals', () => {
+describe('card checkout on the Peable rail — idempotency and refusals', () => {
   it('converges two concurrent submits on ONE PaymentIntent and one reservation', async () => {
     const seller = await seedSeller({
       label: 'idem',
@@ -969,7 +958,7 @@ describe('checkout on the Stripe rail — idempotency and refusals', () => {
     );
     // ONE intent object, and the same client secret — a second charge for the
     // same goods is the failure the whole idempotency chain exists to prevent.
-    expect(api.intents.size).toBe(1);
+    expect(gateway.state.intents.size).toBe(1);
     expect(replay.payment?.clientSecret).toBe(first.payment?.clientSecret);
     expect(replay.payment?.paymentId).toBe(first.payment?.paymentId);
 
@@ -980,6 +969,39 @@ describe('checkout on the Stripe rail — idempotency and refusals', () => {
       .where(eq(paymentSchema.payments.checkoutGroupId, first.checkoutGroupId));
     expect(payments).toHaveLength(1);
     expect((await stockOf(seller.variantId)).available).toBe(3);
+  });
+
+  it('re-reads an opened intent on a later replay instead of creating a second one', async () => {
+    const seller = await seedSeller({ label: 'resume', priceMinor: 4_000, currency: 'EUR' });
+    const buyer = await seedBuyer({
+      label: 'resume',
+      currency: 'EUR',
+      lines: [{ listingId: seller.listingId, variantId: seller.variantId, quantity: 1 }],
+    });
+    const key = `key-${RUN}-resume`;
+    const actor = { kind: 'oxy', oxyUserId: buyer.buyerId } as const;
+
+    const first = await checkout(actor, { addressId: buyer.addressId }, key);
+    // The rail's idempotency key ages out after 24 hours; the replay must not
+    // depend on it. Once Mercaria holds the intent id, the replay READS it.
+    gateway.state.intentsByKey.clear();
+    // The same cart submitted again under the same key — the buyer's retry after
+    // a lost response. Redis is not running, so it is the per-order unique index
+    // that converges it on the first group, whose payment is already open.
+    const cart = await ensureCart({ kind: 'oxy_user', oxyUserId: buyer.buyerId });
+    await upsertCartItem(cart.id, {
+      listingId: seller.listingId,
+      variantId: seller.variantId,
+      quantity: 1,
+    });
+    const later = await checkout(actor, { addressId: buyer.addressId }, key);
+
+    expect(later.checkoutGroupId).toBe(first.checkoutGroupId);
+    expect(later.payment?.clientSecret).toBe(first.payment?.clientSecret);
+    expect(gateway.state.intentCalls).toHaveLength(1);
+    expect(gateway.state.intents.size).toBe(1);
+    // …and the loser's reservation was rolled back: stock was taken once.
+    expect((await stockOf(seller.variantId)).available).toBe(4);
   });
 
   it('refuses a cart the rail cannot charge, before taking any stock', async () => {
@@ -1001,7 +1023,49 @@ describe('checkout on the Stripe rail — idempotency and refusals', () => {
     // Nothing was reserved and no charge was opened: a currency question needs
     // no stock to answer.
     expect((await stockOf(seller.variantId)).available).toBe(5);
-    expect(api.intentCalls).toHaveLength(0);
+    expect(gateway.state.intentCalls).toHaveLength(0);
+  });
+
+  it('refuses a seller with no account on the rail, naming them, before taking any stock', async () => {
+    const ready = await seedSeller({ label: 'gateA', priceMinor: 3_000, currency: 'EUR' });
+    const unready = await seedSeller({
+      label: 'gateB',
+      priceMinor: 3_000,
+      currency: 'EUR',
+      paymentReady: false,
+    });
+    const buyer = await seedBuyer({
+      label: 'gate',
+      currency: 'EUR',
+      lines: [
+        { listingId: ready.listingId, variantId: ready.variantId, quantity: 1 },
+        { listingId: unready.listingId, variantId: unready.variantId, quantity: 1 },
+      ],
+    });
+
+    // ADR 0001 D4: the group is refused and NAMED, so the buyer can deselect it
+    // through `sellerKeys` — never the ready seller's.
+    const unreadyKey = `user:${unready.sellerId}`;
+    const refusal = checkout(
+      { kind: 'oxy', oxyUserId: buyer.buyerId },
+      { addressId: buyer.addressId },
+      `key-${RUN}-gate`,
+    );
+    await expect(refusal).rejects.toThrow(/cannot accept payment/);
+    await expect(refusal).rejects.toThrow(unreadyKey);
+    await expect(refusal).rejects.not.toThrow(`user:${ready.sellerId}`);
+    expect(gateway.state.intentCalls).toHaveLength(0);
+    expect(await stockOf(ready.variantId)).toEqual({ available: 5, committed: 0 });
+    expect(await stockOf(unready.variantId)).toEqual({ available: 5, committed: 0 });
+
+    // Deselecting it is the documented remedy, and it works.
+    const placed = await checkout(
+      { kind: 'oxy', oxyUserId: buyer.buyerId },
+      { addressId: buyer.addressId, sellerKeys: [`user:${ready.sellerId}`] },
+      `key-${RUN}-gate-ready`,
+    );
+    expect(placed.orders).toHaveLength(1);
+    expect(gateway.state.intentCalls).toHaveLength(1);
   });
 
   it('leaves the reservation clock alone when a payment fails and is retried', async () => {
@@ -1018,54 +1082,100 @@ describe('checkout on the Stripe rail — idempotency and refusals', () => {
       { addressId: buyer.addressId },
       key,
     );
-    const payment = await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId);
-    const intentId = String(payment?.providerObjectId);
+    const payment = await paymentFor(result.checkoutGroupId);
+    const intentId = payment.providerObjectId;
     const [before] = await findOrdersInCheckoutGroup(result.checkoutGroupId);
 
-    // A declined confirmation: Stripe leaves the intent reusable, so the buyer
-    // retries on the SAME intent with another card.
-    const intent = api.intents.get(intentId);
-    if (intent) intent.status = 'requires_payment_method';
+    // A declined attempt: the gateway returns the card intent to
+    // `requires_payment_method` with `last_payment_error`, still payable, so the
+    // buyer retries on the SAME intent with another card.
+    gateway.decline(intentId);
     await deliverIntentEvent({
-      eventId: 'evt-retry-failed',
+      eventId: 'retry-failed',
       type: 'payment_intent.payment_failed',
       intentId,
     });
 
-    const failed = await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId);
-    expect(failed?.status).toBe('requires_action');
+    // Mercaria's `failed`, which is NOT terminal — a declined card is retried.
+    const failed = await paymentFor(result.checkoutGroupId);
+    expect(failed.status).toBe('failed');
     // The order is untouched: a failed payment releases nothing (#45 acceptance
     // 4). Only the reservation sweep releases stock, and its clock is the
     // ORDER's creation time, which no retry can move.
     const [after] = await findOrdersInCheckoutGroup(result.checkoutGroupId);
     expect(after.status).toBe('pending_payment');
     expect(after.createdAt.getTime()).toBe(before.createdAt.getTime());
+    expect(await outboxTypesFor(payment.id)).toEqual(['payment_failed']);
 
     // The buyer confirms again on that same intent and it succeeds. No second
-    // PaymentIntent was ever created: a failed confirmation leaves Stripe's
-    // intent reusable, so a retry is another attempt on ONE charge object rather
-    // than a new one — and the reservation clock, which belongs to the order,
-    // never restarts.
-    fundIntent(intentId);
+    // PaymentIntent was ever created, and the reservation clock, which belongs
+    // to the order, never restarts.
+    gateway.succeed(intentId);
     await deliverIntentEvent({
-      eventId: 'evt-retry-succeeded',
+      eventId: 'retry-succeeded',
       type: 'payment_intent.succeeded',
       intentId,
     });
 
-    expect(api.intents.size).toBe(1);
-    expect(api.intentCalls).toHaveLength(1);
+    expect(gateway.state.intents.size).toBe(1);
+    expect(gateway.state.intentCalls).toHaveLength(1);
     const [settledOrder] = await findOrdersInCheckoutGroup(result.checkoutGroupId);
     expect(settledOrder.status).toBe('paid');
     expect(settledOrder.createdAt.getTime()).toBe(before.createdAt.getTime());
   });
+
+  it('applies a redelivered success once: one ledger charge, one transfer', async () => {
+    const seller = await seedSeller({ label: 'dup', priceMinor: 3_300, currency: 'EUR' });
+    const buyer = await seedBuyer({
+      label: 'dup',
+      currency: 'EUR',
+      lines: [{ listingId: seller.listingId, variantId: seller.variantId, quantity: 1 }],
+    });
+    const result = await checkout(
+      { kind: 'oxy', oxyUserId: buyer.buyerId },
+      { addressId: buyer.addressId },
+      `key-${RUN}-dup`,
+    );
+    const payment = await paymentFor(result.checkoutGroupId);
+    gateway.succeed(payment.providerObjectId);
+
+    const deliveries = [
+      // The same delivery twice — caught by the event store's unique index.
+      { eventId: 'dup-1', expected: 'accepted' },
+      { eventId: 'dup-1', expected: 'duplicate' },
+      // A DIFFERENT event asserting the same success — caught by the payment CAS.
+      { eventId: 'dup-2', expected: 'accepted' },
+    ] as const;
+    for (const delivery of deliveries) {
+      const outcome = await deliverIntentEvent({
+        eventId: delivery.eventId,
+        type: 'payment_intent.succeeded',
+        intentId: payment.providerObjectId,
+      });
+      expect(outcome.outcome).toBe(delivery.expected);
+    }
+
+    const entries = await ledgerEntriesFor(payment.id);
+    expect(entries.filter((entry) => entry.kind === 'charge_succeeded')).toHaveLength(2);
+    expect(entries.filter((entry) => entry.kind === 'transfer_created')).toHaveLength(2);
+    expect(await transfersFor(payment.id)).toHaveLength(1);
+    expect(gateway.state.transferCalls).toHaveLength(1);
+    expect(await outboxTypesFor(payment.id)).toEqual(['payment_succeeded']);
+  });
 });
 
-describe('checkout on the Stripe rail — abandonment and a late capture', () => {
-  it('cancels the PaymentIntent when the reservation expires, and raises an exception if the money arrives anyway', async () => {
-    const seller = await seedSeller({ label: 'sweep', priceMinor: 3_500, currency: 'EUR' });
+describe('card checkout on the Peable rail — abandonment and a late capture', () => {
+  /**
+   * The checkout the sweep releases and the gateway then captures anyway.
+   *
+   * Shared by the two cases below, which assert the two halves of one
+   * invariant separately: nothing is re-committed (no oversell), and the
+   * condition is raised durably for a person.
+   */
+  async function releaseThenCapture(label: string) {
+    const seller = await seedSeller({ label, priceMinor: 3_500, currency: 'EUR' });
     const buyer = await seedBuyer({
-      label: 'sweep',
+      label,
       currency: 'EUR',
       lines: [{ listingId: seller.listingId, variantId: seller.variantId, quantity: 1 }],
     });
@@ -1073,11 +1183,10 @@ describe('checkout on the Stripe rail — abandonment and a late capture', () =>
     const result = await checkout(
       { kind: 'oxy', oxyUserId: buyer.buyerId },
       { addressId: buyer.addressId },
-      `key-${RUN}-sweep`,
+      `key-${RUN}-${label}`,
     );
-    const payment = await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId);
-    const paymentId = String(payment?.id);
-    const intentId = String(payment?.providerObjectId);
+    const payment = await paymentFor(result.checkoutGroupId);
+    const intentId = payment.providerObjectId;
     const [order] = await findOrdersInCheckoutGroup(result.checkoutGroupId);
 
     // Age the order past the reservation TTL, the way time would.
@@ -1088,34 +1197,48 @@ describe('checkout on the Stripe rail — abandonment and a late capture', () =>
 
     await handleExpireReservations();
 
-    // Stock went back, the order is cancelled, and the rail was told to stop.
+    // Stock went back, the order is cancelled, and the rail was told to stop —
+    // under a key derived from the payment, so a second sweep cannot cancel
+    // twice.
     expect((await stockOf(seller.variantId)).available).toBe(5);
     const [cancelled] = await findOrdersInCheckoutGroup(result.checkoutGroupId);
     expect(cancelled.status).toBe('cancelled');
-    expect(api.cancelCalls).toEqual([intentId]);
-    expect(api.intents.get(intentId)?.status).toBe('canceled');
-    const released = await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId);
-    expect(released?.status).toBe('canceled');
+    expect(gateway.state.cancelCalls).toEqual([intentId]);
+    expect(gateway.intent(intentId).status).toBe('canceled');
+    const released = await paymentFor(result.checkoutGroupId);
+    expect(released.status).toBe('canceled');
 
     // …and then the money arrives anyway: a capture that raced the sweep.
-    fundIntent(intentId);
-    await deliverIntentEvent({
-      eventId: 'evt-sweep-late',
+    gateway.succeed(intentId);
+    const delivered = await deliverIntentEvent({
+      eventId: `${label}-late`,
       type: 'payment_intent.succeeded',
       intentId,
     });
+    expect(delivered.outcome).toBe('accepted');
+    return { seller, paymentId: payment.id, checkoutGroupId: result.checkoutGroupId };
+  }
+
+  it('cancels the PaymentIntent when the reservation expires, and re-commits NOTHING if the money arrives anyway', async () => {
+    const { seller, paymentId, checkoutGroupId } = await releaseThenCapture('sweep');
 
     // NOTHING is re-committed. Re-committing would oversell whatever has been
     // bought since; booking the charge would credit commission with the whole
     // gross; refunding is a policy decision needing a person.
-    expect((await stockOf(seller.variantId)).available).toBe(5);
-    expect((await stockOf(seller.variantId)).committed).toBe(0);
-    const [stillCancelled] = await findOrdersInCheckoutGroup(result.checkoutGroupId);
+    expect(await stockOf(seller.variantId)).toEqual({ available: 5, committed: 0 });
+    const [stillCancelled] = await findOrdersInCheckoutGroup(checkoutGroupId);
     expect(stillCancelled.status).toBe('cancelled');
+    expect((await paymentFor(checkoutGroupId)).status).toBe('canceled');
     expect(await ledgerEntriesFor(paymentId)).toEqual([]);
     expect(await transfersFor(paymentId)).toEqual([]);
+    expect(gateway.state.transferCalls).toHaveLength(0);
+  });
 
-    // The condition is durable and visible instead — #50's operator queue.
+  it('raises the late capture as a durable exception for an operator (#50)', async () => {
+    const { paymentId } = await releaseThenCapture('sweep-flag');
+
+    // The condition is durable and visible — #50's operator queue — rather than
+    // a log line and a processing note on the event row.
     expect(await outboxTypesFor(paymentId)).toEqual(['payment_succeeded_after_release']);
   });
 });
@@ -1139,16 +1262,27 @@ describe('the buyer-facing payment status', () => {
       result.checkoutGroupId,
     );
     expect(before.status).toBe('created');
+    expect(before.provider).toBe('peable');
     expect(before.orders).toHaveLength(1);
     expect(before.orders[0]?.paymentStatus).toBe('unpaid');
 
-    const payment = await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId);
-    const intentId = String(payment?.providerObjectId);
-    fundIntent(intentId);
+    // The gateway saying `succeeded` is not enough: until a VERIFIED delivery
+    // lands, the buyer is told what Mercaria has verified.
+    const payment = await paymentFor(result.checkoutGroupId);
+    gateway.succeed(payment.providerObjectId);
+    expect(
+      (
+        await readCheckoutPaymentStatus(
+          { kind: 'oxy_user', oxyUserId: buyer.buyerId },
+          result.checkoutGroupId,
+        )
+      ).status,
+    ).toBe('created');
+
     await deliverIntentEvent({
-      eventId: 'evt-status',
+      eventId: 'status',
       type: 'payment_intent.succeeded',
-      intentId,
+      intentId: payment.providerObjectId,
     });
 
     const after = await readCheckoutPaymentStatus(
@@ -1169,9 +1303,40 @@ describe('the buyer-facing payment status', () => {
       ),
     ).rejects.toThrow(/not found/i);
   });
+
+  it('refuses a forged delivery and changes nothing', async () => {
+    const seller = await seedSeller({ label: 'forged', priceMinor: 2_000, currency: 'EUR' });
+    const buyer = await seedBuyer({
+      label: 'forged',
+      currency: 'EUR',
+      lines: [{ listingId: seller.listingId, variantId: seller.variantId, quantity: 1 }],
+    });
+    const result = await checkout(
+      { kind: 'oxy', oxyUserId: buyer.buyerId },
+      { addressId: buyer.addressId },
+      `key-${RUN}-forged`,
+    );
+    const payment = await paymentFor(result.checkoutGroupId);
+    gateway.succeed(payment.providerObjectId);
+
+    // Signed with a secret this deployment does not hold.
+    const forged = await ingestPeableDelivery(
+      gateway.intentDelivery({
+        eventId: `evt_forged_${RUN}`,
+        type: 'payment_intent.succeeded',
+        intentId: payment.providerObjectId,
+        secret: 'pwhsec_attacker',
+      }),
+    );
+    expect(forged).toEqual({ outcome: 'rejected', code: 'invalid_signature' });
+    expect((await paymentFor(result.checkoutGroupId)).status).toBe('created');
+    const [order] = await findOrdersInCheckoutGroup(result.checkoutGroupId);
+    expect(order.status).toBe('pending_payment');
+    expect(await ledgerEntriesFor(payment.id)).toEqual([]);
+  });
 });
 
-/** Real app routes + real SDK HTTP; only the external Oxy policy service and Stripe API are fixtures. */
+/** Real app routes + real SDK HTTP; only the external Oxy policy service and the Peable gateway are fixtures. */
 async function shoppingRequest(
   path: string,
   token: string | null,
@@ -1341,7 +1506,7 @@ describe('supervised shopping through the existing checkout and payment seam', (
     expect(prepared.status, JSON.stringify(prepared.body)).toBe(200);
     const { checkoutGroupId, purchaseApproval } = prepared.body.data;
     expect(purchaseApproval.status).toBe('pending');
-    expect(api.intentCalls).toHaveLength(0);
+    expect(gateway.state.intentCalls).toHaveLength(0);
     expect(purchaseApproval.merchantAccountIds.sort()).toEqual(
       [first.sellerId, second.sellerId].sort(),
     );
@@ -1377,14 +1542,14 @@ describe('supervised shopping through the existing checkout and payment seam', (
     expect(premature.body.data.payment).toBeUndefined();
     const evidence = await approveShoppingPurchase(purchaseApproval.id);
     expect(evidence.amountMinor).toBe(purchaseApproval.amountMinor);
-    api.acceptThenTimeout = true;
+    gateway.state.acceptThenTimeout = true;
     const lost = await shoppingRequest(
       `/supervised-shopping/checkout/${checkoutGroupId}/resume`,
       token,
       'POST',
     );
     expect(lost.status).toBeGreaterThanOrEqual(500);
-    expect(api.intents.size).toBe(1);
+    expect(gateway.state.intents.size).toBe(1);
     expect(supervision.approvals.get(purchaseApproval.id)?.status).toBe('reserved');
     // Approval expiry limits the first reservation, not recovery of an already
     // reserved PSP operation. Keep the original session valid while passing that deadline.
@@ -1401,12 +1566,12 @@ describe('supervised shopping through the existing checkout and payment seam', (
       vi.useRealTimers();
     }
     expect(resumed.status, JSON.stringify(resumed.body)).toBe(200);
-    expect(api.intents.size).toBe(1);
-    expect(new Set(api.intentCalls.map((call) => call.idempotencyKey)).size).toBe(1);
+    expect(gateway.state.intents.size).toBe(1);
+    expect(new Set(gateway.state.intentCalls.map((call) => call.idempotencyKey)).size).toBe(1);
     const payment = await findNativePaymentByCheckoutGroupId(db, checkoutGroupId);
     if (!payment?.providerObjectId) throw new Error('Expected durable PSP intent');
     expect(payment.providerObjectId).toBeTruthy();
-    fundIntent(payment.providerObjectId);
+    gateway.succeed(payment.providerObjectId);
     await deliverIntentEvent({
       eventId: 'kids-paid',
       type: 'payment_intent.succeeded',
@@ -1421,7 +1586,7 @@ describe('supervised shopping through the existing checkout and payment seam', (
       type: 'payment_intent.succeeded',
       intentId: payment.providerObjectId,
     });
-    expect(api.intents.size).toBe(1);
+    expect(gateway.state.intents.size).toBe(1);
   });
 
   it.each([false, true])(
@@ -1442,7 +1607,7 @@ describe('supervised shopping through the existing checkout and payment seam', (
       expect(prepared.status).toBe(200);
       const { checkoutGroupId, purchaseApproval } = prepared.body.data;
       await approveShoppingPurchase(purchaseApproval.id);
-      api.acceptThenTimeout = uncertain;
+      gateway.state.acceptThenTimeout = uncertain;
       const resumed = await shoppingRequest(
         `/supervised-shopping/checkout/${checkoutGroupId}/resume`,
         token,
@@ -1470,12 +1635,67 @@ describe('supervised shopping through the existing checkout and payment seam', (
       // Repeated sweeps and outbox delivery never recycle consent or open a new intent.
       await handleExpireReservations();
       await drainPaymentOutbox({ eventId, handler: runPaymentOutboxEvent });
-      expect(api.intents.size).toBe(1);
+      expect(gateway.state.intents.size).toBe(1);
       expect(supervision.approvals.get(purchaseApproval.id)?.status).toBe(
         uncertain ? 'reserved' : 'cancelled',
       );
     },
   );
+
+  /**
+   * The gateway cancelling an intent on its OWN (an expiry, not the sweep) is
+   * a confirmed cancellation, and it must release the purchase approval the
+   * same way the sweep's confirmed cancel does — the Peable router records it.
+   */
+  it('releases the approval when the gateway itself cancels the intent', async () => {
+    const item = await seedSeller({
+      label: 'kids-gateway-cancel',
+      priceMinor: 1300,
+      currency: 'EUR',
+    });
+    const buyer = await seedBuyer({
+      label: 'kids-gateway-cancel',
+      currency: 'EUR',
+      lines: [{ ...item, quantity: 1 }],
+    });
+    const token = supervision.token(buyer.buyerId);
+    await reviewShoppingListing(item.listingId);
+    const prepared = await shoppingRequest(
+      '/supervised-shopping/checkout',
+      token,
+      'POST',
+      { addressId: buyer.addressId, paymentMethod: 'card' },
+      `kids-${RUN}-gateway-cancel`,
+    );
+    expect(prepared.status).toBe(200);
+    const { checkoutGroupId, purchaseApproval } = prepared.body.data;
+    await approveShoppingPurchase(purchaseApproval.id);
+    const resumed = await shoppingRequest(
+      `/supervised-shopping/checkout/${checkoutGroupId}/resume`,
+      token,
+      'POST',
+    );
+    expect(resumed.status).toBe(200);
+    expect(supervision.approvals.get(purchaseApproval.id)?.status).toBe('reserved');
+
+    const payment = await paymentFor(checkoutGroupId);
+    const intent = gateway.state.intents.get(payment.providerObjectId);
+    if (!intent) throw new Error('Expected the gateway to hold the intent');
+    intent.status = 'canceled';
+    const delivered = await deliverIntentEvent({
+      eventId: `gateway-cancel-${payment.id}`,
+      type: 'payment_intent.canceled',
+      intentId: payment.providerObjectId,
+    });
+    expect(delivered.outcome).toBe('accepted');
+
+    const eventId = `payment:supervised_purchase_cancelled:${payment.id}`;
+    const { drainPaymentOutbox } = await import('../payments/payment-outbox.service.js');
+    const { runPaymentOutboxEvent } = await import('../payments/outbox-handlers.js');
+    await drainPaymentOutbox({ eventId, handler: runPaymentOutboxEvent });
+    expect(supervision.approvals.get(purchaseApproval.id)?.status).toBe('cancelled');
+    expect(await outboxTypesFor(payment.id)).toContain('supervised_purchase_cancelled');
+  });
 
   it('revokes exposed text and prevents charging after the reviewed item changes', async () => {
     const item = await seedSeller({ label: 'kids-edit', priceMinor: 1400, currency: 'EUR' });
@@ -1506,7 +1726,7 @@ describe('supervised shopping through the existing checkout and payment seam', (
       'POST',
     );
     expect(resumed.status).toBe(409);
-    expect(api.intentCalls).toHaveLength(0);
+    expect(gateway.state.intentCalls).toHaveLength(0);
     const browse = await shoppingRequest('/supervised-shopping/catalog', token);
     expect(browse.body.data.items.some((row: { id: string }) => row.id === item.listingId)).toBe(
       false,
@@ -1561,7 +1781,7 @@ describe('supervised shopping through the existing checkout and payment seam', (
       ).toHaveLength(0);
       expect(await stockOf(first.variantId)).toEqual({ available: 5, committed: 0 });
       expect(await stockOf(second.variantId)).toEqual({ available: 5, committed: 0 });
-      expect(api.intents.size).toBe(0);
+      expect(gateway.state.intents.size).toBe(0);
     } finally {
       await db.execute(sql.raw(`DROP TRIGGER ${trigger} ON orders`));
       await db.execute(sql.raw(`DROP FUNCTION ${trigger}()`));
@@ -1616,6 +1836,6 @@ describe('supervised shopping through the existing checkout and payment seam', (
       key,
     );
     expect(changed.status).toBe(409);
-    expect(api.intents.size).toBe(0);
+    expect(gateway.state.intents.size).toBe(0);
   });
 });

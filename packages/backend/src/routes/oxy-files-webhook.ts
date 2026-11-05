@@ -1,7 +1,7 @@
 /**
  * Oxy's file events — `POST /webhooks/oxy-files` (Oxy ADR 0043 D9).
  *
- * The SIXTH raw-body mount (`docs/house-invariants.md`): Oxy signs the bytes it
+ * The FIFTH raw-body mount (`docs/house-invariants.md`): Oxy signs the bytes it
  * sent (`oxy-signature: t=<unix>,v1=<hex HMAC-SHA256 of "<t>.<body>">`), so a
  * parser reaching the stream first does not weaken verification — it breaks
  * every delivery. `app.ts` mounts this above `express.json()` and

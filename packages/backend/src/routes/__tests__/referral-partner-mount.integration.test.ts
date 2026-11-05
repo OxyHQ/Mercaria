@@ -50,7 +50,7 @@ let base: string;
 
 /**
  * A real ephemeral listener plus `fetch`, matching
- * `stripe-webhook.integration.test.ts`.
+ * `peable-webhook.integration.test.ts`.
  *
  * Deliberately not `supertest`, which this repository does not depend on: a
  * mount assertion is the case where the request should travel the real socket

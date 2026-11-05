@@ -1,20 +1,22 @@
 /**
  * A drain claims only the rails it can interpret — against a REAL database.
  *
- * `claimProviderEvent` takes the OLDEST due row. That was unambiguous while
- * `stripe` was the only rail that could produce one; ADR 0009 made it a hazard,
- * because a claim is immediately followed by the claimer handing the row to ITS
- * OWN router, and both rails speak Stripe's event-type names.
+ * `claimProviderEvent` takes the OLDEST due row. That is unambiguous only while
+ * one rail can write `payment_provider_events`, and the table is keyed by rail
+ * precisely because that need not stay true: a claim is immediately followed by
+ * the claimer handing the row to ITS OWN router, and a router reads an event's
+ * TYPE, which says nothing about which rail sent it.
  *
- * The failure is silent and it destroys money. `drainStripeEvents` claiming a
- * `peable` row would call `routeStripeEvent('payment_intent.succeeded')`, find a
- * handler, and ask STRIPE about a `pi_…` that is Peable's — a settlement Stripe
- * has never heard of, retried until it dead-letters while the Peable drain
- * finds nothing left to do and the order is never funded.
+ * The failure is silent and it destroys money. A drain claiming another rail's
+ * `payment_intent.succeeded` would find a handler, ask ITS rail about an intent
+ * that rail has never heard of, retry until the row dead-letters — while the
+ * owning drain finds nothing left to do and the order is never funded.
  *
- * So the scope is asserted at the CLAIM, which is the only place both rails'
+ * So the scope is asserted at the CLAIM, which is the only place every rail's
  * rows are visible at once, rather than trusted to each router noticing an
- * event that is not its own — a type name cannot tell them apart.
+ * event that is not its own. Peable is the only rail with a drain today; the
+ * other rail here is `mock`, a real `PaymentProviderId` the provider CHECK
+ * admits, standing in for whichever rail is added next.
  *
  * No cleanup and no TRUNCATE: vitest runs files in parallel against one
  * throwaway database, so every id here is unique per run instead.
@@ -47,7 +49,7 @@ afterAll(async () => {
 });
 
 async function store(
-  provider: 'stripe' | 'peable',
+  provider: 'mock' | 'peable',
   name: string,
   type: string,
   receivedAt: Date,
@@ -66,7 +68,7 @@ async function store(
 }
 
 describe('claiming an inbound provider event', () => {
-  it('never hands a Peable event to a drain that asked for Stripe', async () => {
+  it('never hands a Peable event to a drain that asked for another rail', async () => {
     // Deliberately OLDER than anything else, so an unscoped claim ordered by
     // `received_at` would reach for it first. That ordering is what makes the
     // bug reliable rather than occasional.
@@ -78,15 +80,15 @@ describe('claiming an inbound provider event', () => {
     );
 
     let claimed: string | undefined;
-    // Drain a bounded number of times rather than once: other files running in
-    // parallel have their own due Stripe rows, and this must not depend on
-    // being the only writer. What it asserts is that the Peable row is never
-    // among what a Stripe-scoped claim returns.
+    // Drain a bounded number of times rather than once: another file could
+    // have its own due rows on that rail, and this must not depend on being
+    // the only writer. What it asserts is that the Peable row is never among
+    // what a claim scoped to another rail returns.
     for (let index = 0; index < 25; index += 1) {
       const row = await claimProviderEvent(db, {
-        leaseOwner: `stripe-scope-${RUN}-${String(index)}`,
+        leaseOwner: `mock-scope-${RUN}-${String(index)}`,
         leaseMs: 60_000,
-        providers: ['stripe'],
+        providers: ['mock'],
       });
       if (!row) break;
       if (row.id === peableId) {
@@ -121,9 +123,9 @@ describe('claiming an inbound provider event', () => {
     const peableId = await store('peable', 'named', 'payment_intent.payment_failed', new Date());
 
     const row = await claimProviderEvent(db, {
-      leaseOwner: `stripe-named-${RUN}`,
+      leaseOwner: `mock-named-${RUN}`,
       leaseMs: 60_000,
-      providers: ['stripe'],
+      providers: ['mock'],
       eventId: peableId,
     });
 
@@ -137,7 +139,7 @@ describe('claiming an inbound provider event', () => {
   });
 
   it('claims nothing at all for a caller that names no rail', async () => {
-    await store('stripe', 'empty_scope', 'payment_intent.succeeded', new Date());
+    await store('peable', 'empty_scope', 'payment_intent.succeeded', new Date());
 
     const row = await claimProviderEvent(db, {
       leaseOwner: `empty-${RUN}`,

@@ -46,13 +46,6 @@
       "expo-asset",
       "expo-notifications",
       [
-        "@stripe/stripe-react-native",
-        {
-          "merchantIdentifier": "merchant.co.mercaria.app",
-          "enableGooglePay": true
-        }
-      ],
-      [
         "expo-audio",
         {
           "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone, to dictate messages and to talk with Alia while you shop",

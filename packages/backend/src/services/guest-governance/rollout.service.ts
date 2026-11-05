@@ -18,7 +18,7 @@
  * kinds that need a person, and the automated one is evaluated HERE
  * against the live configuration rather than trusted from a signature. A gate
  * that a function can decide must not be satisfiable by somebody typing "yes":
- * `stripe_architecture_production_ready` is either configured or it is not, and
+ * `card_rail_production_ready` is either configured or it is not, and
  * a sign-off saying otherwise is exactly the record that makes an incident
  * review useless.
  *
@@ -53,7 +53,7 @@ import {
  * tests — rather than a constant `true`.
  */
 const AUTOMATED_GATE_CHECKS: Readonly<Record<string, () => boolean>> = {
-  stripe_architecture_production_ready: () => config.payments.stripe.enabled,
+  card_rail_production_ready: () => config.payments.peable.enabled,
 };
 
 /** Which gates apply at a stage — every gate whose `requiredFromStage` is at or before it. */
@@ -80,7 +80,7 @@ export interface GateStatus {
  * Every gate's status for one stage.
  *
  * An automated gate's SIGN-OFF is ignored, deliberately and in both directions:
- * a signature cannot make `STRIPE_ENABLED` true, and it cannot make it false
+ * a signature cannot make `PEABLE_ENABLED` true, and it cannot make it false
  * either. What a person can do about an automated gate is change the thing it
  * measures.
  */

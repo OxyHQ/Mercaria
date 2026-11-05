@@ -61,7 +61,7 @@ let createApp: typeof import('../../../app.js').createApp;
 let closePostgres: typeof import('../../../db/postgres.js').closePostgres;
 
 beforeAll(async () => {
-  // Imported inside `beforeAll` for the reason `stripe-webhook.integration.test.ts`
+  // Imported inside `beforeAll` for the reason `peable-webhook.integration.test.ts`
   // states: `config/index.ts` freezes `process.env` at module load and `app.ts`
   // decides its mounts from that frozen value.
   ({ createApp } = await import('../../../app.js'));

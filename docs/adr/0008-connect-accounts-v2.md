@@ -10,6 +10,9 @@
 > of what this repository does.
 
 - **Status:** Superseded by ADR 0009
+- **History:** `account.service.ts` and the rest of the direct Stripe rail were
+  deleted on 2026-11-05 under ADR 0009 D13, unported; D2-C/D2-D now bind
+  whoever builds seller onboarding on the gateway side.
 - **Date:** 2026-09-06
 - **Issue:** part of epic
   [#35](https://github.com/OxyHQ/Mercaria/issues/35)

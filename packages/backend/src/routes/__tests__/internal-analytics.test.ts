@@ -111,7 +111,6 @@ beforeAll(async () => {
   // Collection ON for the ingest cases.
   process.env.ANALYTICS_COLLECTION_MODE = 'full';
   process.env.ANALYTICS_ENABLED = 'true';
-  process.env.STRIPE_ENABLED = 'false';
   const { createApp } = await import('../../app.js');
   ({ server, url } = await listen(createApp()));
 }, 60_000);

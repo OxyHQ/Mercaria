@@ -107,7 +107,6 @@ async function listen(app: express.Express): Promise<{ server: Server; url: stri
 }
 
 beforeAll(async () => {
-  process.env.STRIPE_ENABLED = 'false';
   const { createApp } = await import('../../app.js');
   ({ server, url } = await listen(createApp()));
 }, 60_000);

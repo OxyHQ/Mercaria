@@ -59,7 +59,7 @@ afterEach(() => {
   resetReferralRiskPaymentFactsReader();
 });
 
-describe('the payout join fills both ports', () => {
+describe('the payout join fills its readers', () => {
   it('leaves both refusing until it is called', async () => {
     // The state of every deployment before #146, and the one both ports have to
     // fail closed in. `unknown` blocks in `deriveRewardPayability`; an absent
@@ -85,13 +85,14 @@ describe('the payout join fills both ports', () => {
     expect(UNREGISTERED_REFERRAL_RISK_PAYMENT_FACTS).toEqual({});
   });
 
-  it('fills the rail AND the readiness reader, never one of them', () => {
+  it('leaves the payout RAIL port empty — there is no rail since D13', () => {
+    // The direct Stripe Connect transfer was the only implementation, and it
+    // went with the direct Stripe rail (ADR 0009 D13). An empty port is a state
+    // the referral domain already handles: settlement fails
+    // `rail_not_configured`, retryably, and a rail registered later settles the
+    // queued batches on its next pass.
     registerReferralPayoutJoin();
-    expect(resolveReferralPayoutRail()).toBeTypeOf('function');
-    // The readiness port has no getter — reading it through its own resolver is
-    // the only way to tell, and a registered reader must not answer the
-    // unregistered constant.
-    expect(resolveReferralPayoutRail()).not.toBeUndefined();
+    expect(resolveReferralPayoutRail()).toBeUndefined();
   });
 
   it('fills #344s RISK-FACTS port too, which is the whole of that issue landing', async () => {
@@ -121,7 +122,7 @@ describe('the payout join fills both ports', () => {
       ownerType: 'user',
       ownerId: 'u1',
     });
-    // With `STRIPE_ENABLED` off the join answers `unknown` too — but from the
+    // With no card rail configured the join answers `unknown` too — but from the
     // JOIN's own disabled branch rather than from the port's default, and it
     // returns a fresh object rather than the shared constant. That distinction
     // is what stops this case passing when the registration silently did

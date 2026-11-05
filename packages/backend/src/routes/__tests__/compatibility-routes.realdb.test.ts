@@ -29,7 +29,7 @@
  * the same prefix for a vehicle nobody created.
  *
  * A real ephemeral listener and `fetch`, matching
- * `stripe-webhook.integration.test.ts` — this repository does not depend on
+ * `peable-webhook.integration.test.ts` — this repository does not depend on
  * supertest.
  */
 

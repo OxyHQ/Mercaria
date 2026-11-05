@@ -95,7 +95,8 @@ bounced knows only that it never came, which is `delivery_failure`.
 `safety_recall` is Mercaria acting on a #121 suppression, and letting a buyer
 declare one would put an unreviewed product-safety assertion into the record
 that decides whether OTHER buyers are contacted. `chargeback_coordination` is
-opened by a Stripe dispute event: a buyer who "files a chargeback" with Mercaria
+opened by the rail's dispute event (the Peable router delivers none yet, ADR 0009
+D13): a buyer who "files a chargeback" with Mercaria
 has actually filed one with their bank, and recording their claim as the dispute
 would make Mercaria's evidence deadline depend on when somebody happened to tell
 us.
@@ -432,8 +433,8 @@ somebody submits to a card network by mistake.
 
 Rule 3 is held by absence: there is no supplier column and no contact column on
 the table, and this domain composes no evidence payload and calls no provider.
-Submitting evidence is an operator act in Stripe's own dashboard, which is where
-the redaction decisions belong.
+Submitting evidence is an operator act on the acquirer's side, not in Mercaria,
+which is where the redaction decisions belong.
 
 **A dispute on a retail order has no transfer to reverse** (ADR 0004 diagram
 10): there is no connected seller, so the loss is platform-funded, and a

@@ -54,7 +54,7 @@ export interface PaymentMetrics {
   /**
    * Metrics 2 and 3: inbound event queue depth, processing lag and dead letters.
    *
-   * Reused verbatim from #48's `stripeWebhookStats` — the same figures `/health`
+   * Reused verbatim from `peableWebhookStats` — the same figures `/health`
    * reports, so an operator comparing the two is never looking at two
    * definitions of "lag". Absent when the rail is not configured.
    */
@@ -151,12 +151,12 @@ export async function collectPaymentMetrics(): Promise<PaymentMetrics> {
 /**
  * The inbound event queue's figures, or nothing.
  *
- * Absent rather than zeroed when the rail is off: a deployment with no Stripe
+ * Absent rather than zeroed when the rail is off: a deployment with no card rail
  * has no inbound stream, and reporting `pending: 0` for a queue that does not
  * exist would make a dashboard say the integration is healthy.
  */
 async function webhookStats(): Promise<{ webhooks?: ProviderEventStats }> {
-  if (!config.payments.stripe.enabled) return {};
-  const { stripeWebhookStats } = await import('../stripe/event-processor.js');
-  return { webhooks: await stripeWebhookStats() };
+  if (!config.payments.peable.enabled) return {};
+  const { peableWebhookStats } = await import('../peable/event-processor.js');
+  return { webhooks: await peableWebhookStats() };
 }

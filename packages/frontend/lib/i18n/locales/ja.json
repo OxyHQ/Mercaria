@@ -499,10 +499,6 @@
     },
     "backToOrders": "注文履歴に戻る",
     "checkLaterFromOrders": "あとで注文履歴から確認する",
-    "claim": {
-      "optional": "任意です。いずれの場合もご注文は確定しています。",
-      "saveToOxy": "この注文を Oxy に保存する"
-    },
     "deliverElsewhere": "別の住所に届ける",
     "destination": {
       "collectInPerson": "店頭で受け取る",
@@ -589,46 +585,24 @@
       "reservedSignedIn": "ご注文を確保しています。注文履歴からお支払いいただけます。"
     },
     "useSavedAddress": "保存した住所を使う",
-    "viewOrder": "注文を見る",
-    "viewOrders": "注文履歴を見る"
+    "viewOrder": "注文を見る"
   },
   "payment": {
     "cancelled": {
-      "body": "この支払いはキャンセルされ、請求は発生していません。",
       "bodyItemsReturned": "この支払いはキャンセルされ、請求は発生していません。商品は店舗の在庫に戻りました。",
       "title": "支払いをキャンセルしました"
     },
-    "card": {
-      "detailsNotConfirmed": "お支払い情報を確認できませんでした。",
-      "expressHeading": "ワンタップで支払う",
-      "notCompleted": "お支払いを完了できませんでした。",
-      "notConfigured": "このアプリではカード決済がまだ設定されていません。",
-      "orPayByCard": "またはカードで支払う",
-      "payNow": "支払う"
-    },
-    "cardDetailsNotice": "カード情報は決済代行会社に直接送られ、Mercaria には届きません。",
     "confirming": {
       "bankStillCompleting": "銀行がこの支払いを処理中です。少し時間がかかることがあります。",
-      "checkingWithBank": "銀行に確認しています。その間、ご注文は確保されています。",
-      "continueWithoutWaiting": "待たずに進む",
-      "pageTitle": "支払いを確認しています — Mercaria",
-      "returnBody": "銀行での手続きが終わり、こちらで支払いを確認しています。通常は数秒で完了します。",
       "title": "支払いを確認しています"
     },
-    "continue": "続ける",
+    "notConfigured": "このアプリではカード決済がまだ設定されていません。",
     "received": {
       "body": "ありがとうございます。ご注文が確定し、出品者に通知しました。",
       "title": "お支払いを受け取りました"
     },
-    "return": {
-      "missingGroup": "このリンクには対象の購入手続きが含まれていません。お支払いが完了していれば、ご注文は無事です。このページで変わることはありません。"
-    },
     "title": "お支払い",
-    "totalToPay": "お支払い金額",
-    "unreadable": {
-      "body": "ここからはこの支払いを確認できませんでした。完了していれば、ご注文は無事です。このページで変わることはありません。",
-      "title": "この支払いを読み取れませんでした"
-    }
+    "totalToPay": "お支払い金額"
   },
   "sellers": {
     "fallbackName": "出品者",

@@ -49,8 +49,8 @@ import {
  *
  * ## Hosted flows open in the SYSTEM browser
  *
- * Not a webview, exactly like payout onboarding: a provider's hosted checkout
- * and billing portal do not run inside one.
+ * Not a webview: a provider's hosted checkout and billing portal do not run
+ * inside one.
  */
 export default function PlanScreen() {
   const { t } = useTranslation();

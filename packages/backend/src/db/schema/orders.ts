@@ -179,7 +179,7 @@ export const REFUND_STATUSES: readonly RefundStatus[] = [
  * `payment_reference`), `shipping_tracking_number`, `moderation_hold`, the
  * claim pair, the four connector-sync `source_*` columns, and `updated_at`.
  * `created_at` also stays open, deliberately: it is the RESERVATION CLOCK, and
- * `services/__tests__/checkout.stripe.realdb.test.ts` moves it to travel past
+ * `services/__tests__/checkout.card.realdb.test.ts` moves it to travel past
  * the reservation TTL, which nothing else can express.
  *
  * `moderation_hold` is deliberately SEPARATE from `status`: a freeze is not a

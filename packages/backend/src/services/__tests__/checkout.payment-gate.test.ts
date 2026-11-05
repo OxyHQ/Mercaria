@@ -1,5 +1,5 @@
 /**
- * The checkout readiness gate, with the Stripe rail SWITCHED ON.
+ * The checkout readiness gate, with the Peable rail SWITCHED ON.
  *
  * A separate file from `checkout.service.test.ts` for one reason: `config` reads
  * `process.env` once at module load and freezes the result, so "the rail is on"
@@ -9,8 +9,8 @@
  *
  * ## What this file adds that the service-level tests cannot
  *
- * `account.service.realdb.test.ts` already proves the gate refuses an unready
- * seller against a real database. What is only observable HERE is the ORDER:
+ * `native-rail-readiness.realdb.test.ts` already proves the gate refuses an
+ * unready seller against a real database. What is only observable HERE is the ORDER:
  * that checkout consults it before `reserve` runs. Refusing after a reservation
  * would still refuse — and would hold somebody else's stock for the length of a
  * rollback, on a question that needed no stock to answer. So the assertion that
@@ -40,8 +40,8 @@ const ensurePayment = vi.fn();
 const attachPaymentProviderObject = vi.fn();
 const createPayment = vi.fn();
 const resumePayment = vi.fn();
-/** The Stripe adapter, reduced to the two methods this path calls. */
-const stripeProvider = {
+/** The Peable adapter, reduced to the two methods this path calls. */
+const peableProvider = {
   createPayment: (...args: unknown[]) => createPayment(...args),
   resumePayment: (...args: unknown[]) => resumePayment(...args),
 };
@@ -200,12 +200,12 @@ vi.mock('../fees/order-fees.service.js', async (importOriginal) => {
 // Both seams are mocked at the narrowest point that still leaves the code under
 // test real: `checkout-payment.service` — which resolves the rail, refuses an
 // ineligible currency and assembles the handoff — runs for real, and only the
-// payment aggregate's persistence and the Stripe adapter behind it are faked.
+// payment aggregate's persistence and the Peable adapter behind it are faked.
 vi.mock('../payments/payment.service.js', () => ({
   ensurePayment: (...args: unknown[]) => ensurePayment(...args),
 }));
 vi.mock('../payments/registry.js', () => ({
-  resolvePaymentProvider: () => stripeProvider,
+  resolvePaymentProvider: () => peableProvider,
 }));
 vi.mock('../../db/payments/paymentRepository.js', () => ({
   attachPaymentProviderObject: (...args: unknown[]) => attachPaymentProviderObject(...args),
@@ -236,15 +236,15 @@ let checkout: typeof import('../checkout.service.js').checkout;
 beforeAll(async () => {
   // Set BEFORE importing anything that reads config: `config/index.ts` reads
   // process.env once at module load and freezes the result.
-  process.env.STRIPE_ENABLED = 'true';
-  process.env.STRIPE_SECRET_KEY = 'sk_test_not_a_real_key';
-  process.env.STRIPE_WEBHOOK_SECRET = 'whsec_gate_platform_not_a_real_one';
-  process.env.STRIPE_CONNECT_WEBHOOK_SECRET = 'whsec_gate_connect_not_a_real_one';
+  process.env.PEABLE_ENABLED = 'true';
+  process.env.PEABLE_BASE_URL = 'https://api.peable.test';
+  process.env.PEABLE_WEBHOOK_SECRET = 'pwhsec_gate_not_a_real_one';
   // Set EXPLICITLY, not inherited. vitest reuses a worker PROCESS across files
   // while giving each its own module registry, so a sibling file's `process.env`
   // write survives into this one's `config` — and a test that asserts the
   // handoff would then pass or fail on which file ran first in that worker.
-  process.env.STRIPE_PUBLISHABLE_KEY = 'pk_test_gate_not_a_real_key';
+  delete process.env.PEABLE_PRESENTMENT_CURRENCIES;
+  delete process.env.CHECKOUT_PAYMENT_SURFACE_METHODS;
 
   ({ checkout } = await import('../checkout.service.js'));
 });
@@ -253,7 +253,7 @@ beforeAll(async () => {
  * A `DualMoney` in EUR where shop == presentment.
  *
  * EUR and not FAIR, throughout this file, because the rail is ON here: ADR 0001
- * D8 makes FAIR unroutable through Stripe, so a FAIR cart is refused for its
+ * D8 makes FAIR unroutable on the card rail, so a FAIR cart is refused for its
  * CURRENCY before the readiness gate this file is about is ever consulted.
  */
 function eurDual(amount: number): DualMoney {
@@ -388,7 +388,7 @@ const addressRow = {
 function accountRow(onboardingState: string) {
   return {
     id: 'provider-account-1',
-    provider: 'stripe',
+    provider: 'peable',
     ownerType: 'store',
     ownerId: STORE,
     onboardingState,
@@ -416,7 +416,7 @@ beforeEach(() => {
   ensurePayment.mockReset().mockResolvedValue({
     id: 'payment-gate',
     checkoutGroupId: 'group-gate',
-    provider: 'stripe',
+    provider: 'peable',
     status: 'created',
     presentmentAmount: 1000,
     presentmentCurrency: 'EUR',
@@ -459,7 +459,7 @@ beforeEach(() => {
   findProviderAccountByOwner.mockReset();
 });
 
-describe('checkout with the Stripe rail on', () => {
+describe('checkout with the Peable rail on', () => {
   it('refuses a seller who has never onboarded, naming their group', async () => {
     findProviderAccountByOwner.mockResolvedValue(undefined);
 
@@ -524,11 +524,8 @@ describe('checkout with the Stripe rail on', () => {
     // nothing else (issue #47, backend 7).
     expect(result.payment).toEqual({
       paymentId: 'payment-gate',
-      provider: 'stripe',
+      provider: 'peable',
       clientSecret: 'pi_gate_secret_x',
-      // The SERVER's publishable key, which belongs to the account that created
-      // the payment. The app's own build-time key is only the fallback.
-      publishableKey: 'pk_test_gate_not_a_real_key',
       amount: { amount: 1000, currency: 'EUR' },
       // #107's server-authoritative payment surfaces (ADR 0006 G2/G14) — what a
       // client may RENDER, decided by the server and narrowed further by the
@@ -547,7 +544,7 @@ describe('checkout with the Stripe rail on', () => {
     );
     // Asked about the right seller, in the shape the gate derives from the key.
     expect(findProviderAccountByOwner).toHaveBeenCalledWith(expect.anything(), {
-      provider: 'stripe',
+      provider: 'peable',
       ownerType: 'store',
       ownerId: STORE,
     });

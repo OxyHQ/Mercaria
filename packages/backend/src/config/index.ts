@@ -36,7 +36,6 @@ import {
 } from '@mercaria/shared-types';
 import { tmpdir } from 'node:os';
 import { PRINTFUL_BASE_URL } from '../services/printful/transport-contract.js';
-import { parseThreeDSecureThresholds } from '../services/payments/stripe/three-d-secure.js';
 import { parseHighValueHoldThresholds } from '../services/payments/high-value-hold.js';
 import { join } from 'node:path';
 import { log } from '../lib/logger.js';
@@ -531,7 +530,7 @@ function resolveCrowdSourceEnabled(): boolean {
  * renders correctly.
  *
  * This gates the MOUNT, unlike most levers here, and that is deliberate for the
- * reason the Stripe webhook mount gives: without a secret there is nothing to
+ * reason the Peable webhook mount gives: without a secret there is nothing to
  * verify, so accepting a token to resolve later would be acting on a stranger's
  * opinion about which offer to redirect to. It gates NO durable record — clicks
  * are written by the route, so an unmounted route writes none, and there is no
@@ -574,21 +573,6 @@ function resolveReferralsEnabled(): boolean {
 }
 
 /**
- * Whether the Stripe rail is switched on.
- *
- * The `resolveCrowdSourceEnabled` rule, applied to a rail where the consequence
- * of getting it wrong is money rather than reviewer time. `STRIPE_ENABLED=true`
- * requires the secret key AND BOTH webhook secrets (ADR 0001, "Environment"),
- * because the two endpoints are two independent halves of the same integration:
- * a deployment with the platform secret and no Connect secret verifies payment
- * events and rejects every `account.updated`, so sellers silently stop becoming
- * payment-ready while charges keep succeeding. Half-configured is worse than off
- * and says so once at boot.
- *
- * There is no `STRIPE_ACCOUNT_ID`: the platform account is implied by the key,
- * and connected-account ids live only in provider-account records (#46).
- */
-/**
  * The Peable rail is ON only when the operator asked for it AND every secret it
  * cannot work without is present.
  *
@@ -622,54 +606,14 @@ function resolvePeableEnabled(): boolean {
   return false;
 }
 
-function resolveStripeEnabled(): boolean {
-  if (!boolEnv('STRIPE_ENABLED', false)) return false;
-
-  const missing = (
-    ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_CONNECT_WEBHOOK_SECRET'] as const
-  ).filter((name) => (process.env[name]?.trim() ?? '') === '');
-  if (missing.length === 0) return true;
-
-  log.general.error(
-    { missing },
-    '[Stripe] STRIPE_ENABLED is set but the integration is incomplete; staying OFF. ' +
-      'No webhook endpoint is mounted and no payment can be created.',
-  );
-  return false;
-}
-
-/**
- * Split `STRIPE_SELLER_COUNTRIES` into an upper-cased allow-list.
- *
- * Constrained by ADR 0001 D8 to the {US, CA, UK, EEA, CH} transfer region, but
- * NOT validated against that set here: the region is Stripe's and changes on
- * their schedule, so a hard-coded list in this file would eventually refuse a
- * country Stripe had started supporting. Onboarding (#46) is where a country is
- * checked, against this list.
- */
-function resolveStripeSellerCountries(): readonly string[] {
-  return strEnv('STRIPE_SELLER_COUNTRIES', 'ES')
-    .split(',')
-    .map((code) => code.trim().toUpperCase())
-    .filter((code) => code !== '');
-}
-
 /**
  * Split a presentment-currency variable into the currencies a card checkout on
  * that rail may be denominated in — ADR 0001 D8, `EUR` and `USD` at launch.
  *
- * ONE function for both rails rather than one per rail. The two sets are
- * genuinely independent — each rail's acquirer decides what it can charge, and
- * ADR 0009 D19 lets a deployment run either — but the PARSING is the same
- * question, and a second copy is where the validation below silently stops
- * applying to the newer rail.
- *
- * VALIDATED against `ALL_CURRENCY_CODES`, unlike the seller countries above,
- * and the asymmetry is the point: a country is the acquirer's vocabulary and
- * changes on their schedule, while a currency code has to exist in Mercaria's
- * own closed set or nothing downstream can price, convert or store it. A typo
- * would otherwise become a checkout that refuses every cart with a message
- * naming a currency that does not exist.
+ * VALIDATED against `ALL_CURRENCY_CODES`: a currency code has to exist in
+ * Mercaria's own closed set or nothing downstream can price, convert or store
+ * it. A typo would otherwise become a checkout that refuses every cart with a
+ * message naming a currency that does not exist.
  */
 function resolvePresentmentCurrencies(variable: string, rail: string): readonly CurrencyCode[] {
   const configured = strEnv(variable, 'EUR,USD')
@@ -692,34 +636,7 @@ function resolvePresentmentCurrencies(variable: string, rail: string): readonly 
 }
 
 /**
- * Parse `STRIPE_3DS_THRESHOLDS` — `EUR:50000,USD:50000`, in MINOR units.
- *
- * The parsing itself is `three-d-secure.ts`'s, so the rule and its tests live
- * with the policy rather than in this file, and both branches stay reachable
- * from a test whatever this deployment is configured with.
- *
- * A rejected entry is LOGGED and dropped, which leaves its currency with no
- * threshold — and no threshold means authenticate every payment. So a typo
- * costs friction and never exposure, which is the only direction worth
- * defaulting.
- */
-function resolveThreeDSecureThresholds(): Readonly<Partial<Record<CurrencyCode, number>>> {
-  const { thresholds, rejected } = parseThreeDSecureThresholds(
-    strEnv('STRIPE_3DS_THRESHOLDS', ''),
-    (code): code is CurrencyCode => (ALL_CURRENCY_CODES as readonly string[]).includes(code),
-  );
-  if (rejected.length > 0) {
-    log.general.error(
-      { rejected },
-      '[Stripe] STRIPE_3DS_THRESHOLDS has entries Mercaria cannot read; they are dropped, ' +
-        'and a currency with no threshold requests authentication on EVERY payment.',
-    );
-  }
-  return Object.freeze(thresholds as Partial<Record<CurrencyCode, number>>);
-}
-
-/**
- * Parse `STRIPE_HIGH_VALUE_HOLD_THRESHOLDS`. See the config field.
+ * Parse `HIGH_VALUE_HOLD_THRESHOLDS`. See the config field.
  *
  * A rejected entry leaves its currency with NO hold, which settles — the same
  * direction as the missing-entry default, because the protective direction is
@@ -728,13 +645,13 @@ function resolveThreeDSecureThresholds(): Readonly<Partial<Record<CurrencyCode, 
  */
 function resolveHighValueHoldThresholds(): Readonly<Partial<Record<CurrencyCode, number>>> {
   const { thresholds, rejected } = parseHighValueHoldThresholds(
-    strEnv('STRIPE_HIGH_VALUE_HOLD_THRESHOLDS', ''),
+    strEnv('HIGH_VALUE_HOLD_THRESHOLDS', ''),
     (code): code is CurrencyCode => (ALL_CURRENCY_CODES as readonly string[]).includes(code),
   );
   if (rejected.length > 0) {
     log.general.error(
       { rejected },
-      '[Stripe] STRIPE_HIGH_VALUE_HOLD_THRESHOLDS has entries Mercaria cannot read; they are ' +
+      '[Payments] HIGH_VALUE_HOLD_THRESHOLDS has entries Mercaria cannot read; they are ' +
         'dropped, and a currency with no threshold settles immediately.',
     );
   }
@@ -742,8 +659,8 @@ function resolveHighValueHoldThresholds(): Readonly<Partial<Record<CurrencyCode,
 }
 
 /**
- * Split `STRIPE_PAYMENT_SURFACE_METHODS` into the surfaces a client may render
- * — #107's payment-method kill switch. See {@link StripeConfig.paymentSurfaceMethods}.
+ * Split `CHECKOUT_PAYMENT_SURFACE_METHODS` into the surfaces a client may render
+ * — #107's payment-method kill switch. See {@link PaymentsConfig.paymentSurfaceMethods}.
  *
  * VALIDATED against the closed tuple, for the reason
  * `resolvePresentmentCurrencies` validates its own: a surface Mercaria
@@ -752,13 +669,13 @@ function resolveHighValueHoldThresholds(): Readonly<Partial<Record<CurrencyCode,
  *
  * `card` is re-added whatever the variable says, and that is not a silent
  * override of an operator's intent — it is the difference between narrowing a
- * checkout and breaking it. "No card form at all" is `STRIPE_ENABLED=false`,
- * which also unmounts the webhooks and is a decision with a blast radius; a
+ * checkout and breaking it. "No card form at all" is `PEABLE_ENABLED=false`,
+ * which turns the rail off and is a decision with a blast radius; a
  * method list that could produce it by typo would be an incident lever whose
  * worst failure is silent.
  */
-function resolveStripePaymentSurfaceMethods(): readonly CheckoutPaymentSurfaceMethod[] {
-  const raw = process.env.STRIPE_PAYMENT_SURFACE_METHODS?.trim();
+function resolvePaymentSurfaceMethods(): readonly CheckoutPaymentSurfaceMethod[] {
+  const raw = process.env.CHECKOUT_PAYMENT_SURFACE_METHODS?.trim();
   if (raw === undefined || raw === '') return [...CHECKOUT_PAYMENT_SURFACE_METHODS];
 
   const configured = raw
@@ -773,7 +690,7 @@ function resolveStripePaymentSurfaceMethods(): readonly CheckoutPaymentSurfaceMe
   if (unknown.length > 0) {
     log.general.error(
       { unknown, known },
-      '[Stripe] STRIPE_PAYMENT_SURFACE_METHODS names payment surfaces Mercaria does not know; ' +
+      '[Payments] CHECKOUT_PAYMENT_SURFACE_METHODS names payment surfaces Mercaria does not know; ' +
         'they are ignored.',
     );
   }
@@ -803,11 +720,10 @@ function blockedListEnv(name: string, casing: 'upper' | 'lower'): readonly strin
  * before #105 — so adding the lever changes nothing until somebody sets it, and
  * no existing buyer's saved address becomes undeliverable on deploy.
  *
- * It is deliberately NOT derived from `STRIPE_SELLER_COUNTRIES`: that list says
- * where a SELLER's payout account may be incorporated (ADR 0001 D8), which is a
- * different question from where a parcel may go, and conflating them would
- * silently refuse an EEA seller shipping to a buyer one country outside the
- * list. Real per-carrier destination coverage belongs to Moovo and this repo
+ * It is deliberately NOT derived from where a SELLER's payout account may be
+ * incorporated (ADR 0001 D8), which is a different question from where a
+ * parcel may go, and conflating them would silently refuse an EEA seller
+ * shipping to a buyer one country outside that region. Real per-carrier destination coverage belongs to Moovo and this repo
  * must not recreate it (`AGENTS.md` §Shipping); this is Mercaria's own market
  * policy and nothing more.
  *
@@ -1029,26 +945,6 @@ function resolveAnalyticsEnabled(): boolean {
   return boolEnv('ANALYTICS_ENABLED', false);
 }
 
-/**
- * The currency the platform account settles in — ADR 0001 D8, `EUR`.
- *
- * Falls back to `EUR` when the configured value is not a currency Mercaria
- * knows, because this one is load-bearing in a way the list above is not: every
- * transfer is denominated in it and every ledger leg of a card charge is booked
- * in it, so an unrecognised value would produce rows no report could sum.
- */
-function resolveStripePlatformCurrency(): CurrencyCode {
-  const configured = strEnv('STRIPE_PLATFORM_CURRENCY', 'EUR').trim().toUpperCase();
-  if ((ALL_CURRENCY_CODES as readonly string[]).includes(configured)) {
-    return configured as CurrencyCode;
-  }
-  log.general.error(
-    { configured },
-    '[Stripe] STRIPE_PLATFORM_CURRENCY is not a currency Mercaria knows; falling back to EUR.',
-  );
-  return 'EUR';
-}
-
 export interface WebConfig {
   /**
    * The storefront origin, used to build permalinks.
@@ -1072,221 +968,6 @@ export interface CrowdSourceConfig {
 }
 
 /**
- * The Stripe rail's configuration. Names are ADR 0001's, verbatim.
- *
- * The API VERSION is deliberately absent: it is a code constant
- * (`STRIPE_API_VERSION` in `services/payments/stripe/api-version.ts`), because
- * an event payload's shape is a property of the code that parses it. An env var
- * would let a deployment be pointed at a version whose fixtures were never
- * verified — silently, and only for the events that actually changed shape.
- */
-export interface StripeConfig {
-  /**
-   * Whether the rail is configured at all. Gates the webhook MOUNT, not just the
-   * handler: a deployment without Stripe answers 404 on those paths, which is
-   * the truthful answer and stops an endpoint being registered in the Stripe
-   * dashboard against a deployment that could never verify its deliveries.
-   *
-   * Note this is NOT the `crowdSource.enabled`/`payments.outboxEnabled` shape,
-   * where the loop is gated and the durable record never is. There is nothing to
-   * park here: an unconfigured deployment has no secret and therefore cannot
-   * tell a real delivery from a forged one, so accepting the bytes to process
-   * later would be storing a stranger's opinion.
-   */
-  readonly enabled: boolean;
-  /** The platform secret key. `sk_test_…` or `sk_live_…`; see `livemode`. */
-  readonly secretKey: string;
-  /** Platform-scope endpoint secret (`connect=false` events). */
-  readonly webhookSecret: string;
-  /** Accepted alongside the current one during a rotation window. */
-  readonly webhookSecretPrevious?: string;
-  /** Connect-scope endpoint secret (`connect=true` events). */
-  readonly connectWebhookSecret: string;
-  /** Accepted alongside the current one during a rotation window. */
-  readonly connectWebhookSecretPrevious?: string;
-  /**
-   * Which mode this deployment is. DERIVED from the secret key's prefix rather
-   * than configured, because it is not an independent fact: a `sk_test_` key can
-   * only ever see test objects, so a variable able to disagree with it could
-   * only ever be wrong. An event whose `livemode` does not match is acknowledged
-   * and dropped — a production URL receives test events too (ADR 0001).
-   */
-  readonly livemode: boolean;
-  /**
-   * The platform's PUBLISHABLE key, returned to a buyer's client beside the
-   * client secret when it is set.
-   *
-   * Optional, and its absence is an ordinary configuration: an app built with
-   * `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` already has one. It exists because the
-   * publishable key and the secret key that created the payment MUST belong to
-   * the same Stripe account, and two independently-configured values can
-   * silently disagree — after which every confirmation fails with an error that
-   * reads as a client bug. Returning it from the server makes them one fact.
-   *
-   * It is a public value by construction (`pk_test_…`/`pk_live_…`), so unlike
-   * every other key here it may travel to a client.
-   */
-  readonly publishableKey?: string;
-  /** Seller countries onboarding accepts (#46). ADR 0001 D8. */
-  readonly sellerCountries: readonly string[];
-  /**
-   * The currency the platform account settles in — ADR 0001 D8.
-   *
-   * Every transfer to a seller is denominated in it (a transfer's currency must
-   * match the charge's balance-transaction currency), and a card charge's ledger
-   * legs are booked in it, so this is the currency Mercaria's card money
-   * actually moves in. `EUR`, with a platform account in Spain.
-   */
-  readonly platformCurrency: CurrencyCode;
-  /**
-   * The presentment currencies a card checkout may be denominated in — ADR 0001
-   * D8: `EUR` and `USD` at launch.
-   *
-   * A cart in anything else is refused BEFORE any stock is reserved, naming this
-   * set. It is an allow-list rather than "whatever Stripe accepts" because the
-   * constraint is Mercaria's: every currency here has to be one the FX service
-   * can quote, the ledger can hold and an operator can reconcile.
-   */
-  readonly presentmentCurrencies: readonly CurrencyCode[];
-  /**
-   * Attempts after which a retryable processing failure becomes a `dead_letter`.
-   *
-   * Much smaller than the outbox's 25, deliberately. An outbox row is Mercaria's
-   * own consequence and the only way it ever happens; a provider event that
-   * cannot be interpreted is one Stripe is also retrying, and whose object can
-   * be re-read from Stripe at any time by the reconciliation sweep (#50). Eight
-   * attempts at exponential backoff is a bit over a day — long enough to ride
-   * out an outage, short enough that a genuinely unmappable event reaches an
-   * operator while the context is still fresh.
-   */
-  readonly eventMaxAttempts: number;
-  /** Rows the event dispatcher claims per tick. */
-  readonly eventBatchSize: number;
-  /** How often the event dispatcher looks for due work. */
-  readonly eventPollIntervalMs: number;
-  /** How long a claimed event row is leased for. */
-  readonly eventLeaseMs: number;
-  /**
-   * This API's own public origin, e.g. `https://api.mercaria.co`.
-   *
-   * Stripe's hosted onboarding needs a `refresh_url` and a `return_url`, and
-   * both point back HERE rather than at an app: a browser redirect proves
-   * nothing about readiness (ADR 0001 D2), so the API receives the round trip,
-   * verifies the signed state it issued, and only then sends the seller onward.
-   *
-   * Configured rather than derived from the request, which is the whole point:
-   * `req.get('host')` behind an ALB is attacker-controlled, and a redirect URL
-   * built from it is an open redirect with a Stripe-branded first hop.
-   *
-   * ## Optional here, REQUIRED at use
-   *
-   * The three onboarding values below deliberately do NOT join
-   * `resolveStripeEnabled`'s required set, unlike the two webhook secrets. That
-   * rule exists for a SILENT failure — a deployment missing the Connect secret
-   * verifies charges and drops every `account.updated`, so sellers stop becoming
-   * ready with nothing to see. Missing onboarding configuration is the opposite:
-   * the onboarding route fails immediately, loudly, naming the variable, and the
-   * already-shipped webhook ingress keeps working meanwhile. Turning the whole
-   * rail off for it would take payments down to fix an onboarding typo.
-   *
-   * `stripeOnboardingConfig()` in `services/payments/stripe/onboarding-config.ts`
-   * is the one reader, and it names every missing variable at once.
-   */
-  readonly onboardingBaseUrl?: string;
-  /** Where the seller's browser lands after the hosted flow — the dashboard. */
-  readonly onboardingReturnUrl?: string;
-  /** HMAC secret for the signed, expiring onboarding round-trip state token. */
-  readonly onboardingStateSecret?: string;
-  /**
-   * How long an account may go unread before the reconciliation sweep refreshes
-   * it. Six hours: long enough that the sweep is a safety net rather than a
-   * polling loop, short enough that a webhook Stripe never delivered costs a
-   * seller part of a day rather than a support ticket.
-   */
-  readonly accountSyncStaleAfterMs: number;
-  /** Accounts the sweep refreshes per tick — one Stripe API call each. */
-  readonly accountSyncBatchSize: number;
-  /** How often the sweep looks for stale accounts. */
-  readonly accountSyncIntervalMs: number;
-  /**
-   * Which payment SURFACES a client may render — `STRIPE_PAYMENT_SURFACE_METHODS`,
-   * defaulting to every member of `CHECKOUT_PAYMENT_SURFACE_METHODS`.
-   *
-   * #107's payment-method kill switch, and it is DEPLOYMENT-WIDE rather than
-   * guest-scoped. ADR 0006 G2 puts both actor kinds on one `CardPaymentStep`,
-   * so a wallet whose domain registration lapsed or whose sheet is broken is
-   * broken for everybody — a guest-only lever would be a second answer to one
-   * question, drifting from the first exactly when somebody is using it in an
-   * incident.
-   *
-   * `card` is refused as a removal: a checkout with no way to enter a card is
-   * a checkout nobody can complete, and the lever for that is `STRIPE_ENABLED`.
-   * Narrowing to the empty set therefore cannot happen by typo.
-   *
-   * This can only ever REMOVE a surface. Adding `link` here does not add
-   * Stripe's `link` payment-method TYPE to the adapter's `['card']` constant
-   * (ADR 0006 G15) — Link surfaces as autofill over the card form and every
-   * resulting charge is a card charge.
-   */
-  readonly paymentSurfaceMethods: readonly CheckoutPaymentSurfaceMethod[];
-  /**
-   * Where a buyer sent to their bank for authentication comes back to —
-   * `STRIPE_CHECKOUT_RETURN_URL`, ADR 0006 G10.
-   *
-   * Configured rather than derived from the request, for the reason
-   * `onboardingBaseUrl` is: `req.get('host')` behind an ALB is
-   * attacker-controlled, so a return URL built from it is an open redirect with
-   * a bank's own first hop in front of it.
-   *
-   * Optional, like the onboarding URLs and unlike the webhook secrets. Its
-   * absence has no silent failure mode: `confirmPayment` runs with
-   * `redirect: 'if_required'`, in-frame 3-D Secure still completes, and an
-   * authentication that insists on a full redirect fails visibly in front of
-   * the buyer instead of landing somewhere unintended. Requiring it would take
-   * the whole rail down over a URL typo.
-   */
-  readonly checkoutReturnUrl?: string;
-  /**
-   * The order value, PER CURRENCY, above which Mercaria asks the issuer to
-   * authenticate the card — `STRIPE_3DS_THRESHOLDS`, minor units.
-   *
-   * A loss control rather than a friction setting: an authenticated payment
-   * shifts liability for a fraudulent chargeback to the ISSUER, and ADR 0001 D2
-   * puts the losses on Mercaria (`controller.losses.payments = 'application'`).
-   *
-   * Per currency because a minor-unit amount is meaningless without one — JPY
-   * has no minor unit and FAIR has eight, so one global integer would mean
-   * three different real amounts across the presentment set.
-   *
-   * A currency ABSENT from this map asks on every payment. See
-   * `services/payments/stripe/three-d-secure.ts` for why that direction, and
-   * for why relying on Stripe's `automatic` behaviour does not work on a US
-   * acquiring entity serving EEA cards.
-   */
-  readonly threeDSecureThresholds: Readonly<Partial<Record<CurrencyCode, number>>>;
-  /**
-   * The transfer amount, PER CURRENCY, above which a seller's share waits
-   * before it leaves — `STRIPE_HIGH_VALUE_HOLD_THRESHOLDS`, minor units.
-   *
-   * EMPTY by default, and that is the opposite default from
-   * {@link threeDSecureThresholds} on purpose: an unconfigured currency there
-   * costs friction, and here it would freeze every payout on a deployment
-   * nobody configured. See `services/payments/high-value-hold.ts`.
-   */
-  readonly highValueHoldThresholds: Readonly<Partial<Record<CurrencyCode, number>>>;
-  /**
-   * How long a held transfer waits — `STRIPE_HIGH_VALUE_HOLD_WINDOW_MS`.
-   *
-   * A REVIEW window, not a dispute window. A chargeback can arrive 120 days
-   * later and no marketplace holds a payout that long; this is the span in
-   * which most card fraud actually surfaces. Zero disables the hold outright,
-   * which is the same lever as an empty threshold map and is stated separately
-   * so an incident can stop holding without editing a per-currency list.
-   */
-  readonly highValueHoldWindowMs: number;
-}
-
-/**
  * The reconciliation sweeps (#50).
  *
  * Every value here bounds WORK rather than correctness: a sweep that runs less
@@ -1297,7 +978,7 @@ export interface StripeConfig {
  */
 export interface ReconciliationConfig {
   /**
-   * Whether the sweeps RUN. Like the outbox's flag and unlike `STRIPE_ENABLED`,
+   * Whether the sweeps RUN. Like the outbox's flag and unlike `PEABLE_ENABLED`,
    * this gates only the loop: the discrepancy rows a manual run writes are
    * durable whatever it says, and switching it off during an incident stops the
    * sweeps competing with whatever an operator is doing by hand.
@@ -1318,15 +999,6 @@ export interface ReconciliationConfig {
    * much worse `payment_succeeded_after_release`.
    */
   readonly openPaymentMinAgeMs: number;
-  /**
-   * How far back a full pass looks when it has never completed one.
-   *
-   * Only ever used to seed `window_start_at`; after the first completed pass the
-   * cursor row carries the real boundary and this is not read again. Seven days
-   * because that is comfortably past every provider's own redelivery schedule —
-   * a discrepancy older than that was never going to be found by a webhook.
-   */
-  readonly lookbackMs: number;
 }
 
 /**
@@ -1339,8 +1011,8 @@ export interface ReconciliationConfig {
  */
 export interface PeableConfig {
   /**
-   * True only when `PEABLE_ENABLED` is set, every required secret is present
-   * AND Mercaria has an Oxy identity to authenticate with.
+   * True only when `PEABLE_ENABLED` is set and both `PEABLE_BASE_URL` and
+   * `PEABLE_WEBHOOK_SECRET` are present.
    */
   readonly enabled: boolean;
   readonly baseUrl: string;
@@ -1362,23 +1034,17 @@ export interface PeableConfig {
   /** Derived from the environment, never configured. */
   readonly livemode: boolean;
   /**
-   * The inbound event drain, mirroring Stripe's four.
-   *
-   * Its OWN keys rather than borrowing `stripe.event*`, because the two rails
-   * are drained by two pollers with two claim scopes and the day one of them
-   * needs a longer lease or a bigger batch is the day a shared key becomes a
-   * change to the other rail nobody asked for.
+   * The inbound event drain: attempts before a dead letter, rows per tick,
+   * poll interval and lease.
    */
   readonly eventMaxAttempts: number;
   readonly eventBatchSize: number;
   readonly eventPollIntervalMs: number;
   readonly eventLeaseMs: number;
   /**
-   * What a card checkout on THIS rail may be denominated in.
+   * What a card checkout on this rail may be denominated in.
    *
-   * Its own variable rather than Stripe's, because the two rails have two
-   * acquirers and only one of them may be configured on a given deployment
-   * (ADR 0009 D19). Defaults to ADR 0001 D8's launch set, which is Mercaria
+   * Defaults to ADR 0001 D8's launch set, which is Mercaria
    * stating what it BELIEVES the gateway can charge — the gateway's own
    * configuration is the authority, and a disagreement surfaces as a refusal
    * from Peable rather than as a silently wrong checkout.
@@ -1409,14 +1075,46 @@ export interface PaymentsConfig {
    * row is reclaimed, so this is also the longest a crash can strand one.
    */
   readonly outboxLeaseMs: number;
-  /** The Stripe rail (ADR 0001, issues #46–#50). */
-  readonly stripe: StripeConfig;
-  /**
-   * The Peable rail (ADR 0009 D13) — the Oxy gateway Mercaria's card payments
-   * go through. `stripe` stays beside it until the new rail is verified end to
-   * end, which is what keeps checkout up across the move.
-   */
+  /** The Peable rail (ADR 0009) — the Oxy gateway Mercaria's card payments go through. */
   readonly peable: PeableConfig;
+  /**
+   * Which payment SURFACES a client may render — `CHECKOUT_PAYMENT_SURFACE_METHODS`,
+   * defaulting to every member of `CHECKOUT_PAYMENT_SURFACE_METHODS`.
+   *
+   * #107's payment-method kill switch, and it is DEPLOYMENT-WIDE rather than
+   * guest-scoped. ADR 0006 G2 puts both actor kinds on one `CardPaymentStep`,
+   * so a wallet whose domain registration lapsed or whose sheet is broken is
+   * broken for everybody — a guest-only lever would be a second answer to one
+   * question, drifting from the first exactly when somebody is using it in an
+   * incident.
+   *
+   * `card` is refused as a removal: a checkout with no way to enter a card is
+   * a checkout nobody can complete, and the lever for that is `PEABLE_ENABLED`.
+   * Narrowing to the empty set therefore cannot happen by typo.
+   *
+   * This can only ever REMOVE a surface (ADR 0006 G15): Link surfaces as
+   * autofill over the card form and every resulting charge is a card charge.
+   */
+  readonly paymentSurfaceMethods: readonly CheckoutPaymentSurfaceMethod[];
+  /**
+   * The transfer amount, PER CURRENCY, above which a seller's share waits
+   * before it leaves — `HIGH_VALUE_HOLD_THRESHOLDS`, minor units.
+   *
+   * EMPTY by default: an unconfigured currency settles, because the protective
+   * default here would freeze every payout on a deployment nobody configured. See `services/payments/high-value-hold.ts`.
+   */
+  readonly highValueHoldThresholds: Readonly<Partial<Record<CurrencyCode, number>>>;
+  /**
+   * How long a held transfer waits — `HIGH_VALUE_HOLD_WINDOW_MS`.
+   *
+   * A REVIEW window, not a dispute window. A chargeback can arrive 120 days
+   * later and no marketplace holds a payout that long; this is the span in
+   * which most card fraud actually surfaces. Zero disables the hold outright,
+   * which is the same lever as an empty threshold map and is stated separately
+   * so an incident can stop holding without editing a per-currency list.
+   */
+  readonly highValueHoldWindowMs: number;
+
   /** Reconciliation and the operator surface (#50). */
   readonly reconciliation: ReconciliationConfig;
 }
@@ -1428,7 +1126,7 @@ export interface GuestConfig {
   /**
    * Whether guest commerce exists on this deployment — see
    * `resolveGuestCommerceEnabled`. Gates the `/guest/session` MOUNT (an
-   * unconfigured deployment answers 404, the `STRIPE_ENABLED` rule) and the
+   * unconfigured deployment answers 404, the webhook-mount rule) and the
    * resolver's willingness to read guest credentials at all.
    */
   readonly enabled: boolean;
@@ -1775,7 +1473,7 @@ export interface GuestPortalConfig {
  * ## Why block lists and not allow lists
  *
  * The house convention elsewhere (`CHECKOUT_DESTINATION_COUNTRIES`,
- * `STRIPE_PRESENTMENT_CURRENCIES`) is an allow-list whose empty value means
+ * `PEABLE_PRESENTMENT_CURRENCIES`) is an allow-list whose empty value means
  * unrestricted, and that is right for a market POLICY: the set is small, known
  * and changes with a business decision. These four are not policy, they are
  * incident levers, and the two want opposite defaults. Turning one market off
@@ -1784,7 +1482,7 @@ export interface GuestPortalConfig {
  * the one failure an incident lever must not have.
  *
  * The fourth dimension #107 names — payment method — is deliberately NOT here:
- * it is `stripe.paymentSurfaceMethods`, deployment-wide, for the reason stated
+ * it is `payments.paymentSurfaceMethods`, deployment-wide, for the reason stated
  * there.
  *
  * ## None of them gates anything durable
@@ -2614,7 +2312,7 @@ export interface CanonicalRolloutConfig {
    * `CATALOG_BACKFILL_MAX_ATTEMPTS` — consecutive failed pages before a run is
    * released `failed` and stops being claimable (#367 W16 line 759).
    *
-   * 8 is INHERITED, not chosen: `STRIPE_EVENT_MAX_ATTEMPTS`,
+   * 8 is INHERITED, not chosen: `PEABLE_EVENT_MAX_ATTEMPTS`,
    * `GUEST_PORTAL_MESSAGE_MAX_ATTEMPTS`, `GUEST_CLAIM_JOB_MAX_ATTEMPTS`,
    * `PRICE_ALERT_NOTIFICATION_MAX_ATTEMPTS` and both `SHOPPING_AGENT_*` all say
    * 8. The outlier has a reason that does not transfer —
@@ -3410,7 +3108,7 @@ export interface MerchantActivationConfig {
   /**
    * `MERCHANT_ACTIVATION_OBSERVATION_ENABLED` — the sweep LOOP, never a row.
    *
-   * Most activation transitions have no actor at all: Stripe restricts an
+   * Most activation transitions have no actor at all: a rail restricts an
    * account, a connector stops delivering, a jury restricts a catalogue. Nothing
    * in those domains knows this one exists, so the only way a transition gets
    * audited is somebody looking — which is what the sweep does. With it off,
@@ -3792,7 +3490,7 @@ export interface DigitalCommerceConfig {
    * Whether a creator may upload asset files at all — `DIGITAL_UPLOADS_ENABLED`.
    *
    * Gates the MOUNT of the creator upload routes (404 when off, the
-   * `STRIPE_ENABLED` rule: an unconfigured surface does not exist rather than
+   * webhook-mount rule: an unconfigured surface does not exist rather than
    * answering 401). Off does not touch a published asset.
    */
   readonly uploadsEnabled: boolean;
@@ -4390,9 +4088,9 @@ export const config: AppConfig = Object.freeze({
       baseUrl: strEnv('PEABLE_BASE_URL', 'https://api.peable.to').replace(/\/+$/, ''),
       webhookSecret: strEnv('PEABLE_WEBHOOK_SECRET', ''),
       webhooksEnabled: resolvePeableWebhooksConfigured(),
-      // Spread-when-present, like Stripe's rotation secrets: absent rather than
-      // `''`, so the verifier iterates the secrets it actually has instead of
-      // computing an HMAC against an empty key that can never match.
+      // Spread-when-present: absent rather than `''`, so the verifier iterates
+      // the secrets it actually has instead of computing an HMAC against an
+      // empty key that can never match.
       ...(process.env.PEABLE_WEBHOOK_SECRET_PREVIOUS?.trim()
         ? { webhookSecretPrevious: process.env.PEABLE_WEBHOOK_SECRET_PREVIOUS.trim() }
         : {}),
@@ -4400,8 +4098,7 @@ export const config: AppConfig = Object.freeze({
        * DERIVED from the environment, never configured.
        *
        * A deployment cannot claim one mode while holding the other's
-       * credentials, which is the same property `stripe.livemode` gets from the
-       * `sk_live_` prefix.
+       * credentials.
        */
       livemode: strEnv('NODE_ENV', 'development') === 'production',
       eventMaxAttempts: intEnv('PEABLE_EVENT_MAX_ATTEMPTS', 8),
@@ -4412,70 +4109,14 @@ export const config: AppConfig = Object.freeze({
         resolvePresentmentCurrencies('PEABLE_PRESENTMENT_CURRENCIES', 'Peable'),
       ),
     }),
-    stripe: Object.freeze({
-      enabled: resolveStripeEnabled(),
-      secretKey: strEnv('STRIPE_SECRET_KEY', ''),
-      webhookSecret: strEnv('STRIPE_WEBHOOK_SECRET', ''),
-      // Spread-when-present, like `crowdSource.baseUrl`: the property is ABSENT
-      // rather than an empty string, so the rotation loop can iterate the
-      // secrets it actually has instead of skipping falsy ones.
-      ...(process.env.STRIPE_WEBHOOK_SECRET_PREVIOUS?.trim()
-        ? { webhookSecretPrevious: process.env.STRIPE_WEBHOOK_SECRET_PREVIOUS.trim() }
-        : {}),
-      connectWebhookSecret: strEnv('STRIPE_CONNECT_WEBHOOK_SECRET', ''),
-      ...(process.env.STRIPE_CONNECT_WEBHOOK_SECRET_PREVIOUS?.trim()
-        ? {
-            connectWebhookSecretPrevious: process.env.STRIPE_CONNECT_WEBHOOK_SECRET_PREVIOUS.trim(),
-          }
-        : {}),
-      livemode: strEnv('STRIPE_SECRET_KEY', '').startsWith('sk_live_'),
-      // Spread-when-present, like the rotation secrets below: absent rather than
-      // `''`, so the checkout handoff can omit the field instead of handing a
-      // client an empty key it would try to initialise a payment sheet with.
-      ...(process.env.STRIPE_PUBLISHABLE_KEY?.trim()
-        ? { publishableKey: process.env.STRIPE_PUBLISHABLE_KEY.trim() }
-        : {}),
-      sellerCountries: Object.freeze(resolveStripeSellerCountries()),
-      platformCurrency: resolveStripePlatformCurrency(),
-      presentmentCurrencies: Object.freeze(
-        resolvePresentmentCurrencies('STRIPE_PRESENTMENT_CURRENCIES', 'Stripe'),
-      ),
-      threeDSecureThresholds: resolveThreeDSecureThresholds(),
-      highValueHoldThresholds: resolveHighValueHoldThresholds(),
-      highValueHoldWindowMs: intEnv('STRIPE_HIGH_VALUE_HOLD_WINDOW_MS', 72 * 60 * 60 * 1_000),
-      eventMaxAttempts: intEnv('STRIPE_EVENT_MAX_ATTEMPTS', 8),
-      eventBatchSize: intEnv('STRIPE_EVENT_BATCH_SIZE', 50),
-      eventPollIntervalMs: intEnv('STRIPE_EVENT_POLL_INTERVAL_MS', 5_000),
-      eventLeaseMs: intEnv('STRIPE_EVENT_LEASE_MS', 60_000),
-      // Spread-when-present, like the rotation secrets above: absent rather than
-      // `''`, so `stripeOnboardingConfig()` can name exactly which variables are
-      // missing instead of building a URL out of an empty string.
-      ...(process.env.STRIPE_ONBOARDING_BASE_URL?.trim()
-        ? { onboardingBaseUrl: process.env.STRIPE_ONBOARDING_BASE_URL.trim() }
-        : {}),
-      ...(process.env.STRIPE_ONBOARDING_RETURN_URL?.trim()
-        ? { onboardingReturnUrl: process.env.STRIPE_ONBOARDING_RETURN_URL.trim() }
-        : {}),
-      ...(process.env.STRIPE_ONBOARDING_STATE_SECRET?.trim()
-        ? { onboardingStateSecret: process.env.STRIPE_ONBOARDING_STATE_SECRET.trim() }
-        : {}),
-      accountSyncStaleAfterMs: intEnv('STRIPE_ACCOUNT_SYNC_STALE_AFTER_MS', 6 * 60 * 60 * 1_000),
-      accountSyncBatchSize: intEnv('STRIPE_ACCOUNT_SYNC_BATCH_SIZE', 25),
-      accountSyncIntervalMs: intEnv('STRIPE_ACCOUNT_SYNC_INTERVAL_MS', 15 * 60 * 1_000),
-      paymentSurfaceMethods: Object.freeze(resolveStripePaymentSurfaceMethods()),
-      // Spread-when-present, like the onboarding URLs above: absent rather than
-      // `''`, so the handoff omits the field instead of handing a client an
-      // empty string it would confirm a payment against.
-      ...(process.env.STRIPE_CHECKOUT_RETURN_URL?.trim()
-        ? { checkoutReturnUrl: process.env.STRIPE_CHECKOUT_RETURN_URL.trim() }
-        : {}),
-    }),
+    paymentSurfaceMethods: Object.freeze(resolvePaymentSurfaceMethods()),
+    highValueHoldThresholds: resolveHighValueHoldThresholds(),
+    highValueHoldWindowMs: intEnv('HIGH_VALUE_HOLD_WINDOW_MS', 72 * 60 * 60 * 1_000),
     reconciliation: Object.freeze({
       enabled: boolEnv('PAYMENT_RECONCILIATION_ENABLED', true),
       intervalMs: intEnv('PAYMENT_RECONCILIATION_INTERVAL_MS', 5 * MINUTE_MS),
       batchSize: intEnv('PAYMENT_RECONCILIATION_BATCH_SIZE', 100),
       openPaymentMinAgeMs: intEnv('PAYMENT_RECONCILIATION_OPEN_PAYMENT_MIN_AGE_MS', 10 * MINUTE_MS),
-      lookbackMs: intEnv('PAYMENT_RECONCILIATION_LOOKBACK_MS', 7 * 24 * 60 * MINUTE_MS),
     }),
   }),
   guest: Object.freeze({
@@ -4540,7 +4181,7 @@ export const config: AppConfig = Object.freeze({
   }),
   referrals: Object.freeze({
     enabled: resolveReferralsEnabled(),
-    // Spread-when-present, like the Stripe onboarding secret: absent rather
+    // Spread-when-present: absent rather
     // than `''`, so the link-token service can name the missing variable
     // instead of signing with an empty key.
     ...(process.env.REFERRAL_LINK_TOKEN_SECRET?.trim()
@@ -4697,7 +4338,7 @@ export const config: AppConfig = Object.freeze({
       6 * 60 * MINUTE_MS,
     ),
     reconciliationBatchSize: intEnv('MERCHANT_SUBSCRIPTION_RECONCILIATION_BATCH_SIZE', 50),
-    // Spread-when-present, like the Stripe onboarding URLs: absent rather than
+    // Spread-when-present: absent rather than
     // `''`, so opening a session names the missing variable instead of sending a
     // merchant to a hosted page that returns nowhere.
     ...(process.env.MERCHANT_BILLING_RETURN_URL?.trim()

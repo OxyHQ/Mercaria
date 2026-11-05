@@ -374,12 +374,13 @@ const OWNERS = [
     wireIdentifierFallbackSites: 0,
     minimumRenderableKeyMaps: 40,
     // K (#436). Both EXACT, both fail in both directions.
-    // Missing category forms: ar 88 (zero/two/few/many x22) and nothing else.
+    // Missing category forms: ar 80 (zero/two/few/many x20) and nothing else.
     // 92 until the store-ownership cut (ADR 0012) deleted the member screen's
-    // `explicitPermissions` plural with the member list it counted.
-    pluralCategoryResidual: 88,
+    // `explicitPermissions` plural with the member list it counted; 88 until
+    // the Stripe payout-onboarding screen went with its two plurals.
+    pluralCategoryResidual: 80,
     // The ja and zh-Hans `one` forms — those locales select only `other`.
-    pluralUnreachableForms: 44,
+    pluralUnreachableForms: 40,
     minimumPluralKeys: 15,
   },
   {

@@ -1,10 +1,10 @@
 /**
  * Verifying a delivery from the Peable gateway.
  *
- * The signature scheme is Stripe-shaped by design — `t=<unix>,v1=<hex
- * hmac-sha256 of "<t>.<rawBody>">` — which is why this file is short and why
- * the invariant it depends on is the same one `routes/stripe-webhook.ts`
- * already carries: **the router must be mounted before `express.json()`.** A
+ * The signature scheme is `t=<unix>,v1=<hex hmac-sha256 of "<t>.<rawBody>">`,
+ * which is why this file is short and why the invariant it depends on is the
+ * one every signed webhook router here carries: **the router must be mounted
+ * before `express.json()`.** A
  * signature covers BYTES. `JSON.stringify(req.body)` reproduces them only by
  * luck, so a parser reaching the stream first does not weaken verification, it
  * breaks every delivery.
@@ -169,7 +169,7 @@ export function verifyPeableSignature(input: ProviderEventInput): ProviderEventE
     providerEventId: event.id,
     type: event.type,
     // The mode of the event's merchant (ADR 0017). The ingress drops a delivery
-    // whose mode is not this deployment's, as the Stripe ingress does.
+    // whose mode is not this deployment's.
     livemode: event.livemode,
     apiVersion: event.api_version,
     objectIds: {

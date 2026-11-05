@@ -257,7 +257,7 @@ metric names `affiliate_reports` as its source and that stays true.
 | `AFFILIATE_REPORT_POLL_INTERVAL_MS` | `3600000` | Between polls. |
 | `AFFILIATE_REPORT_LEASE_MS` | `300000` | One poll's lease. |
 
-The MOUNT gate is the Stripe-webhook reasoning rather than "gate the loop, never
+The MOUNT gate is the webhook-mount rule rather than "gate the loop, never
 the record": the token is signed, so without a secret there is nothing to verify
 and resolving one would be acting on a stranger's opinion about which offer to
 redirect to. **It gates no durable record** — clicks are written BY the route, so

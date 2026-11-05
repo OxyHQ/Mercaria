@@ -13,8 +13,8 @@
  *
  * `JOB_ORDER` is deliberately NOT derived from the tuple: the order is a
  * decision (open payments first because it can still prevent harm; withheld
- * transfers last because releasing one needs fresh account readiness), and a
- * sort is not a decision. So the list stays hand-written and this binds it.
+ * transfers last because releasing one should see every converged status), and
+ * a sort is not a decision. So the list stays hand-written and this binds it.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -33,10 +33,10 @@ describe('the sweeps the runner ticks', () => {
 
   it('is not vacuously satisfied by two empty lists', () => {
     // The floor. Deleting both lists would satisfy the case above, and this is
-    // what would notice. Five is what ships today; a sixth sweep raises it here
-    // in the same commit, which is the point at which somebody re-reads the
+    // what would notice. Three is what ships today; a fourth sweep raises it
+    // here in the same commit, which is the point at which somebody re-reads the
     // order rather than appending to it.
-    expect(JOB_ORDER.length).toBe(5);
+    expect(JOB_ORDER.length).toBe(3);
   });
 
   it('owns a strict subset of the reconciliation vocabulary', () => {

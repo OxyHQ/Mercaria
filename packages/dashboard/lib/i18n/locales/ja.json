@@ -604,7 +604,6 @@
     "new": "新規",
     "noAccess": "アクセス権限がありません",
     "noAccessBody": "現在のストアでこの画面を表示する権限がありません。",
-    "none": "なし",
     "pageOf": "%{current}／%{total}ページ",
     "pleaseTryAgain": "もう一度お試しください。",
     "retry": "再試行",
@@ -1795,63 +1794,6 @@
       "subtitle": "このストアで操作できる人と、ロールに対する例外",
       "title": "メンバーと権限"
     },
-    "payments": {
-      "beingReviewed": "審査中",
-      "documentTitle": "決済と入金 | Wholesale by Mercaria",
-      "dueBy": "期限",
-      "itemCount": {
-        "one": "%{count}件",
-        "other": "%{count}件"
-      },
-      "loadFailed": "決済設定を読み込めませんでした",
-      "neededNow": "今すぐ必要",
-      "onboardingUnavailable": "このMercaria環境では、入金の設定をまだ利用できません。",
-      "openFailed": "入金の設定を開けませんでした",
-      "outstandingTitle": "Stripeで未対応の項目",
-      "paidOutIn": "入金通貨",
-      "payoutsTitle": "入金",
-      "quoteToSupport": "サポートが必要な場合は、これをMercariaサポートにお伝えください。",
-      "registeredIn": "登録国",
-      "reportedByStripe": "Stripeからの報告",
-      "requirementsNote": "これらの情報はStripeが保持しており、入力できるのはStripeのみです。Mercariaがこれらを見ることはありません。",
-      "schedule": "スケジュール",
-      "scheduleWithDelay": {
-        "one": "%{interval}、%{count}日後",
-        "other": "%{interval}、%{count}日後"
-      },
-      "states": {
-        "actionRequired": {
-          "action": "設定を続ける",
-          "body": "入金の前に、Stripeが追加の情報を必要としています。すべてが揃うまで、購入者はあなたの商品をチェックアウトできません。",
-          "heading": "あと少し情報が必要です"
-        },
-        "disabled": {
-          "body": "Stripeがこの連携アカウントを閉鎖したか、Mercariaとの接続が解除されました。購入者はあなたの商品をチェックアウトできません。Mercariaサポートにお問い合わせください。",
-          "heading": "このアカウントは使用できません"
-        },
-        "notConnected": {
-          "action": "入金を設定",
-          "body": "商品は表示され、Mercariaの他の機能もすべて使えますが、購入者はまだチェックアウトできません。入金の設定は数分で完了します。",
-          "heading": "未設定"
-        },
-        "ready": {
-          "action": "入金情報を管理",
-          "body": "購入者はあなたの商品をチェックアウトでき、Stripeが残高を銀行口座へ入金します。",
-          "heading": "入金を受け取れます"
-        },
-        "restricted": {
-          "action": "今すぐ対応",
-          "body": "Stripeが求めた対応が期限を過ぎたため、入金が停止され、購入者はあなたの商品をチェックアウトできません。対応を完了すると、どちらも再開されます。",
-          "heading": "入金が停止しています"
-        },
-        "underReview": {
-          "body": "Stripeは必要な情報を受け取り、審査しています。あなたが行うことはありません。通常は1〜2日で完了します。完了するまで、購入者はあなたの商品をチェックアウトできません。",
-          "heading": "審査中"
-        }
-      },
-      "subtitle": "Mercariaで受けた注文の入金方法",
-      "title": "決済と入金"
-    },
     "plan": {
       "alwaysIncludedBody": "カタログの管理、注文の受け付けとフルフィルメント、返金、自身の売上・入金記録の閲覧、データのエクスポートは、すべてのMercariaストアで無料であり、プランに含まれることはありません。このページの操作でこれが変わることはなく、どのプランも商品の見つかりやすさや順位に影響しません。",
       "alwaysIncludedTitle": "常に含まれるもの",
@@ -1966,10 +1908,6 @@
       "members": {
         "description": "ストアを操作できる人と、ロールに対する例外",
         "label": "メンバーと権限"
-      },
-      "payments": {
-        "description": "Mercariaで受けた注文の入金を受け取る",
-        "label": "決済と入金"
       },
       "plan": {
         "description": "ストアが得られるものと、その費用",

@@ -251,10 +251,10 @@ export const RETAIL_COMPONENT_ROLES: Record<RetailAccountingComponent, RetailCom
  * the build if this domain learns to import a catalogue read.
  */
 export type RetailReconciliationEvidenceKind =
-  | 'stripe_payment'
-  | 'stripe_processing_fee'
-  | 'stripe_refund'
-  | 'stripe_dispute'
+  | 'card_payment'
+  | 'card_processing_fee'
+  | 'card_refund'
+  | 'card_dispute'
   | 'purchase_order'
   | 'supplier_invoice'
   | 'supplier_credit_note'
@@ -266,10 +266,10 @@ export type RetailReconciliationEvidenceKind =
 
 /** {@link RetailReconciliationEvidenceKind} as the tuple the columns and CHECKs read. */
 export const RETAIL_RECONCILIATION_EVIDENCE_KINDS: readonly RetailReconciliationEvidenceKind[] = [
-  'stripe_payment',
-  'stripe_processing_fee',
-  'stripe_refund',
-  'stripe_dispute',
+  'card_payment',
+  'card_processing_fee',
+  'card_refund',
+  'card_dispute',
   'purchase_order',
   'supplier_invoice',
   'supplier_credit_note',

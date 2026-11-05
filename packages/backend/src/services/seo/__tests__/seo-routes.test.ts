@@ -137,7 +137,6 @@ const NON_PUBLIC_SCREENS: readonly string[] = [
   // Correspondingly in `SEO_ROBOTS_DISALLOWED_PATHS`.
   'app/(app)/nearby.tsx',
   'app/(app)/checkout/index.tsx',
-  'app/(app)/checkout/return.tsx',
   // Personal, policy-gated shopping and immutable approval details are never public crawl surfaces.
   'app/(app)/supervised-shopping/index.tsx',
   'app/(app)/supervised-shopping/checkout.tsx',

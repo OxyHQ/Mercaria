@@ -11,11 +11,19 @@
  *
  * Issue #50's jobs 8 forbids auto-deleting or rewriting financial history to
  * hide a mismatch, and acceptance 5 forbids marking a payment successful without
- * verified provider evidence. Neither is what happens here. A live
- * `paymentIntents.retrieve` IS verified provider evidence — the same fact a
- * webhook would have carried, read from the same account with the same key,
- * minus the delivery — and applying it APPENDS the accounting that should
- * already exist rather than removing any.
+ * verified provider evidence. Neither is what happens here. A live read through
+ * the rail's own `getStatus` IS verified provider evidence — the same fact a
+ * webhook would have carried, read with the same authority, minus the delivery
+ * — and applying it APPENDS the accounting that should already exist rather
+ * than removing any.
+ *
+ * ## It reads through the PORT (ADR 0009 D16)
+ *
+ * The read goes through `resolvePaymentProvider(payment.provider).getStatus`,
+ * never a provider SDK: a reconciliation that reads a different source from the
+ * one that writes cannot detect a disagreement between them. The port answers a
+ * STATUS and no amounts, so this job compares statuses only; it books no
+ * processor fee on convergence, exactly as the Peable event path does not.
  *
  * The convergence goes through `applyPaymentStatus`, the ONE writer of a
  * payment's status. Not a similar sequence of steps: the same function, so the
@@ -36,7 +44,6 @@
  * an operator names.
  */
 
-import type Stripe from 'stripe';
 import type { PaymentStatus } from '@mercaria/shared-types';
 import { config } from '../../../config/index.js';
 import { getDb } from '../../../db/postgres.js';
@@ -45,9 +52,7 @@ import {
   type PaymentRow,
 } from '../../../db/payments/paymentRepository.js';
 import { applyPaymentStatus, canTransitionPaymentStatus } from '../payment.service.js';
-import { retrieveStripePaymentIntent } from '../stripe/client.js';
-import { readStripeSettlement } from '../stripe/settlement-read.js';
-import { mapPaymentIntentStatus } from '../stripe/verify.js';
+import { resolvePaymentProvider } from '../registry.js';
 import { reportDiscrepancy, resolveDetectedDiscrepancy } from './discrepancy.service.js';
 import { log } from '../../../lib/logger.js';
 
@@ -77,7 +82,7 @@ export async function reconcileOpenPaymentsPage(input: {
 }): Promise<OpenPaymentsPageResult> {
   const now = input.now ?? new Date();
   const payments = await findOpenPaymentsForReconciliation(getDb(), {
-    provider: 'stripe',
+    provider: 'peable',
     createdBefore: new Date(now.getTime() - config.payments.reconciliation.openPaymentMinAgeMs),
     ...(input.cursor ? { afterId: input.cursor } : {}),
     limit: input.limit,
@@ -123,12 +128,12 @@ export interface OnePaymentOutcome {
  *
  * Also what the operator surface's `refetch` calls (issue #50, operator surface
  * 5), which is why it is a function rather than a loop body: an operator asking
- * "what does Stripe actually say about this" and a sweep asking the same question
+ * "what does the rail actually say about this" and a sweep asking the same question
  * must get the same answer through the same code, or the answer an incident is
  * resolved on is not the answer the system acts on.
  *
  * It never throws for a rail failure. A sweep must reach the rest of its page,
- * and an operator pressing `refetch` during a Stripe outage should be told the
+ * and an operator pressing `refetch` during a rail outage should be told the
  * rail could not be read rather than handed a 500.
  */
 export async function reconcileOnePayment(payment: PaymentRow): Promise<OnePaymentOutcome> {
@@ -144,56 +149,51 @@ export async function reconcileOnePayment(payment: PaymentRow): Promise<OnePayme
     };
   }
 
-  let intent: Stripe.PaymentIntent;
+  const rail = resolvePaymentProvider(payment.provider);
+  if (!rail) {
+    // A rail this deployment has not configured, or one Mercaria only RECORDS
+    // (`external`, `manual_pos`). Neither has anything to be asked.
+    return {
+      converged: false,
+      findings: 0,
+      note: `the '${payment.provider}' rail is not available on this deployment`,
+    };
+  }
+
+  let providerStatus: PaymentStatus;
   try {
-    intent = await retrieveStripePaymentIntent(payment.providerObjectId);
+    providerStatus = (await rail.getStatus(payment.providerObjectId)).status;
   } catch (error: unknown) {
     // The rail refusing a read is not a finding about the payment. Recording one
-    // would fill the queue with rows about Stripe's availability — already
+    // would fill the queue with rows about the rail's availability — already
     // visible everywhere else — and would make a real discrepancy harder to see
     // during exactly the incident where it matters most.
     log.general.warn(
       { err: error, paymentId: payment.id, providerObjectId: payment.providerObjectId },
-      '[Reconciliation] could not read a PaymentIntent; leaving the payment as it is',
+      '[Reconciliation] could not read a payment from its rail; leaving the payment as it is',
     );
     return { converged: false, findings: 0, note: 'the rail could not be read' };
   }
 
-  // BEFORE the status comparison, and unconditionally: an amount that disagrees
-  // is a finding whether or not the statuses do, and checking it inside the
-  // "they disagree" branch would make a charge for the wrong amount invisible
-  // precisely when both systems are otherwise happy about it.
-  let findings = (await reportAmountMismatch(payment, intent)) ? 1 : 0;
-
-  const providerStatus = mapPaymentIntentStatus(intent.status);
-  if (providerStatus === undefined || providerStatus === payment.status) {
-    return {
-      converged: false,
-      findings,
-      ...(providerStatus ? { providerStatus } : {}),
-      note:
-        providerStatus === undefined
-          ? `the rail reports '${intent.status}', which this version does not map to a payment status`
-          : 'the rail and Mercaria agree',
-    };
+  if (providerStatus === payment.status) {
+    return { converged: false, findings: 0, providerStatus, note: 'the rail and Mercaria agree' };
   }
 
-  // BOTH say the money arrived, and only Mercaria's own refund lifecycle has
-  // moved on. Not a discrepancy: a Stripe PaymentIntent stays `succeeded` after
-  // a refund — the refund is a separate object — so a refunded payment read live
-  // ALWAYS reports this pair.
+  // BOTH say the money arrived, and only the refund lifecycle differs in how it
+  // is expressed. Not a discrepancy.
   //
   // The paging sweep never reaches it (its query excludes terminal statuses),
   // but the operator surface's `refetch` is pointed at whatever payment somebody
-  // names — so without this branch, re-fetching any refunded payment would open
-  // a `critical` finding about a payment that is completely fine, which is the
-  // fastest way to make an operator stop trusting the queue.
+  // names — so without this branch, re-fetching a refunded payment the rail
+  // reports another way would open a `critical` finding about a payment that is
+  // completely fine, which is the fastest way to make an operator stop trusting
+  // the queue.
   if (isSettledStatus(payment.status) && isSettledStatus(providerStatus)) {
     return {
       converged: false,
-      findings,
+      findings: 0,
       providerStatus,
-      note: `both report the charge as settled; Mercaria is '${payment.status}' because of its own refund lifecycle, which the rail's intent status does not express`,
+      note: `both report the charge as settled; Mercaria is '${payment.status}' and the rail '${providerStatus}'`,
     };
   }
 
@@ -202,16 +202,16 @@ export async function reconcileOnePayment(payment: PaymentRow): Promise<OnePayme
   if (isSettledStatus(payment.status) && !isSettledStatus(providerStatus)) {
     await reportDiscrepancy({
       kind: 'payment_local_paid_provider_unpaid',
-      provider: 'stripe',
+      provider: payment.provider,
       correlationKey: payment.id,
       paymentId: payment.id,
       checkoutGroupId: payment.checkoutGroupId,
       providerObjectId: payment.providerObjectId,
-      detail: { localStatus: payment.status, providerStatus, providerRawStatus: intent.status },
+      detail: { localStatus: payment.status, providerStatus },
     });
     return {
       converged: false,
-      findings: findings + 1,
+      findings: 1,
       providerStatus,
       note: `Mercaria says '${payment.status}' and the rail says '${providerStatus}'; recorded for an operator`,
     };
@@ -223,24 +223,22 @@ export async function reconcileOnePayment(payment: PaymentRow): Promise<OnePayme
   // one a "converge, and record only on failure" ordering would lose entirely.
   const discrepancy = await reportDiscrepancy({
     kind: 'payment_provider_paid_local_unpaid',
-    provider: 'stripe',
+    provider: payment.provider,
     correlationKey: payment.id,
     paymentId: payment.id,
     checkoutGroupId: payment.checkoutGroupId,
     providerObjectId: payment.providerObjectId,
-    detail: { localStatus: payment.status, providerStatus, providerRawStatus: intent.status },
+    detail: { localStatus: payment.status, providerStatus },
   });
-  findings += 1;
 
   if (!canTransitionPaymentStatus(payment.status, providerStatus)) {
     // The one case that survives: the rail captured a payment whose reservation
-    // had already timed out and whose orders were released. #48's event router
-    // raises `payment_succeeded_after_release` for that, and the outbox row it
-    // wrote is the operator's queue entry — so the discrepancy above is the
-    // reconciliation half of one condition, and nothing more is done here.
+    // had already timed out and whose orders were released. That is the
+    // `payment_succeeded_after_release` condition, and the discrepancy above is
+    // its reconciliation half — nothing more is done here.
     return {
       converged: false,
-      findings,
+      findings: 1,
       providerStatus,
       note: `the rail reports '${providerStatus}' but the payment is '${payment.status}', which cannot reach it`,
     };
@@ -248,8 +246,6 @@ export async function reconcileOnePayment(payment: PaymentRow): Promise<OnePayme
 
   let applied;
   try {
-    const settlement =
-      providerStatus === 'succeeded' ? await readStripeSettlement(intent) : undefined;
     applied = await applyPaymentStatus({
       paymentId: payment.id,
       next: providerStatus,
@@ -257,8 +253,7 @@ export async function reconcileOnePayment(payment: PaymentRow): Promise<OnePayme
       // Distinguishes this convergence from a webhook's in a `payment_failed`
       // outbox id, so a sweep re-deriving a failure the rail already reported
       // does not collide with the row that event wrote.
-      providerEventId: `reconciliation:${payment.id}:${intent.status}`,
-      ...(settlement ? { platform: settlement.platform, feeMinor: settlement.feeMinor } : {}),
+      providerEventId: `reconciliation:${payment.id}:${providerStatus}`,
     });
   } catch (error: unknown) {
     // The discrepancy row is already committed, which is the whole reason it was
@@ -270,7 +265,7 @@ export async function reconcileOnePayment(payment: PaymentRow): Promise<OnePayme
     );
     return {
       converged: false,
-      findings,
+      findings: 1,
       providerStatus,
       note: `the rail reports '${providerStatus}' and applying it failed; the finding stays open`,
     };
@@ -288,50 +283,12 @@ export async function reconcileOnePayment(payment: PaymentRow): Promise<OnePayme
 
   return {
     converged: applied.changed,
-    findings,
+    findings: 1,
     providerStatus,
     note: applied.changed
       ? `converged '${payment.status}' → '${providerStatus}' from the rail's own state`
       : 'a concurrent delivery applied the same status first',
   };
-}
-
-/**
- * Compare what the rail says it charged against what Mercaria recorded.
- *
- * The PRESENTMENT side, which is the one both systems state directly: the
- * intent's `amount` and `currency` are what the buyer was asked for, and
- * `payments.presentment_*` is what Mercaria says they were asked for. The
- * PLATFORM side is compared by the provider-object sweep instead, against the
- * balance transaction — the only place the rail states a figure in the
- * settlement currency (ADR 0001 D8, fact 5).
- *
- * @returns Whether a finding was recorded.
- */
-async function reportAmountMismatch(
-  payment: PaymentRow,
-  intent: Stripe.PaymentIntent,
-): Promise<boolean> {
-  const railCurrency = intent.currency.toUpperCase();
-  if (intent.amount === payment.presentmentAmount && railCurrency === payment.presentmentCurrency) {
-    return false;
-  }
-  await reportDiscrepancy({
-    kind: 'payment_amount_mismatch',
-    provider: 'stripe',
-    correlationKey: payment.id,
-    paymentId: payment.id,
-    checkoutGroupId: payment.checkoutGroupId,
-    ...(payment.providerObjectId ? { providerObjectId: payment.providerObjectId } : {}),
-    detail: {
-      side: 'presentment',
-      localAmountMinor: payment.presentmentAmount,
-      localCurrency: payment.presentmentCurrency,
-      providerAmountMinor: intent.amount,
-      providerCurrency: railCurrency,
-    },
-  });
-  return true;
 }
 
 /** Whether a status means Mercaria believes the money arrived. */

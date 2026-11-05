@@ -101,7 +101,7 @@ export interface Refund extends Timestamps {
    * The rail's own machine-readable failure code, when it failed.
    *
    * A CODE and never a sentence: it is the merchant-safe subset, filtered the
-   * same way `ProviderAccountStatus.disabledReasonCodes` is, so a provider
+   * same way a provider account's disabled-reason codes are, so a provider
    * message quoting a cardholder's bank, name or partial card number cannot
    * reach a merchant surface by being appended to it later.
    */

@@ -344,10 +344,9 @@ export async function planRetailCheckout<TLine>(
   // composed IN this currency and an unchargeable one would produce a locked
   // amount nobody can pay.
   const eligible = nativeRailPresentmentCurrencies();
-  // The RESOLVED rail's set, not Stripe's. An empty set means no rail is
-  // configured — `nativeRailPresentmentCurrencies` answers `[]` there — which
-  // is the same "no rail, nothing to check" the `stripe.enabled` conjunct used
-  // to express, without naming a rail this deployment may not run.
+  // The native rail's set. An empty set means no rail is configured —
+  // `nativeRailPresentmentCurrencies` answers `[]` there — so there is nothing
+  // to check.
   if (eligible.length > 0 && !eligible.includes(input.presentmentCurrency)) {
     refuseRetail('currency_unsupported', first.binding.id);
   }

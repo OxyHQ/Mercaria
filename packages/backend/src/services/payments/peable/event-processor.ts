@@ -10,22 +10,19 @@
  * ## The row IS the job, and the claim is SCOPED TO THIS RAIL
  *
  * `payment_provider_events` carries the lease columns, so claiming one is the
- * same `for update skip locked` claim the Stripe drain and the payment outbox
- * use. The scope is what makes two drains safe over one table: without it this
- * loop would claim the oldest due row of EITHER rail and hand a Stripe event to
- * `routePeableEvent` — which, both rails speaking Stripe's type names, would
- * apply it to whatever Mercaria payment a Stripe `pi_…` happened to resolve to,
- * or mark a type it does not know processed. See
+ * same `for update skip locked` claim the payment outbox uses. The scope is
+ * what keeps the drain to the events its router can interpret: an unscoped
+ * claim would take the oldest due row of ANY rail and route it by its type
+ * alone, applying it to whatever Mercaria payment its object id happened to
+ * resolve to, or marking a type it does not know processed. See
  * `ClaimProviderEventOptions.providers` and `providerEventClaim.realdb.test.ts`.
  *
- * ## No settlement re-read, unlike Stripe
+ * ## No payload is handed through
  *
- * Stripe's processor hands the verified event through to its router so the
- * handler reads what Stripe actually sent. Here there is nothing to hand
- * through: `event-router.ts` acts on the event TYPE and the stored `objectIds`,
- * both of which survive redaction and a restart, so the inline path and a replay
- * three days later run identically. That is why `processStoredPeableEvent` takes
- * only an id where its Stripe counterpart also takes the payload.
+ * `event-router.ts` acts on the event TYPE and the stored `objectIds`, both of
+ * which survive redaction and a restart, so the inline path and a replay three
+ * days later run identically. That is why `processStoredPeableEvent` takes only
+ * an id.
  */
 
 import { randomUUID } from 'node:crypto';

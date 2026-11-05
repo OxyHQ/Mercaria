@@ -641,7 +641,7 @@ export async function gatherReconciliationEvidence(
   const disputes = await listDisputesForOrder(orderId, db);
   for (const dispute of disputes) {
     record({
-      kind: 'stripe_dispute',
+      kind: 'card_dispute',
       reference: dispute.providerDisputeId,
       amount: { amount: dispute.amountMinor, currency: dispute.currency as CurrencyCode },
       observedAt: dispute.createdAt,
@@ -755,7 +755,7 @@ async function addProviderCost(input: {
     return 0;
   }
   record({
-    kind: 'stripe_payment',
+    kind: 'card_payment',
     reference: payment.id,
     amount: {
       amount: payment.presentmentAmount,
@@ -785,7 +785,7 @@ async function addProviderCost(input: {
   const feeMinor = Number(fee.totalMinor);
   if (feeMinor <= 0) return 0;
   record({
-    kind: 'stripe_processing_fee',
+    kind: 'card_processing_fee',
     reference: `${payment.id}:processor_expense`,
     amount: { amount: feeMinor, currency: feeCurrency },
     observedAt: payment.updatedAt,

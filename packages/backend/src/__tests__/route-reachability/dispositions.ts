@@ -63,15 +63,6 @@ export const ROUTE_DISPOSITIONS: Readonly<
   Record<string, Readonly<Record<string, RouteDisposition>>>
 > = {
   frontend: {
-    '/checkout/return': {
-      kind: 'deliberate',
-      reason:
-        'The bank-authentication return. The server composes this URL from ' +
-        'STRIPE_CHECKOUT_RETURN_URL and hands it to Stripe, which sends the buyer back to it ' +
-        'with ?checkoutGroupId=... after 3-D Secure; the storefront never navigates here and ' +
-        'must not, because arriving without the provider round trip is not a state this screen ' +
-        'can serve. An inbound in-app edge would be the defect, not the fix.',
-    },
     '/materials-transport/[id]': {
       kind: 'deliberate',
       reason:

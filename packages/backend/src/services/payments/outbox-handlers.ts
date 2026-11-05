@@ -436,7 +436,7 @@ async function handlePaymentSucceededAfterRelease(event: PaymentOutboxRow): Prom
  * transition deserves — losing readiness stops that seller selling, so it is not
  * an `info` line among thousands. #50 owns the operator surface that reads these
  * rows, and #108 the seller-facing notification; both attach HERE rather than to
- * the Stripe webhook, so neither ever receives provider detail.
+ * a rail's webhook, so neither ever receives provider detail.
  */
 async function handleProviderAccountChanged(event: PaymentOutboxRow): Promise<void> {
   const { accountRowId, ownerType, ownerId, previousState, onboardingState, reason } =

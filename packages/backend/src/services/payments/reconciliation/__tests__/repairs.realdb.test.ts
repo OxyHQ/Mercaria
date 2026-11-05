@@ -1,5 +1,6 @@
 /**
- * The four named operator repairs (#50), against a REAL Postgres and a fake Stripe.
+ * The four named operator repairs (#50), against a REAL Postgres and a fake
+ * Peable gateway (`payments/__tests__/helpers/fake-peable-gateway.ts`).
  *
  * ## The two properties this file exists to pin
  *
@@ -15,6 +16,13 @@
  * actor and the reason, for refusals too); the idempotency half is asserted where
  * each action actually gets it — from the underlying service's provider key for
  * the retries, and from a partial unique index for the correcting entry.
+ *
+ * ## The seller's account is the STORED row
+ *
+ * `retry_withheld_transfer` reads `provider_accounts` — the same row
+ * `settlePaymentTransfers` consults — so a repair decides exactly as the
+ * automatic path would. A seller "fixing their account" is therefore a change
+ * to that stored verdict, written through the repository that computes it.
  *
  * ## Why a real database
  *
@@ -44,78 +52,41 @@ const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toStrin
 
 /** The order's grand total, in EUR cents. */
 const ORDER_TOTAL = 4_000;
-/** What Stripe keeps on the charge. Mercaria's cost (ADR 0001 D5). */
-const CHARGE_FEE = 116;
 /** The Oxy account every repair below is run as. */
 const OPERATOR = `oxy-operator-${RUN}`;
 
-const api = vi.hoisted(() => ({
-  intents: new Map<string, Record<string, unknown>>(),
-  charges: new Map<string, Record<string, unknown>>(),
-  transfers: new Map<string, Record<string, unknown>>(),
-  /** Idempotency key → the object that key already produced (Stripe's own rule). */
-  byKey: new Map<string, Record<string, unknown>>(),
-  /** Connected accounts, keyed by `acct_…`, as `accounts.retrieve` would return them. */
-  accounts: new Map<string, Record<string, unknown>>(),
-  transferCalls: [] as { params: Record<string, unknown>; idempotencyKey: string }[],
-  nextId: 0,
-}));
+/**
+ * The fake gateway. Hoisted so the `vi.mock` factory below can close over it —
+ * a factory is hoisted above every `const` in this file.
+ */
+const gateway = await vi.hoisted(async () =>
+  (await import('../../__tests__/helpers/fake-peable-gateway.js')).createFakePeableGateway(),
+);
 
-vi.mock('../../stripe/client.js', () => ({
-  STRIPE_API_VERSION: '2026-07-29.dahlia',
-  getStripeClient: () => {
-    throw new Error('This suite must not construct a real Stripe client.');
-  },
-  resetStripeClient: () => undefined,
-  retrieveStripePaymentIntent: (id: string) => {
-    const intent = api.intents.get(id);
-    if (!intent) throw new Error(`No fake PaymentIntent registered for ${id}`);
-    return Promise.resolve(intent);
-  },
-  retrieveStripeChargeWithBalance: (id: string) => {
-    const charge = api.charges.get(id);
-    if (!charge) throw new Error(`No fake charge registered for ${id}`);
-    return Promise.resolve(charge);
-  },
-  createStripeTransfer: (params: Record<string, unknown>, idempotencyKey: string) => {
-    api.transferCalls.push({ params, idempotencyKey });
-    // Stripe's own idempotency: one key produces one object, however many times
-    // it is presented. This is the property the retry repairs rely on instead of
-    // recording a claim of their own, so the fake has to honour it or the
-    // idempotency assertions below would be measuring the fake.
-    const existing = api.byKey.get(idempotencyKey);
-    if (existing) return Promise.resolve(existing);
-    api.nextId += 1;
-    const transfer = {
-      id: `tr_repair_${String(api.nextId)}`,
-      object: 'transfer',
-      amount_reversed: 0,
-      ...params,
-    };
-    api.transfers.set(String(transfer.id), transfer);
-    api.byKey.set(idempotencyKey, transfer);
-    return Promise.resolve(transfer);
-  },
-  retrieveStripeTransfer: (id: string) => {
-    const transfer = api.transfers.get(id);
-    if (!transfer) throw new Error(`No fake transfer registered for ${id}`);
-    return Promise.resolve(transfer);
-  },
-  retrieveStripeAccount: (id: string) => {
-    const account = api.accounts.get(id);
-    if (!account) throw new Error(`No fake account registered for ${id}`);
-    return Promise.resolve(account);
-  },
-  createStripeRefund: () => {
-    throw new Error('This suite does not exercise the refund rail.');
-  },
-  retrieveStripeRefund: () => {
-    throw new Error('This suite does not exercise the refund rail.');
-  },
-  createStripeTransferReversal: () => {
-    throw new Error('This suite does not exercise the reversal rail.');
-  },
-}));
+/**
+ * The Peable rail switched on, and nothing else changed. `PEABLE_ENABLED` also
+ * needs an Oxy identity this suite does not have, and the client is faked
+ * below anyway, so the flag is set on the frozen config rather than the
+ * environment.
+ */
+vi.mock('../../../../config/index.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../../config/index.js')>();
+  return {
+    ...actual,
+    config: {
+      ...actual.config,
+      payments: {
+        ...actual.config.payments,
+        peable: { ...actual.config.payments.peable, enabled: true },
+      },
+    },
+  };
+});
+
+vi.mock('../../peable/client.js', () => gateway.clientModule());
+
+/** A per-file counter for fixture RMA numbers. */
+let rmaSequence = 0;
 
 type Database = import('../../../../db/postgres.js').Database;
 let db: Database;
@@ -136,23 +107,12 @@ let insertOrder: typeof import('../../../../db/orders/orderRepository.js').inser
 let nextOrderNumber: typeof import('../../../../db/orders/orderRepository.js').nextOrderNumber;
 let insertProviderAccount: typeof import('../../../../db/payments/providerAccountRepository.js').insertProviderAccount;
 let applyProviderAccountState: typeof import('../../../../db/payments/providerAccountRepository.js').applyProviderAccountState;
-let findProviderAccountByOwner: typeof import('../../../../db/payments/providerAccountRepository.js').findProviderAccountByOwner;
 let sweepSlot: ReconciliationSweepSlot | null = null;
 let reconciliationSchema: typeof import('../../../../db/schema/reconciliation.js');
 let ledgerSchema: typeof import('../../../../db/schema/ledger.js');
 let catalogSchema: typeof import('../../../../db/schema/catalog.js');
 
 beforeAll(async () => {
-  // Set BEFORE importing anything that reads config — `config/index.ts` reads
-  // process.env once at module load and freezes the result, and vitest reuses a
-  // worker PROCESS across files, so a sibling's write survives into this one.
-  process.env.STRIPE_ENABLED = 'true';
-  process.env.STRIPE_SECRET_KEY = 'sk_test_not_a_real_key';
-  process.env.STRIPE_WEBHOOK_SECRET = 'whsec_repairs_not_a_real_one';
-  process.env.STRIPE_CONNECT_WEBHOOK_SECRET = 'whsec_repairs_connect';
-  process.env.STRIPE_PLATFORM_CURRENCY = 'EUR';
-  process.env.STRIPE_PRESENTMENT_CURRENCIES = 'EUR,USD';
-
   const postgres = await import('../../../../db/postgres.js');
   db = await postgres.connectPostgres();
   ({ closePostgres } = postgres);
@@ -168,7 +128,7 @@ beforeAll(async () => {
   ({ insertVariants } = await import('../../../../db/catalog/variantRepository.js'));
   ({ setAvailable } = await import('../../../inventory.service.js'));
   ({ insertOrder, nextOrderNumber } = await import('../../../../db/orders/orderRepository.js'));
-  ({ insertProviderAccount, applyProviderAccountState, findProviderAccountByOwner } = await import(
+  ({ insertProviderAccount, applyProviderAccountState } = await import(
     '../../../../db/payments/providerAccountRepository.js'
   ));
   reconciliationSchema = await import('../../../../db/schema/reconciliation.js');
@@ -203,12 +163,7 @@ afterAll(async () => {
 });
 
 beforeEach(() => {
-  api.intents.clear();
-  api.charges.clear();
-  api.transfers.clear();
-  api.byKey.clear();
-  api.accounts.clear();
-  api.transferCalls.length = 0;
+  gateway.reset();
 });
 
 /** A EUR `DualMoney` whose two sides are equal — no conversion in play. */
@@ -240,10 +195,10 @@ async function repairsFor(subjectKey: string) {
 async function seedScenario(label: string, options: { ready: boolean; settle?: boolean }) {
   const suffix = `${label}-${RUN}-${uuidv7()}`;
   const ownerId = `owner-${suffix}`;
-  // From the uuid's TAIL, not the label's head: `acct_` ids are bounded, and
+  // From the uuid's TAIL, not the label's head: seller account ids are bounded, and
   // truncating a `<label>-<run>-<uuid>` suffix from the FRONT makes two
   // scenarios that share a label collide on `UNIQUE(provider, provider_account_id)`.
-  const providerAccountId = `acct_${suffix.replace(/-/g, '').slice(-24)}`;
+  const providerAccountId = `ca_${suffix.replace(/-/g, '').slice(-24)}`;
   const store = await insertStore({
     oxyAccountId: ownerId,
     handle: `repair-${suffix}`,
@@ -268,17 +223,13 @@ async function seedScenario(label: string, options: { ready: boolean; settle?: b
   });
 
   const account = await insertProviderAccount(db, {
-    provider: 'stripe',
+    provider: 'peable',
     ownerType: 'store',
     ownerId: store.id,
     providerAccountId,
     country: 'ES',
   });
   await setAccountState(account.id, options.ready);
-  // What the rail will say when the repair re-reads the account. Distinct from
-  // the stored row on purpose: the repair's whole point is that it does NOT
-  // trust the local copy, which a six-hour sweep may have left stale.
-  setRailAccount(providerAccountId, options.ready);
 
   const [listing] = await db
     .insert(catalogSchema.listings)
@@ -350,35 +301,15 @@ async function seedScenario(label: string, options: { ready: boolean; settle?: b
   });
 
   const intentId = `pi_${suffix.replace(/-/g, '')}`;
-  const chargeId = `ch_${suffix.replace(/-/g, '')}`;
-  api.intents.set(intentId, {
+  gateway.putIntent({
     id: intentId,
-    object: 'payment_intent',
     status: 'succeeded',
-    amount: ORDER_TOTAL,
-    currency: 'eur',
-    latest_charge: chargeId,
-    metadata: {},
-  });
-  api.charges.set(chargeId, {
-    id: chargeId,
-    object: 'charge',
-    amount: ORDER_TOTAL,
-    currency: 'eur',
-    amount_refunded: 0,
-    balance_transaction: {
-      id: `txn_${chargeId}`,
-      object: 'balance_transaction',
-      amount: ORDER_TOTAL,
-      currency: 'eur',
-      fee: CHARGE_FEE,
-      exchange_rate: null,
-      created: Math.floor(Date.now() / 1_000),
-    },
+    amount: BigInt(ORDER_TOTAL),
+    currency: 'EUR',
   });
 
   const payment = await ensurePayment({
-    provider: 'stripe',
+    provider: 'peable',
     checkoutGroupId,
     presentment: { amount: ORDER_TOTAL, currency: 'EUR' },
     buyerOxyUserId: `buyer-${suffix}`,
@@ -399,14 +330,14 @@ async function seedScenario(label: string, options: { ready: boolean; settle?: b
           from: 'EUR',
           to: 'EUR',
           rate: 1,
-          provider: 'stripe',
+          provider: 'peable',
           asOf: new Date().toISOString(),
         },
       },
     });
   }
 
-  return { suffix, store, orderId: order.id, paymentId: payment.id, providerAccountId };
+  return { suffix, store, accountRowId: account.id, orderId: order.id, paymentId: payment.id };
 }
 
 /** Set the STORED readiness verdict, through the repository that computes it. */
@@ -428,30 +359,8 @@ async function setAccountState(accountRowId: string, ready: boolean): Promise<vo
   });
 }
 
-/** What `accounts.retrieve` will report for this connected account. */
-function setRailAccount(providerAccountId: string, ready: boolean): void {
-  api.accounts.set(providerAccountId, {
-    id: providerAccountId,
-    object: 'account',
-    country: 'ES',
-    default_currency: 'eur',
-    charges_enabled: ready,
-    payouts_enabled: ready,
-    capabilities: { transfers: ready ? 'active' : 'inactive' },
-    requirements: {
-      currently_due: [],
-      eventually_due: [],
-      past_due: ready ? [] : ['individual.verification.document'],
-      pending_verification: [],
-      disabled_reason: ready ? null : 'requirements.past_due',
-      current_deadline: null,
-    },
-    settings: { payouts: { schedule: { interval: 'daily', delay_days: 2 } } },
-  });
-}
-
 describe('retry_withheld_transfer', () => {
-  it('settles a withheld order once the seller is ready AT THE RAIL, and closes the payable', async () => {
+  it('settles a withheld order once the seller is ready, and closes the payable', async () => {
     const scenario = await seedScenario('withheld', { ready: false });
 
     // The precondition: the buyer is paid, the order is paid, and the seller's
@@ -463,21 +372,21 @@ describe('retry_withheld_transfer', () => {
 
     const discrepancy = await reportDiscrepancy({
       kind: 'merchant_payable_unexplained',
-      provider: 'stripe',
+      provider: 'peable',
       correlationKey: `${scenario.orderId}:EUR`,
       orderId: scenario.orderId,
       detail: { currency: 'EUR' },
     });
 
-    // The seller fixes their account. The STORED row still says `restricted` —
-    // a six-hour sweep has not run — so a repair that trusted the local copy
-    // would refuse a transfer the rail would now accept.
-    setRailAccount(scenario.providerAccountId, true);
+    // The seller fixes their account, and the stored verdict says so. Nothing
+    // re-drives the withheld settlement on its own — `handleProviderAccountChanged`
+    // only logs — so the repair is what pays them.
+    await setAccountState(scenario.accountRowId, true);
 
     const result = await runRepair({
       action: 'retry_withheld_transfer',
       actorOxyUserId: OPERATOR,
-      reason: 'Seller completed their outstanding Stripe requirements.',
+      reason: 'Seller completed their outstanding onboarding requirements.',
       discrepancyId: discrepancy.id,
       paymentId: scenario.paymentId,
       orderId: scenario.orderId,
@@ -491,20 +400,16 @@ describe('retry_withheld_transfer', () => {
     expect(settled?.providerObjectId).toBeTruthy();
     expect(settled?.status).toBe('paid');
     expect(await payableBalance(scenario.orderId)).toBe(0n);
-
-    // The local row was re-read from the rail, not trusted.
-    const account = await findProviderAccountByOwner(db, {
-      provider: 'stripe',
-      ownerType: 'store',
-      ownerId: scenario.store.id,
-    });
-    expect(account?.onboardingState).toBe('ready');
+    expect(gateway.state.transferCalls).toHaveLength(1);
+    expect(gateway.state.transferCalls[0]?.idempotencyKey).toBe(
+      `tr:${scenario.paymentId}:${scenario.orderId}`,
+    );
 
     // Audited: an actor, a reason and the outcome.
     const [audit] = await repairsFor(`${scenario.paymentId}:${scenario.orderId}`);
     expect(audit?.actorOxyUserId).toBe(OPERATOR);
     expect(audit?.outcome).toBe('applied');
-    expect(audit?.reason).toContain('outstanding Stripe requirements');
+    expect(audit?.reason).toContain('outstanding onboarding requirements');
 
     // …and the finding it answered was resolved by the person who ran it.
     const closed = await findDiscrepancyById(db, discrepancy.id);
@@ -514,7 +419,7 @@ describe('retry_withheld_transfer', () => {
 
   it('is idempotent — a second run moves no more money', async () => {
     const scenario = await seedScenario('withheld-twice', { ready: false });
-    setRailAccount(scenario.providerAccountId, true);
+    await setAccountState(scenario.accountRowId, true);
 
     const first = await runRepair({
       action: 'retry_withheld_transfer',
@@ -523,7 +428,7 @@ describe('retry_withheld_transfer', () => {
       paymentId: scenario.paymentId,
       orderId: scenario.orderId,
     });
-    const transferCallsAfterFirst = api.transferCalls.length;
+    const transferCallsAfterFirst = gateway.state.transferCalls.length;
 
     const second = await runRepair({
       action: 'retry_withheld_transfer',
@@ -537,7 +442,7 @@ describe('retry_withheld_transfer', () => {
     expect(second.outcome).toBe('no_op');
     // The rail was not asked again: the local `transfers` row already carries a
     // provider object, so the repair short-circuits before the settlement runs.
-    expect(api.transferCalls).toHaveLength(transferCallsAfterFirst);
+    expect(gateway.state.transferCalls).toHaveLength(transferCallsAfterFirst);
     // ONE transfer, which is `UNIQUE(payment_id, order_id)` doing its job — the
     // constraint standing between a settlement retry and money leaving twice.
     const transfers = await db
@@ -553,9 +458,9 @@ describe('retry_withheld_transfer', () => {
     expect(await repairsFor(`${scenario.paymentId}:${scenario.orderId}`)).toHaveLength(2);
   });
 
-  it('refuses while the seller is still unready at the rail, and records the refusal', async () => {
+  it('refuses while the seller is still unready, and records the refusal', async () => {
     const scenario = await seedScenario('still-unready', { ready: false });
-    // The rail still says `restricted`.
+    // The stored verdict still says `restricted`.
 
     await expect(
       runRepair({
@@ -570,7 +475,7 @@ describe('retry_withheld_transfer', () => {
     // Nothing moved…
     const transfer = await findTransferForOrder(db, scenario.paymentId, scenario.orderId);
     expect(transfer?.providerObjectId).toBeNull();
-    expect(api.transferCalls).toHaveLength(0);
+    expect(gateway.state.transferCalls).toHaveLength(0);
 
     // …and the refusal is on the record with its actor and reason. Declining to
     // act on somebody's money is an action (#50, repair invariant 9).
@@ -602,7 +507,7 @@ describe('retry_withheld_transfer', () => {
     // The payment's status is UNCHANGED — nothing here may mark one successful.
     const after = await findPaymentById(db, scenario.paymentId);
     expect(after?.status).toBe('created');
-    expect(api.transferCalls).toHaveLength(0);
+    expect(gateway.state.transferCalls).toHaveLength(0);
 
     const [audit] = await repairsFor(`${scenario.paymentId}:${scenario.orderId}`);
     expect(audit?.outcome).toBe('refused');
@@ -614,7 +519,7 @@ describe('book_reconciling_entry', () => {
   it('books a balanced correction, links it to the finding, and refuses a second one', async () => {
     const discrepancy = await reportDiscrepancy({
       kind: 'merchant_payable_unexplained',
-      provider: 'stripe',
+      provider: 'peable',
       correlationKey: `manual-${RUN}-${uuidv7()}`,
       detail: { currency: 'EUR' },
     });
@@ -676,7 +581,7 @@ describe('book_reconciling_entry', () => {
   it('refuses an UNBALANCED correction and writes nothing', async () => {
     const discrepancy = await reportDiscrepancy({
       kind: 'ledger_unbalanced',
-      provider: 'stripe',
+      provider: 'peable',
       correlationKey: `unbalanced-${RUN}-${uuidv7()}`,
       detail: { currency: 'EUR' },
     });
@@ -829,14 +734,14 @@ async function seedRefundRow(providerState: 'pending' | 'failed') {
     .values({
       orderId: scenario.orderId,
       storeId: scenario.store.id,
-      rmaNumber: `RMA-${RUN}-${String(api.nextId++)}`,
+      rmaNumber: `RMA-${RUN}-${String(rmaSequence++)}`,
       reason: 'other',
       status: 'refunded',
       totalRefundedShopAmount: ORDER_TOTAL,
       totalRefundedShopCurrency: 'EUR',
       totalRefundedPresentmentAmount: ORDER_TOTAL,
       totalRefundedPresentmentCurrency: 'EUR',
-      provider: 'stripe',
+      provider: 'peable',
       providerState,
       paymentId: scenario.paymentId,
     })

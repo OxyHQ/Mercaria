@@ -137,7 +137,7 @@ function domainNamedModules(readDir: DirectoryReader = readDirectory): string[] 
  * #344's partner PAYOUT rail — a referral-named sub-domain deliberately OUTSIDE
  * this population, with an EXACT count (#448).
  *
- * Measured rather than assumed: three of its five modules trip the payment
+ * Measured rather than assumed: some of its modules trip the payment
  * detector below, because reaching the payment rail is what a payout IS. So the
  * choice was between admitting them and widening `LEDGER_POSTING_DIRECTORY` —
  * this file's most sensitive exemption, and the one thing its own docblock says
@@ -150,7 +150,6 @@ function domainNamedModules(readDir: DirectoryReader = readDirectory): string[] 
  */
 const PAYOUT_RAIL_PATHS = [
   'services/referral-payouts/beneficiary.ts',
-  'services/referral-payouts/rail.ts',
   'services/referral-payouts/readiness.ts',
   'services/referral-payouts/register.ts',
   'services/referral-payouts/risk-payment-facts.ts',
@@ -341,11 +340,12 @@ describe('the referral edge cannot reach the money path', () => {
     ).toBeGreaterThanOrEqual(100);
 
     // EXACT, because an unbounded exclusion list lets any number of modules ride
-    // in behind the five somebody justified (#448).
+    // in behind the four somebody justified (#448; the fifth, the Stripe payout
+    // rail, went with the direct Stripe rail under ADR 0009 D13).
     expect(
       PAYOUT_RAIL_PATHS.length,
-      'a sixth module was excused from this gate as payout-rail',
-    ).toBe(5);
+      'a fifth module was excused from this gate as payout-rail',
+    ).toBe(4);
 
     const population = new Set(REFERRAL_DOMAIN_PATHS);
     const excluded = new Set(PAYOUT_RAIL_PATHS);
@@ -402,7 +402,7 @@ describe('the referral edge cannot reach the money path', () => {
     // absorbing the payout rail it was told to excuse.
     assertEachOf(
       [
-        'services/referral-payouts/rail.ts',
+        'services/referral-payouts/readiness.ts',
         'controllers/orders.controller.ts',
         'db/schema/orders.ts',
         'middleware/auth.ts',

@@ -26,10 +26,9 @@
  *
  * ## Metered, and not for the reason most routes are
  *
- * The `payments` scope, shared with onboarding-link minting. These are
- * authenticated operators, so abuse is not the concern — cost is:
- * `refetch` and every repair make live Stripe API calls against the platform's
- * own rate limit, and a dashboard polling `trace` in a loop during an incident
+ * The `payments` scope. These are authenticated operators, so abuse is not the
+ * concern — cost is: `refetch` and every repair make live rail calls against the
+ * platform's own rate limit, and a dashboard polling `trace` in a loop during an incident
  * is the realistic way that budget gets spent. The limiter is modest rather than
  * tight, because an operator working an incident must not be locked out of their
  * own tools.

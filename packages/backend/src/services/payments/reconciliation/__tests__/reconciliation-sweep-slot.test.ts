@@ -60,8 +60,8 @@ const REALDB_FILE_FLOOR = 60;
  *
  * The dispatch half is the one worth reading. `runner.ts` itself contains no
  * `reportDiscrepancy(` call at all: it reaches the table only by calling the
- * four job modules, which between them hold sixteen (open-payments 3,
- * provider-objects 8, account-readiness 2, ledger-audit 3). So a realdb file
+ * job modules, which between them hold five (open-payments 2, ledger-audit 3;
+ * withheld-transfers writes none). So a realdb file
  * driving `runReconciliationJob(` writes discrepancy rows — including
  * `auditLedgerPage`'s `cursor: null` global checks — without spelling any
  * direct recorder call, and a gate naming only the direct ones would stay green
@@ -69,9 +69,11 @@ const REALDB_FILE_FLOOR = 60;
  * driver passes today only INCIDENTALLY, because it happens to spell
  * `auditLedgerPage(` as well.
  *
- * Four of these match no realdb file today, which is deliberate: they exist for
+ * Some of these match no realdb file today, which is deliberate: they exist for
  * the file nobody has written yet, and the mutation self-test below is what
- * keeps them from being decoration.
+ * keeps them from being decoration. The sweeps the direct Stripe rail read
+ * through (`provider_objects`, `account_readiness`) were deleted with it (ADR
+ * 0009 D13), and their entry points with them, so they are not listed.
  *
  * `reconcileOnePayment(` is deliberately ABSENT — it is aimed at one payment id
  * by construction, so it cannot collide with a sibling's rows, and detecting it
@@ -85,8 +87,6 @@ const DISCREPANCY_CALLS: readonly RegExp[] = [
   new RegExp(`${'audit'}${'LedgerPage'}\\s*\\(`, 'u'),
   new RegExp(`${'run'}${'ReconciliationJob'}\\s*\\(`, 'u'),
   new RegExp(`${'reconcile'}${'OpenPaymentsPage'}\\s*\\(`, 'u'),
-  new RegExp(`${'reconcile'}${'ProviderObjectsPage'}\\s*\\(`, 'u'),
-  new RegExp(`${'reconcile'}${'AccountReadiness'}\\s*\\(`, 'u'),
 ];
 
 /** Taking the mutex. */
@@ -160,7 +160,7 @@ describe('the reconciliation sweep slot', () => {
   });
 
   it('fires on EVERY detected call shape, and on none of their near misses', () => {
-    // Four of the nine detectors match no realdb file today, so the census
+    // Some of the seven detectors match no realdb file today, so the census
     // above cannot prove they work — a pattern that stopped matching would read
     // exactly like a well-behaved estate. Each one is exercised here against a
     // real call and against the same identifier with a suffix, so a broken
@@ -173,8 +173,6 @@ describe('the reconciliation sweep slot', () => {
       `${'audit'}${'LedgerPage'}`,
       `${'run'}${'ReconciliationJob'}`,
       `${'reconcile'}${'OpenPaymentsPage'}`,
-      `${'reconcile'}${'ProviderObjectsPage'}`,
-      `${'reconcile'}${'AccountReadiness'}`,
     ];
 
     // The floor: as many probes as detectors, so dropping a detector without

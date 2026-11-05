@@ -113,7 +113,7 @@ export interface GuestP2PFacts {
   readonly trustTier: GuestP2PSignal<string>;
   /** Orders this seller has actually completed. */
   readonly completedSales: GuestP2PSignal<number>;
-  /** The connected account's country — the seller's market, as Stripe holds it. */
+  /** The connected account's country — the seller's market, as the rail holds it. */
   readonly sellerPayoutCountry: GuestP2PSignal<string>;
   /**
    * Whether this seller has accepted the CURRENT P2P return, cancellation and
@@ -232,7 +232,7 @@ function evaluateFromFacts(
 ): GuestP2PCriterionOutcome {
   const scope = GUEST_P2P_BOUNDED_SCOPE;
   switch (criterion) {
-    case 'stripe_payout_ready':
+    case 'payout_ready':
       // A rail that is off cannot answer whether anybody is ready for it; a
       // rail that is on and reports `false` is a seller who has not finished
       // onboarding, which is a fact.

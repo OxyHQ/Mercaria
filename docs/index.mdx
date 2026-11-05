@@ -258,15 +258,15 @@ automation and the clean-cut migration policy are documented in
 
 | ADR | Subject |
 |---|---|
-| [0001](adr/0001-stripe-connect-architecture.md) | Stripe Connect, the ledger, commission as a residual |
+| [0001](adr/0001-stripe-connect-architecture.md) | Stripe Connect, the ledger, commission as a residual — its rail superseded by 0009 (direct Stripe deleted 2026-11-05); D1 and D3–D12 still bind |
 | [0002](adr/0002-canonical-commerce-graph.md) | The canonical commerce graph |
 | [0003](adr/0003-commerce-actor-guest-identity.md) | `CommerceActor` and guest identity |
 | [0004](adr/0004-mercaria-retail-dropship.md) | Mercaria-retail and dropship |
 | [0005](adr/0005-referral-program.md) | The referral program |
-| [0006](adr/0006-stripe-guest-checkout.md) | Stripe guest checkout |
+| [0006](adr/0006-stripe-guest-checkout.md) | Guest checkout on the card rail — written for direct Stripe (deleted 2026-11-05, ADR 0009 D13); its rail-neutral decisions still bind |
 | [0007](adr/0007-universal-catalog-taxonomy-and-authoring.md) | The universal multilingual catalog — taxonomy, localization, versioned product types, typed authoring |
-| [0008](adr/0008-connect-accounts-v2.md) | Connect Accounts v2 — superseded by 0009, which moves the call out of this repository |
-| [0009](adr/0009-peable-payment-rail.md) | Peable is the payment rail; ADR 0001's D1 and D3–D12 are inherited unchanged |
+| [0008](adr/0008-connect-accounts-v2.md) | Connect Accounts v2 — superseded by 0009; history since the direct Stripe rail was deleted (2026-11-05) |
+| [0009](adr/0009-peable-payment-rail.md) | Peable is the only payment rail (D13 executed 2026-11-05); ADR 0001's D1 and D3–D12 are inherited unchanged |
 | [0010](adr/0010-digital-commerce.md) | Digital goods are a commerce type — assets, licences, buyer rights and digital fulfilment; amends ADR 0007 D15 |
 | [0011](adr/0011-authorized-digital-retail.md) | Authorized digital retail — Mercaria is the seller, the supplier is private infrastructure; amends ADR 0010 D16 in one half |
 | [0012](adr/0012-store-ownership-is-an-oxy-account.md) | A store is owned by an Oxy account; Oxy decides who gets in, Mercaria keeps only permission exceptions |
@@ -304,7 +304,7 @@ automation and the clean-cut migration policy are documented in
 
 | Area | Doc |
 |---|---|
-| Payments, ledger, Stripe, fees (#88), retail on the card rail (#123), guest checkout (#107) | [payments.md](payments.md) |
+| Payments, ledger, the Peable rail, fees (#88), retail on the card rail (#123), guest checkout (#107) | [payments.md](payments.md) |
 | Supervised shopping, operator review and exact guardian purchase approval | [supervised-shopping.md](supervised-shopping.md) |
 | Referrals: attribution (#143) · earnings (#145) · enrollment (#146) · dashboards (#147) · integrity (#148) · pilots (#149) · rewards | [referral-attribution.md](referral-attribution.md) · [referral-earnings.md](referral-earnings.md) · [referral-enrollment.md](referral-enrollment.md) · [referral-dashboards.md](referral-dashboards.md) · [referral-integrity.md](referral-integrity.md) · [referral-pilots.md](referral-pilots.md) · [referral-rewards.md](referral-rewards.md) |
 | Affiliate outbound redirects and commission (#67) | [affiliate-outbound.md](affiliate-outbound.md) |

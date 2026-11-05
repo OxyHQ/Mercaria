@@ -4,10 +4,10 @@
  * ## Why this is not in `checkout.service`
  *
  * The same boundary `provider-account.service` draws, and for the same reason:
- * `checkout.service` must not import a Stripe module. ADR 0001's last consequence
- * is that everything provider-specific stays behind the payment domain, so that
- * a future rail plugs into the same seam — and a Stripe import in the
- * checkout path would make the card rail structural to placing an order.
+ * `checkout.service` must not import an adapter module. ADR 0001's last
+ * consequence is that everything provider-specific stays behind the payment
+ * domain, so that a future rail plugs into the same seam — and an adapter import
+ * in the checkout path would make the card rail structural to placing an order.
  *
  * So the split is by vocabulary. This file knows that a checkout has a rail, that
  * a rail has eligible currencies, and that a buyer's client gets a handoff. It
@@ -89,7 +89,7 @@ export type CheckoutRail = 'card' | 'none';
  * the deployment simply cannot serve it.
  */
 export function resolveCheckoutRail(requested: CheckoutPaymentMethod | undefined): CheckoutRail {
-  if (requested === 'card' || requested === 'stripe') {
+  if (requested === 'card') {
     if (!resolveNativeRail()) {
       throw conflict('Card payments are not available on this deployment.');
     }
@@ -120,7 +120,7 @@ export function resolveCheckoutRail(requested: CheckoutPaymentMethod | undefined
  * The message NAMES the eligible set, because the buyer's only remedy is to
  * switch their display currency and the client cannot offer that without knowing
  * what to switch to. A minimum-amount refusal is deliberately NOT pre-checked
- * here — Stripe enforces its own minimum against the settlement currency after
+ * here — the rail enforces its own minimum against the settlement currency after
  * conversion, so a local copy of that rule would be a second, drifting one.
  */
 export function assertCheckoutCurrencyEligible(rail: CheckoutRail, currency: CurrencyCode): void {
@@ -154,7 +154,7 @@ export function assertCheckoutCurrencyEligible(rail: CheckoutRail, currency: Cur
  *
  * ## An already-opened payment is READ, not re-created
  *
- * Rails expire idempotency keys (Stripe's last 24 hours), so a buyer returning to
+ * Rails expire idempotency keys (Peable's last 24 hours), so a buyer returning to
  * an unpaid checkout the next day would otherwise be handed a SECOND charge
  * object for orders the first one can still fund. Once Mercaria has recorded the
  * provider's object id, that id is what gets read — which cannot produce a
@@ -251,22 +251,15 @@ export async function openCheckoutPayment(input: {
     throw conflict('The payment rail did not return client material for this checkout.');
   }
 
-  // A PUBLISHABLE key is a Stripe fact, so it is sent only when Stripe is the
-  // rail. Peable's `publicKey` is Mercaria's own ApplicationCredential and is
-  // never sent to anyone — putting it here would ship a server credential to
-  // every buyer's browser. Absent means "use the key the app was built with",
-  // which is the correct instruction on a rail that has no server-side key to
-  // reconcile against.
-  const publishableKey = rail === 'stripe' ? config.payments.stripe.publishableKey : '';
-  const returnUrl = checkoutReturnUrl(input.checkoutGroupId);
+  // No key of any kind travels with the handoff: Mercaria reaches Peable with its
+  // own Oxy workload identity (ADR 0009 D20), and the client secret is the only
+  // material a buyer's client needs.
   return {
     paymentId: payment.id,
     provider: rail,
     clientSecret: result.clientAction.value,
-    ...(publishableKey ? { publishableKey } : {}),
     amount,
     methods: checkoutPaymentSurfaces(),
-    ...(returnUrl !== undefined ? { returnUrl } : {}),
   };
 }
 
@@ -277,12 +270,10 @@ export async function openCheckoutPayment(input: {
  *
  * The server names an UPPER BOUND and the device narrows it. That split is not a
  * compromise, it is the only correct division of the question: only the browser
- * knows whether an Apple Pay sheet exists on this machine and only Stripe knows
- * whether the domain is registered, while only the server knows whether an
+ * knows whether an Apple Pay sheet exists on this machine and only the rail
+ * knows whether the domain is registered, while only the server knows whether an
  * operator has switched a wallet off mid-incident. A client cannot ADD a surface
- * the server withheld — the Express Checkout Element and PaymentSheet are both
- * configured from this list — and the server cannot force one the device cannot
- * show.
+ * the server withheld and the server cannot force one the device cannot show.
  *
  * Buyer origin is deliberately NOT an input. ADR 0006 G2 puts both actor kinds
  * on one client component, B11 forbids origin-dependent treatment, and a guest
@@ -290,59 +281,12 @@ export async function openCheckoutPayment(input: {
  * the second-class checkout ADR 0003 refuses. It takes no arguments at all,
  * which is the version of that promise a reviewer can check.
  *
- * ## `STRIPE_PAYMENT_SURFACE_METHODS` is MISNAMED, and read on every rail
- *
- * Which wallets a client may render is a checkout fact, not an acquirer fact:
- * the same list is correct whether the deployment charges through Stripe or
- * through Peable, and an operator switching Apple Pay off mid-incident means it
- * off, full stop. So this deliberately does NOT gate on the resolved rail —
- * doing so would leave a Peable deployment with no configured surfaces at all.
- *
- * The variable keeps its name because renaming it is a task-definition change
- * in `oxy-infra`, which this repository cannot make or verify. Stated here
- * rather than left to be rediscovered, and pinned by
- * `checkout-rail.test.ts` so nobody "fixes" it into a Stripe-only read.
+ * Which wallets a client may render is a CHECKOUT fact, not an acquirer fact
+ * (`CHECKOUT_PAYMENT_SURFACE_METHODS`): an operator switching Apple Pay off
+ * mid-incident means it off, full stop.
  */
 export function checkoutPaymentSurfaces(): readonly CheckoutPaymentSurfaceMethod[] {
-  return config.payments.stripe.paymentSurfaceMethods;
-}
-
-/**
- * Where a buyer sent away for authentication comes back to — ADR 0006 G10.
- *
- * The group id is appended by the SERVER onto a configured origin, so a client
- * cannot choose where a bank redirect lands (the `onboardingBaseUrl` reasoning:
- * a URL built from a request header behind an ALB is an open redirect with a
- * bank's own first hop in front of it). What it carries is one opaque
- * server-issued uuid and nothing else — no token, no order number, no contact,
- * because the return proves nothing and the status endpoint authenticates its
- * caller separately.
- *
- * A malformed configured value produces NO return url rather than a broken one:
- * `confirmPayment` then runs with `redirect: 'if_required'`, in-frame
- * authentication still completes, and only a full-redirect challenge fails —
- * visibly, in front of the buyer. Returning a URL that cannot be parsed would
- * instead be handed to Stripe and fail inside their sheet.
- */
-export function checkoutReturnUrl(checkoutGroupId: string): string | undefined {
-  // `STRIPE_CHECKOUT_RETURN_URL` is misnamed for the same reason
-  // `checkoutPaymentSurfaces` is, and read on every rail for the same reason:
-  // where a buyer lands after authentication is Mercaria's own origin, and no
-  // acquirer has an opinion about it.
-  const configured = config.payments.stripe.checkoutReturnUrl;
-  if (configured === undefined) return undefined;
-  try {
-    const url = new URL(configured);
-    url.searchParams.set('checkoutGroupId', checkoutGroupId);
-    return url.toString();
-  } catch {
-    log.general.error(
-      { configured },
-      '[Payments] STRIPE_CHECKOUT_RETURN_URL is not a valid URL; payment authentication will ' +
-        'complete in place and a redirect-only challenge will fail visibly',
-    );
-    return undefined;
-  }
+  return config.payments.paymentSurfaceMethods;
 }
 
 /**
@@ -375,7 +319,7 @@ function groupPresentmentTotal(orders: readonly OrderRecord[]): Money {
  * `paymentId` is the correlation the webhook resolver reads, and it is the ONLY
  * one anything depends on. `orderIds` is reconciliation convenience for a person
  * reading the rail's own dashboard, so it is included when it fits inside
- * Stripe's 500-character metadata value and dropped entirely when it does not —
+ * the rail's 500-character metadata value and dropped entirely when it does not —
  * a truncated list would look complete and name the wrong set of orders.
  * `orderCount` is always present, so a reader can tell a dropped list from a
  * single-seller checkout.
@@ -385,7 +329,7 @@ function groupPresentmentTotal(orders: readonly OrderRecord[]): Money {
  * session, it authorizes nothing, and it is deterministic on replay because
  * `guest_checkouts` is UNIQUE per checkout group. That last property is load
  * bearing rather than pleasant: a converging retry must compose a byte-identical
- * request or Stripe rejects the reused idempotency key, and this is the one key
+ * request or the rail rejects the reused idempotency key, and this is the one key
  * whose value comes from a second table.
  *
  * The ids are SORTED, for the same reason: "the order the rows came back in" is
@@ -448,7 +392,7 @@ export function assertPaymentMetadataKeys(metadata: Record<string, string>): voi
   }
 }
 
-/** Stripe's per-value metadata limit. */
+/** The rail's per-value metadata limit. */
 const METADATA_VALUE_MAX_LENGTH = 500;
 
 /**
@@ -506,7 +450,7 @@ export async function readCheckoutPaymentStatus(
  * payment domain exists beyond this one call, and so a failure in it can never
  * stop stock going back: the orders are already cancelled by the time this runs,
  * and the worst case of a failure is a payment row that stays `created` and an
- * intent Stripe eventually expires on its own.
+ * intent the rail eventually expires on its own.
  */
 export async function releaseCheckoutPayments(checkoutGroupIds: readonly string[]): Promise<void> {
   if (checkoutGroupIds.length === 0) return;

@@ -233,7 +233,7 @@ const ACTIVE_POLICY_TABLE = new RegExp(`\\(\\s*${'match'}${'PolicyVersions'}\\b`
  *
  * This repo's integration tests drive the REAL app with `fetch` against a path
  * literal rather than importing a handler
- * (`routes/__tests__/stripe-webhook.integration.test.ts` is the shape), so a
+ * (`routes/__tests__/peable-webhook.integration.test.ts` is the shape), so a
  * file exercising that surface would reach the slot while spelling no function
  * name at all. The matching prefix is taken WHOLE — five of its handlers read
  * or write the policy — while the ingestion surface is taken at the ONE path

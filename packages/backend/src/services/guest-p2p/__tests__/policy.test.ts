@@ -185,7 +185,7 @@ describe('unknown never passes, and it is not a refusal either', () => {
   it('blocks a rail that is off rather than blaming the seller', () => {
     const facts = bestCaseFacts({ payoutReady: unknown('deployment') });
     const entry = deriveGuestP2PEligibility(facts).criteria.find(
-      (c) => c.criterion === 'stripe_payout_ready',
+      (c) => c.criterion === 'payout_ready',
     );
     expect(entry?.outcome).toBe('unevaluable');
   });
@@ -356,7 +356,7 @@ describe('the verdict severity: ineligible beats unknown beats eligible', () => 
     const unevaluable = deriveGuestP2PEligibility(facts).criteria.filter(
       (entry) => entry.outcome === 'unevaluable',
     );
-    expect(unevaluable.map((entry) => entry.criterion)).toEqual(['stripe_payout_ready']);
+    expect(unevaluable.map((entry) => entry.criterion)).toEqual(['payout_ready']);
     for (const entry of unevaluable) {
       if (entry.outcome === 'unevaluable') expect(entry.owner).toBe('deployment');
     }

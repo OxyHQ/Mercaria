@@ -1,10 +1,9 @@
 /**
  * The signed referral link token — a stateless, HMAC-signed locator.
  *
- * Same construction as `services/payments/stripe/onboarding-state.ts` and
- * `connectors/oauth-state.ts` (`<payloadB64>.<sig>`, HMAC-SHA256, constant-time
- * comparison through `verifySecret`), deliberately, so a reader who understands
- * one understands the other.
+ * Same construction as `connectors/oauth-state.ts` (`<payloadB64>.<sig>`,
+ * HMAC-SHA256, constant-time comparison through `verifySecret`), deliberately,
+ * so a reader who understands one understands the other.
  *
  * ## What is inside, and what is deliberately not
  *

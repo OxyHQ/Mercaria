@@ -41,19 +41,15 @@
  * Censused over all 172 `*.realdb.test.ts` files by the arity of concurrent
  * operations, classified by whether the outcome depends on true concurrency:
  *
- *     3  services/payments/stripe/.../account.service  3 x ensureConnectedAccount
- *                                                      converging on ONE id -- a RACE
  *     2  cart-merge, guest-claim, buyers (one winner), concurrent-publish, ...
  *     7  guest-session -- SEVEN rejection checks all asserting null. NOT a race;
  *        independent, so serializing them costs nothing. The raw maximum is not
  *        the constraint, and provisioning for it would be the opposite error.
  *
- * **The highest TRUE-race arity is 3**, so the floor is 3 and {@link TEST_POOL_SIZE}
- * of 4 carries exactly one connection of margin. Lowering it to 2 would
- * serialize the three-way connected-account race — whose entire point is that a
- * Stripe account cannot be un-created, so two racers deriving an idempotency key
- * from a freshly-minted row id defeat themselves — and leave zero margin on
- * every two-way race.
+ * **The highest TRUE-race arity is 2** (it was 3 until the three-way
+ * connected-account race went with the direct Stripe rail, ADR 0009 D13), so
+ * {@link TEST_POOL_SIZE} of 4 carries two connections of margin. Lowering it to
+ * 2 would leave zero margin on every two-way race.
  *
  * **So the pool is correctly sized and the PARALLELISM is what exceeded the
  * ceiling.** That is what {@link MAX_TEST_WORKERS} bounds.

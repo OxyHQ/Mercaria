@@ -546,7 +546,7 @@ emits one.
 
 | Issue | Capability | Metrics waiting on it |
 |---|---|---|
-| #107 | Stripe guest checkout — methods, action-required, verified success | `guest_verified_payment_conversion` |
+| #107 | Guest card checkout — methods, action-required, verified success | `guest_verified_payment_conversion` |
 | #108 | Guest order portal and magic-link recovery | `order_portal_delivery_success` |
 | #109 | Claiming a guest checkout into an Oxy account | `oxy_claim_funnel` |
 | #110 | Guest cancellations, returns, support | `guest_post_purchase_demand` |

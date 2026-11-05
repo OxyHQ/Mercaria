@@ -1,6 +1,6 @@
 /**
  * The Oxy file-events webhook's raw-body guarantee, asserted against the REAL
- * app — the SIXTH raw-body mount, so the sixth file (`docs/house-invariants.md`,
+ * app — the FIFTH raw-body mount, so the fifth file (`docs/house-invariants.md`,
  * "Raw-body mounts": the assertion is PER MOUNT).
  *
  * The bytes are signed the way OXY signs them — `oxy-signature: t=<unix>,

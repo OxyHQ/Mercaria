@@ -1,0 +1,35 @@
+-- oxy:deploy-phase=post
+-- oxy:rollback=restore: fifteen CHECKs narrow with the direct Stripe rail's removal (the Peable payment-rail ADR, decision D13, executed early by owner decision) - the ten provider CHECKs (orders_payment_provider_check, payments_provider_check, refunds_provider_check, disputes_provider_check, payment_attempts_provider_check, payment_provider_events_provider_check, payouts_provider_check, provider_accounts_provider_check, transfers_provider_check, payment_discrepancies_provider_check) lose 'stripe'; payment_discrepancies_kind_check loses the nine kinds only the Stripe-reading sweeps raised; reconciliation_cursors_id_check loses provider_objects and account_readiness; retail_reconciliation_evidence_kind_check, guest_launch_gate_signoffs_gate_check and guest_rollout_stage_advances_gates_check lose their stripe_* members. Their wider forms are in 0183 and the migrations before it; production held no row naming any narrowed value when this shipped (read-only census before release)
+-- The CONTRACT half of 0183: every table here was empty of the narrowed values
+-- in production (orders: 2 rows, payment_provider NULL), so the full-scan CHECK
+-- re-adds hold their ACCESS EXCLUSIVE locks for microseconds.
+ALTER TABLE "orders" DROP CONSTRAINT "orders_payment_provider_check";--> statement-breakpoint
+ALTER TABLE "refunds" DROP CONSTRAINT "refunds_provider_check";--> statement-breakpoint
+ALTER TABLE "disputes" DROP CONSTRAINT "disputes_provider_check";--> statement-breakpoint
+ALTER TABLE "payment_attempts" DROP CONSTRAINT "payment_attempts_provider_check";--> statement-breakpoint
+ALTER TABLE "payment_provider_events" DROP CONSTRAINT "payment_provider_events_provider_check";--> statement-breakpoint
+ALTER TABLE "payments" DROP CONSTRAINT "payments_provider_check";--> statement-breakpoint
+ALTER TABLE "payouts" DROP CONSTRAINT "payouts_provider_check";--> statement-breakpoint
+ALTER TABLE "provider_accounts" DROP CONSTRAINT "provider_accounts_provider_check";--> statement-breakpoint
+ALTER TABLE "transfers" DROP CONSTRAINT "transfers_provider_check";--> statement-breakpoint
+ALTER TABLE "payment_discrepancies" DROP CONSTRAINT "payment_discrepancies_kind_check";--> statement-breakpoint
+ALTER TABLE "payment_discrepancies" DROP CONSTRAINT "payment_discrepancies_provider_check";--> statement-breakpoint
+ALTER TABLE "reconciliation_cursors" DROP CONSTRAINT "reconciliation_cursors_id_check";--> statement-breakpoint
+ALTER TABLE "retail_reconciliation_evidence" DROP CONSTRAINT "retail_reconciliation_evidence_kind_check";--> statement-breakpoint
+ALTER TABLE "guest_launch_gate_signoffs" DROP CONSTRAINT "guest_launch_gate_signoffs_gate_check";--> statement-breakpoint
+ALTER TABLE "guest_rollout_stage_advances" DROP CONSTRAINT "guest_rollout_stage_advances_gates_check";--> statement-breakpoint
+ALTER TABLE "orders" ADD CONSTRAINT "orders_payment_provider_check" CHECK ("orders"."payment_provider" in ('external', 'manual_pos', 'mock', 'peable'));--> statement-breakpoint
+ALTER TABLE "refunds" ADD CONSTRAINT "refunds_provider_check" CHECK ("refunds"."provider" in ('external', 'manual_pos', 'mock', 'peable'));--> statement-breakpoint
+ALTER TABLE "disputes" ADD CONSTRAINT "disputes_provider_check" CHECK ("disputes"."provider" in ('external', 'manual_pos', 'mock', 'peable'));--> statement-breakpoint
+ALTER TABLE "payment_attempts" ADD CONSTRAINT "payment_attempts_provider_check" CHECK ("payment_attempts"."provider" in ('external', 'manual_pos', 'mock', 'peable'));--> statement-breakpoint
+ALTER TABLE "payment_provider_events" ADD CONSTRAINT "payment_provider_events_provider_check" CHECK ("payment_provider_events"."provider" in ('external', 'manual_pos', 'mock', 'peable'));--> statement-breakpoint
+ALTER TABLE "payments" ADD CONSTRAINT "payments_provider_check" CHECK ("payments"."provider" in ('external', 'manual_pos', 'mock', 'peable'));--> statement-breakpoint
+ALTER TABLE "payouts" ADD CONSTRAINT "payouts_provider_check" CHECK ("payouts"."provider" in ('external', 'manual_pos', 'mock', 'peable'));--> statement-breakpoint
+ALTER TABLE "provider_accounts" ADD CONSTRAINT "provider_accounts_provider_check" CHECK ("provider_accounts"."provider" in ('external', 'manual_pos', 'mock', 'peable'));--> statement-breakpoint
+ALTER TABLE "transfers" ADD CONSTRAINT "transfers_provider_check" CHECK ("transfers"."provider" in ('external', 'manual_pos', 'mock', 'peable'));--> statement-breakpoint
+ALTER TABLE "payment_discrepancies" ADD CONSTRAINT "payment_discrepancies_kind_check" CHECK ("payment_discrepancies"."kind" in ('payment_provider_paid_local_unpaid', 'payment_local_paid_provider_unpaid', 'ledger_transaction_missing', 'ledger_unbalanced', 'merchant_payable_unexplained'));--> statement-breakpoint
+ALTER TABLE "payment_discrepancies" ADD CONSTRAINT "payment_discrepancies_provider_check" CHECK ("payment_discrepancies"."provider" in ('external', 'manual_pos', 'mock', 'peable'));--> statement-breakpoint
+ALTER TABLE "reconciliation_cursors" ADD CONSTRAINT "reconciliation_cursors_id_check" CHECK ("reconciliation_cursors"."id" in ('open_payments', 'ledger_audit', 'retail_reconciliation', 'withheld_transfers'));--> statement-breakpoint
+ALTER TABLE "retail_reconciliation_evidence" ADD CONSTRAINT "retail_reconciliation_evidence_kind_check" CHECK ("retail_reconciliation_evidence"."kind" in ('card_payment', 'card_processing_fee', 'card_refund', 'card_dispute', 'purchase_order', 'supplier_invoice', 'supplier_credit_note', 'fulfilment_charge', 'tax_duty_record', 'retail_cost_quote', 'promotion_subsidy', 'customer_refund_record'));--> statement-breakpoint
+ALTER TABLE "guest_launch_gate_signoffs" ADD CONSTRAINT "guest_launch_gate_signoffs_gate_check" CHECK ("guest_launch_gate_signoffs"."gate" in ('actor_identity_privacy_adr_approved', 'guest_payment_amendment_approved', 'security_review_complete', 'privacy_and_retention_review_complete', 'card_rail_production_ready', 'webhooks_reconciliation_runbooks_operational', 'transactional_sender_authenticated', 'merchant_readiness_includes_guest', 'support_runbooks_staffed', 'backup_and_restore_validated', 'dashboard_metrics_and_alerts_live', 'feature_flags_and_kill_switches_tested', 'no_unresolved_critical_findings', 'payment_to_portal_tested_under_failure'));--> statement-breakpoint
+ALTER TABLE "guest_rollout_stage_advances" ADD CONSTRAINT "guest_rollout_stage_advances_gates_check" CHECK ("guest_rollout_stage_advances"."unsatisfied_gates" <@ array['actor_identity_privacy_adr_approved', 'guest_payment_amendment_approved', 'security_review_complete', 'privacy_and_retention_review_complete', 'card_rail_production_ready', 'webhooks_reconciliation_runbooks_operational', 'transactional_sender_authenticated', 'merchant_readiness_includes_guest', 'support_runbooks_staffed', 'backup_and_restore_validated', 'dashboard_metrics_and_alerts_live', 'feature_flags_and_kill_switches_tested', 'no_unresolved_critical_findings', 'payment_to_portal_tested_under_failure']::text[]);

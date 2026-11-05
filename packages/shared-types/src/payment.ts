@@ -7,7 +7,7 @@
  * these same tuples, so a value that exists in one place exists in all of them.
  *
  * Nothing in this file names a provider's own vocabulary. `pi_…`, `charge`,
- * `transfer_group` and every other Stripe noun stay behind the `PaymentProvider`
+ * `transfer_group` and every other acquirer noun stay behind the `PaymentProvider`
  * interface in the backend; a future rail plugs into the same seams without any
  * provider leaking into the domain.
  *
@@ -48,20 +48,13 @@ import type { Money } from './money';
  *    with `services/payments/peable/`, which is the whole of this set's rule —
  *    the adapter that can produce a `peable` row ships in the same change as
  *    the id and the migration widening the CHECK.
- *  - `stripe` — the card rail of ADR 0001. Added by #48, which builds the
- *    webhook ingress: a verified Stripe event is written to
- *    `payment_provider_events` under this id, so the id has to exist before the
- *    `PaymentProvider` adapter that CREATES payments (#47) does. That is not the
- *    "value in advance" the rule above forbids — #48 ships the code that writes
- *    `stripe` rows and the migration that lets it, together, and the events it
- *    stores are real.
  *
  * `external` and `manual_pos` have NO adapter, and that is the distinction the
  * set encodes: they are payments Mercaria RECORDS, not payments Mercaria makes.
  * Nothing is authorized, captured or refunded through them, and neither books a
  * ledger entry — no Mercaria money moved.
  */
-export type PaymentProviderId = 'external' | 'manual_pos' | 'mock' | 'peable' | 'stripe';
+export type PaymentProviderId = 'external' | 'manual_pos' | 'mock' | 'peable';
 
 /** {@link PaymentProviderId} as the tuple the column types and CHECKs read. */
 export const PAYMENT_PROVIDER_IDS: readonly PaymentProviderId[] = [
@@ -69,12 +62,6 @@ export const PAYMENT_PROVIDER_IDS: readonly PaymentProviderId[] = [
   'manual_pos',
   'mock',
   'peable',
-  // `stripe` STAYS for now, and its removal is a separate change (ADR 0009
-  // D13). The two rails coexist behind `resolvePaymentProvider` for exactly as
-  // long as it takes to verify the new one end to end — which is what keeps
-  // checkout up across the move, and what makes a rollback a config change
-  // rather than a migration.
-  'stripe',
 ];
 
 /**
@@ -229,8 +216,8 @@ export const PAYOUT_STATUSES: readonly PayoutStatus[] = [
  * approved and not yet paid out — not an error, and not something a buyer or a
  * merchant should be shown as complete.
  *
- * `canceled` is the rail's own: Stripe cancels a refund it could not deliver to
- * a closed account before it ever settles. It is separate from `failed` because
+ * `canceled` is the rail's own: an acquirer cancels a refund it could not deliver
+ * to a closed account before it ever settles. It is separate from `failed` because
  * a cancelled refund never left, while a failed one bounced back.
  */
 export type RefundProviderState = 'pending' | 'succeeded' | 'failed' | 'canceled';
@@ -869,21 +856,11 @@ export const PAYMENT_OUTBOX_STATUSES: readonly PaymentOutboxStatus[] = [
  * the acquirer behind it, which is what ADR 0009 D19 made necessary: the rail is
  * a deployment fact the server resolves, so a client naming a brand would be
  * asserting something it cannot know.
- *
- * `'stripe'` is kept as a deprecated synonym for `'card'`, not removed. It is
- * what every shipped client sends today, and dropping it would refuse those
- * checkouts on the deployment that is mid-migration — the exact moment the
- * vocabulary changed. It carries no meaning of its own any more: a request
- * naming it gets whichever rail the deployment resolves, Peable included.
  */
-export type CheckoutPaymentMethod = 'card' | 'stripe' | 'mock';
+export type CheckoutPaymentMethod = 'card' | 'mock';
 
 /** {@link CheckoutPaymentMethod} as the tuple the request schema reads. */
-export const CHECKOUT_PAYMENT_METHODS: readonly CheckoutPaymentMethod[] = [
-  'card',
-  'stripe',
-  'mock',
-];
+export const CHECKOUT_PAYMENT_METHODS: readonly CheckoutPaymentMethod[] = ['card', 'mock'];
 
 /**
  * Which payment SURFACES the server permits for one checkout — ADR 0006 G2/G3
@@ -892,15 +869,15 @@ export const CHECKOUT_PAYMENT_METHODS: readonly CheckoutPaymentMethod[] = [
  *
  * A different question from {@link CheckoutPaymentMethod}, which names the RAIL
  * a checkout funds through. Every member below rides the one card rail: Apple
- * Pay and Google Pay are card-based wallets inside Stripe's `card` payment
- * method type (ADR 0001 D3), and Link surfaces as autofill over the card form
- * without being a method type of its own (G15). So this tuple decides what a
+ * Pay and Google Pay are card-based wallets inside the acquirer's `card`
+ * payment method type (ADR 0001 D3), and Link surfaces as autofill over the card
+ * form without being a method type of its own (G15). So this tuple decides what a
  * client may RENDER, never what money does — which is why widening it cannot
  * change a charge, a transfer, a fee or a ledger entry.
  *
  * The set the server names is an upper bound and the device narrows it: only
  * the browser knows whether an Apple Pay sheet exists on this machine, and only
- * Stripe knows whether a domain is registered. The two-sided narrowing is the
+ * the rail knows whether a domain is registered. The two-sided narrowing is the
  * point — a client cannot ADD a surface the server withheld (which is what
  * "server-authoritative" buys), and the server cannot force one the device
  * cannot show.
@@ -1005,16 +982,6 @@ export interface CheckoutPaymentHandoff {
   provider: PaymentProviderId;
   /** The rail's client secret (or equivalent), opaque and never persisted. */
   clientSecret: string;
-  /**
-   * The rail's publishable key, when the server is configured with one.
-   *
-   * Absent means "use the key the app was built with". It is returned at all
-   * because the key and the account that created the payment MUST be the same
-   * one, and two independently-configured values can silently disagree — a
-   * client secret confirmed against another account's key fails with a
-   * mismatched-intent error that reads as a client bug.
-   */
-  publishableKey?: string;
   amount: Money;
   /**
    * The payment surfaces this checkout may render — #107's server-authoritative
@@ -1028,20 +995,4 @@ export interface CheckoutPaymentHandoff {
    * widen it.
    */
   methods: readonly CheckoutPaymentSurfaceMethod[];
-  /**
-   * Where a buyer sent away for authentication comes back to — ADR 0006 G10.
-   *
-   * Composed by the SERVER from a configured origin plus this group's id, so a
-   * client cannot choose where a bank redirect lands. Absent when the
-   * deployment has configured no return origin, in which case the web client
-   * confirms with `redirect: 'if_required'` and an authentication that insists
-   * on a full redirect fails visibly rather than landing somewhere unintended.
-   *
-   * It carries the checkout group id and NOTHING else. That id is an opaque
-   * server-issued uuid and is not a credential: knowing it authorizes nothing,
-   * because the status endpoint authenticates the caller separately. The return
-   * itself proves nothing at all — the verified provider event is the authority
-   * (G10), the same posture as onboarding's `return_url` (ADR 0001 D2).
-   */
-  returnUrl?: string;
 }

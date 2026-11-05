@@ -28,8 +28,7 @@ export async function fetchPlanCatalog(storeId: string): Promise<MerchantPlanCat
  * POST to start a paid plan, answering a hosted URL.
  *
  * The URL is single-use and short-lived, so it is never cached and never
- * stored — the caller opens it immediately, in the SYSTEM browser, exactly as
- * the payout-onboarding link is opened and for the same reason: a hosted
+ * stored — the caller opens it immediately, in the SYSTEM browser: a hosted
  * provider flow does not run inside an embedded webview.
  *
  * The body names a plan, a cadence and a currency and nothing about money. The

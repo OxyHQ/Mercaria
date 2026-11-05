@@ -1,6 +1,6 @@
 /**
  * Reconciliation detection and convergence (#50), against a REAL Postgres and a
- * fake Stripe.
+ * fake Peable gateway (`payments/__tests__/helpers/fake-peable-gateway.ts`).
  *
  * ## Why none of it can be mocked
  *
@@ -14,9 +14,12 @@
  *
  * ## What IS mocked, and only that
  *
- * `stripe/client.js`, the single module that talks to Stripe. Everything above
- * it — the sweeps, the discrepancy recorder, the payment state machine, the
- * ledger and the outbox — is the real code.
+ * `peable/client.js`, the single module that talks to the gateway, and the one
+ * config flag that switches the rail on. Everything above it — the Peable
+ * adapter, the sweeps, the discrepancy recorder, the payment state machine, the
+ * ledger and the outbox — is the real code. The open-payment sweep reads the
+ * rail through the PORT (ADR 0009 D16), and the port reports a status and no
+ * amounts, so statuses are all this file can compare.
  *
  * ## Fixtures are scoped, never truncated, and the sweeps are aimed
  *
@@ -24,10 +27,13 @@
  * nothing here truncates a table another file uses. That constrains how the
  * SWEEPS are driven, not just how the assertions are written: `reconcileOnePayment`
  * is called directly wherever the subject is one payment, because the paging
- * variant scans every open Stripe payment in the database and would sweep
+ * variant scans every open Peable payment in the database and would sweep
  * whatever a sibling file happened to have in flight. Where a page IS the
- * subject — the cursor tests — the input comes entirely from the fake rail, so
- * there is nothing of anybody else's in it.
+ * subject — the cursor test — it does sweep them, and it is safe because the
+ * fake gateway knows only this file's intents: a sibling's payment reads as
+ * `resource_missing`, which the sweep treats as an unreadable rail and records
+ * nothing for. What that case asserts is about READS — every payment read at
+ * most once in a pass — never a count of rows somebody else owns.
  *
  * The LEDGER AUDIT was the gap in that rule (#260). `auditLedgerPage` runs two
  * GLOBAL checks whenever its cursor is null, and the only thing bounding the
@@ -76,80 +82,37 @@ const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toStrin
 
 /** The order's grand total, in EUR cents. */
 const ORDER_TOTAL = 4_000;
-/** What Stripe keeps on the charge. Mercaria's cost (ADR 0001 D5). */
-const CHARGE_FEE = 116;
 
 /**
- * The fake Stripe API's state. Hoisted so the `vi.mock` factory can close over
- * it — a factory is hoisted above every `const` in this file.
+ * The fake gateway. Hoisted so the `vi.mock` factory below can close over it —
+ * a factory is hoisted above every `const` in this file.
  */
-const api = vi.hoisted(() => ({
-  intents: new Map<string, Record<string, unknown>>(),
-  charges: new Map<string, Record<string, unknown>>(),
-  /** The balance-transaction list the provider-object sweep pages through. */
-  balanceTransactions: [] as Record<string, unknown>[],
-  /** Every `starting_after` the sweep asked for, in order — the resumability probe. */
-  listCalls: [] as { startingAfter?: string; limit: number }[],
-  /** Intents the rail should refuse to return, keyed by id. */
-  unreadableIntents: new Set<string>(),
-  nextId: 0,
-}));
+const gateway = await vi.hoisted(async () =>
+  (await import('../../__tests__/helpers/fake-peable-gateway.js')).createFakePeableGateway(),
+);
 
-vi.mock('../../stripe/client.js', () => ({
-  STRIPE_API_VERSION: '2026-07-29.dahlia',
-  getStripeClient: () => {
-    throw new Error('This suite must not construct a real Stripe client.');
-  },
-  resetStripeClient: () => undefined,
-  retrieveStripePaymentIntent: (id: string) => {
-    if (api.unreadableIntents.has(id)) {
-      return Promise.reject(new Error(`Stripe is unreachable for ${id}`));
-    }
-    const intent = api.intents.get(id);
-    if (!intent) throw new Error(`No fake PaymentIntent registered for ${id}`);
-    return Promise.resolve(intent);
-  },
-  retrieveStripeChargeWithBalance: (id: string) => {
-    const charge = api.charges.get(id);
-    if (!charge) throw new Error(`No fake charge registered for ${id}`);
-    return Promise.resolve(charge);
-  },
-  listStripeBalanceTransactions: (input: {
-    createdGte: Date;
-    limit: number;
-    startingAfter?: string;
-  }) => {
-    api.listCalls.push({
-      limit: input.limit,
-      ...(input.startingAfter === undefined ? {} : { startingAfter: input.startingAfter }),
-    });
-    // Stripe's own cursor semantics: `starting_after` names the LAST id of the
-    // previous page and the next page begins after it. Reproduced rather than
-    // approximated, because a resumability test against a fake that ignored the
-    // cursor would pass whatever the code did with it.
-    const start =
-      input.startingAfter === undefined
-        ? 0
-        : api.balanceTransactions.findIndex((row) => row.id === input.startingAfter) + 1;
-    const data = api.balanceTransactions.slice(start, start + input.limit);
-    return Promise.resolve({
-      object: 'list',
-      data,
-      has_more: start + data.length < api.balanceTransactions.length,
-    });
-  },
-  // The sweeps never reach these; the mock declares them so an accidental call
-  // fails loudly rather than resolving to `undefined`.
-  createStripePaymentIntent: () => {
-    throw new Error('The reconciliation sweeps must not create anything at the rail.');
-  },
-  createStripeTransfer: () => {
-    throw new Error('The reconciliation sweeps must not create anything at the rail.');
-  },
-  createStripeRefund: () => {
-    throw new Error('The reconciliation sweeps must not create anything at the rail.');
-  },
-}));
+/**
+ * The Peable rail switched on, and nothing else changed. `PEABLE_ENABLED` also
+ * needs an Oxy identity this suite does not have, and the client is faked
+ * below anyway, so the flag is set on the frozen config rather than the
+ * environment. Every other leaf — the zeroed age buffer below included — is the
+ * real config, read from the environment.
+ */
+vi.mock('../../../../config/index.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../../config/index.js')>();
+  return {
+    ...actual,
+    config: {
+      ...actual.config,
+      payments: {
+        ...actual.config.payments,
+        peable: { ...actual.config.payments.peable, enabled: true },
+      },
+    },
+  };
+});
+
+vi.mock('../../peable/client.js', () => gateway.clientModule());
 
 type Database = import('../../../../db/postgres.js').Database;
 let db: Database;
@@ -157,7 +120,6 @@ let closePostgres: typeof import('../../../../db/postgres.js').closePostgres;
 let ensurePayment: typeof import('../../payment.service.js').ensurePayment;
 let applyPaymentStatus: typeof import('../../payment.service.js').applyPaymentStatus;
 let reconcileOnePayment: typeof import('../open-payments.job.js').reconcileOnePayment;
-let reconcileProviderObjectsPage: typeof import('../provider-objects.job.js').reconcileProviderObjectsPage;
 let auditLedgerPage: typeof import('../ledger-audit.job.js').auditLedgerPage;
 let runReconciliationJob: typeof import('../runner.js').runReconciliationJob;
 let collectPaymentMetrics: typeof import('../metrics.service.js').collectPaymentMetrics;
@@ -193,12 +155,7 @@ beforeAll(async () => {
   // not inherited — vitest reuses a worker PROCESS across files while giving
   // each its own module registry, so a sibling file's write survives into this
   // one's `config`.
-  process.env.STRIPE_ENABLED = 'true';
-  process.env.STRIPE_SECRET_KEY = 'sk_test_not_a_real_key';
-  process.env.STRIPE_WEBHOOK_SECRET = 'whsec_reconciliation_not_a_real_one';
-  process.env.STRIPE_CONNECT_WEBHOOK_SECRET = 'whsec_reconciliation_connect';
-  process.env.STRIPE_PLATFORM_CURRENCY = 'EUR';
-  process.env.STRIPE_PRESENTMENT_CURRENCIES = 'EUR,USD';
+  //
   // Zero, so a payment created a moment ago is already old enough to sweep.
   // The buffer exists to keep buyers who are still paying out of the queue, and
   // a test that waited ten real minutes for it would be a test nobody runs.
@@ -209,7 +166,6 @@ beforeAll(async () => {
   ({ closePostgres } = postgres);
   ({ ensurePayment, applyPaymentStatus } = await import('../../payment.service.js'));
   ({ reconcileOnePayment } = await import('../open-payments.job.js'));
-  ({ reconcileProviderObjectsPage } = await import('../provider-objects.job.js'));
   ({ auditLedgerPage } = await import('../ledger-audit.job.js'));
   ({ runReconciliationJob } = await import('../runner.js'));
   ({ collectPaymentMetrics } = await import('../metrics.service.js'));
@@ -273,11 +229,7 @@ afterAll(async () => {
 beforeEach(() => {
   // Only the in-memory rail is reset. Nothing in Postgres is deleted — see the
   // file docblock on why a realdb file may not truncate.
-  api.intents.clear();
-  api.charges.clear();
-  api.balanceTransactions.length = 0;
-  api.listCalls.length = 0;
-  api.unreadableIntents.clear();
+  gateway.reset();
 });
 
 /**
@@ -324,21 +276,7 @@ async function discrepancyRows(kind: PaymentDiscrepancyKind, correlationKey: str
 }
 
 /**
- * Every discrepancy under one correlation key, whatever its KIND.
- *
- * The kind-less form, for the cases whose claim is that a sweep opened nothing
- * at all for a movement: naming a kind there would only prove it opened nothing
- * of the ONE kind that was guessed at.
- */
-async function discrepancyRowsForKey(correlationKey: string) {
-  return await db
-    .select()
-    .from(reconciliationSchema.paymentDiscrepancies)
-    .where(eq(reconciliationSchema.paymentDiscrepancies.correlationKey, correlationKey));
-}
-
-/**
- * How many `stripe`/`EUR`/`succeeded` payments THIS RUN owns.
+ * How many `peable`/`EUR`/`succeeded` payments THIS RUN owns.
  *
  * Every checkout group this file mints carries `RUN` — through `seedSeller`'s
  * suffix or written in directly — so this is exactly the rows it created and
@@ -350,13 +288,13 @@ async function discrepancyRowsForKey(correlationKey: string) {
  * of rows, and reading them avoids the int8-comes-back-as-a-string trap that
  * `CONVENTIONS.md` records for aggregates.
  */
-async function ownSucceededStripeEurPayments(): Promise<number> {
+async function ownSucceededPeableEurPayments(): Promise<number> {
   const rows = await db
     .select({ id: paymentSchema.payments.id })
     .from(paymentSchema.payments)
     .where(
       and(
-        eq(paymentSchema.payments.provider, 'stripe'),
+        eq(paymentSchema.payments.provider, 'peable'),
         eq(paymentSchema.payments.presentmentCurrency, 'EUR'),
         eq(paymentSchema.payments.status, 'succeeded'),
         like(paymentSchema.payments.checkoutGroupId, `%${RUN}%`),
@@ -382,7 +320,7 @@ async function oneDiscrepancy(kind: PaymentDiscrepancyKind, correlationKey: stri
   return row;
 }
 
-/** A store with a payment-ready connected account, and one sellable variant. */
+/** A store with a payment-ready Peable seller account, and one sellable variant. */
 async function seedSeller(label: string) {
   const suffix = `${label}-${RUN}-${uuidv7()}`;
   const ownerId = `owner-${suffix}`;
@@ -410,10 +348,10 @@ async function seedSeller(label: string) {
   });
 
   const account = await insertProviderAccount(db, {
-    provider: 'stripe',
+    provider: 'peable',
     ownerType: 'store',
     ownerId: store.id,
-    providerAccountId: `acct_${suffix.replace(/-/g, '').slice(0, 20)}`,
+    providerAccountId: `ca_${suffix.replace(/-/g, '').slice(-24)}`,
     country: 'ES',
   });
   // Readiness is ONE stored verdict (#46), set through the repository that
@@ -512,39 +450,28 @@ async function seedOrder(
   return order.id;
 }
 
-/** Register a fake succeeded intent and its charge. */
-function seedSucceededIntent(input: {
-  intentId: string;
-  chargeId: string;
-  amount: number;
-  platformAmount?: number;
-}) {
-  const platformAmount = input.platformAmount ?? input.amount;
-  api.intents.set(input.intentId, {
-    id: input.intentId,
-    object: 'payment_intent',
+/** Register an intent the gateway reports as `succeeded`, nothing refunded. */
+function seedSucceededIntent(intentId: string): void {
+  gateway.putIntent({
+    id: intentId,
     status: 'succeeded',
-    amount: input.amount,
-    currency: 'eur',
-    latest_charge: input.chargeId,
-    metadata: {},
+    amount: BigInt(ORDER_TOTAL),
+    currency: 'EUR',
   });
-  api.charges.set(input.chargeId, {
-    id: input.chargeId,
-    object: 'charge',
-    amount: input.amount,
-    currency: 'eur',
-    amount_refunded: 0,
-    balance_transaction: {
-      id: `txn_${input.chargeId}`,
-      object: 'balance_transaction',
-      amount: platformAmount,
-      currency: 'eur',
-      fee: CHARGE_FEE,
-      exchange_rate: platformAmount === input.amount ? null : platformAmount / input.amount,
-      created: Math.floor(Date.now() / 1_000),
+}
+
+/** The settlement figure a succeeded charge is booked with in these fixtures. */
+function sameCurrencyPlatform() {
+  return {
+    amount: { amount: ORDER_TOTAL, currency: 'EUR' as const },
+    rate: {
+      from: 'EUR' as const,
+      to: 'EUR' as const,
+      rate: 1,
+      provider: 'peable' as const,
+      asOf: new Date().toISOString(),
     },
-  });
+  };
 }
 
 describe('the open-payment sweep', () => {
@@ -557,11 +484,10 @@ describe('the open-payment sweep', () => {
     const checkoutGroupId = `group-converge-${seller.suffix}`;
     const orderId = await seedOrder(seller, checkoutGroupId);
     const intentId = `pi_converge_${seller.suffix.replace(/-/g, '')}`;
-    const chargeId = `ch_converge_${seller.suffix.replace(/-/g, '')}`;
-    seedSucceededIntent({ intentId, chargeId, amount: ORDER_TOTAL });
+    seedSucceededIntent(intentId);
 
     const payment = await ensurePayment({
-      provider: 'stripe',
+      provider: 'peable',
       checkoutGroupId,
       presentment: { amount: ORDER_TOTAL, currency: 'EUR' },
       buyerOxyUserId: `buyer-${seller.suffix}`,
@@ -581,7 +507,20 @@ describe('the open-payment sweep', () => {
     // parallel state writer would have produced neither.
     const after = await findPaymentById(db, payment.id);
     expect(after?.status).toBe('succeeded');
-    expect(after?.platformAmount).toBe(ORDER_TOTAL);
+    // Read through the port, which reports a STATUS and no amounts (ADR 0009
+    // D16): no settlement figure is invented, and the charge is booked against
+    // the presentment amount, exactly as a Peable event would book it.
+    expect(after?.platformAmount).toBeNull();
+    const charge = await db
+      .select({ kind: ledgerSchema.ledgerTransactions.kind })
+      .from(ledgerSchema.ledgerTransactions)
+      .where(
+        and(
+          eq(ledgerSchema.ledgerTransactions.paymentId, payment.id),
+          eq(ledgerSchema.ledgerTransactions.kind, 'charge_succeeded'),
+        ),
+      );
+    expect(charge).toHaveLength(1);
 
     const ledger = await db
       .select()
@@ -610,11 +549,15 @@ describe('the open-payment sweep', () => {
     const checkoutGroupId = `group-reverse-${seller.suffix}`;
     await seedOrder(seller, checkoutGroupId);
     const intentId = `pi_reverse_${seller.suffix.replace(/-/g, '')}`;
-    const chargeId = `ch_reverse_${seller.suffix.replace(/-/g, '')}`;
-    seedSucceededIntent({ intentId, chargeId, amount: ORDER_TOTAL });
+    const intent = gateway.putIntent({
+      id: intentId,
+      status: 'succeeded',
+      amount: BigInt(ORDER_TOTAL),
+      currency: 'EUR',
+    });
 
     const payment = await ensurePayment({
-      provider: 'stripe',
+      provider: 'peable',
       checkoutGroupId,
       presentment: { amount: ORDER_TOTAL, currency: 'EUR' },
       providerObjectId: intentId,
@@ -623,23 +566,11 @@ describe('the open-payment sweep', () => {
       paymentId: payment.id,
       next: 'succeeded',
       providerObjectId: intentId,
-      platform: {
-        amount: { amount: ORDER_TOTAL, currency: 'EUR' },
-        rate: {
-          from: 'EUR',
-          to: 'EUR',
-          rate: 1,
-          provider: 'stripe',
-          asOf: new Date().toISOString(),
-        },
-      },
+      platform: sameCurrencyPlatform(),
     });
 
     // …and now the rail says the money never arrived.
-    api.intents.set(intentId, {
-      ...(api.intents.get(intentId) ?? {}),
-      status: 'requires_payment_method',
-    });
+    intent.status = 'requires_payment_method';
 
     const settled = await findPaymentById(db, payment.id);
     if (!settled) throw new Error('the fixture payment vanished');
@@ -655,77 +586,45 @@ describe('the open-payment sweep', () => {
     expect(after?.status).toBe('succeeded');
   });
 
-  it('records an amount mismatch even when the two statuses agree', async () => {
-    // The ordering bug this pins: checking the amount only inside the
-    // "statuses disagree" branch makes a charge for the wrong amount invisible
-    // precisely when both systems are otherwise happy about it.
-    const seller = await seedSeller('amount');
-    const checkoutGroupId = `group-amount-${seller.suffix}`;
-    await seedOrder(seller, checkoutGroupId);
-    const intentId = `pi_amount_${seller.suffix.replace(/-/g, '')}`;
-    const chargeId = `ch_amount_${seller.suffix.replace(/-/g, '')}`;
-
-    const payment = await ensurePayment({
-      provider: 'stripe',
-      checkoutGroupId,
-      presentment: { amount: ORDER_TOTAL, currency: 'EUR' },
-      providerObjectId: intentId,
-      status: 'processing',
-    });
-
-    // Same status on both sides, different amount.
-    api.intents.set(intentId, {
-      id: intentId,
-      object: 'payment_intent',
-      status: 'processing',
-      amount: ORDER_TOTAL + 500,
-      currency: 'eur',
-      latest_charge: chargeId,
-      metadata: {},
-    });
-
-    const outcome = await reconcileOnePayment(payment);
-
-    expect(outcome.converged).toBe(false);
-    expect(outcome.findings).toBe(1);
-    const row = await oneDiscrepancy('payment_amount_mismatch', payment.id);
-    expect(row.detail).toMatchObject({
-      side: 'presentment',
-      localAmountMinor: ORDER_TOTAL,
-      providerAmountMinor: ORDER_TOTAL + 500,
-    });
-  });
-
   it('bumps one row rather than opening a second when a finding is still true', async () => {
     // The dedupe index IS the queue. Without it a periodic sweep is a row
     // generator, and the loudest discrepancy becomes the oldest rather than the
-    // worst.
+    // worst. Driven with the one finding a sweep never resolves by itself —
+    // local paid, rail unpaid — so the second pass re-confirms rather than
+    // converges.
     const seller = await seedSeller('dedupe');
     const checkoutGroupId = `group-dedupe-${seller.suffix}`;
     await seedOrder(seller, checkoutGroupId);
     const intentId = `pi_dedupe_${seller.suffix.replace(/-/g, '')}`;
+    const intent = gateway.putIntent({
+      id: intentId,
+      status: 'succeeded',
+      amount: BigInt(ORDER_TOTAL),
+      currency: 'EUR',
+    });
 
     const payment = await ensurePayment({
-      provider: 'stripe',
+      provider: 'peable',
       checkoutGroupId,
       presentment: { amount: ORDER_TOTAL, currency: 'EUR' },
       providerObjectId: intentId,
-      status: 'processing',
     });
-    api.intents.set(intentId, {
-      id: intentId,
-      object: 'payment_intent',
-      status: 'processing',
-      amount: ORDER_TOTAL + 1,
-      currency: 'eur',
-      metadata: {},
+    await applyPaymentStatus({
+      paymentId: payment.id,
+      next: 'succeeded',
+      providerObjectId: intentId,
+      platform: sameCurrencyPlatform(),
     });
+    intent.status = 'canceled';
 
-    await reconcileOnePayment(payment);
-    const first = await oneDiscrepancy('payment_amount_mismatch', payment.id);
+    const settled = await findPaymentById(db, payment.id);
+    if (!settled) throw new Error('the fixture payment vanished');
 
-    await reconcileOnePayment(payment);
-    const second = await oneDiscrepancy('payment_amount_mismatch', payment.id);
+    await reconcileOnePayment(settled);
+    const first = await oneDiscrepancy('payment_local_paid_provider_unpaid', payment.id);
+
+    await reconcileOnePayment(settled);
+    const second = await oneDiscrepancy('payment_local_paid_provider_unpaid', payment.id);
 
     expect(second.id).toBe(first.id);
     expect(second.occurrences).toBe(2);
@@ -737,10 +636,11 @@ describe('the open-payment sweep', () => {
 
   it('reports nothing for a refunded payment whose intent still says succeeded', async () => {
     // The false positive the operator surface would otherwise generate on every
-    // refunded payment somebody re-fetched: a Stripe PaymentIntent STAYS
-    // `succeeded` after a refund, because the refund is a separate object. Both
-    // sides agree the charge settled; only Mercaria's own refund lifecycle has
-    // moved on, and the intent's status cannot express that.
+    // refunded payment somebody re-fetched: the gateway's PaymentIntent STAYS
+    // `succeeded` for life (ADR 0019), refunds being separate objects counted
+    // in `amount_refunded` — and a refund the gateway has not counted yet
+    // leaves it reading plain `succeeded`. Both sides agree the charge settled;
+    // only Mercaria's own refund lifecycle has moved on.
     //
     // The paging sweep cannot reach this (its query excludes terminal statuses),
     // which is exactly why it needs a test — `refetch` is pointed at whatever
@@ -749,11 +649,10 @@ describe('the open-payment sweep', () => {
     const checkoutGroupId = `group-refunded-${seller.suffix}`;
     await seedOrder(seller, checkoutGroupId);
     const intentId = `pi_refunded_${seller.suffix.replace(/-/g, '')}`;
-    const chargeId = `ch_refunded_${seller.suffix.replace(/-/g, '')}`;
-    seedSucceededIntent({ intentId, chargeId, amount: ORDER_TOTAL });
+    seedSucceededIntent(intentId);
 
     const payment = await ensurePayment({
-      provider: 'stripe',
+      provider: 'peable',
       checkoutGroupId,
       presentment: { amount: ORDER_TOTAL, currency: 'EUR' },
       providerObjectId: intentId,
@@ -762,16 +661,7 @@ describe('the open-payment sweep', () => {
       paymentId: payment.id,
       next: 'succeeded',
       providerObjectId: intentId,
-      platform: {
-        amount: { amount: ORDER_TOTAL, currency: 'EUR' },
-        rate: {
-          from: 'EUR',
-          to: 'EUR',
-          rate: 1,
-          provider: 'stripe',
-          asOf: new Date().toISOString(),
-        },
-      },
+      platform: sameCurrencyPlatform(),
     });
     await applyPaymentStatus({
       paymentId: payment.id,
@@ -787,6 +677,9 @@ describe('the open-payment sweep', () => {
 
     expect(outcome.converged).toBe(false);
     expect(outcome.findings).toBe(0);
+    // The premise, asserted: the rail really was read, and really said
+    // `succeeded` — a sweep that never asked would report nothing too.
+    expect(outcome.providerStatus).toBe('succeeded');
     const rows = await db
       .select()
       .from(reconciliationSchema.paymentDiscrepancies)
@@ -795,16 +688,22 @@ describe('the open-payment sweep', () => {
   });
 
   it('reports nothing when the rail cannot be read', async () => {
-    // A Stripe outage is not a finding about a payment. Recording one would fill
+    // A gateway outage is not a finding about a payment. Recording one would fill
     // the queue with rows about the rail's availability during exactly the
     // incident where a real discrepancy is hardest to see.
     const seller = await seedSeller('unreadable');
     const checkoutGroupId = `group-unreadable-${seller.suffix}`;
     const intentId = `pi_unreadable_${seller.suffix.replace(/-/g, '')}`;
-    api.unreadableIntents.add(intentId);
+    gateway.putIntent({
+      id: intentId,
+      status: 'succeeded',
+      amount: BigInt(ORDER_TOTAL),
+      currency: 'EUR',
+    });
+    gateway.state.unreadableIntents.add(intentId);
 
     const payment = await ensurePayment({
-      provider: 'stripe',
+      provider: 'peable',
       checkoutGroupId,
       presentment: { amount: ORDER_TOTAL, currency: 'EUR' },
       providerObjectId: intentId,
@@ -816,187 +715,15 @@ describe('the open-payment sweep', () => {
 
     expect(outcome.converged).toBe(false);
     expect(outcome.findings).toBe(0);
+    // The read was attempted — the silence is the outage's, not a skipped call.
+    expect(gateway.state.retrieves).toContain(intentId);
     const rows = await db
       .select()
       .from(reconciliationSchema.paymentDiscrepancies)
       .where(eq(reconciliationSchema.paymentDiscrepancies.paymentId, payment.id));
     expect(rows).toEqual([]);
-  });
-});
-
-describe('the provider-object sweep', () => {
-  it('records a Stripe transfer Mercaria has no row for', async () => {
-    const transferId = `tr_orphan_${RUN}${String(api.nextId++)}`;
-    api.balanceTransactions.push({
-      id: `txn_${transferId}`,
-      object: 'balance_transaction',
-      type: 'transfer',
-      // Stripe SIGNS a movement by direction: a transfer leaves the platform
-      // balance, so it is negative. The comparison is against the magnitude.
-      amount: -2_500,
-      currency: 'eur',
-      source: { id: transferId, object: 'transfer', destination: 'acct_somebody' },
-    });
-
-    const page = await reconcileProviderObjectsPage({
-      cursor: null,
-      windowStartAt: new Date(Date.now() - 60_000),
-      limit: 10,
-    });
-
-    expect(page.discrepancies).toBeGreaterThanOrEqual(1);
-    const row = await oneDiscrepancy('transfer_missing_locally', transferId);
-    expect(row.detail).toMatchObject({ amountMinor: 2_500, currency: 'EUR' });
-    // Nothing was invented to fix it: turning this into a `transfers` row would
-    // mean guessing which order it settled, which is how an innocent seller's
-    // payable gets closed against somebody else's money.
-    const transfers = await db
-      .select()
-      .from(paymentSchema.transfers)
-      .where(eq(paymentSchema.transfers.providerObjectId, transferId));
-    expect(transfers).toEqual([]);
-  });
-
-  it('records a charge whose platform amount is not what Mercaria booked', async () => {
-    const seller = await seedSeller('platform');
-    const checkoutGroupId = `group-platform-${seller.suffix}`;
-    await seedOrder(seller, checkoutGroupId);
-    const intentId = `pi_platform_${seller.suffix.replace(/-/g, '')}`;
-    const chargeId = `ch_platform_${seller.suffix.replace(/-/g, '')}`;
-    seedSucceededIntent({ intentId, chargeId, amount: ORDER_TOTAL });
-
-    const payment = await ensurePayment({
-      provider: 'stripe',
-      checkoutGroupId,
-      presentment: { amount: ORDER_TOTAL, currency: 'EUR' },
-      providerObjectId: intentId,
-    });
-    await applyPaymentStatus({
-      paymentId: payment.id,
-      next: 'succeeded',
-      providerObjectId: intentId,
-      platform: {
-        amount: { amount: ORDER_TOTAL, currency: 'EUR' },
-        rate: {
-          from: 'EUR',
-          to: 'EUR',
-          rate: 1,
-          provider: 'stripe',
-          asOf: new Date().toISOString(),
-        },
-      },
-    });
-
-    // The rail's balance transaction says the charge landed as something else.
-    api.balanceTransactions.push({
-      id: `txn_${chargeId}`,
-      object: 'balance_transaction',
-      type: 'charge',
-      amount: ORDER_TOTAL - 300,
-      currency: 'eur',
-      source: { id: chargeId, object: 'charge', payment_intent: intentId },
-    });
-
-    await reconcileProviderObjectsPage({
-      cursor: null,
-      windowStartAt: new Date(Date.now() - 60_000),
-      limit: 10,
-    });
-
-    // A DIFFERENT correlation key from the presentment-side check, so the two
-    // sides of one payment are two rows — they have different causes and merging
-    // them would hide whichever was found second.
-    const row = await oneDiscrepancy('payment_amount_mismatch', `${payment.id}:platform`);
-    expect(row.detail).toMatchObject({
-      side: 'platform',
-      localAmountMinor: ORDER_TOTAL,
-      providerAmountMinor: ORDER_TOTAL - 300,
-    });
-  });
-
-  it('records a payout Mercaria has no row for, at info severity', async () => {
-    // Mercaria is not a party to a payout (ADR 0001 D6) and books nothing for
-    // one, so a missing row costs a dashboard line and no money — which is what
-    // `info` means here rather than an arbitrary ranking.
-    const payoutId = `po_orphan_${RUN}${String(api.nextId++)}`;
-    api.balanceTransactions.push({
-      id: `txn_${payoutId}`,
-      object: 'balance_transaction',
-      type: 'payout',
-      amount: -10_000,
-      currency: 'eur',
-      source: { id: payoutId, object: 'payout' },
-    });
-
-    await reconcileProviderObjectsPage({
-      cursor: null,
-      windowStartAt: new Date(Date.now() - 60_000),
-      limit: 10,
-    });
-
-    const row = await oneDiscrepancy('payout_missing_locally', payoutId);
-    expect(row.severity).toBe('info');
-  });
-
-  it('skips the movement types it deliberately does not model', async () => {
-    // A sweep that reported every movement it does not model would be a queue of
-    // its own gaps. `stripe_fee` is the clearest case: it has no Mercaria row by
-    // design, because the fee is booked from the charge's balance transaction.
-    const feeTransactionId = `txn_fee_${RUN}${String(api.nextId++)}`;
-    api.balanceTransactions.push({
-      id: feeTransactionId,
-      object: 'balance_transaction',
-      type: 'stripe_fee',
-      amount: -30,
-      currency: 'eur',
-      source: null,
-    });
-
-    const page = await reconcileProviderObjectsPage({
-      cursor: null,
-      windowStartAt: new Date(Date.now() - 60_000),
-      limit: 10,
-    });
-
-    expect(page.scanned).toBe(1);
-    expect(page.discrepancies).toBe(0);
-
-    // …and it WROTE nothing, which the returned count on its own cannot
-    // establish. Scoped to the movement's own id rather than counting the table
-    // before and after: `payment_discrepancies` is shared with
-    // `repairs.realdb.test.ts` (the sweep slot serializes the two, which is why
-    // a whole-table count is not failing today), and a count over rows this
-    // file does not own is a claim about the wrong thing whatever the mutex
-    // says. A fee is keyed on the balance transaction's own id, since the
-    // movement carries no source object to key on.
-    expect(await discrepancyRowsForKey(feeTransactionId)).toEqual([]);
-
-    // The positive control, and it is not optional: the assertion above is an
-    // ABSENCE, so a query naming the wrong table or column answers it exactly
-    // as a correct one does. (The whole-table count it replaces had the same
-    // hole in the same place — a broken read gives `0` twice and compares
-    // equal.) So the same query, over the same table, for a movement in the
-    // same pass that the sweep DOES model.
-    const modelledTransferId = `tr_modelled_${RUN}${String(api.nextId++)}`;
-    api.balanceTransactions.push({
-      id: `txn_${modelledTransferId}`,
-      object: 'balance_transaction',
-      type: 'transfer',
-      amount: -1_500,
-      currency: 'eur',
-      source: { id: modelledTransferId, object: 'transfer', destination: 'acct_somebody' },
-    });
-
-    const second = await reconcileProviderObjectsPage({
-      cursor: null,
-      windowStartAt: new Date(Date.now() - 60_000),
-      limit: 10,
-    });
-    expect(second.scanned).toBe(2);
-    expect(second.discrepancies).toBe(1);
-    expect(await discrepancyRowsForKey(modelledTransferId)).toHaveLength(1);
-    // The fee was read a second time and still opened nothing.
-    expect(await discrepancyRowsForKey(feeTransactionId)).toEqual([]);
+    // …and nothing moved: the payment is still where checkout left it.
+    expect((await findPaymentById(db, payment.id))?.status).toBe('processing');
   });
 });
 
@@ -1004,60 +731,78 @@ describe('the cursor', () => {
   it('resumes an interrupted pass from where it stopped, processing nothing twice', async () => {
     // Issue #50's jobs 7. The property is not "the cursor is stored" but "a
     // second run does not redo the first run's page" — which is why the fake
-    // records every `starting_after` it was asked for.
-    await deleteReconciliationCursor(db, 'provider_objects');
+    // records every intent it was asked to read.
+    //
+    // The `open_payments` pass reads EVERY open Peable payment in the shared
+    // database, so this case claims nothing about how many there are. It claims
+    // that each one is read AT MOST once in a pass — a cursor that did not
+    // advance, or advanced to the wrong id, re-reads a page — and that this
+    // file's own three are each read EXACTLY once, which is the floor that keeps
+    // "at most once" from being satisfied by reading nothing.
+    await deleteReconciliationCursor(db, 'open_payments');
 
-    const ids = [0, 1, 2].map((index) => `tr_page_${RUN}_${String(index)}`);
-    for (const transferId of ids) {
-      api.balanceTransactions.push({
-        id: `txn_${transferId}`,
-        object: 'balance_transaction',
-        type: 'transfer',
-        amount: -1_000,
-        currency: 'eur',
-        source: { id: transferId, object: 'transfer', destination: 'acct_somebody' },
+    const intentIds: string[] = [];
+    for (const index of [0, 1, 2]) {
+      const intentId = `pi_page_${RUN}_${String(index)}`;
+      // The rail AGREES (`processing` on both sides), so the pass converges
+      // nothing and writes nothing — the payments stay open, and stay in every
+      // later page's population, which is what makes a re-read possible at all.
+      gateway.putIntent({
+        id: intentId,
+        status: 'processing',
+        amount: BigInt(ORDER_TOTAL),
+        currency: 'EUR',
       });
+      await ensurePayment({
+        provider: 'peable',
+        checkoutGroupId: `group-page-${RUN}-${uuidv7()}`,
+        presentment: { amount: ORDER_TOTAL, currency: 'EUR' },
+        providerObjectId: intentId,
+        status: 'processing',
+        linkOrders: false,
+      });
+      intentIds.push(intentId);
     }
 
-    const first = await runReconciliationJob('provider_objects', { limit: 2 });
+    const first = await runReconciliationJob('open_payments', { limit: 2 });
     expect(first?.scanned).toBe(2);
-    expect(first?.nextCursor).toBe(`txn_${ids[1] ?? ''}`);
+    const resumeFrom = first?.nextCursor;
+    expect(resumeFrom).toBeTruthy();
 
     // The cursor is DURABLE between runs — that is what makes the pass resumable
     // across a task that died rather than merely across a loop iteration.
-    const stored = (await listReconciliationCursors(db)).find(
-      (row) => row.id === 'provider_objects',
-    );
-    expect(stored?.cursor).toBe(`txn_${ids[1] ?? ''}`);
+    const stored = (await listReconciliationCursors(db)).find((row) => row.id === 'open_payments');
+    expect(stored?.cursor).toBe(resumeFrom);
     // …and the lease was released, so another task may take the next page.
     expect(stored?.leaseOwner).toBeNull();
 
-    const second = await runReconciliationJob('provider_objects', { limit: 2 });
-    expect(second?.scanned).toBe(1);
-    expect(second?.nextCursor).toBeNull();
+    // Drive the rest of the pass. Bounded, because a cursor that never reached
+    // the end is one of the defects this exists to catch, and an unbounded loop
+    // would report it as a timeout naming nothing.
+    let last = first;
+    for (let page = 0; page < 1_000 && last?.nextCursor; page += 1) {
+      last = await runReconciliationJob('open_payments', { limit: 2 });
+      // `undefined` would be another task holding the lease — nothing in this
+      // suite or any sibling drives this job, so it is a defect, not a race.
+      expect(last).toBeDefined();
+    }
+    expect(last?.nextCursor).toBeNull();
 
-    // The second run asked the rail to start AFTER the first page's last id, so
-    // the first two movements were never read a second time.
-    expect(api.listCalls).toEqual([
-      { limit: 2 },
-      { limit: 2, startingAfter: `txn_${ids[1] ?? ''}` },
-    ]);
+    // Nothing was read twice in the pass…
+    const reads = gateway.state.retrieves;
+    expect(new Set(reads).size).toBe(reads.length);
+    // …and this file's own payments were each read exactly once.
+    for (const intentId of intentIds) {
+      expect(reads.filter((read) => read === intentId)).toHaveLength(1);
+    }
 
-    // A completed pass clears the cursor and moves the window forward, so the
-    // next pass is bounded by work already done rather than re-reading a fixed
-    // lookback for ever.
+    // A completed pass clears the cursor, so the next pass starts from the
+    // beginning rather than from wherever the last one stopped.
     const completed = (await listReconciliationCursors(db)).find(
-      (row) => row.id === 'provider_objects',
+      (row) => row.id === 'open_payments',
     );
     expect(completed?.cursor).toBeNull();
     expect(completed?.lastCompletedAt).not.toBeNull();
-    expect(completed?.windowStartAt).not.toBeNull();
-
-    // Every movement was seen exactly once, so each opened exactly one row.
-    for (const transferId of ids) {
-      const row = await oneDiscrepancy('transfer_missing_locally', transferId);
-      expect(row.occurrences).toBe(1);
-    }
   });
 
   it('refuses a second concurrent claim on the same job', async () => {
@@ -1100,9 +845,9 @@ describe('the ledger audit', () => {
     // that anyway, which is the point: this check exists for the gap a trigger
     // cannot cover.
     const checkoutGroupId = `group-orphan-${RUN}-${uuidv7()}`;
-    const intentId = `pi_orphan_${RUN}${String(api.nextId++)}`;
+    const intentId = `pi_orphan_${RUN}_${uuidv7()}`;
     const payment = await ensurePayment({
-      provider: 'stripe',
+      provider: 'peable',
       checkoutGroupId,
       presentment: { amount: ORDER_TOTAL, currency: 'EUR' },
       providerObjectId: intentId,
@@ -1165,7 +910,7 @@ describe('the ledger audit', () => {
     // Take the account out of `ready` BEFORE the charge settles, so settlement
     // withholds rather than transfers.
     const account = await findProviderAccountByOwner(db, {
-      provider: 'stripe',
+      provider: 'peable',
       ownerType: 'store',
       ownerId: seller.store.id,
     });
@@ -1187,10 +932,9 @@ describe('the ledger audit', () => {
     });
 
     const intentId = `pi_withheldpay_${seller.suffix.replace(/-/g, '')}`;
-    const chargeId = `ch_withheldpay_${seller.suffix.replace(/-/g, '')}`;
-    seedSucceededIntent({ intentId, chargeId, amount: ORDER_TOTAL });
+    seedSucceededIntent(intentId);
     const payment = await ensurePayment({
-      provider: 'stripe',
+      provider: 'peable',
       checkoutGroupId,
       presentment: { amount: ORDER_TOTAL, currency: 'EUR' },
       providerObjectId: intentId,
@@ -1199,16 +943,7 @@ describe('the ledger audit', () => {
       paymentId: payment.id,
       next: 'succeeded',
       providerObjectId: intentId,
-      platform: {
-        amount: { amount: ORDER_TOTAL, currency: 'EUR' },
-        rate: {
-          from: 'EUR',
-          to: 'EUR',
-          rate: 1,
-          provider: 'stripe',
-          asOf: new Date().toISOString(),
-        },
-      },
+      platform: sameCurrencyPlatform(),
     });
 
     // The precondition: a transfer row with no rail object, and an open payable.
@@ -1260,16 +995,15 @@ describe('metrics', () => {
     // builder producing entries that do not balance, which means a money
     // movement has no accounting at all.
     expect(before.ledgerImbalanceAttempts).toBe(0);
-    const ownBefore = await ownSucceededStripeEurPayments();
+    const ownBefore = await ownSucceededPeableEurPayments();
 
     const seller = await seedSeller('metrics');
     const checkoutGroupId = `group-metrics-${seller.suffix}`;
     await seedOrder(seller, checkoutGroupId);
     const intentId = `pi_metrics_${seller.suffix.replace(/-/g, '')}`;
-    const chargeId = `ch_metrics_${seller.suffix.replace(/-/g, '')}`;
-    seedSucceededIntent({ intentId, chargeId, amount: ORDER_TOTAL });
+    seedSucceededIntent(intentId);
     const payment = await ensurePayment({
-      provider: 'stripe',
+      provider: 'peable',
       checkoutGroupId,
       presentment: { amount: ORDER_TOTAL, currency: 'EUR' },
       providerObjectId: intentId,
@@ -1278,20 +1012,11 @@ describe('metrics', () => {
       paymentId: payment.id,
       next: 'succeeded',
       providerObjectId: intentId,
-      platform: {
-        amount: { amount: ORDER_TOTAL, currency: 'EUR' },
-        rate: {
-          from: 'EUR',
-          to: 'EUR',
-          rate: 1,
-          provider: 'stripe',
-          asOf: new Date().toISOString(),
-        },
-      },
+      platform: sameCurrencyPlatform(),
     });
 
     const after = await collectPaymentMetrics();
-    const ownAfter = await ownSucceededStripeEurPayments();
+    const ownAfter = await ownSucceededPeableEurPayments();
 
     // The subject moved, measured where it CAN be measured — over the rows this
     // run owns, which nobody else writes and nobody else deletes.
@@ -1302,11 +1027,11 @@ describe('metrics', () => {
 
     const succeededBefore =
       before.payments.find(
-        (row) => row.provider === 'stripe' && row.currency === 'EUR' && row.status === 'succeeded',
+        (row) => row.provider === 'peable' && row.currency === 'EUR' && row.status === 'succeeded',
       )?.count ?? 0;
     const succeededAfter =
       after.payments.find(
-        (row) => row.provider === 'stripe' && row.currency === 'EUR' && row.status === 'succeeded',
+        (row) => row.provider === 'peable' && row.currency === 'EUR' && row.status === 'succeeded',
       )?.count ?? 0;
 
     // A LOWER BOUND against this run's own rows, and NOT `succeededAfter >
@@ -1314,7 +1039,7 @@ describe('metrics', () => {
     // aggregate over the whole `payments` table: correct for the operator
     // endpoint it serves, and on the one database every realdb file writes in
     // parallel a strict increase is a claim about THEIR rows as much as this
-    // file's. A sibling deleting a stripe/EUR/succeeded fixture between the two
+    // file's. A sibling deleting a peable/EUR/succeeded fixture between the two
     // reads nets this file's own insert to zero, and it fails as
     // `expected 6 to be greater than 6` — naming nothing about the cause.
     //
@@ -1339,8 +1064,10 @@ describe('metrics', () => {
     expect(ledgerImbalanceAttempts()).toBe(0);
 
     // The cursors are reported so a stale sweep is visible without a log dive.
+    // `ledger_audit`'s row exists because the claim case above wrote it, so this
+    // is a claim about the report, not about which sweeps happen to have run.
     expect(after.reconciliation.cursors.map((row) => row.job)).toEqual(
-      expect.arrayContaining(['provider_objects']),
+      expect.arrayContaining(['ledger_audit']),
     );
   });
 

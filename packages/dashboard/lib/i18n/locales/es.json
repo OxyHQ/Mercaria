@@ -615,7 +615,6 @@
     "new": "Nuevo",
     "noAccess": "Sin acceso",
     "noAccessBody": "No tienes permiso para ver esta sección en la tienda activa.",
-    "none": "Ninguno",
     "pageOf": "Página %{current} de %{total}",
     "pleaseTryAgain": "Inténtalo de nuevo.",
     "retry": "Reintentar",
@@ -1813,65 +1812,6 @@
       "subtitle": "Quién puede actuar por esta tienda y las excepciones a su rol",
       "title": "Personas y permisos"
     },
-    "payments": {
-      "beingReviewed": "En revisión",
-      "documentTitle": "Pagos y cobros | Wholesale by Mercaria",
-      "dueBy": "Fecha límite",
-      "itemCount": {
-        "one": "%{count} elemento",
-        "other": "%{count} elementos",
-        "many": "%{count} de elementos"
-      },
-      "loadFailed": "No se han podido cargar los ajustes de pago",
-      "neededNow": "Necesario ahora",
-      "onboardingUnavailable": "La configuración de cobros aún no está disponible en esta instalación de Mercaria.",
-      "openFailed": "No se ha podido abrir la configuración de cobros",
-      "outstandingTitle": "Pendiente con Stripe",
-      "paidOutIn": "Se abona en",
-      "payoutsTitle": "Cobros",
-      "quoteToSupport": "Cita esto al soporte de Mercaria si necesitas ayuda.",
-      "registeredIn": "Registrado en",
-      "reportedByStripe": "Informado por Stripe",
-      "requirementsNote": "Stripe guarda estos datos y es el único sitio donde completarlos. Mercaria nunca los ve.",
-      "schedule": "Frecuencia",
-      "scheduleWithDelay": {
-        "one": "%{interval}, tras %{count} día",
-        "other": "%{interval}, tras %{count} días",
-        "many": "%{interval}, tras %{count} de días"
-      },
-      "states": {
-        "actionRequired": {
-          "action": "Continuar con la configuración",
-          "body": "Stripe necesita más información antes de poder pagarte. Hasta que lo tenga todo, los compradores no pueden finalizar la compra de tus productos.",
-          "heading": "Todavía faltan algunos datos"
-        },
-        "disabled": {
-          "body": "Stripe ha cerrado esta cuenta conectada, o se ha eliminado su conexión con Mercaria. Los compradores no pueden finalizar la compra de tus productos. Ponte en contacto con el soporte de Mercaria para revisarlo.",
-          "heading": "Esta cuenta ya no se puede usar"
-        },
-        "notConnected": {
-          "action": "Configurar los cobros",
-          "body": "Tus productos se ven y puedes usar el resto de Mercaria, pero los compradores todavía no pueden finalizar la compra. Configurar los cobros lleva unos minutos.",
-          "heading": "Aún sin configurar"
-        },
-        "ready": {
-          "action": "Gestionar los datos de cobro",
-          "body": "Los compradores pueden finalizar la compra de tus productos y Stripe transfiere tu saldo a tu banco.",
-          "heading": "Listo para cobrar"
-        },
-        "restricted": {
-          "action": "Resolver ahora",
-          "body": "Algo que pidió Stripe está fuera de plazo, así que ha pausado los cobros y los compradores no pueden finalizar la compra de tus productos. Al completarlo se restablecen ambas cosas.",
-          "heading": "Los cobros están en pausa"
-        },
-        "underReview": {
-          "body": "Stripe tiene lo que pidió y lo está revisando. No tienes que hacer nada: suele tardar uno o dos días. Los compradores no pueden finalizar la compra de tus productos hasta que termine.",
-          "heading": "En revisión"
-        }
-      },
-      "subtitle": "Cómo cobras los pedidos realizados en Mercaria",
-      "title": "Pagos y cobros"
-    },
     "plan": {
       "alwaysIncludedBody": "Mantener tu catálogo, recibir y preparar pedidos, emitir reembolsos, consultar tus propios registros de ventas y cobros y exportar tus datos son gratis para toda tienda de Mercaria y nunca forman parte de un plan. Nada de esta página puede cambiarlo, y ningún plan influye en cómo se encuentran ni cómo se ordenan tus productos.",
       "alwaysIncludedTitle": "Siempre incluido",
@@ -1987,10 +1927,6 @@
       "members": {
         "description": "Quién puede actuar por la tienda y las excepciones a su rol",
         "label": "Personas y permisos"
-      },
-      "payments": {
-        "description": "Cobra los pedidos realizados en Mercaria",
-        "label": "Pagos y cobros"
       },
       "plan": {
         "description": "Qué obtiene tu tienda y qué pagas por ello",

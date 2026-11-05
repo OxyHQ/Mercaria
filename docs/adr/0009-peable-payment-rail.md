@@ -1,6 +1,8 @@
 # ADR 0009: Peable is the payment rail — Stripe moves behind the gateway, not out of the picture
 
-- **Status:** Accepted
+- **Status:** Accepted. **D13 executed 2026-11-05** — the direct Stripe
+  marketplace rail is deleted, ahead of the end-to-end verification D13 asked
+  for, by owner decision (see D13 "As built").
 - **Date:** 2026-09-06
 - **Issue:** part of epic [#35](https://github.com/OxyHQ/Mercaria/issues/35)
 - **Supersedes:** [ADR 0001](0001-stripe-connect-architecture.md)'s **choice of
@@ -50,6 +52,80 @@ before, and not in the same change. The two rails coexist behind
 `resolvePaymentProvider` for exactly as long as it takes to prove the new one,
 which is what keeps checkout up across the move.
 
+**As built (2026-11-05): executed early, by owner decision.** The owner
+approved removing the direct rail at once ("Quitarlo ya"), overriding "not
+before" above. Nothing was being kept up by the coexistence: the direct rail
+had never carried money and was off in production. The evidence, gathered
+read-only before the change:
+
+- **The production database held nothing the rail wrote.** A read-only
+  transaction against `mercaria` (migrations `0000`–`0182` applied) found zero
+  rows in `provider_accounts`, `payments`, `payment_attempts`,
+  `payment_provider_events`, `transfers`, `payouts`, `disputes`, `refunds`,
+  `payment_discrepancies`, `payment_repairs`, `ledger_transactions`,
+  `ledger_entries`, `referral_payout_batches`, `referral_payout_batch_items`,
+  `retail_reconciliation_evidence`, `guest_launch_gate_signoffs` and
+  `guest_rollout_stage_advances`. `orders` held two rows, both with a NULL
+  `payment_provider`. `reconciliation_cursors` held only `ledger_audit` and
+  `withheld_transfers`, so the Stripe-only sweeps had never run. No column or
+  table name contained `stripe`.
+- **The running task definition had no rail.** `oxy-mercaria:162` set no
+  `STRIPE_ENABLED`, no `STRIPE_SECRET_KEY` and no webhook secret (Mercaria#1178
+  removed them with Stripe billing). Only plain onboarding and checkout
+  settings (`STRIPE_ONBOARDING_BASE_URL`, `STRIPE_ONBOARDING_RETURN_URL`,
+  `STRIPE_CHECKOUT_RETURN_URL`, `STRIPE_PLATFORM_CURRENCY`,
+  `STRIPE_PRESENTMENT_CURRENCIES`, `STRIPE_SELLER_COUNTRIES`) and the
+  `STRIPE_ONBOARDING_STATE_SECRET` reference remained.
+- **Mercaria's Stripe account (`acct_1TnXkUQWiCE02OnU`) has never had a
+  charge, transfer, payout or connected account.**
+
+What was deleted: `services/payments/stripe/` (the adapter, Connect onboarding
+and its signed round trip, the event ingress, router, processor and
+dispatcher, the account reconciler, 3-D Secure thresholds and the settlement
+reader), `/webhooks/stripe`, `/stripe/onboarding`, the store and P2P
+payment-account routes (`/admin/stores/:storeId/payments/*`,
+`/seller/payments/*`), the Stripe-only reconciliation sweeps
+`provider_objects` and `account_readiness`, the Stripe referral payout rail,
+the storefront's Stripe card step and its return route, the dashboard's
+Payments & payouts screen, the `stripe` npm package and the three
+`@stripe/*` client packages, and every `STRIPE_*` setting. Schema: migration
+`0183` (`pre`) admits the rail-neutral names that replace `stripe_*` closed-set
+values, and `0184` (`post`) narrows fifteen CHECKs — `'stripe'` leaves the ten
+provider CHECKs, the nine discrepancy kinds only the deleted sweeps raised
+leave `payment_discrepancies_kind_check`, the two jobs leave
+`reconciliation_cursors_id_check`, and `stripe_*` leaves the retail evidence
+and guest launch-gate CHECKs. No table was dropped: every payment table is the
+domain D14 keeps, and the Peable rail writes or will write each of them.
+
+**What the Peable rail still lacks, and is therefore NOT verified end to
+end.** Removing the direct rail did not build these, and each is a gap before
+`PEABLE_ENABLED` can take a buyer's money:
+
+- seller onboarding — nothing writes `provider_accounts` now, so with
+  `PEABLE_ENABLED` on, `assertSellerGroupsPaymentReady` refuses every seller;
+- a payer UI in the storefront — the checkout shows that card payments are not
+  available in this app (the Stripe card step, its 3-D Secure return route and
+  the dashboard's Payments & payouts screen went with the rail);
+- dispute, payout and connected-account events from the gateway — the Peable
+  router handles payment intents and `charge.refunded` only, so `disputes`,
+  `payouts` and `provider_accounts` have no writer. The rail-neutral entry points
+  the router will call — `dispute.service` (`recordDispute`, `closeDispute`) and
+  `payout.service` (`recordPayout`) — are kept as those seams, uncalled and, for
+  disputes, without a test until then (their cases were driven by Stripe
+  events);
+- refund settlement figures — the adapter's refund result carries no
+  platform-currency figure, so `executeRefundAtProvider` refuses to book a
+  Peable refund (`refund_settlement_unavailable`, retried) after the gateway
+  has refunded the buyer; the outbox types only the deleted Stripe router
+  produced (`transfer_changed`, `payout_changed`, `payment_disputed`,
+  `provider_account_changed`, `refund_unmatched`) keep their handlers as the
+  seams the gateway's events plug into;
+- a referral payout rail — the port is empty and batches fail
+  `rail_not_configured`, retryably;
+- a reconciliation of the gateway's settled movements (the deleted
+  `provider_objects` sweep had no Peable equivalent to read);
+- D18's three real-world checks.
+
 `external` and `manual_pos` are untouched: they are payments Mercaria RECORDS
 rather than makes, they have no adapter, and they book no ledger entries. That
 distinction is the point of the set and this ADR does not blur it.
@@ -97,8 +173,8 @@ application` that separate charges and transfers forces. Nothing about
 Mercaria's legal position changes, which is why this ADR does not reopen D1 and
 does not need a legal review to ship.
 
-Full removal of direct Stripe access remains a later verified transition for the
-marketplace rail (D13); merchant billing no longer uses it.
+Direct Stripe access is gone from Mercaria entirely: merchant billing moved
+first, and the marketplace rail was deleted under D13 on 2026-11-05.
 
 ### D16. `getStatus` becomes real, because the read path stops bypassing the port
 
@@ -115,6 +191,15 @@ They are re-pointed at Peable through the port. This is not tidying: a
 reconciliation that reads a different source from the one that writes cannot
 detect a disagreement between them, which is the entire job.
 
+**As built (2026-11-05).** `open_payments` and the operator's `refetch` read
+through `resolvePaymentProvider(payment.provider).getStatus` and converge
+statuses only (the port reports no amounts). `provider_objects` (Stripe balance
+transactions) and `account_readiness` (Stripe account re-reads) had no Peable
+surface to point at and were deleted with the direct rail, with the
+discrepancy kinds only they raised. Repairs read the stored seller account. The
+Peable router raises `payment_succeeded_after_release` for a capture that lands
+after the reservation sweep released the goods, as the Stripe router did.
+
 ### D17. Three things use Stripe here, and only one of them is this ADR
 
 Recorded so the other two are decisions rather than oversights.
@@ -122,13 +207,11 @@ Recorded so the other two are decisions rather than oversights.
 | Use | Where | Disposition |
 |---|---|---|
 | Marketplace payments | `services/payments/**` | **This ADR.** |
-| Referral payouts | `services/referral-payouts/rail.ts` → `createStripeTransfer` | **Moves with the settlement work.** It transfers to connected accounts that become Peable's; leaving it behind does not keep it working, it breaks it. |
+| Referral payouts | `services/referral-payouts/rail.ts` → `createStripeTransfer` | **Deleted (2026-11-05)** with the direct rail. The readiness and risk-facts readers stay registered; the payout-rail port is empty, so a batch fails `rail_not_configured`, retryably, until a Peable payout rail registers. |
 | Merchant subscriptions | `services/billing/peable/**` (#89) | **Moved (2026-11-04).** Native subscriptions of Peable's billing engine (Peable ADR 0018) on Mercaria's own Peable merchant: a Checkout Session in `mode: 'subscription'`, Peable's customer portal, `cancel_at_period_end`, and `customer.subscription.*` / `invoice.*` events on `/webhooks/peable`. The Stripe Billing adapter, the I08 cohort and its Stripe reader are deleted; Mercaria holds no credential for billing. It books `subscription_revenue`, which ADR 0001 D3's commission residual deliberately does not touch. |
 
-Billing has moved, so no deployed Mercaria task needs a Stripe credential: the
-Stripe marketplace rail is off in production (`STRIPE_ENABLED` unset) and its
-code stays only until D13 removes it once the Peable rail is verified end to
-end.
+Billing has moved, so no deployed Mercaria task needs a Stripe credential, and
+the direct marketplace rail is deleted (D13 "As built").
 
 ### D18. What a new rail has to prove before it carries money
 
@@ -178,10 +261,9 @@ native checkout — so a sixth provider cannot compile without answering both.
 `mock` answers `null` to the second: `POST /orders/:id/mock-pay` funds a group
 AFTER checkout, so a mock deployment must behave like one with no rail.
 
-**Peable outranks Stripe** when both are configured. A deployment with both is
-mid-migration by definition, and a checkout opening today should open on the
-rail the migration is heading to; it also makes `PEABLE_ENABLED=false` the
-complete rollback, with no second switch to remember. `undefined` — no rail —
+**Peable outranked Stripe** while both existed; since D13's execution Peable
+is the only native rail (`NATIVE_RAIL`, pinned in the type) and
+`PEABLE_ENABLED=false` is the whole of "no card rail". `undefined` — no rail —
 stays an ordinary answer: those deployments place orders exactly as they did
 before any of this existed.
 
@@ -199,6 +281,14 @@ Two boundaries that go with it, because both are easy to get backwards:
   own rail.
 
 ### D20. The client asks for `card`, and `stripe` stays as a synonym
+
+**As built (2026-11-05):** the `stripe` synonym, `publishableKey` and the
+handoff's `returnUrl` (with `STRIPE_CHECKOUT_RETURN_URL` and the storefront's
+return route, which only Stripe's 3-D Secure redirect used) are gone with the
+direct rail. `STRIPE_PAYMENT_SURFACE_METHODS` is
+`CHECKOUT_PAYMENT_SURFACE_METHODS` and the high-value hold reads
+`HIGH_VALUE_HOLD_THRESHOLDS` / `HIGH_VALUE_HOLD_WINDOW_MS`. What follows is the
+decision as taken.
 
 `CheckoutRail` was `'stripe' | 'none'`, and `resolveCheckoutRail` read
 `config.payments.stripe.enabled` directly — so a Peable-only deployment

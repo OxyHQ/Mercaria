@@ -62,7 +62,7 @@ function actorOf(req: Request): CommerceActor {
  * cart controller states: an unrecognised code must never become a currency.
  * The service then ignores it entirely for an Oxy buyer, whose stored
  * preference is the one authority, and refuses anything outside
- * `STRIPE_PRESENTMENT_CURRENCIES` before a single unit is reserved.
+ * `PEABLE_PRESENTMENT_CURRENCIES` before a single unit is reserved.
  */
 function requestedCurrency(req: Request): CurrencyCode | undefined {
   const raw = req.query.currency;

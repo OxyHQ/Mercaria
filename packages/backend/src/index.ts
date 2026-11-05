@@ -442,7 +442,7 @@ connectPostgres()
         );
 
       // Merchant activation observation (#85). Most activation transitions have
-      // NO actor and no hook: Stripe restricts an account, a connector stops
+      // NO actor and no hook: a rail restricts an account, a connector stops
       // delivering, a jury restricts a catalogue — and not one of those domains
       // knows this one exists. So the only way such a transition gets audited is
       // somebody looking, which is what this does. The LOOP is gated by
@@ -552,14 +552,13 @@ connectPostgres()
       // drains whatever accumulated. The settlement loop settles nothing until
       // #146 registers a payout rail; every attempt fails `rail_not_configured`
       // with the batch intact and its claims held.
-      // #146: fill the referral domain's two payout ports — the readiness
-      // reader (ADR 0005 D15 gate 1, over #46's `provider_accounts`) and the
-      // Stripe transfer rail (D14). BEFORE the dispatchers, so the settlement
-      // loop's first pass already has a rail: a batch that failed
-      // `rail_not_configured` while the registry was empty is retryable, and it
-      // settles on that next pass on its own idempotency key, with no replay and
-      // no migration. Both ports fail closed if this import throws — readiness
-      // reads `unknown` and blocks, and the rail stays unregistered.
+      // #146: fill the referral domain's readers — partner payout readiness
+      // (ADR 0005 D15 gate 1, over #46's `provider_accounts`) and the risk
+      // payment facts (#344). No payout RAIL is registered since the direct
+      // Stripe rail was removed (ADR 0009 D13): a settlement attempt fails
+      // `rail_not_configured`, retryably, with the batch intact, and settles on
+      // the first pass after a rail registers. Both readers fail closed if this
+      // import throws — readiness reads `unknown` and blocks.
       import('./services/referral-payouts/register.js')
         .then(({ registerReferralPayoutJoin }) => registerReferralPayoutJoin())
         .catch((err: unknown) =>
@@ -588,54 +587,32 @@ connectPostgres()
           log.general.error({ err }, 'Retail reconciliation sweep import failed'),
         );
 
-      // Retry stored Stripe events whose processing failed, and pick up any
-      // whose task died between storing and interpreting them. Also on EVERY
-      // task, same lease shape. The webhook ingress processes inline after
+      // Retry stored Peable events whose processing failed, and pick up any
+      // whose task died between storing and interpreting them (ADR 0009). On
+      // EVERY task, same lease shape. The webhook ingress processes inline after
       // storing, so on a healthy path this loop finds nothing — it exists so
       // that "a 200 means stored, never processed" is a mechanism rather than a
-      // comment.
-      import('./services/payments/stripe/event-dispatcher.js')
-        .then(({ startStripeEventDispatcher }) => startStripeEventDispatcher())
-        .catch((err) => log.general.error({ err }, 'Stripe event dispatcher import failed'));
-
-      // The same loop for the Peable rail (ADR 0009). A SECOND dispatcher rather
-      // than a widened first one, because each claims only the rail its router
-      // can interpret — an unscoped claim would hand this drain a Stripe event,
-      // find no handler for it, and mark a real charge processed. The two poll
-      // the same table and never collide. It also drains merchant billing's
+      // comment. It claims only `peable` rows, so it can never mark another
+      // rail's event processed, and it also drains merchant billing's
       // subscription and invoice events (#89). No-ops entirely when no Peable
       // webhook secret is configured.
       import('./services/payments/peable/event-dispatcher.js')
         .then(({ startPeableEventDispatcher }) => startPeableEventDispatcher())
         .catch((err) => log.general.error({ err }, 'Peable event dispatcher import failed'));
 
-      // Re-read connected accounts Stripe has not told us about lately. A missed
-      // `account.updated` is silent by construction — nothing here knows about
-      // an event it never received — so the only thing that can notice is a
-      // sweep that does not depend on having been told (ADR 0001, sequence 6).
-      // Needs no lease: a sync is an OBSERVATION, and the repository's
-      // compare-and-swap on `last_synced_at` keeps the freshest one whichever
-      // task wrote it. No-ops entirely when Stripe is not configured.
-      import('./services/payments/stripe/account-reconciler.js')
-        .then(({ startStripeAccountReconciler }) => startStripeAccountReconciler())
-        .catch((err) => log.general.error({ err }, 'Stripe account reconciler import failed'));
-
-      // Compare Mercaria's payments, transfers, refunds, payouts and ledger
-      // against what the rail actually holds (#50). Webhooks are the normal
+      // Compare Mercaria's payments and ledger against what the rail actually
+      // holds (#50). Webhooks are the normal
       // event path and are not a substitute for this: an event that was never
       // delivered is invisible to everything that waits to be told, which is why
       // ADR 0001's operational appendix makes reconciliation a requirement
       // rather than a nicety.
       //
       // On EVERY task, like the dispatchers, but leased per JOB — these sweeps
-      // page through a provider list with a shared cursor, so unlike an account
-      // sync two tasks running one concurrently would each skip the pages the
-      // other consumed.
+      // page with a shared cursor, so two tasks running one concurrently would
+      // each skip the pages the other consumed.
       //
-      // The rail requirement is PER SWEEP, not for the loop. It used to no-op
-      // entirely without Stripe, which after ADR 0009 silently withheld the
-      // ledger audit and the withheld-transfer release from a Peable
-      // deployment — and those two read only Mercaria's own rows. See
+      // The rail requirement is PER SWEEP, not for the loop: the ledger audit
+      // and the withheld-transfer release read only Mercaria's own rows. See
       // `JOB_REQUIRES_RAIL` in the runner.
       import('./services/payments/reconciliation/runner.js')
         .then(({ startPaymentReconciler }) => startPaymentReconciler())
@@ -832,18 +809,10 @@ connectPostgres()
           './services/payments/outbox-dispatcher.js'
         );
         stopPaymentOutboxDispatcher();
-        const { stopStripeEventDispatcher } = await import(
-          './services/payments/stripe/event-dispatcher.js'
-        );
-        stopStripeEventDispatcher();
         const { stopCurationDispatcher } = await import(
           './services/curation/curation-dispatcher.js'
         );
         stopCurationDispatcher();
-        const { stopStripeAccountReconciler } = await import(
-          './services/payments/stripe/account-reconciler.js'
-        );
-        stopStripeAccountReconciler();
         const { stopPaymentReconciler } = await import(
           './services/payments/reconciliation/runner.js'
         );

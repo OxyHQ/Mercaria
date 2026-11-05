@@ -1,8 +1,7 @@
 /**
  * Receiving a Peable delivery — the whole of what happens before a 200.
  *
- * The shape is `stripe/ingress.ts`'s, deliberately, because the invariants are
- * the rail's and not the provider's:
+ * Four steps, and the invariants are the rail's rather than the provider's:
  *
  *   1. **Verify** the signature over the RAW bytes, against this deployment's
  *      secret and its rotation predecessor. A failure persists NOTHING and
@@ -13,8 +12,7 @@
  *      (ADR 0017) and every event names its mode. One for the other mode than
  *      this deployment's carries ids from a key space that correlates to
  *      nothing here: logged, persisted nowhere, acknowledged with 200 so the
- *      gateway stops retrying something that was correctly refused — exactly
- *      the Stripe ingress's rule.
+ *      gateway stops retrying something that was correctly refused.
  *   3. **Store the envelope**, redacted, keyed on that triple. The insert IS the
  *      dedupe claim: a redelivery loses the race to the unique index and returns
  *      without touching anything.

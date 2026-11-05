@@ -361,7 +361,7 @@ stops at these lines:
 |---|---|---|
 | Resale authorization, compliance, market eligibility | #121 (**landed** — `docs/retail-eligibility.md`) | `marketSupported` is an INPUT to the completeness gate, not a verdict this domain computes: pass `getRetailEligibility(...).verdict === 'eligible'` |
 | Live supplier stock / shipping / quote preflight | #122 | `RetailSourceCost[]` — the caller states each cost as its source stated it |
-| Native checkout and Stripe payment for retail | #123 | `lockRetailCostQuote` + `linkRetailAcceptanceToOrder`; the order's `commercial_role` / `seller_type = 'platform'` columns land with the code that writes them |
+| Native checkout and card payment for retail | #123 | `lockRetailCostQuote` + `linkRetailAcceptanceToOrder`; the order's `commercial_role` / `seller_type = 'platform'` columns land with the code that writes them |
 | Supplier adapters, PurchaseOrder orchestration | #124/#125 | `purchase_orders.quote_ref` already exists (#118) and names the quote |
 | Procurement ledger, invoice reconciliation, variance booking | #128 | `classifyRetailCostVariance` + `projectRetailAccountingOutputs` — this domain classifies and projects, it books nothing |
 | Transparent offer / checkout / order UX | #129 | `presentation` + `blockReasons` on every quote |

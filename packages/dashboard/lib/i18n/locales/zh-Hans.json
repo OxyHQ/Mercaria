@@ -604,7 +604,6 @@
     "new": "新建",
     "noAccess": "无访问权限",
     "noAccessBody": "你没有权限查看当前店铺的这个区域。",
-    "none": "无",
     "pageOf": "第 %{current} 页，共 %{total} 页",
     "pleaseTryAgain": "请重试。",
     "retry": "重试",
@@ -1795,63 +1794,6 @@
       "subtitle": "谁可以代表此店铺操作，以及对其角色的例外",
       "title": "人员和权限"
     },
-    "payments": {
-      "beingReviewed": "审核中",
-      "documentTitle": "收款与结算 | Wholesale by Mercaria",
-      "dueBy": "截止日期",
-      "itemCount": {
-        "one": "%{count} 项",
-        "other": "%{count} 项"
-      },
-      "loadFailed": "无法加载收款设置",
-      "neededNow": "现在需要提供",
-      "onboardingUnavailable": "当前 Mercaria 部署尚不支持结算设置。",
-      "openFailed": "无法打开结算设置",
-      "outstandingTitle": "Stripe 尚待处理的事项",
-      "paidOutIn": "结算币种",
-      "payoutsTitle": "结算",
-      "quoteToSupport": "如需帮助，请把它提供给 Mercaria 支持团队。",
-      "registeredIn": "注册国家/地区",
-      "reportedByStripe": "由 Stripe 提供",
-      "requirementsNote": "这些资料由 Stripe 保管，也只能在 Stripe 中补全。Mercaria 永远不会看到它们。",
-      "schedule": "结算周期",
-      "scheduleWithDelay": {
-        "one": "%{interval}，延后 %{count} 天",
-        "other": "%{interval}，延后 %{count} 天"
-      },
-      "states": {
-        "actionRequired": {
-          "action": "继续设置",
-          "body": "Stripe 还需要更多信息才能向你结算。在资料补齐之前，买家无法结账购买你的商品。",
-          "heading": "还需要补充一些资料"
-        },
-        "disabled": {
-          "body": "Stripe 已关闭该关联账户，或者它与 Mercaria 的连接已被移除。买家无法结账购买你的商品。请联系 Mercaria 支持团队处理。",
-          "heading": "该账户已无法继续使用"
-        },
-        "notConnected": {
-          "action": "设置结算",
-          "body": "你的商品可以正常展示，Mercaria 的其他功能也都能使用，但买家还无法结账购买。设置结算只需几分钟。",
-          "heading": "尚未设置"
-        },
-        "ready": {
-          "action": "管理结算资料",
-          "body": "买家可以结账购买你的商品，Stripe 会把你的余额结算到你的银行账户。",
-          "heading": "已可收款"
-        },
-        "restricted": {
-          "action": "立即处理",
-          "body": "Stripe 要求的某项资料已逾期，因此它暂停了结算，买家也无法结账购买你的商品。补齐后两者都会恢复。",
-          "heading": "结算已暂停"
-        },
-        "underReview": {
-          "body": "Stripe 已收到所需资料，正在审核。你无需做任何事 —— 通常需要一到两天。审核完成前，买家无法结账购买你的商品。",
-          "heading": "审核中"
-        }
-      },
-      "subtitle": "你如何收到 Mercaria 上订单的货款",
-      "title": "收款与结算"
-    },
     "plan": {
       "alwaysIncludedBody": "维护商品目录、接收并履行订单、发起退款、查看你自己的销售与结算记录，以及导出你的数据，对每一家 Mercaria 店铺都是免费的，永远不会成为套餐的一部分。本页面上的任何内容都不会改变这一点，任何套餐也不会影响你的商品如何被发现或排序。",
       "alwaysIncludedTitle": "始终包含",
@@ -1966,10 +1908,6 @@
       "members": {
         "description": "谁可以代表店铺操作，以及对其角色的例外",
         "label": "人员和权限"
-      },
-      "payments": {
-        "description": "收取 Mercaria 上订单的货款",
-        "label": "收款与结算"
       },
       "plan": {
         "description": "你的店铺能获得什么，以及需要为此付多少钱",

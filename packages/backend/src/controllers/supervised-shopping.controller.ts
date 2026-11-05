@@ -121,7 +121,7 @@ export async function prepareSupervisedCheckout(req: Request, res: Response): Pr
         'Supervised checkout uses the complete basket and the account’s display currency.',
       );
     }
-    if (input.paymentMethod && !['card', 'stripe'].includes(input.paymentMethod)) {
+    if (input.paymentMethod && input.paymentMethod !== 'card') {
       throw validationError('Supervised purchases require the card payment rail.');
     }
     ctx.requestFingerprint = shoppingContentDigest({ ...input, paymentMethod: 'card' });

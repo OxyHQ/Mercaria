@@ -46,7 +46,7 @@ convergence exists to rescue.
 hard-coded `PROVIDERS` table with an `available` boolean per connector. It could
 not describe the product feed, could not describe the native catalogue, and had
 no way to say that a perfect Shopify sync still cannot take an order because
-Stripe onboarding is incomplete. Acceptance 7 names exactly this.
+payment onboarding is incomplete. Acceptance 7 names exactly this.
 
 **Connecting a shop Mercaria already crawled duplicated the catalogue.** A
 merchant's products are often already in the graph as external offers, observed
@@ -292,7 +292,7 @@ This is the deliberate divergence from the one-stored-verdict rule, and it is
 being verdicted; readiness has no such row. Its inputs are `connections`,
 `sync_runs`, `feed_configurations`, `listings` and `provider_accounts` — five
 tables in four domains, none of which this one owns — and a stored verdict would
-go stale at exactly the moment that matters, which is the instant Stripe
+go stale at exactly the moment that matters, which is the instant the rail
 restricts a seller.
 
 The three axes are separate because #87 UX 5 and 6 ask for exactly that: a
@@ -437,7 +437,7 @@ re-register while the sweep is mid-flight, so the on-demand path takes the same
 claim and answers `not_claimed` rather than bypassing it.
 
 **A re-registration REUSES the stored secret rather than rotating it.** Mercaria
-holds no previous-secret grace for a connection the way it does for Stripe and
+holds no previous-secret grace for a connection the way it does for Peable and
 CrowdSource, so minting a fresh one would 401 every delivery already queued under
 the old one until the swap landed. Recreating with the same secret leaves the
 stored envelope verifying survivors and recreations alike. The CONNECT path still

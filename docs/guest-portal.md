@@ -251,7 +251,7 @@ about the deployment rather than about any message.
 `GUEST_PORTAL_MESSAGE_TRIGGERS` (in `message.service.ts`) names the enqueuer for
 every kind or the issue that owes one, and
 `guest-portal-policy.test.ts` fails the build if a kind is neither — the
-`deferred: #NN` device from the Stripe event ingress.
+`deferred: #NN` device from the (since deleted) Stripe event ingress.
 
 Triggered today: `order_confirmation` (the #107 outbox handler),
 `order_processing` / `order_shipped` / `order_delivered` / `order_cancelled` /

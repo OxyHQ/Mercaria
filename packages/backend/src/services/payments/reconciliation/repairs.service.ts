@@ -64,10 +64,6 @@ import {
 } from '../../../db/payments/paymentRepository.js';
 import { applyRefundProviderState, findRefundById } from '../../../db/orders/refundRepository.js';
 import {
-  findProviderAccountByOwner,
-  type ProviderAccountRow,
-} from '../../../db/payments/providerAccountRepository.js';
-import {
   insertLedgerTransaction,
   type LedgerEntryInput,
 } from '../../../db/payments/ledgerRepository.js';
@@ -77,10 +73,10 @@ import {
   findDiscrepancyById,
 } from '../../../db/payments/discrepancyRepository.js';
 import { findLinkedOrder } from '../order-linkage.js';
+import { findSellerAccount } from '../provider-account.service.js';
 import { settlePaymentTransfers } from '../settlement.service.js';
 import { executeRefundAtProvider } from '../refund-execution.service.js';
 import { retryDisputeRecovery } from '../dispute.service.js';
-import { syncAccountRow } from '../stripe/account.service.js';
 import { adjustment } from '../ledger-postings.js';
 import { log } from '../../../lib/logger.js';
 
@@ -178,15 +174,13 @@ export async function runRepair(request: RepairRequest): Promise<RepairResult> {
 /**
  * Re-attempt a transfer ADR 0001 D4 withheld.
  *
- * ## The account is RE-READ from the rail before anything is attempted
+ * ## Readiness is the STORED verdict, as on the automatic path
  *
- * `settlePaymentTransfers` checks readiness itself, from the local
- * `provider_accounts` row — which is refreshed by a sweep on a six-hour clock.
- * That is right for the automatic path and wrong for this one: an operator runs
- * this repair BECAUSE a seller has just fixed their account, and a stale local
- * `restricted` would refuse a transfer the rail would now accept, while a stale
- * local `ready` would send money at an account the rail will refuse. The
- * re-read makes "requires readiness NOW" literal.
+ * The repair reads the seller's `provider_accounts` row — the same one
+ * `settlePaymentTransfers` consults — and refuses one that is not `ready`, so
+ * an operator cannot pay a seller the automatic path would refuse. There is no
+ * live account re-read: the Peable rail does not yet expose connected accounts
+ * to Mercaria (ADR 0009 D13 "As built").
  *
  * ## It also RELEASES a high-value hold, because it is the review
  *
@@ -223,10 +217,12 @@ async function retryWithheldTransfer(
     });
   }
 
-  const account = await refreshSellerAccount(
-    order.sellerType === 'store' ? 'store' : 'user',
-    order.sellerOwnerId,
-  );
+  // The stored row — the same one `settlePaymentTransfers` consults, so the
+  // repair decides exactly as the automatic path would.
+  const account = await findSellerAccount({
+    ownerType: order.sellerType === 'store' ? 'store' : 'user',
+    ownerId: order.sellerOwnerId,
+  });
   if (!account) {
     return await refuse(
       request,
@@ -240,7 +236,7 @@ async function retryWithheldTransfer(
     return await refuse(
       request,
       subjectKey,
-      `The seller's account is '${account.onboardingState}' at the rail right now, not 'ready'. ` +
+      `The seller's account is '${account.onboardingState}', not 'ready'. ` +
         'Re-run this once they have finished; retrying against an unready account produces the ' +
         'same withheld transfer.',
       { paymentId: payment.id, orderId: order.id, onboardingState: account.onboardingState },
@@ -575,32 +571,6 @@ async function requireSettledPayment(
     );
   }
   return payment;
-}
-
-/**
- * Re-read a seller's connected account from the rail before trusting it.
- *
- * Best effort on the READ and strict on the answer: if the rail cannot be
- * reached the local row is used, which is the same row `settlePaymentTransfers`
- * would have consulted anyway — so a Stripe outage makes this repair no worse
- * than the automatic path rather than impossible.
- */
-async function refreshSellerAccount(
-  ownerType: 'store' | 'user',
-  ownerId: string,
-): Promise<ProviderAccountRow | undefined> {
-  const row = await findProviderAccountByOwner(getDb(), { provider: 'stripe', ownerType, ownerId });
-  if (!row) return undefined;
-  try {
-    return await syncAccountRow(row);
-  } catch (error: unknown) {
-    log.general.warn(
-      { err: error, accountRowId: row.id },
-      '[Reconciliation] could not re-read a connected account before a repair; using the ' +
-        'stored row, which is what the automatic settlement would have used',
-    );
-    return row;
-  }
 }
 
 /** Record an applied or no-op attempt, and close the finding when asked. */

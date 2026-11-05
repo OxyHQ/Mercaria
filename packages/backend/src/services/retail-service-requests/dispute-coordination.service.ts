@@ -35,11 +35,11 @@
  *
  * ## Rule 3 is held by absence
  *
- * *"Prevent supplier data or PII from being exposed beyond what Stripe
+ * *"Prevent supplier data or PII from being exposed beyond what the acquirer
  * requires."* There is no supplier column and no contact column on
  * `retail_dispute_coordinations`, and this module composes no evidence payload
- * and calls no provider — submitting evidence to Stripe is an operator act in
- * Stripe's own dashboard, which is where the redaction decisions belong.
+ * and calls no provider — submitting evidence is an operator act at the rail,
+ * which is where the redaction decisions belong.
  */
 
 import {

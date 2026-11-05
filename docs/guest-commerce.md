@@ -227,5 +227,5 @@ widening on `db/schema/orders.ts`. Schema decisions:
   reachability detectors scan COMMENT-STRIPPED source, because the modules
   document what they refuse to do in the same vocabulary.
 - Deferred and NOT built here: #106 (landed — see below), #107 (the guest
-  Stripe client surfaces and the portal), #108 (verification, magic links,
+  card client surfaces and the portal), #108 (verification, magic links,
   transactional mail), #109 (claiming), #93 (pickup), #112 (guest P2P).

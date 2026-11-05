@@ -6,8 +6,8 @@ what they told Mercaria, what a reviewer decided, which terms they accepted, and
 caller at all.
 
 Increment 1 (`8f63763`) shipped the tax questionnaire table, the three readiness
-derivations and the Stripe payout rail, and left `declareTaxProfile` complete and
-**unmounted**, for one stated reason:
+derivations and the Stripe payout rail (deleted since, ADR 0009 D13), and left
+`declareTaxProfile` complete and **unmounted**, for one stated reason:
 
 > which Oxy account may declare for a `store` partner is the `store:manage`
 > question #85 answers, and answering it here would be a second answer

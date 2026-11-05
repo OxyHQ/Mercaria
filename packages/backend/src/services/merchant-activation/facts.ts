@@ -51,6 +51,7 @@ import { readPlaces } from '../goway/places.js';
 import { placeLinkGaps } from '../goway/place-facts.js';
 import { findApplicableSchedule } from '../fees/order-fees.service.js';
 import { isSellerPaymentReady } from '../payments/provider-account.service.js';
+import { nativeRailPresentmentCurrencies, resolveNativeRail } from '../payments/native-rail.js';
 import { hasGuestMessageTransport } from '../guest-portal/transport.js';
 
 /** The store columns activation reads. Named explicitly — a store row is wide. */
@@ -211,7 +212,12 @@ export async function readMerchantActivationFacts(
       })
     : undefined;
 
-  const stripe = config.payments.stripe;
+  // The native rail and what it can charge, read from the ONE resolution
+  // checkout itself uses, so activation can never call a store payable on a rail
+  // checkout would refuse — or the reverse.
+  const railEnabled = resolveNativeRail() !== undefined;
+  const presentmentCurrencies = nativeRailPresentmentCurrencies();
+  const paymentMethods = railEnabled ? config.payments.paymentSurfaceMethods : [];
   const priceableMethods = Object.entries(config.orders.shippingRates)
     .filter(([, rate]) => typeof rate === 'number' && Number.isFinite(rate) && rate >= 0)
     .map(([method]) => method);
@@ -263,10 +269,10 @@ export async function readMerchantActivationFacts(
     settings,
     merchant: merchant ? { id: merchant.id, claimState: merchant.claimState } : null,
     channelReadiness,
-    railEnabled: stripe.enabled,
+    railEnabled,
     paymentsReady,
-    presentmentCurrencies: stripe.presentmentCurrencies,
-    paymentMethods: stripe.enabled ? stripe.paymentSurfaceMethods : [],
+    presentmentCurrencies,
+    paymentMethods,
     markets: config.checkout.destinationCountries,
     fulfilmentMethods: priceableMethods,
     applicableFeeSchedule: schedule
@@ -288,8 +294,8 @@ export async function readMerchantActivationFacts(
       commerceEnabled: config.guest.enabled,
       cartEnabled: config.guest.cartEnabled,
       inlineDestinationEnabled: config.guest.inlineDestinationEnabled,
-      presentmentCurrencies: stripe.enabled ? stripe.presentmentCurrencies : [],
-      paymentMethods: stripe.enabled ? stripe.paymentSurfaceMethods : [],
+      presentmentCurrencies,
+      paymentMethods,
       markets: config.checkout.destinationCountries,
       blockedMarkets: rollout.blockedMarkets,
       fulfilmentMethods: guestFulfilmentMethods,
@@ -385,10 +391,10 @@ function indexAcceptances(
  * How many orders this store has taken to a state past payment.
  *
  * #85 state 12's test order, and it is deliberately not scoped to a test-mode
- * payment: livemode is DERIVED from the Stripe key's prefix (#48), so an order
+ * payment: livemode is DERIVED from the deployment's environment, so an order
  * paid on this deployment's configured rail IS an order paid in the mode this
  * deployment is running in. Counting a stored `livemode` column would be a
- * second answer to what the key already answers.
+ * second answer to what the deployment already answers.
  */
 async function countCompletedOrders(storeId: string): Promise<number> {
   const [row] = await getDb()

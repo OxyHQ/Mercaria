@@ -3,11 +3,9 @@
  *
  * `createApp()` from `app.ts` builds the actual middleware chain production
  * runs, so this exercises the real mount order rather than an app-shaped object
- * the test assembled for itself. It is the sibling of
- * `stripe-webhook.integration.test.ts`, and it exists separately because the
- * invariant is per-MOUNT: the Stripe file passing proves nothing about a router
- * added later, which is exactly how a fifth raw-body mount would acquire a
- * parser above it and nobody would notice.
+ * the test assembled for itself. The invariant is per-MOUNT: another raw-body
+ * router's suite passing proves nothing about this one, which is exactly how a
+ * raw-body mount would acquire a parser above it and nobody would notice.
  *
  * ## What is asserted, and why it is not "the mount order"
  *

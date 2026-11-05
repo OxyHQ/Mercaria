@@ -37,12 +37,10 @@ export interface ObservedPayout {
    * WHICH rail reported it.
    *
    * Required, and supplied by the webhook router that saw the event, because a
-   * payout is an OBSERVATION and the observer knows its own rail. This used to
-   * read `NATIVE_RAIL`, a constant pinned to `'stripe'`: on a deployment where
-   * the native rail is Peable that would have looked the seller up on a rail
-   * they have no account on, found nothing, and filed a real payout as evidence
-   * with no seller to announce it to — a warning log where a seller should have
-   * been told their money moved.
+   * payout is an OBSERVATION and the observer knows its own rail. Reading a
+   * constant instead would look the seller up on whatever rail the constant
+   * named, and a payout reported by any other would find nobody to announce it
+   * to — a warning log where a seller should have been told their money moved.
    */
   provider: PaymentProviderId;
   /** The connected account the payout is FROM — the seller's, not the platform's. */

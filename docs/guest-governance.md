@@ -395,7 +395,7 @@ append-only against UPDATE and DELETE by trigger.
 **Some gates are CHECKED, not signed.** One is `automated_check` and is
 evaluated against the live configuration rather than trusted from a signature: a
 gate a function can decide must not be satisfiable by somebody typing "yes", and
-`stripe_architecture_production_ready` is either configured or it is not.
+`card_rail_production_ready` is either configured (`PEABLE_ENABLED`) or it is not.
 `dashboard_metrics_and_alerts_live`, `feature_flags_and_kill_switches_tested`
 and `payment_to_portal_tested_under_failure` used to be read off "the analytics
 / guest operator list is non-empty"; the operator desks are now application

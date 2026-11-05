@@ -11,7 +11,7 @@ CrowdSource, Peable and Clarity clients use their product SDK factories with the
 same `OxyServer`; callers do not construct service Authorization headers. Resource
 and domain rules remain: CrowdSource resolves the active tenant from the verified
 application, Peable resolves the merchant/environment, and Mercaria retains
-store ownership, financial idempotency, Stripe cohort and durable outbox rules.
+store ownership, financial idempotency and durable outbox rules.
 Webhook signature secrets authenticate provider events and remain required.
 
 Local development needs an attestable registered workload for enabled platform

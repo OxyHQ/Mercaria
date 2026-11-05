@@ -58,18 +58,9 @@ import { log } from '../../../lib/logger.js';
 const SEVERITY: Record<PaymentDiscrepancyKind, PaymentDiscrepancySeverity> = {
   payment_provider_paid_local_unpaid: 'critical',
   payment_local_paid_provider_unpaid: 'critical',
-  payment_missing_locally: 'critical',
-  payment_amount_mismatch: 'critical',
-  transfer_missing_locally: 'warning',
-  transfer_amount_mismatch: 'critical',
-  refund_missing_locally: 'warning',
-  refund_amount_mismatch: 'critical',
-  payout_missing_locally: 'info',
   ledger_transaction_missing: 'critical',
   ledger_unbalanced: 'critical',
   merchant_payable_unexplained: 'warning',
-  account_state_drift: 'warning',
-  account_sync_failed: 'warning',
 };
 
 /** What a detector reports. Severity is not among the fields — see the docblock. */

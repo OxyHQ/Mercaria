@@ -68,19 +68,13 @@ export const queryKeys = {
     detail: (storeId: string, id: string) => ['stores', storeId, 'discounts', id] as const,
   },
   taxRates: (storeId: string) => ['stores', storeId, 'tax-rates'] as const,
-  // Payment onboarding. A sibling of `channels`, never a child of it: a sales
-  // channel is where a catalogue is listed and this is where money is settled.
-  payments: (storeId: string) => ['stores', storeId, 'payments'] as const,
-  // The store's own PLAN, a sibling of `payments` and never a child: one is what
-  // Mercaria pays the store for orders, the other what the store pays Mercaria
-  // for tooling. Two different directions of money with two different
-  // lifecycles.
+  // The store's own PLAN: what the store pays Mercaria for tooling, never money
+  // the store is paid for orders.
   plan: (storeId: string) => ['stores', storeId, 'plan'] as const,
   planCatalog: (storeId: string) => ['stores', storeId, 'plan', 'catalog'] as const,
-  // What the store pays Mercaria PER ORDER — a third direction again, and a
-  // sibling of both above. `plan` is a recurring subscription the store chose;
-  // this is the marketplace fee applied to every sale, which the store accepts
-  // rather than buys. Keyed on its own so accepting the terms invalidates the
+  // What the store pays Mercaria PER ORDER — a sibling of `plan`, which is a
+  // recurring subscription the store chose; this is the marketplace fee applied
+  // to every sale, which the store accepts rather than buys. Keyed on its own so accepting the terms invalidates the
   // schedule view and nothing else.
   feeSchedule: (storeId: string) => ['stores', storeId, 'fee-schedule'] as const,
   locations: (storeId: string) => ['stores', storeId, 'locations'] as const,
