@@ -252,11 +252,12 @@ export async function openCheckoutPayment(input: {
   }
 
   // No key of any kind travels with the handoff: Mercaria reaches Peable with its
-  // own Oxy workload identity (ADR 0009 D20), and the client secret is the only
-  // material a buyer's client needs.
+  // own Oxy workload identity (ADR 0009 D20), and the rail's payment object and
+  // the payer's secret over it are the only material a buyer's client needs.
   return {
     paymentId: payment.id,
     provider: rail,
+    providerPaymentId: result.providerObjectId,
     clientSecret: result.clientAction.value,
     amount,
     methods: checkoutPaymentSurfaces(),

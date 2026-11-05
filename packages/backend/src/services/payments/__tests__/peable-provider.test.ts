@@ -49,6 +49,9 @@ function renderIntent(intent: FakeIntent, withClientAction: boolean): Record<str
     amount_refunded: String(intent.refundedMinor),
     currency: intent.currency,
     last_payment_error: null,
+    // The intent's OWN secret (the payer's), beside the acquirer's in
+    // `client_action` — distinct, so a test can tell which one the adapter took.
+    client_secret: `${intent.id}_payer_secret`,
     ...(withClientAction
       ? { client_action: { kind: 'client_secret', value: `${intent.id}_secret` } }
       : {}),
@@ -726,6 +729,7 @@ describe('published SDK HTTP parity', () => {
           rail: 'card',
           amount: '1000',
           currency: 'EUR',
+          payment_method_types: ['card'],
           metadata: {
             stable_ref: 'fixture',
             mercaria_payment_id: 'pay-http',
@@ -734,6 +738,12 @@ describe('published SDK HTTP parity', () => {
         },
       },
     ]);
+    // The payer is handed the gateway intent's OWN secret, never the acquirer's
+    // confirmation secret in `client_action.value` (ADR 0009 D13 "As built").
+    expect(created.clientAction).toEqual({
+      kind: 'client_secret',
+      value: `${created.providerObjectId}_payer_secret`,
+    });
     const resumed = await provider.resumePayment(created.providerObjectId);
     expect(resumed.clientAction).toEqual(created.clientAction);
     expect(wire.slice(1)).toEqual([

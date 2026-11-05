@@ -103,9 +103,16 @@ end.** Removing the direct rail did not build these, and each is a gap before
 
 - seller onboarding — nothing writes `provider_accounts` now, so with
   `PEABLE_ENABLED` on, `assertSellerGroupsPaymentReady` refuses every seller;
-- a payer UI in the storefront — the checkout shows that card payments are not
-  available in this app (the Stripe card step, its 3-D Secure return route and
-  the dashboard's Payments & payouts screen went with the rail);
+- a NATIVE card form — the storefront's card step (2026-11-05) hands the payer
+  SDK the gateway PaymentIntent and its own `client_secret`
+  (`CheckoutPaymentHandoff.providerPaymentId` / `clientSecret`; the acquirer
+  secret in `client_action` never leaves the adapter), mounts Peable's Elements
+  on the web and polls the server for the outcome; iOS and Android open Peable's
+  hosted page (`checkout.peable.to/i/:pi`) in the system browser, because
+  Peable's SDK has no native card path (Elements and `checkout/ui`'s
+  `PeableProviderFields` need a DOM). Peable's `PeableElement.on` also does not
+  type the Express Checkout `confirm` event the wallet sheet waits on, so the
+  step widens that one listener. Neither path has confirmed a real payment;
 - dispute, payout and connected-account events from the gateway — the Peable
   router handles payment intents and `charge.refunded` only, so `disputes`,
   `payouts` and `provider_accounts` have no writer. The rail-neutral entry points
@@ -368,6 +375,8 @@ test that asserts it against the real middleware chain, move with them intact.
 - The native apps are the one real gap. Peable's payer SDK mounts onto the DOM;
   `@stripe/stripe-react-native`'s PaymentSheet has no equivalent yet, so iOS and
   Android either wait for one or open the hosted checkout in the system browser.
+  **As built (2026-11-05):** the system browser — Peable's `/i/:pi` page, the
+  secret in the fragment, the outcome read only from Mercaria's payment status.
 - Mercaria's operational surface shrinks by 26 environment variables and roughly
   3,400 lines, and grows by one HTTP client. The complexity does not vanish — it
   moves to a service that has to hold it for every Oxy product rather than for

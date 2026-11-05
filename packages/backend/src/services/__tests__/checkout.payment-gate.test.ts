@@ -525,6 +525,7 @@ describe('checkout with the Peable rail on', () => {
     expect(result.payment).toEqual({
       paymentId: 'payment-gate',
       provider: 'peable',
+      providerPaymentId: 'pi_gate',
       clientSecret: 'pi_gate_secret_x',
       amount: { amount: 1000, currency: 'EUR' },
       // #107's server-authoritative payment surfaces (ADR 0006 G2/G14) — what a

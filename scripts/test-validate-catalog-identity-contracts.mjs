@@ -392,7 +392,10 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // `ProviderPayoutSchedule` went, and `CheckoutPaymentHandoff` lost
     // `publishableKey` and `returnUrl`: -5 types, -30 properties. Measured by the
     // real guard.
-    'walked 141 contract module(s), 2383 exported type(s), 7945 property signature(s)',
+    // `CheckoutPaymentHandoff` gains `providerPaymentId`, the gateway
+    // PaymentIntent the payer SDK mounts on: +1 property. Measured by the real
+    // guard.
+    'walked 141 contract module(s), 2383 exported type(s), 7946 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });

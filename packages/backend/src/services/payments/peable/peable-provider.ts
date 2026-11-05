@@ -30,8 +30,9 @@
  *
  *  - **Capture is immediate** (ADR 0001 D3, inherited by ADR 0009). The gateway
  *    captures on the buyer's confirmation, so there is no second step to take.
- *  - **Authorization is the buyer's**, performed client-side against the
- *    gateway's client secret with a payment method Mercaria never sees.
+ *  - **Authorization is the buyer's**, performed client-side with Peable's payer
+ *    SDK against the gateway PaymentIntent's own `client_secret`, with a payment
+ *    method Mercaria never sees.
  */
 
 import type { CurrencyCode, Money, PaymentStatus, TransferStatus } from '@mercaria/shared-types';
@@ -176,14 +177,33 @@ function toTransferStatus(status: GatewayTransferStatus): TransferStatus {
   }
 }
 
-function toResult(intent: PaymentIntent, stage: PaymentProviderStage): ProviderPaymentResult {
-  // Present only on a create's answer and a single merchant retrieve of a card
-  // payment that can still be paid — never on a list or an event.
+/**
+ * What the buyer's client is handed for this intent, if it can still be paid.
+ *
+ * `client_action` is present only on a create's answer and a single merchant
+ * retrieve of a card payment that can still be paid — never on a list or an
+ * event — so it is what says "payable". But its `value` is the ACQUIRER's
+ * confirmation secret, and that is not what a payer gets: Peable's payer SDK is
+ * given the gateway's own PaymentIntent (`intent.id`) and ITS `client_secret`,
+ * and exchanges them for the acquirer credential itself
+ * (`POST /v1/payment_intents/:id/client_action`), with success decided by the
+ * gateway. Handing out the acquirer secret would let a client confirm around
+ * the gateway and would tie the storefront to whichever acquirer Peable uses.
+ */
+function payerAction(intent: PaymentIntent): ProviderPaymentResult['clientAction'] {
   const action = intent.client_action;
+  if (!action) return undefined;
+  return action.kind === 'client_secret'
+    ? { kind: 'client_secret', value: intent.client_secret }
+    : { kind: action.kind, value: action.value };
+}
+
+function toResult(intent: PaymentIntent, stage: PaymentProviderStage): ProviderPaymentResult {
+  const clientAction = payerAction(intent);
   return {
     providerObjectId: intent.id,
     status: toPaymentStatus(intent, stage),
-    ...(action ? { clientAction: { kind: action.kind, value: action.value } } : {}),
+    ...(clientAction ? { clientAction } : {}),
   };
 }
 
@@ -233,6 +253,11 @@ export class PeablePaymentProvider
           rail: 'card',
           amount: toGatewayAmount(request.amount, 'createPayment'),
           currency,
+          // Card only, named here rather than left to the merchant's payment
+          // method configuration: ADR 0001 D3 excludes every asynchronous
+          // method (SEPA, iDEAL, Bancontact, EPS), and the payer's Payment
+          // Element renders whatever the intent offers. Wallets are `card`.
+          payment_method_types: ['card'],
           metadata: {
             ...request.metadata,
             mercaria_payment_id: request.paymentId,

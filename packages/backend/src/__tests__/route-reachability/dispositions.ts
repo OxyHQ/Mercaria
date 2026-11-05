@@ -63,6 +63,15 @@ export const ROUTE_DISPOSITIONS: Readonly<
   Record<string, Readonly<Record<string, RouteDisposition>>>
 > = {
   frontend: {
+    '/checkout/return': {
+      kind: 'deliberate',
+      reason:
+        'The bank-authentication return. The storefront card step hands this URL ' +
+        '(?checkoutGroupId=...) to Peable as the confirmation return_url, and the acquirer ' +
+        'sends the buyer back to it after 3-D Secure; the storefront never navigates here and ' +
+        'must not, because arriving without the provider round trip is not a state this screen ' +
+        'can serve. An inbound in-app edge would be the defect, not the fix.',
+    },
     '/materials-transport/[id]': {
       kind: 'deliberate',
       reason:

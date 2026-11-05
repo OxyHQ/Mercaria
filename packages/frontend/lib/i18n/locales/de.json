@@ -499,6 +499,10 @@
     },
     "backToOrders": "Zurück zu deinen Bestellungen",
     "checkLaterFromOrders": "Später in deinen Bestellungen nachsehen",
+    "claim": {
+      "optional": "Optional. Deine Bestellung ist so oder so bestätigt.",
+      "saveToOxy": "Diese Bestellungen in Oxy speichern"
+    },
     "deliverElsewhere": "An eine andere Adresse liefern",
     "destination": {
       "collectInPerson": "Persönlich abholen",
@@ -585,24 +589,53 @@
       "reservedSignedIn": "Deine Bestellung ist reserviert. Du kannst sie in deinen Bestellungen bezahlen."
     },
     "useSavedAddress": "Gespeicherte Adresse verwenden",
-    "viewOrder": "Bestellung ansehen"
+    "viewOrder": "Bestellung ansehen",
+    "viewOrders": "Deine Bestellungen ansehen"
   },
   "payment": {
     "cancelled": {
+      "body": "Diese Zahlung wurde abgebrochen und es wurde nichts abgebucht.",
       "bodyItemsReturned": "Diese Zahlung wurde abgebrochen und es wurde nichts abgebucht. Deine Artikel sind zurück im Shop.",
       "title": "Zahlung abgebrochen"
     },
+    "card": {
+      "browserIntro": "Du bezahlst auf der sicheren Seite von Peable in deinem Browser. Komm danach hierher zurück – dieser Bildschirm aktualisiert sich von selbst.",
+      "browserReopen": "Zahlungsseite erneut öffnen",
+      "browserReturned": "Wenn du die Zahlung abgeschlossen hast, aktualisiert sich dieser Bildschirm, sobald sie bestätigt ist. Andernfalls kannst du die Zahlungsseite erneut öffnen.",
+      "browserUnavailable": "Die Zahlungsseite konnte nicht geöffnet werden. Bitte versuche es erneut.",
+      "expressHeading": "Mit einem Tipp bezahlen",
+      "loading": "Sicheres Zahlungsformular wird geladen …",
+      "notCompleted": "Deine Zahlung konnte nicht abgeschlossen werden.",
+      "orPayByCard": "oder mit Karte bezahlen",
+      "payNow": "Jetzt bezahlen",
+      "unavailable": "Das Zahlungsformular konnte nicht geladen werden."
+    },
+    "cardDetailsNotice": "Deine Kartendaten gehen direkt an unseren Zahlungsdienstleister und erreichen Mercaria nie.",
     "confirming": {
       "bankStillCompleting": "Deine Bank schließt diese Zahlung noch ab. Das kann einen Moment dauern.",
+      "checkingWithBank": "Wir bestätigen das gerade mit deiner Bank. Deine Bestellung bleibt so lange reserviert.",
+      "continueWithoutWaiting": "Weiter, ohne zu warten",
+      "pageTitle": "Zahlung wird bestätigt — Mercaria",
+      "returnBody": "Deine Bank hat dich zu uns zurückgeschickt und wir bestätigen die Zahlung. Das dauert meist ein paar Sekunden.",
       "title": "Zahlung wird bestätigt"
     },
-    "notConfigured": "Kartenzahlungen sind für diese App noch nicht eingerichtet.",
+    "continue": "Weiter",
+    "notCompleted": {
+      "title": "Zahlung nicht abgeschlossen"
+    },
     "received": {
       "body": "Danke. Deine Bestellung ist bestätigt und der Verkäufer wurde benachrichtigt.",
       "title": "Zahlung erhalten"
     },
+    "return": {
+      "missingGroup": "Diesem Link fehlt der Kauf, zu dem er gehört. Falls du eine Zahlung abgeschlossen hast, ist deine Bestellung sicher — hier ändert sich nichts daran."
+    },
     "title": "Zahlung",
-    "totalToPay": "Zu zahlen"
+    "totalToPay": "Zu zahlen",
+    "unreadable": {
+      "body": "Wir konnten diese Zahlung von hier aus nicht prüfen. Falls sie durchging, ist deine Bestellung sicher — diese Seite kann daran ohnehin nichts ändern.",
+      "title": "Wir konnten diese Zahlung nicht auslesen"
+    }
   },
   "sellers": {
     "fallbackName": "Verkäufer",

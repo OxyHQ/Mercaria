@@ -502,6 +502,10 @@
     },
     "backToOrders": "Volver a tus pedidos",
     "checkLaterFromOrders": "Consultarlo después desde tus pedidos",
+    "claim": {
+      "optional": "Opcional. Tu pedido está confirmado en cualquier caso.",
+      "saveToOxy": "Guardar estos pedidos en Oxy"
+    },
     "deliverElsewhere": "Enviar a otra dirección",
     "destination": {
       "collectInPerson": "Recoger en persona",
@@ -588,24 +592,53 @@
       "reservedSignedIn": "Tu pedido está reservado. Puedes pagarlo desde tus pedidos."
     },
     "useSavedAddress": "Usar una dirección guardada",
-    "viewOrder": "Ver tu pedido"
+    "viewOrder": "Ver tu pedido",
+    "viewOrders": "Ver tus pedidos"
   },
   "payment": {
     "cancelled": {
+      "body": "Este pago se canceló y no se ha cobrado nada.",
       "bodyItemsReturned": "Este pago se canceló y no se ha cobrado nada. Tus artículos han vuelto a la tienda.",
       "title": "Pago cancelado"
     },
+    "card": {
+      "browserIntro": "Pagarás en la página segura de Peable en tu navegador. Vuelve aquí cuando termines: esta pantalla se actualiza sola.",
+      "browserReopen": "Abrir de nuevo la página de pago",
+      "browserReturned": "Si completaste el pago, esta pantalla se actualizará en cuanto se confirme. Si no, puedes abrir de nuevo la página de pago.",
+      "browserUnavailable": "No se pudo abrir la página de pago. Inténtalo de nuevo.",
+      "expressHeading": "Paga con un toque",
+      "loading": "Cargando el formulario de pago seguro…",
+      "notCompleted": "No se ha podido completar tu pago.",
+      "orPayByCard": "o paga con tarjeta",
+      "payNow": "Pagar ahora",
+      "unavailable": "No se pudo cargar el formulario de pago."
+    },
+    "cardDetailsNotice": "Los datos de tu tarjeta van directamente a nuestro proveedor de pagos y nunca llegan a Mercaria.",
     "confirming": {
       "bankStillCompleting": "Tu banco todavía está completando este pago. Puede tardar un momento.",
+      "checkingWithBank": "Lo estamos confirmando con tu banco. Mientras tanto, tu pedido queda reservado.",
+      "continueWithoutWaiting": "Continuar sin esperar",
+      "pageTitle": "Confirmando tu pago — Mercaria",
+      "returnBody": "Tu banco te ha devuelto aquí y estamos confirmando el pago. Suele tardar unos segundos.",
       "title": "Confirmando tu pago"
     },
-    "notConfigured": "Los pagos con tarjeta aún no están configurados en esta aplicación.",
+    "continue": "Continuar",
+    "notCompleted": {
+      "title": "Pago no completado"
+    },
     "received": {
       "body": "Gracias. Tu pedido está confirmado y hemos avisado al vendedor.",
       "title": "Pago recibido"
     },
+    "return": {
+      "missingGroup": "A este enlace le falta la compra a la que pertenece. Si completaste un pago, tu pedido está a salvo: aquí no cambia nada."
+    },
     "title": "Pago",
-    "totalToPay": "Total a pagar"
+    "totalToPay": "Total a pagar",
+    "unreadable": {
+      "body": "No hemos podido comprobar este pago desde aquí. Si se realizó, tu pedido está a salvo: esta página no puede cambiarlo.",
+      "title": "No hemos podido leer este pago"
+    }
   },
   "sellers": {
     "fallbackName": "Vendedor",

@@ -964,12 +964,18 @@ export const FORBIDDEN_PAYMENT_METADATA_SUBSTRINGS = [
  * Everything the buyer's client is given to complete a payment, and NOTHING
  * else (issue #47, backend 7).
  *
- * There is exactly one secret here and it is the rail's own client material —
+ * There is exactly one secret here and it is the rail's own PAYER material —
  * opaque to Mercaria, handed over in the response and never stored (see the
  * backend's `PaymentClientAction`). No connected-account id, no charge id, no
- * seller identity, no per-order breakdown: a buyer's payment client needs an
- * amount, a currency and a way to authorize, and every extra field is provider
- * surface that a client could come to depend on.
+ * seller identity, no per-order breakdown: a buyer's payment client needs the
+ * rail's payment, an amount, a currency and a way to authorize, and every extra
+ * field is provider surface that a client could come to depend on.
+ *
+ * On Peable, `providerPaymentId` + `clientSecret` are exactly the
+ * `{ id, client_secret }` the payer SDK mounts on
+ * (`createPeableElements({ paymentIntent })`): the gateway PaymentIntent and its
+ * own secret. The acquirer's credential behind it is fetched by that SDK and
+ * never passes through Mercaria.
  *
  * `amount` is what the rail will actually charge — the checkout group's grand
  * total in the buyer's presentment currency — so a client renders the figure the
@@ -980,7 +986,15 @@ export interface CheckoutPaymentHandoff {
   /** Mercaria's payment id. The handle for the status endpoint below. */
   paymentId: string;
   provider: PaymentProviderId;
-  /** The rail's client secret (or equivalent), opaque and never persisted. */
+  /**
+   * The rail's own payment object the client confirms (Peable: the gateway
+   * PaymentIntent, `pi_…`). Not a credential — `clientSecret` is.
+   */
+  providerPaymentId: string;
+  /**
+   * The payer's secret over {@link providerPaymentId} (Peable: that
+   * PaymentIntent's `client_secret`), opaque and never persisted.
+   */
   clientSecret: string;
   amount: Money;
   /**

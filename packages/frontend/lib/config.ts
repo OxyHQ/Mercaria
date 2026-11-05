@@ -19,6 +19,22 @@ export const OXY_CLIENT_ID =
   process.env.EXPO_PUBLIC_OXY_CLIENT_ID?.trim() ||
   'oxy_dk_8993efc30f18b2cfd361374634df4099a63a247df675132c';
 
+/**
+ * Peable's gateway, which the payer SDK talks to with the BUYER's material only
+ * (the PaymentIntent's own `client_secret`). Unset uses the SDK's default,
+ * `https://api.peable.to` — the same default the backend's `PEABLE_BASE_URL`
+ * has. A deployment pointing its backend at another gateway sets both.
+ */
+export const PEABLE_GATEWAY_URL = process.env.EXPO_PUBLIC_PEABLE_GATEWAY_URL?.trim() || undefined;
+
+/**
+ * Peable's hosted pay surface (`/i/:intentId#client_secret=…`), which iOS and
+ * Android open in the system browser because Peable's card fields mount only
+ * onto a DOM (ADR 0009 Consequences). Unset uses Peable's canonical origin.
+ */
+export const PEABLE_CHECKOUT_URL =
+  process.env.EXPO_PUBLIC_PEABLE_CHECKOUT_URL?.trim() || 'https://checkout.peable.to';
+
 const ENV = {
   dev: {
     apiUrl: DEV_API_BASE_URL,

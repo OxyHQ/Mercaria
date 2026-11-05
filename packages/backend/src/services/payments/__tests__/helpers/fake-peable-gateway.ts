@@ -20,8 +20,9 @@
  * ## It answers in the WIRE's shapes, and honours the wire's idempotency
  *
  * One renderer per object ({@link renderIntent}, `renderTransfer`) with the
- * published contract's field names: amounts are canonical integer STRINGS, a
- * payable card intent carries `client_action: { kind: 'client_secret' }`, a
+ * published contract's field names: amounts are canonical integer STRINGS, every
+ * intent carries its own `client_secret` (the payer's), a payable card intent
+ * also carries `client_action: { kind: 'client_secret' }` (the acquirer's), a
  * transfer carries the cumulative `amount_reversed` and the `reversal` that leg
  * created, and a refund list carries `remaining_refundable`. One
  * `Idempotency-Key` produces one object however often it is presented — a
@@ -78,8 +79,17 @@ export interface FakeIntent {
   /** Set to render a declined attempt (`last_payment_error`); still payable. */
   declined?: boolean;
   metadata: Record<string, string>;
-  /** What `client_action` hands the payer while the intent is payable. */
+  /**
+   * The ACQUIRER's confirmation secret: what `client_action.value` carries while
+   * the intent is payable. Mercaria never hands it to a buyer.
+   */
   clientSecret: string;
+  /**
+   * The intent's own `client_secret` — the PAYER's capability over it, which
+   * the storefront's payer SDK mounts on. Distinct from {@link clientSecret} so
+   * a suite can tell which of the two reached a handoff.
+   */
+  payerSecret?: string;
 }
 
 /** One transfer to a seller's connected account. */
@@ -141,6 +151,7 @@ export function renderIntent(
     currency: intent.currency,
     merchant_id: 'merch_fixture',
     faircoin: null,
+    client_secret: intent.payerSecret ?? `${intent.id}_payer_secret_fixture`,
     metadata: { ...intent.metadata },
     last_payment_error: intent.declined
       ? { type: 'card_error', code: 'card_declined', message: 'Your card was declined.' }
@@ -264,6 +275,7 @@ export function createFakePeableGateway() {
           refunded: 0n,
           metadata: { ...params.metadata },
           clientSecret: `${id}_secret_fixture`,
+          payerSecret: `${id}_payer_secret_fixture`,
         };
         intents.set(id, intent);
         if (idempotencyKey) intentsByKey.set(idempotencyKey, id);

@@ -178,11 +178,13 @@ describe('the handoff (ADR 0006 G14)', () => {
 
     expect(handoff?.methods).toEqual(['card', 'apple_pay', 'google_pay', 'link']);
     expect(handoff?.provider).toBe('peable');
+    // The rail's payment and the payer's secret over it are the ONLY client
+    // material: no publishable key, no Mercaria credential, no return url
+    // (ADR 0009 D20).
+    expect(handoff?.providerPaymentId).toBe('pi_handoff');
     expect(handoff?.clientSecret).toBe('pi_handoff_secret');
-    // The client secret is the ONLY client material: no publishable key, no
-    // Mercaria credential, no return url (ADR 0009 D20).
     expect(Object.keys(handoff ?? {}).sort()).toEqual(
-      ['amount', 'clientSecret', 'methods', 'paymentId', 'provider'].sort(),
+      ['amount', 'clientSecret', 'methods', 'paymentId', 'provider', 'providerPaymentId'].sort(),
     );
   });
 
