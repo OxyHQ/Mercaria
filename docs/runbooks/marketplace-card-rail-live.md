@@ -26,8 +26,14 @@ there.
 
 Every native checkout names sellers, and none is `ready`, so
 `assertSellerGroupsPaymentReady` refuses it with a 409 before any stock is
-reserved: "These sellers cannot accept payment right now: … Remove them from
-your order to check out with the rest." Nothing is charged and nothing is held.
+reserved. The refusal names each seller by its public name (the store's name,
+or a private seller's Oxy display name), never by `store:<id>`: "Lumen Ceramics
+cannot accept payment right now. Remove their items from your order to check out
+with the rest." (several sellers: "These sellers cannot accept payment right
+now: A and B. …"). The keys ride `details.sellers` (`reason:
+seller_not_payment_ready`, each `{ sellerKey, name? }`); the storefront renders
+the sentence in the buyer's language from that field and highlights those
+sellers' items in the order summary. Nothing is charged and nothing is held.
 Before the flag, the same checkout said "order placed" for an order with no
 payment attached.
 

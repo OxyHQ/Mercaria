@@ -582,7 +582,10 @@
     "error": {
       "collectionEmailRequired": "Escribe el correo electrónico al que deben llegar los datos de la recogida.",
       "emailAndAddressRequired": "Rellena tu correo electrónico y la dirección de entrega para continuar.",
-      "receiptEmailRequired": "Escribe el correo electrónico al que debe llegar tu recibo."
+      "receiptEmailRequired": "Escribe el correo electrónico al que debe llegar tu recibo.",
+      "sellerNotPaymentReady": "%{seller} no puede aceptar pagos en este momento. Quita sus artículos del pedido para pagar el resto.",
+      "sellersNotPaymentReady": "Estos vendedores no pueden aceptar pagos en este momento: %{sellers}. Quita sus artículos del pedido para pagar el resto.",
+      "unnamedSellersNotPaymentReady": "Algunos vendedores de tu pedido no pueden aceptar pagos en este momento. Quita los artículos destacados para pagar el resto."
     },
     "form": {
       "cityLabel": "Ciudad",
@@ -635,6 +638,7 @@
     },
     "summary": {
       "calculatedAtPlacement": "Los descuentos, los impuestos y el envío se calculan al realizar el pedido.",
+      "cannotAcceptPayment": "No puede aceptar pagos en este momento",
       "subtotal": "Subtotal",
       "title": "Resumen del pedido"
     },

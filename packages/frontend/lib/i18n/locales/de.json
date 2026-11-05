@@ -578,7 +578,10 @@
     "error": {
       "collectionEmailRequired": "Gib die E-Mail-Adresse an, an die die Abholdaten gehen sollen.",
       "emailAndAddressRequired": "Fülle deine E-Mail-Adresse und die Lieferadresse aus, um fortzufahren.",
-      "receiptEmailRequired": "Gib die E-Mail-Adresse an, an die dein Beleg gehen soll."
+      "receiptEmailRequired": "Gib die E-Mail-Adresse an, an die dein Beleg gehen soll.",
+      "sellerNotPaymentReady": "%{seller} kann gerade keine Zahlungen annehmen. Entferne die Artikel dieses Verkäufers aus deiner Bestellung, um den Rest zu bezahlen.",
+      "sellersNotPaymentReady": "Diese Verkäufer können gerade keine Zahlungen annehmen: %{sellers}. Entferne ihre Artikel aus deiner Bestellung, um den Rest zu bezahlen.",
+      "unnamedSellersNotPaymentReady": "Einige Verkäufer in deiner Bestellung können gerade keine Zahlungen annehmen. Entferne die hervorgehobenen Artikel, um den Rest zu bezahlen."
     },
     "form": {
       "cityLabel": "Stadt",
@@ -631,6 +634,7 @@
     },
     "summary": {
       "calculatedAtPlacement": "Rabatte, Steuern und Versand werden bei der Bestellung berechnet.",
+      "cannotAcceptPayment": "Kann gerade keine Zahlungen annehmen",
       "subtotal": "Zwischensumme",
       "title": "Bestellübersicht"
     },

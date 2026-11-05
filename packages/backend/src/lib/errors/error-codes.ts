@@ -10,6 +10,7 @@
  */
 
 import type { Response } from 'express';
+import type { ApiErrorDetails } from '@mercaria/shared-types';
 import { ErrorCodes, sendError, type ErrorCode } from '../../utils/api-response.js';
 
 /** The error code vocabulary, identical to the API envelope's `ErrorCode`. */
@@ -61,17 +62,21 @@ export interface MercariaErrorParams {
   message: string;
   httpStatus?: number;
   cause?: unknown;
+  /** Structured facts a client acts on (ids), beside the sentence a person reads. */
+  details?: ApiErrorDetails;
 }
 
 export class MercariaError extends Error {
   readonly code: MercariaErrorCode;
   readonly httpStatus: number;
+  readonly details?: ApiErrorDetails;
 
   constructor(params: MercariaErrorParams) {
     super(params.message, { cause: params.cause });
     this.name = 'MercariaError';
     this.code = params.code;
     this.httpStatus = params.httpStatus ?? DEFAULT_HTTP_STATUS[params.code];
+    if (params.details) this.details = params.details;
   }
 }
 
@@ -132,7 +137,7 @@ export function outOfStock(message: string): MercariaError {
  */
 export function respondWithError(res: Response, err: unknown, fallbackMessage: string): void {
   if (isMercariaError(err)) {
-    sendError(res, err.code, err.message, err.httpStatus);
+    sendError(res, err.code, err.message, err.httpStatus, err.details);
     return;
   }
   sendError(res, ErrorCodes.INTERNAL_ERROR, fallbackMessage, 500);

@@ -17,6 +17,7 @@ import type {
   CheckoutPaymentHandoff,
   CheckoutPaymentStatus,
   Money,
+  RefusedCheckoutSeller,
 } from '@mercaria/shared-types';
 import {
   Icon,
@@ -28,6 +29,7 @@ import {
   CommercialDisclosure,
   commercialSellerLabel,
   toBloomIcon,
+  type Translate,
 } from '@mercaria/ui';
 import { ScreenShell } from '@/components/shell/ScreenShell';
 import {
@@ -39,6 +41,7 @@ import {
   type CheckoutDestinationDraft,
 } from '@/components/checkout/CheckoutDestinationForm';
 import { toast } from '@oxy.so/bloom/toast';
+import { apiErrorDetails, apiErrorMessage } from '@/lib/api/client';
 import { useCart } from '@/lib/hooks/use-cart';
 import { useAddresses } from '@/lib/hooks/use-addresses';
 import { useCheckout, useCheckoutPaymentStatus } from '@/lib/hooks/use-checkout';
@@ -74,6 +77,51 @@ function sumSubtotals(groups: CartGroup[]): Money | null {
   const currency = groups[0].subtotal.currency;
   const amount = groups.reduce((acc, g) => acc + g.subtotal.amount, 0);
   return { amount, currency };
+}
+
+/** No group refused — a stable empty set, so the summary does not re-render for nothing. */
+const NO_UNPAYABLE_SELLERS: ReadonlySet<string> = new Set();
+
+/** Names joined the reader's way ("A, B and C"); a plain comma list where the engine has no `Intl.ListFormat`. */
+function formatNameList(names: readonly string[], locale: string): string {
+  try {
+    return new Intl.ListFormat(locale, { style: 'long', type: 'conjunction' }).format(names);
+  } catch {
+    return names.join(', ');
+  }
+}
+
+/**
+ * The refusal for sellers who cannot be paid right now, in the buyer's language.
+ *
+ * Rendered HERE from the refusal's `details` rather than shown as the server's
+ * sentence, which is English. Each seller is named by the name the server read
+ * (a store's name, a private seller's display name) or, failing that, by the
+ * label this screen already shows over their items. Never by `sellerKey`: that
+ * is a machine id, and it only selects which groups to highlight.
+ */
+function unpayableSellersMessage(
+  t: Translate,
+  locale: string,
+  sellers: readonly RefusedCheckoutSeller[],
+  groups: readonly CartGroup[],
+): string {
+  const names = sellers.map(
+    (seller) =>
+      seller.name ??
+      groups
+        .filter((group) => group.sellerKey === seller.sellerKey)
+        .map((group) => commercialSellerLabel(t, group.commercial))
+        .find((label) => label.length > 0),
+  );
+  const named = names.filter((name): name is string => name !== undefined);
+  if (named.length === 0 || named.length !== names.length) {
+    return t('checkout.error.unnamedSellersNotPaymentReady');
+  }
+  if (named.length === 1) {
+    return t('checkout.error.sellerNotPaymentReady', { seller: named[0] });
+  }
+  return t('checkout.error.sellersNotPaymentReady', { sellers: formatNameList(named, locale) });
 }
 
 function AddressOption({
@@ -161,7 +209,14 @@ function SignInBenefit() {
  * exactly what `PriceDisplay` showed here before (`amount` /
  * `secondaryAmount`). Bloom adds nothing up and converts nothing.
  */
-function OrderSummaryCard({ groups }: { groups: CartGroup[] }) {
+function OrderSummaryCard({
+  groups,
+  unpayableSellerKeys,
+}: {
+  groups: CartGroup[];
+  /** Groups the last checkout refused because their seller cannot be paid right now. */
+  unpayableSellerKeys: ReadonlySet<string>;
+}) {
   const { t } = useTranslation();
   const priceText = usePriceText();
   const subtotal = sumSubtotals(groups);
@@ -172,40 +227,55 @@ function OrderSummaryCard({ groups }: { groups: CartGroup[] }) {
         {t('checkout.summary.title')}
       </Text>
       <View className="gap-4">
-        {groups.map((group) => (
-          <View key={groupKey(group)} className="gap-2">
-            {/*
+        {groups.map((group) => {
+          const unpayable = unpayableSellerKeys.has(group.sellerKey);
+          return (
+            <View
+              key={groupKey(group)}
+              className={
+                unpayable
+                  ? 'gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3'
+                  : 'gap-2'
+              }
+            >
+              {unpayable ? (
+                <Text className="text-xs font-semibold text-destructive">
+                  {t('checkout.summary.cannotAcceptPayment')}
+                </Text>
+              ) : null}
+              {/*
               #129 checkout rule 1: the customer-facing SELLER for every order
               group, before payment. From the group's commercial presentation
               and never from `vendor.name`, which names whose CATALOGUE the
               lines came from — a different party on anything Mercaria sells
               itself.
             */}
-            <Text className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {commercialSellerLabel(t, group.commercial)}
-            </Text>
-            {/*
+              <Text className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {commercialSellerLabel(t, group.commercial)}
+              </Text>
+              {/*
               And what that means: the payment destination, the fulfilment
               disclosure and the return and warranty windows, spelled out rather
               than chipped, because this is the last screen before money moves
               (#129 checkout rules 5 and 6).
             */}
-            <CommercialDisclosure presentation={group.commercial} showExplanations />
-            <PriceSummary
-              accessibilityLabel={commercialSellerLabel(t, group.commercial)}
-              lines={group.items.map((item) => {
-                const line = priceText(item.lineTotal);
-                return {
-                  id: item.variantId,
-                  label: item.title,
-                  sublabel: `${item.variantTitle} · ×${item.quantity}`,
-                  amount: line.primary,
-                  secondaryAmount: line.secondary ?? undefined,
-                };
-              })}
-            />
-          </View>
-        ))}
+              <CommercialDisclosure presentation={group.commercial} showExplanations />
+              <PriceSummary
+                accessibilityLabel={commercialSellerLabel(t, group.commercial)}
+                lines={group.items.map((item) => {
+                  const line = priceText(item.lineTotal);
+                  return {
+                    id: item.variantId,
+                    label: item.title,
+                    sublabel: `${item.variantTitle} · ×${item.quantity}`,
+                    amount: line.primary,
+                    secondaryAmount: line.secondary ?? undefined,
+                  };
+                })}
+              />
+            </View>
+          );
+        })}
         {subtotalText ? (
           <PriceSummary
             accessibilityLabel={t('checkout.summary.title')}
@@ -417,7 +487,7 @@ function PaymentStep({
 }
 
 function CheckoutBody() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const router = useRouter();
   const { seller, pickup, pickupName } = useLocalSearchParams<{
     seller?: string;
@@ -460,6 +530,9 @@ function CheckoutBody() {
    */
   const [draft, setDraft] = useState<CheckoutDestinationDraft>(EMPTY_CHECKOUT_DRAFT);
   const [formError, setFormError] = useState<string | null>(null);
+  /** The groups the last attempt was refused for, highlighted in the summary. */
+  const [unpayableSellerKeys, setUnpayableSellerKeys] =
+    useState<ReadonlySet<string>>(NO_UNPAYABLE_SELLERS);
   // The placed group and its payment handoff, once the order exists. Holding
   // them here is what turns checkout into two steps without a second route:
   // orders are placed and reserved, and the buyer then pays for them.
@@ -625,6 +698,7 @@ function CheckoutBody() {
       return;
     }
     setFormError(null);
+    setUnpayableSellerKeys(NO_UNPAYABLE_SELLERS);
     idempotencyKey.current ??= nanoid();
     checkout.mutate(
       {
@@ -663,9 +737,19 @@ function CheckoutBody() {
             payment: result.payment,
           });
         },
-        // The server's message names a FIELD or a SELLER and never a value, so
-        // it is safe to show and is more useful than a generic sentence.
-        onError: (error) => setFormError(error.message),
+        // A seller who cannot be paid is refused with `details`: the groups to
+        // highlight by key, and the names to tell the buyer in their language.
+        // Anything else: the server's message names a FIELD or a SELLER and
+        // never a value, so it is safe to show and beats a generic sentence.
+        onError: (error) => {
+          const details = apiErrorDetails(error);
+          if (details?.reason === 'seller_not_payment_ready' && details.sellers.length > 0) {
+            setUnpayableSellerKeys(new Set(details.sellers.map((seller) => seller.sellerKey)));
+            setFormError(unpayableSellersMessage(t, locale, details.sellers, targetGroups));
+            return;
+          }
+          setFormError(apiErrorMessage(error, error.message));
+        },
       },
     );
   };
@@ -813,7 +897,7 @@ function CheckoutBody() {
           />
         </Field>
 
-        <OrderSummaryCard groups={targetGroups} />
+        <OrderSummaryCard groups={targetGroups} unpayableSellerKeys={unpayableSellerKeys} />
 
         {formError ? (
           <View

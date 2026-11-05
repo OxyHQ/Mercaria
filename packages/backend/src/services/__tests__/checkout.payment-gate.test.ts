@@ -462,10 +462,20 @@ beforeEach(() => {
 describe('checkout with the Peable rail on', () => {
   it('refuses a seller who has never onboarded, naming their group', async () => {
     findProviderAccountByOwner.mockResolvedValue(undefined);
+    findStoresByIds.mockResolvedValue([{ id: STORE, name: 'Corner Shop' }]);
 
-    await expect(checkout(ACTOR, { addressId: ADDRESS_ID })).rejects.toThrow(
-      new RegExp(`store:${STORE}`),
+    const refusal = await checkout(ACTOR, { addressId: ADDRESS_ID }).then(
+      () => undefined,
+      (err: unknown) => err as { message: string; details?: unknown },
     );
+    // The buyer reads the store's NAME; the key the client deselects by is in
+    // the machine field and never in the sentence.
+    expect(refusal?.message).toMatch(/^Corner Shop cannot accept payment right now\./);
+    expect(refusal?.message).not.toContain(`store:${STORE}`);
+    expect(refusal?.details).toEqual({
+      reason: 'seller_not_payment_ready',
+      sellers: [{ sellerKey: `store:${STORE}`, name: 'Corner Shop' }],
+    });
     // The order that matters: the eligibility question needed no stock, so no
     // stock was taken and no rollback had to unwind one.
     expect(reserve).not.toHaveBeenCalled();
