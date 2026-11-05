@@ -429,7 +429,10 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // Checkout refusal details (`common.ts`: `ApiResponse.details`,
     // `RefusedCheckoutSeller`, `SellersNotPaymentReadyErrorDetails`,
     // `ApiErrorDetails`): +3 types, +5 properties. Measured by the real guard.
-    'walked 148 contract module(s), 2466 exported type(s), 8315 property signature(s)',
+    // The marketplace commission (ADR 0018) types `MerchantOrder.marketplaceFee`,
+    // the fee snapshot the single-order read already sent: +1 property.
+    // Measured by the real guard.
+    'walked 148 contract module(s), 2466 exported type(s), 8316 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });
