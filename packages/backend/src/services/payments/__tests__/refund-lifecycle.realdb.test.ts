@@ -861,6 +861,106 @@ describe('a refund the rail refuses outright', () => {
   });
 });
 
+/**
+ * A refund's money moving AFTER its answer, as Peable reports it on
+ * `/webhooks/peable` (`refund.*`). The state is READ from the gateway on every
+ * delivery, never taken from the payload.
+ */
+describe('refund events from the gateway', () => {
+  /** The outbox row a payment event id names, if any. */
+  async function outboxRow(id: string) {
+    const [row] = await db
+      .select()
+      .from(paymentSchema.paymentOutboxes)
+      .where(eq(paymentSchema.paymentOutboxes.id, id));
+    return row;
+  }
+
+  it('records a refund the bank rejects days later and raises refund_failed once', async () => {
+    const { renderRefund } = await import('./helpers/fake-peable-gateway.js');
+    const [fixture] = await seedSettledOrder('refund-bounced');
+    const refund = await processRefund(
+      fixture.storeId,
+      fixture.orderId,
+      {
+        lineItems: [{ variantId: await firstVariant(fixture.orderId), quantity: 1, restock: true }],
+      },
+      fixture.ownerId,
+    );
+    const [atGateway] = gateway.refundsOf(fixture.intentId);
+    if (!atGateway) throw new Error('the gateway holds no refund for this payment');
+    expect(atGateway.externalRef).toBe(refund.id);
+
+    // The payload still says `succeeded`; the gateway now says `failed`.
+    const staleBody = renderRefund(atGateway);
+    gateway.failRefund(atGateway.id, 'expired_or_canceled_card');
+    for (const attempt of ['1', '2']) {
+      await deliver({
+        id: `evt_refund_failed_${fixture.paymentId}_${attempt}`,
+        type: 'refund.failed',
+        data: { object: staleBody },
+      });
+    }
+
+    const stored = await findRefundById(refund.id);
+    expect(stored?.providerState).toBe('failed');
+    expect(stored?.providerFailureCode).toBe('expired_or_canceled_card');
+    const raised = (await outboxTypesFor(fixture.paymentId)).filter(
+      (type) => type === 'refund_failed',
+    );
+    expect(raised).toEqual(['refund_failed']);
+  });
+
+  it('raises a refund made at the acquirer as refund_unmatched and creates no refund', async () => {
+    const { renderRefund } = await import('./helpers/fake-peable-gateway.js');
+    const [fixture] = await seedSettledOrder('refund-at-acquirer');
+    const imported = gateway.putProviderRefund({ intentId: fixture.intentId, amount: 1_000n });
+    const refundRowsBefore = await db
+      .select()
+      .from(orderSchema.refunds)
+      .where(eq(orderSchema.refunds.orderId, fixture.orderId));
+
+    await deliver({
+      id: `evt_refund_imported_${fixture.paymentId}`,
+      type: 'refund.created',
+      data: { object: renderRefund(imported) },
+    });
+
+    const row = await outboxRow(`payment:refund_unmatched:peable:${imported.id}`);
+    expect(row?.eventType).toBe('refund_unmatched');
+    expect(row?.payload).toMatchObject({
+      providerRefundId: imported.id,
+      amountMinor: 1_000,
+      currency: 'EUR',
+    });
+    const refundRowsAfter = await db
+      .select()
+      .from(orderSchema.refunds)
+      .where(eq(orderSchema.refunds.orderId, fixture.orderId));
+    expect(refundRowsAfter).toHaveLength(refundRowsBefore.length);
+  });
+
+  it("leaves a refund of a payment that is not the marketplace's to billing", async () => {
+    const { renderRefund } = await import('./helpers/fake-peable-gateway.js');
+    gateway.putIntent({
+      id: `pi_invoice_${RUN}`,
+      status: 'succeeded',
+      amount: 900n,
+      currency: 'EUR',
+    });
+    const imported = gateway.putProviderRefund({ intentId: `pi_invoice_${RUN}`, amount: 900n });
+
+    const result = await deliver({
+      id: `evt_refund_invoice_${RUN}`,
+      type: 'refund.created',
+      data: { object: renderRefund(imported) },
+    });
+
+    expect(result.outcome).toBe('accepted');
+    expect(await outboxRow(`payment:refund_unmatched:peable:${imported.id}`)).toBeUndefined();
+  });
+});
+
 /** The first variant on an order — what a refund line names. */
 async function firstVariant(orderId: string): Promise<string> {
   const [item] = await db

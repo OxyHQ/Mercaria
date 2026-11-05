@@ -121,6 +121,29 @@ export interface FakeAccount {
   disabledReason: string | null;
 }
 
+/** One refund as the gateway's books hold it — merchant-made or imported from the acquirer. */
+export interface FakeRefund {
+  id: string;
+  intentId: string;
+  amount: bigint;
+  currency: string;
+  status: 'pending' | 'succeeded' | 'failed' | 'canceled';
+  externalRef: string | null;
+  origin: 'merchant' | 'provider';
+  failureCode: string | null;
+}
+
+/** One payout of a seller's connected account to their bank. */
+export interface FakePayout {
+  id: string;
+  account: string;
+  amount: bigint;
+  currency: string;
+  status: 'pending' | 'in_transit' | 'paid' | 'failed' | 'canceled';
+  arrivalDate: number | null;
+  failureCode: string | null;
+}
+
 /** What one recorded mutating call carried. */
 export interface FakeCall {
   params: Record<string, unknown>;
@@ -203,6 +226,50 @@ function renderTransfer(transfer: FakeTransfer): Record<string, unknown> {
   };
 }
 
+/** A refund as the gateway renders it — for API answers and event payloads alike. */
+export function renderRefund(refund: FakeRefund): Record<string, unknown> {
+  const now = Math.floor(Date.now() / 1000);
+  return {
+    id: refund.id,
+    object: 'refund',
+    livemode: false,
+    external_ref: refund.externalRef,
+    origin: refund.origin,
+    payment_intent: refund.intentId,
+    amount: minor(refund.amount),
+    currency: refund.currency,
+    status: refund.status,
+    reason: null,
+    failure_code: refund.failureCode,
+    metadata: {},
+    created: now,
+    updated_at: now,
+  };
+}
+
+/** A payout as the gateway renders it — for API answers and event payloads alike. */
+export function renderPayout(payout: FakePayout): Record<string, unknown> {
+  return {
+    id: payout.id,
+    object: 'payout',
+    livemode: false,
+    account: payout.account,
+    amount: minor(payout.amount),
+    currency: payout.currency,
+    status: payout.status,
+    arrival_date: payout.arrivalDate,
+    automatic: true,
+    method: 'standard',
+    type: 'bank_account',
+    description: null,
+    statement_descriptor: null,
+    failure_code: payout.failureCode,
+    balance_transaction: null,
+    metadata: {},
+    created: Math.floor(Date.now() / 1000),
+  };
+}
+
 /** A connected account as the gateway renders it — for API answers and event payloads alike. */
 export function renderAccount(account: FakeAccount): Record<string, unknown> {
   const now = Math.floor(Date.now() / 1000);
@@ -255,6 +322,8 @@ export function createFakePeableGateway() {
   const intents = new Map<string, FakeIntent>();
   const transfers = new Map<string, FakeTransfer>();
   const accounts = new Map<string, FakeAccount>();
+  const refunds = new Map<string, FakeRefund>();
+  const payouts = new Map<string, FakePayout>();
   /** A create's `Idempotency-Key` → the intent it made, re-rendered on replay. */
   const intentsByKey = new Map<string, string>();
   /** Every other mutating call's `Idempotency-Key` → the answer it produced. */
@@ -390,19 +459,23 @@ export function createFakePeableGateway() {
         const intent = intentOf(params.payment_intent);
         const amount = BigInt(params.amount ?? minor(intent.amount - intent.refunded));
         intent.refunded += amount;
-        return Promise.resolve(
-          remember(options?.idempotencyKey, {
-            id: nextId('re'),
-            object: 'refund',
-            livemode: false,
-            payment_intent: intent.id,
-            amount: minor(amount),
-            currency: intent.currency,
-            status: 'succeeded',
-            failure_code: null,
-            external_ref: params.external_ref ?? null,
-          }),
-        );
+        const refund: FakeRefund = {
+          id: nextId('re'),
+          intentId: intent.id,
+          amount,
+          currency: intent.currency,
+          status: 'succeeded',
+          externalRef: params.external_ref ?? null,
+          origin: 'merchant',
+          failureCode: null,
+        };
+        refunds.set(refund.id, refund);
+        return Promise.resolve(remember(options?.idempotencyKey, renderRefund(refund)));
+      },
+      retrieve: (id: string) => {
+        const refund = refunds.get(id);
+        if (!refund) return Promise.reject(refusal(`No such refund: '${id}'`, 'resource_missing'));
+        return Promise.resolve(renderRefund(refund));
       },
       listForPaymentIntent: (intentId: string) => {
         const intent = intentOf(intentId);
@@ -464,6 +537,17 @@ export function createFakePeableGateway() {
           url: `https://connect.peable.test/onboarding/${id}/${String(state.linkCalls.length)}`,
           expires_at: Math.floor(Date.now() / 1000) + 300,
         });
+      },
+    },
+    payouts: {
+      retrieve: (id: string, _params: unknown, options?: { peableAccount?: string }) => {
+        const payout = payouts.get(id);
+        // A payout belongs to the SELLER's account: read as anyone else, the
+        // gateway answers that it does not exist.
+        if (!payout || options?.peableAccount !== payout.account) {
+          return Promise.reject(refusal(`No such payout: '${id}'`, 'resource_missing'));
+        }
+        return Promise.resolve(renderPayout(payout));
       },
     },
     transfers: {
@@ -541,6 +625,45 @@ export function createFakePeableGateway() {
     /** The gateway's record of one connected account; throws for one it never opened. */
     account(id: string): FakeAccount {
       return accountOf(id);
+    },
+
+    /** Every refund the gateway holds for one intent, oldest first. */
+    refundsOf(intentId: string): FakeRefund[] {
+      return [...refunds.values()].filter((refund) => refund.intentId === intentId);
+    },
+
+    /** A refund made at the ACQUIRER, which Peable imported (`origin: 'provider'`). */
+    putProviderRefund(input: { intentId: string; amount: bigint }): FakeRefund {
+      const intent = intentOf(input.intentId);
+      const refund: FakeRefund = {
+        id: nextId('re'),
+        intentId: intent.id,
+        amount: input.amount,
+        currency: intent.currency,
+        status: 'succeeded',
+        externalRef: null,
+        origin: 'provider',
+        failureCode: null,
+      };
+      intent.refunded += input.amount;
+      refunds.set(refund.id, refund);
+      return refund;
+    },
+
+    /** A bank rejected a refund after the fact (`refund.failed`). */
+    failRefund(id: string, failureCode: string): FakeRefund {
+      const refund = refunds.get(id);
+      if (!refund) throw new Error(`no such fake refund ${id}`);
+      refund.status = 'failed';
+      refund.failureCode = failureCode;
+      return refund;
+    },
+
+    /** A payout the acquirer made from a seller's balance, mirrored by Peable. */
+    putPayout(input: Omit<FakePayout, 'id'>): FakePayout {
+      const payout: FakePayout = { id: nextId('po'), ...input };
+      payouts.set(payout.id, payout);
+      return payout;
     },
 
     /** The seller finished the hosted flow and the acquirer enabled everything. */
@@ -627,6 +750,8 @@ export function createFakePeableGateway() {
       intents.clear();
       transfers.clear();
       accounts.clear();
+      refunds.clear();
+      payouts.clear();
       intentsByKey.clear();
       byKey.clear();
       state.intentCalls.length = 0;

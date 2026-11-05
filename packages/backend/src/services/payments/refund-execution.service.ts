@@ -53,7 +53,12 @@
  * instead of a rounding difference nobody can attribute.
  */
 
-import type { LedgerOwnerType, Money, PaymentProviderId } from '@mercaria/shared-types';
+import type {
+  LedgerOwnerType,
+  Money,
+  PaymentProviderId,
+  RefundProviderState,
+} from '@mercaria/shared-types';
 import { getDb } from '../../db/postgres.js';
 import {
   applyRefundProviderState,
@@ -685,6 +690,53 @@ export async function recordReversalFailed(input: {
       },
     });
   });
+}
+
+/**
+ * Where the rail says a refund Mercaria made now stands — the inbound refund
+ * events' one writer.
+ *
+ * A refund's state is READ, always (it moves after its answer: `pending` to
+ * `succeeded`, or to `failed` when a bank rejects it days later). The
+ * compare-and-swap in `applyRefundProviderState` is the idempotency: a
+ * redelivered state changes nothing and announces nothing.
+ *
+ * A refund that FAILS after Mercaria recorded it is money back on the platform
+ * balance for a refund the commerce record says happened, so it raises the same
+ * durable `refund_failed` the synchronous refusal raises — both halves (the
+ * ledger correction and the order) need a person.
+ *
+ * @returns Whether this observation changed the stored state, and the payment
+ *   the refund draws on — `undefined` when Mercaria has no such refund.
+ */
+export async function applyRailRefundState(input: {
+  refundId: string;
+  state: RefundProviderState;
+  failureCode?: string;
+}): Promise<{ changed: boolean; paymentId: string | null } | undefined> {
+  const db = getDb();
+  const refund = await findRefundById(input.refundId);
+  if (!refund) return undefined;
+  const failureCode = input.failureCode ? safeFailureCode(input.failureCode) : undefined;
+  const changed = await applyRefundProviderState(db, {
+    refundId: refund.id,
+    providerState: input.state,
+    ...(failureCode ? { failureCode } : {}),
+  });
+  if (changed && (input.state === 'failed' || input.state === 'canceled') && refund.paymentId) {
+    const payment = await findPaymentById(db, refund.paymentId);
+    const order = await findLinkedOrder(refund.orderId);
+    if (payment && order) {
+      await recordRefundFailed({
+        refund,
+        payment,
+        order,
+        reason: `the rail reported the refund '${input.state}' after Mercaria had recorded it`,
+        ...(failureCode ? { failureCode } : {}),
+      });
+    }
+  }
+  return { changed: changed !== undefined, paymentId: refund.paymentId };
 }
 
 /** Re-exported so the dispute path shares one definition of the owner mapping. */

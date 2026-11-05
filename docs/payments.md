@@ -32,10 +32,9 @@ take a buyer's money (ADR 0009 D13):
   pay page in the system browser, because Peable's payer SDK has no native card
   path (see "The storefront's card step"). Neither has confirmed a real
   payment (ADR 0009 D18).
-- **No dispute or payout events.** The Peable router applies
-  `payment_intent.*`, `charge.refunded` and `connected_account.updated` only, so
-  `disputes` and `payouts` have no writer, and `transfer_changed`,
-  `payout_changed`, `payment_disputed` and `refund_unmatched` have no producer.
+- **No dispute events.** The Peable router applies `payment_intent.*`,
+  `charge.refunded`, `refund.*`, `payout.*` and `connected_account.updated`, so
+  `disputes` has no writer and `payment_disputed` no producer.
 - **No processor fee and no settlement figure.** A Peable success books no
   `processor_expense`, and the adapter's refund result carries no platform
   figure, so a refund's money leg retries `refund_settlement_unavailable` until
@@ -369,11 +368,12 @@ column names so the two claim queries are the same query.
 An event type this version does not handle THROWS rather than completing as if
 handled, so during a rolling deploy the task running the newer code claims it.
 Every declared type has a handler, so that branch is reachable only by a row a
-NEWER image wrote — which is exactly the case it exists for. Five declared types
-have a handler and no producer on the current rail (`transfer_changed`,
-`payout_changed`, `payment_disputed`, `provider_account_changed`,
-`refund_unmatched`): their producers were the deleted Stripe router, and they
-come back when the gateway sends those events.
+NEWER image wrote — which is exactly the case it exists for. Two declared types
+have a handler and no producer on the current rail: `payment_disputed` (until the
+router handles `charge.dispute.*`) and `transfer_changed`, whose producer was the
+deleted Stripe router's `transfer.*` handler — Peable sends no transfer events,
+because a transfer and its reversals are Mercaria's own calls, recorded from
+their answers.
 
 ---
 
@@ -1396,8 +1396,16 @@ operator exception and creates **no local refund** — doing otherwise would
 restock goods nobody returned. Correlation must be by Mercaria's own refund id
 FIRST (the adapter sends it as `external_ref`) and the provider id second, never
 by amount: an amount match picks the wrong one of two identical partial refunds.
-On the Peable rail `charge.refunded` only re-reads the payment's status, so
-nothing raises `refund_unmatched` until the router handles refund objects.
+
+On the Peable rail `refund.created|updated|failed` (`peable/marketplace-events.ts`)
+re-read the refund and match it by `external_ref`, then by the recorded gateway
+id; no match raises `refund_unmatched` (keyed on the gateway's refund id). A match
+moves `providerState` through `applyRailRefundState`
+(`refund-execution.service.ts`), whose compare-and-swap is the idempotency, and a
+refund that fails AFTER Mercaria recorded it (a bank rejecting it days later)
+raises `refund_failed` — both halves need a person. Refunds of a payment that is
+not a marketplace payment (a merchant-plan invoice) are billing's and ignored
+here. `charge.refunded` still only re-reads the payment's status.
 
 ### Provider outcomes never touch inventory
 
@@ -1452,9 +1460,11 @@ it, and **the absence of ledger postings is the load-bearing part**: ADR 0001 D6
 settled the merchant receivable when the TRANSFER was created, so a failed payout
 must not reopen it or Mercaria would owe a seller twice for one order.
 `payout.service.ts` records an observed payout, attributes it through
-`provider_accounts` and emits `payout_changed`; **nothing calls it on the Peable
-rail yet**. A payout names the rail that reported it (`ObservedPayout.provider`,
-ADR 0009 D19).
+`provider_accounts` and emits `payout_changed`. On the Peable rail `payout.*`
+(`peable/marketplace-events.ts`) re-reads the payout AS the seller's account
+(`Peable-Account`; a payout is the seller's, not the platform's) and records
+what the gateway says, never the payload. A payout names the rail that reported
+it (`ObservedPayout.provider`, ADR 0009 D19).
 
 `payouts.amount_currency` carries **no CHECK against `ALL_CURRENCY_CODES`** — the
 third such exemption, beside `provider_accounts.default_currency` and

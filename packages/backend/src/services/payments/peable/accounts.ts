@@ -49,7 +49,7 @@ import type {
   ProviderOnboardingState,
   SellerPaymentSettings,
 } from '@mercaria/shared-types';
-import { type ConnectedAccount, type Peable, PeableError } from '@peable.to/sdk';
+import { type ConnectedAccount, PeableError } from '@peable.to/sdk';
 import { config } from '../../../config/index.js';
 import { getDb } from '../../../db/postgres.js';
 import {
@@ -68,16 +68,8 @@ import {
   type SellerAccountOwner,
   sellerKeyFor,
 } from '../provider-account.service.js';
-import { createPeableClient } from './client.js';
 import { callPeable } from './errors.js';
-
-let client: Peable | undefined;
-
-/** The one client, built on first use so a deployment without the rail never builds it. */
-function peable(): Peable {
-  client ??= createPeableClient();
-  return client;
-}
+import { peableGateway } from './gateway.js';
 
 /** A capability status, or `undefined` for one that was never requested. */
 function capability(value: string | null): ProviderCapabilityStatus | undefined {
@@ -229,7 +221,7 @@ async function ensureSellerAccount(
 
   let account: ConnectedAccount;
   try {
-    account = await peable().connectedAccounts.create(
+    account = await peableGateway().connectedAccounts.create(
       {
         external_ref: sellerKeyFor(owner),
         country: normalized,
@@ -308,7 +300,7 @@ export async function createSellerOnboardingLink(input: {
   const row = await ensureSellerAccount(input.owner, input.country);
   const url = returnUrlFor(input.owner);
   try {
-    const link = await peable().connectedAccounts.createAccountLink(
+    const link = await peableGateway().connectedAccounts.createAccountLink(
       row.providerAccountId,
       { refresh_url: url, return_url: url, rail: 'card' },
       // Deliberately NO durable key: a link is single-use, so a retry must mint
@@ -342,7 +334,7 @@ export async function refreshSellerAccount(
   if (row && onboardingAvailable()) {
     let account: ConnectedAccount;
     try {
-      account = await peable().connectedAccounts.refresh(row.providerAccountId, {});
+      account = await peableGateway().connectedAccounts.refresh(row.providerAccountId, {});
     } catch (error) {
       throw refusal(error);
     }
@@ -369,7 +361,7 @@ export async function syncPeableAccount(
   const row = await findProviderAccountByProviderId(getDb(), 'peable', providerAccountId);
   if (!row) return undefined;
   const account = await callPeable('getStatus', () =>
-    peable().connectedAccounts.retrieve(providerAccountId),
+    peableGateway().connectedAccounts.retrieve(providerAccountId),
   );
   // Read AFTER the call returns, so the ordering key never claims an
   // observation is fresher than it is.

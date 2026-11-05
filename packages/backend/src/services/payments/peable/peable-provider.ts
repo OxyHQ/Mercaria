@@ -17,9 +17,10 @@
  *
  * Mercaria's `Money.amount` is a JS `number` of minor units; the gateway's
  * contract is a `string`, because it works in unbounded `bigint`. The
- * conversion happens at this boundary and nowhere else, and it REFUSES anything
- * that is not a safe non-negative integer rather than rounding — an amount that
- * silently loses precision here is a charge nobody authorised.
+ * conversion is `amounts.ts`, the one place either direction is written, and
+ * it REFUSES anything that is not a safe non-negative integer rather than
+ * rounding — an amount that silently loses precision is a charge nobody
+ * authorised.
  *
  * ## What this rail cannot do, and says so out loud
  *
@@ -35,7 +36,7 @@
  *    method Mercaria never sees.
  */
 
-import type { CurrencyCode, Money, PaymentStatus, TransferStatus } from '@mercaria/shared-types';
+import type { CurrencyCode, PaymentStatus, TransferStatus } from '@mercaria/shared-types';
 import {
   FIAT_CURRENCY_CODES,
   type FiatCurrencyCode,
@@ -62,6 +63,7 @@ import type {
   SettlingPaymentProvider,
 } from '../provider.js';
 import { createPeableClient } from './client.js';
+import { fromGatewayAmount, toGatewayAmount } from './amounts.js';
 import { callPeable } from './errors.js';
 import { verifyPeableSignature } from './verify.js';
 
@@ -130,27 +132,6 @@ function toPaymentStatus(intent: PaymentIntent, stage: PaymentProviderStage): Pa
       throw unmapped(stage, `status '${String(exhaustive)}'`);
     }
   }
-}
-
-/**
- * A `Money` as the gateway's canonical integer string.
- *
- * Refuses rather than rounds. `Money.amount` is a `number`, and above
- * `Number.MAX_SAFE_INTEGER` — reachable in a minor-unit currency — the value is
- * already wrong before it gets here; sending it would charge an amount nobody
- * authorised. Refused as PERMANENT, because no retry makes a number
- * representable.
- */
-function toGatewayAmount(money: Money, stage: PaymentProviderStage): string {
-  if (!Number.isSafeInteger(money.amount) || money.amount < 0) {
-    throw new PaymentProviderError({
-      provider: 'peable',
-      stage,
-      message: `${String(money.amount)} is not a safe non-negative integer of minor units`,
-      retryable: false,
-    });
-  }
-  return String(money.amount);
 }
 
 /** The card rail charges fiat only; which fiat is the gateway's own vocabulary. */
@@ -396,15 +377,7 @@ export class PeablePaymentProvider
     // deciding whether a transfer is fully reversed must not have to add up
     // legs it may not all have seen, and reporting this one would make a second
     // partial reversal look like the first.
-    const total = Number(transfer.amount_reversed);
-    if (!Number.isSafeInteger(total) || total < 0) {
-      throw new PaymentProviderError({
-        provider: 'peable',
-        stage: 'transfer',
-        message: `the gateway reported an unusable reversed total '${transfer.amount_reversed}'`,
-        retryable: false,
-      });
-    }
+    const total = fromGatewayAmount(transfer.amount_reversed, 'transfer');
     return { providerObjectId: transfer.reversal.id, totalReversedMinor: total };
   }
 }

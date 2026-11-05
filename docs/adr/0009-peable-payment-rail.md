@@ -116,13 +116,13 @@ end.** Removing the direct rail did not build these, and each is a gap before
   `PeableProviderFields` need a DOM). Peable's `PeableElement.on` also does not
   type the Express Checkout `confirm` event the wallet sheet waits on, so the
   step widens that one listener. Neither path has confirmed a real payment;
-- dispute and payout events from the gateway — the Peable router handles
-  payment intents, `charge.refunded` and `connected_account.updated` only, so
-  `disputes` and `payouts` have no writer. The rail-neutral entry points
-  the router will call — `dispute.service` (`recordDispute`, `closeDispute`) and
-  `payout.service` (`recordPayout`) — are kept as those seams, uncalled and, for
-  disputes, without a test until then (their cases were driven by Stripe
-  events);
+- dispute events from the gateway — the Peable router handles payment intents,
+  `charge.refunded`, `connected_account.updated`, `payout.*` (re-read as the
+  seller's account into `recordPayout`) and `refund.*` (a refund failing after
+  the fact raises `refund_failed`, one Mercaria never made `refund_unmatched`),
+  so only `disputes` has no writer. `dispute.service` (`recordDispute`,
+  `closeDispute`) is kept as that seam, uncalled and without a test until then
+  (its cases were driven by Stripe events);
 - refund settlement figures — the adapter's refund result carries no
   platform-currency figure, so `executeRefundAtProvider` refuses to book a
   Peable refund (`refund_settlement_unavailable`, retried) after the gateway
