@@ -24,11 +24,10 @@ import { enqueuePaymentEvent, refundUnmatchedEventId } from '../payment-outbox.s
 import { recordPayout } from '../payout.service.js';
 import { PaymentProviderError } from '../provider.js';
 import { applyRailRefundState } from '../refund-execution.service.js';
-import { redactAccountId, syncPeableAccount } from './accounts.js';
+import { peableGateway, redactAccountId, syncPeableAccount } from './accounts.js';
 import { fromGatewayAmount } from './amounts.js';
 import { callPeable } from './errors.js';
 import type { PeableEventContext, PeableEventHandler, PeableEventOutcome } from './event-router.js';
-import { peableGateway } from './gateway.js';
 
 /** An event naming an object this handler cannot work from — never retryable. */
 function malformed(message: string): PaymentProviderError {

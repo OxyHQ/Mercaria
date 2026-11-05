@@ -49,7 +49,7 @@ import type {
   ProviderOnboardingState,
   SellerPaymentSettings,
 } from '@mercaria/shared-types';
-import { type ConnectedAccount, PeableError } from '@peable.to/sdk';
+import { type ConnectedAccount, type Peable, PeableError } from '@peable.to/sdk';
 import { config } from '../../../config/index.js';
 import { getDb } from '../../../db/postgres.js';
 import {
@@ -69,7 +69,24 @@ import {
   sellerKeyFor,
 } from '../provider-account.service.js';
 import { callPeable } from './errors.js';
-import { peableGateway } from './gateway.js';
+import { createPeableClient } from './client.js';
+
+let client: Peable | undefined;
+
+/**
+ * The one Peable client the marketplace's non-payment calls share — seller
+ * accounts here, and the event handlers that re-read payouts, refunds and
+ * disputes (`marketplace-events.ts`).
+ *
+ * Built on first use from `createPeableClient()` (the one module that reaches
+ * the gateway, which suites replace with the fake gateway), so a deployment
+ * without the rail never builds it. `PeablePaymentProvider` holds its own
+ * instance from the same factory.
+ */
+export function peableGateway(): Peable {
+  client ??= createPeableClient();
+  return client;
+}
 
 /** A capability status, or `undefined` for one that was never requested. */
 function capability(value: string | null): ProviderCapabilityStatus | undefined {
