@@ -334,6 +334,11 @@ justify it", and neither is established — so there is no buyer-origin breakdow
 at all, which is rule 3 and identity rule 7 arriving at the same place from two
 directions.
 
+The PAID checkout conversion report (`advanced_demand_analytics`,
+`…/analytics/advanced/*`) is a different, order-sourced surface that shares only
+the URL prefix and this cohort floor — see `docs/conversion-report.md`. Nothing
+on this page changed for it.
+
 ---
 
 ## Experimentation

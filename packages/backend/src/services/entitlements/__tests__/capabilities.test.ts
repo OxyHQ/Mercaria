@@ -203,6 +203,8 @@ describe('the code catalogue', () => {
       'expanded_pos_registers',
       // `services/data-exports/`, `/admin/stores/:storeId/exports`.
       'scheduled_exports',
+      // The checkout conversion report, `…/analytics/advanced/*`.
+      'advanced_demand_analytics',
     ];
     for (const definition of Object.values(MERCHANT_CAPABILITY_CATALOG)) {
       expect(

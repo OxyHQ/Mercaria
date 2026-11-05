@@ -42,6 +42,7 @@ import planRouter from './plan.js';
 import analyticsRouter from './analytics.js';
 import priceAnalyticsRouter from './price-benchmark.js';
 import dataExportsRouter from './data-exports.js';
+import conversionReportRouter from './conversion-report.js';
 
 /**
  * Store-admin router, mounted at `/admin/stores`.
@@ -160,6 +161,11 @@ router.use('/:storeId/feeds', feedsRouter);
 // deliberately NOT inside it: reports are the ORDER-sourced surface with exact
 // figures, and this is discovery telemetry with privacy thresholds. Merging
 // them would put a suppressed number next to an exact one under one heading.
+// The paid checkout conversion report (#89 `advanced_demand_analytics`). Under
+// the analytics PREFIX because that is where a merchant looks for it, but its
+// own router: it reads orders and is plan-gated, and #77's router does neither.
+// Mounted BEFORE `/analytics` so the more specific prefix is matched first.
+router.use('/:storeId/analytics/advanced', conversionReportRouter);
 router.use('/:storeId/analytics', analyticsRouter);
 // Competitive price analytics (#89's paid `competitive_price_analytics` tool): the
 // store's own native listings against the other offers in their public

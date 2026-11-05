@@ -1,4 +1,4 @@
-import { CalendarClock, Calculator, Scale, type LucideIcon } from 'lucide-react-native';
+import { CalendarClock, Calculator, Scale, TrendingUp, type LucideIcon } from 'lucide-react-native';
 import type { RoutePath } from 'expo-router';
 import type { MerchantEntitlementCapability, StorePermission } from '@mercaria/shared-types';
 
@@ -52,5 +52,13 @@ export const PLAN_TOOLS: readonly PlanTool[] = [
     // Each schedule is checked against its own dataset's read permission; the
     // hub row shows to anyone who reads the store's orders.
     permission: 'orders:read',
+  },
+  {
+    capability: 'advanced_demand_analytics',
+    labelKey: 'demandAnalytics.label',
+    descriptionKey: 'demandAnalytics.description',
+    icon: TrendingUp,
+    href: '/tools/demand-analytics',
+    permission: 'stats:read',
   },
 ];

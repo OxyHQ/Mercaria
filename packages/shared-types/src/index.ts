@@ -154,6 +154,10 @@ export * from './user-preference';
 // Store report/analytics DTOs (ReportSummary, SalesReportPoint, TopProduct, …).
 export * from './report';
 
+// The checkout conversion report — the paid `advanced_demand_analytics` tool
+// (#89). Order-sourced, cohort-floored with #77's constant, no buyer field.
+export * from './conversion-report';
+
 // Connector/integration DTOs (Connection, SyncSettings, SyncRun, ConnectorProviderId, …).
 export * from './integration';
 

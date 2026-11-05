@@ -726,6 +726,57 @@
     "historyTitle": "Scheduled export history",
     "onDemandLink": "Need a file right now? Export your data on demand from Settings → Export data, free on every plan."
   },
+  "demandAnalytics": {
+    "label": "Demand analytics",
+    "description": "Checkout conversion for each listing, with trends and exports",
+    "documentTitle": "Demand analytics | Wholesale by Mercaria",
+    "title": "Demand analytics",
+    "subtitle": "How checkouts on your listings turn into paid orders",
+    "lastDays": "Last %{days} days",
+    "daily": "Daily",
+    "weekly": "Weekly",
+    "exportListings": "Export listings (CSV)",
+    "exportTrend": "Export trend (CSV)",
+    "exportFailed": "Couldn't export the report. Please try again.",
+    "loadFailed": "Couldn't load the report",
+    "planChangedTitle": "Not included in your current plan",
+    "planChangedBody": "Your store's plan no longer includes this report. Your orders and the free store summary are unaffected.",
+    "suppressedTitle": "Not enough checkouts yet",
+    "suppressedBody": "Figures appear once a period has at least %{minimum} checkouts, so no single buyer can be picked out.",
+    "noComparison": "No comparison with the previous period",
+    "changeRelative": "%{value} vs previous period",
+    "changePoints": "%{value} pts vs previous period",
+    "stats": {
+      "checkoutsStarted": "Checkouts started",
+      "paidCheckouts": "Paid checkouts",
+      "conversionRate": "Conversion rate",
+      "abandonedCheckouts": "Abandoned checkouts",
+      "openCheckoutsCount": "%{open} still awaiting payment"
+    },
+    "utcRange": "%{from} – %{to} (UTC)",
+    "trend": {
+      "titleDaily": "Checkouts started per day",
+      "titleWeekly": "Checkouts started per week",
+      "point": "%{date}: %{started} checkouts started, %{paid} paid (%{rate})",
+      "suppressedPoint": "%{date}: fewer than %{minimum} checkouts, hidden",
+      "inspect": "Select a bar to see its figures"
+    },
+    "best": {
+      "title": "Best converting"
+    },
+    "worst": {
+      "title": "Lowest converting"
+    },
+    "rankedEmpty": "No listing has %{minimum} or more checkouts in this period yet.",
+    "listings": {
+      "title": "Listings",
+      "empty": "No listing has %{minimum} or more checkouts in this period.",
+      "suppressed": "%{hidden} more listings had fewer than %{minimum} checkouts and aren't shown.",
+      "row": "%{started} started · %{paid} paid · %{abandoned} abandoned"
+    },
+    "notMeasured": "Built from your own orders. Product views and search terms aren't included: Mercaria doesn't collect browsing analytics for stores.",
+    "definitions": "A checkout started is an order a buyer placed on Mercaria; point-of-sale, draft and imported orders aren't counted. It converts when its payment settles, and a later refund still counts. An order with several listings counts once for each of them."
+  },
   "discounts": {
     "create": {
       "amountOffLabel": "Amount off (⊜)",

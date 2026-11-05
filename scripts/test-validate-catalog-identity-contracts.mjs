@@ -411,7 +411,10 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // Scheduled exports add `data-export.ts` (schedule and run views, their
     // inputs, the download view): +1 module, +11 types, +42 properties.
     // Measured by the real guard.
-    'walked 144 contract module(s), 2420 exported type(s), 8108 property signature(s)',
+    // The checkout conversion report (`advanced_demand_analytics`) adds one
+    // module, `conversion-report.ts`: +1 module, +9 types, +34 properties.
+    // Measured by the real guard.
+    'walked 145 contract module(s), 2429 exported type(s), 8142 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });

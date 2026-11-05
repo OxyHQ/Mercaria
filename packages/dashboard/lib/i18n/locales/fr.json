@@ -738,6 +738,57 @@
     "historyTitle": "Historique des exports programmés",
     "onDemandLink": "Besoin d’un fichier tout de suite ? Exportez vos données à la demande dans Réglages → Exporter les données, gratuit avec tous les forfaits."
   },
+  "demandAnalytics": {
+    "label": "Analyse de la demande",
+    "description": "Conversion des paiements pour chaque annonce, avec tendances et exports",
+    "documentTitle": "Analyse de la demande | Wholesale by Mercaria",
+    "title": "Analyse de la demande",
+    "subtitle": "Comment les paiements commencés sur vos annonces deviennent des commandes payées",
+    "lastDays": "%{days} derniers jours",
+    "daily": "Par jour",
+    "weekly": "Par semaine",
+    "exportListings": "Exporter les annonces (CSV)",
+    "exportTrend": "Exporter la tendance (CSV)",
+    "exportFailed": "Impossible d'exporter le rapport. Veuillez réessayer.",
+    "loadFailed": "Impossible de charger le rapport",
+    "planChangedTitle": "Non inclus dans votre offre actuelle",
+    "planChangedBody": "L'offre de votre boutique n'inclut plus ce rapport. Vos commandes et le résumé gratuit de la boutique ne changent pas.",
+    "suppressedTitle": "Pas encore assez de paiements",
+    "suppressedBody": "Les chiffres apparaissent dès qu'une période compte au moins %{minimum} paiements commencés, pour qu'aucun acheteur ne puisse être identifié.",
+    "noComparison": "Pas de comparaison avec la période précédente",
+    "changeRelative": "%{value} par rapport à la période précédente",
+    "changePoints": "%{value} pts par rapport à la période précédente",
+    "stats": {
+      "checkoutsStarted": "Paiements commencés",
+      "paidCheckouts": "Paiements réglés",
+      "conversionRate": "Taux de conversion",
+      "abandonedCheckouts": "Paiements abandonnés",
+      "openCheckoutsCount": "%{open} en attente de paiement"
+    },
+    "utcRange": "%{from} – %{to} (UTC)",
+    "trend": {
+      "titleDaily": "Paiements commencés par jour",
+      "titleWeekly": "Paiements commencés par semaine",
+      "point": "%{date} : %{started} paiements commencés, %{paid} réglés (%{rate})",
+      "suppressedPoint": "%{date} : moins de %{minimum} paiements, masqué",
+      "inspect": "Sélectionnez une barre pour voir ses chiffres"
+    },
+    "best": {
+      "title": "Meilleure conversion"
+    },
+    "worst": {
+      "title": "Conversion la plus faible"
+    },
+    "rankedEmpty": "Aucune annonce n'a encore %{minimum} paiements commencés ou plus sur cette période.",
+    "listings": {
+      "title": "Annonces",
+      "empty": "Aucune annonce n'a %{minimum} paiements commencés ou plus sur cette période.",
+      "suppressed": "%{hidden} autres annonces ont eu moins de %{minimum} paiements commencés et ne sont pas affichées.",
+      "row": "%{started} commencés · %{paid} réglés · %{abandoned} abandonnés"
+    },
+    "notMeasured": "Calculé à partir de vos propres commandes. Les vues de produits et les termes de recherche ne sont pas inclus : Mercaria ne collecte pas d'analyse de navigation pour les boutiques.",
+    "definitions": "Un paiement commencé est une commande passée par un acheteur sur Mercaria ; les commandes en caisse, les brouillons et les commandes importées ne sont pas comptés. Il est converti quand son paiement est encaissé, et un remboursement ultérieur compte toujours. Une commande contenant plusieurs annonces compte une fois pour chacune."
+  },
   "discounts": {
     "create": {
       "amountOffLabel": "Montant de la réduction (⊜)",

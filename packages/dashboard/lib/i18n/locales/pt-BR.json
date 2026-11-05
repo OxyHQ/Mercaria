@@ -738,6 +738,57 @@
     "historyTitle": "Histórico de exportações agendadas",
     "onDemandLink": "Precisa de um arquivo agora? Exporte seus dados sob demanda em Configurações → Exportar dados, grátis em todos os planos."
   },
+  "demandAnalytics": {
+    "label": "Análise de demanda",
+    "description": "Conversão de checkout de cada anúncio, com tendências e exportações",
+    "documentTitle": "Análise de demanda | Wholesale by Mercaria",
+    "title": "Análise de demanda",
+    "subtitle": "Como os checkouts dos seus anúncios viram pedidos pagos",
+    "lastDays": "Últimos %{days} dias",
+    "daily": "Por dia",
+    "weekly": "Por semana",
+    "exportListings": "Exportar anúncios (CSV)",
+    "exportTrend": "Exportar tendência (CSV)",
+    "exportFailed": "Não foi possível exportar o relatório. Tente novamente.",
+    "loadFailed": "Não foi possível carregar o relatório",
+    "planChangedTitle": "Não incluído no seu plano atual",
+    "planChangedBody": "O plano da sua loja não inclui mais este relatório. Seus pedidos e o resumo gratuito da loja não mudam.",
+    "suppressedTitle": "Ainda não há checkouts suficientes",
+    "suppressedBody": "Os números aparecem quando um período tem pelo menos %{minimum} checkouts, para que nenhum comprador possa ser identificado.",
+    "noComparison": "Sem comparação com o período anterior",
+    "changeRelative": "%{value} em relação ao período anterior",
+    "changePoints": "%{value} p.p. em relação ao período anterior",
+    "stats": {
+      "checkoutsStarted": "Checkouts iniciados",
+      "paidCheckouts": "Checkouts pagos",
+      "conversionRate": "Taxa de conversão",
+      "abandonedCheckouts": "Checkouts abandonados",
+      "openCheckoutsCount": "%{open} aguardando pagamento"
+    },
+    "utcRange": "%{from} – %{to} (UTC)",
+    "trend": {
+      "titleDaily": "Checkouts iniciados por dia",
+      "titleWeekly": "Checkouts iniciados por semana",
+      "point": "%{date}: %{started} checkouts iniciados, %{paid} pagos (%{rate})",
+      "suppressedPoint": "%{date}: menos de %{minimum} checkouts, oculto",
+      "inspect": "Selecione uma barra para ver os números"
+    },
+    "best": {
+      "title": "Melhor conversão"
+    },
+    "worst": {
+      "title": "Menor conversão"
+    },
+    "rankedEmpty": "Nenhum anúncio tem ainda %{minimum} ou mais checkouts neste período.",
+    "listings": {
+      "title": "Anúncios",
+      "empty": "Nenhum anúncio tem %{minimum} ou mais checkouts neste período.",
+      "suppressed": "Mais %{hidden} anúncios tiveram menos de %{minimum} checkouts e não são exibidos.",
+      "row": "%{started} iniciados · %{paid} pagos · %{abandoned} abandonados"
+    },
+    "notMeasured": "Calculado com os seus próprios pedidos. Visualizações de produtos e termos de busca não estão incluídos: a Mercaria não coleta análise de navegação para as lojas.",
+    "definitions": "Um checkout iniciado é um pedido que um comprador fez na Mercaria; pedidos do PDV, rascunhos e importados não contam. Ele converte quando o pagamento é confirmado, e um reembolso posterior continua contando. Um pedido com vários anúncios conta uma vez para cada um."
+  },
   "discounts": {
     "create": {
       "amountOffLabel": "Valor de desconto (⊜)",

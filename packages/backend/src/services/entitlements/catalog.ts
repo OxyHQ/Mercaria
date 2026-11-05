@@ -61,11 +61,17 @@ export const MERCHANT_CAPABILITY_CATALOG: Readonly<
   advanced_demand_analytics: {
     key: 'advanced_demand_analytics',
     name: 'Advanced demand analytics',
+    // v1 is the checkout conversion report (`services/conversion-report.service.ts`,
+    // `…/analytics/advanced/*`): order-sourced, because discovery collection is
+    // off in production and no impression or search is tied to a store's
+    // listing, so views and search terms are not in it and the copy says so.
     description:
-      'Demand, conversion and search-intent reporting beyond the aggregate store summary every ' +
-      'merchant gets for free.',
+      'Checkout conversion reporting from your own orders: checkouts started, paid, open and ' +
+      'abandoned per listing with conversion rates, a daily or weekly trend compared with the ' +
+      'previous period, best and worst converters, and CSV export. Views and search terms are ' +
+      'not included.',
     limitKind: 'flag',
-    availability: 'postponed',
+    availability: 'available',
   },
   competitive_price_analytics: {
     key: 'competitive_price_analytics',
