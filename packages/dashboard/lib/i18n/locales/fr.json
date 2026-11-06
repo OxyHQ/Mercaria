@@ -2120,6 +2120,8 @@
       "pricePerMonth": "%{price} · par mois",
       "pricePerYear": "%{price} · par an",
       "renewsOn": "Se renouvelle le %{date}.",
+      "invoiceDueOn": "Période suivante : une facture à régler (FairCoin ou carte), à échéance le %{date}.",
+      "invoiceAtPeriodEnd": "Période suivante : une facture à régler (FairCoin ou carte), émise à la fin de cette période, le %{date}.",
       "statuses": {
         "incomplete": {
           "body": "Votre forfait commence dès que votre premier paiement est confirmé. Un paiement en FairCoin est confirmé une fois que le réseau a confirmé votre transaction, ce qui peut prendre un moment. D’ici là, votre boutique conserve tout ce qu’elle a aujourd’hui. Un paiement que vous n’avez pas terminé expire de lui-même en moins d’un jour.",
@@ -2127,7 +2129,8 @@
         },
         "active": {
           "body": "Votre forfait se renouvelle automatiquement. Vous pouvez l’annuler à tout moment et le conserver jusqu’à la fin de la période que vous avez payée.",
-          "heading": "Actif"
+          "heading": "Actif",
+          "invoiceBody": "Votre forfait se renouvelle par facture, pas automatiquement. Chaque période commence par une facture que vous réglez sur sa page, en FairCoin ou par carte. Vous pouvez résilier à tout moment et le conserver jusqu'à la fin de la période payée."
         },
         "cancelled": {
           "body": "Vous conservez les options de ce forfait jusqu’à la date ci-dessous. Rien d’autre ne change.",
@@ -2139,7 +2142,8 @@
         },
         "pastDue": {
           "body": "Votre catalogue, vos commandes, vos remboursements et vos relevés ne sont pas affectés et le resteront. Seules les options de ce forfait sont concernées, et seulement après la date ci-dessous.",
-          "heading": "Nous n’avons pas pu encaisser le dernier paiement"
+          "heading": "Nous n’avons pas pu encaisser le dernier paiement",
+          "invoiceHeading": "Votre dernière facture n'a pas été réglée"
         },
         "paused": {
           "body": "Les options de ce forfait ne sont pas actives tant qu’il est suspendu.",

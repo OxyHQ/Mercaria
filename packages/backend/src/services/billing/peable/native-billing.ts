@@ -35,7 +35,7 @@ import {
   PeableError,
   PeableRateLimitError,
 } from '@peable.to/sdk';
-import type { BillingInterval } from '@mercaria/shared-types';
+import type { BillingInterval, SubscriptionCollectionMethod } from '@mercaria/shared-types';
 import { z } from 'zod';
 import {
   BillingProviderError,
@@ -99,6 +99,14 @@ const subscriptionSchema = z.object({
   trial_end: z.number().int().nonnegative().nullable(),
   cancel_at_period_end: z.boolean(),
   cancel_at: z.number().int().nonnegative().nullable(),
+  // How each renewal is collected: a FairCoin-started subscription is
+  // `send_invoice` (Peable ADR 0021 D3), so "renews automatically" is not true
+  // of it. Any other value is a rail Mercaria cannot describe.
+  collection_method: z.enum([
+    'charge_automatically',
+    'send_invoice',
+  ] as const satisfies readonly SubscriptionCollectionMethod[]),
+  days_until_due: z.number().int().nonnegative().nullable(),
   canceled_at: z.number().int().nonnegative().nullable(),
 });
 
@@ -301,6 +309,11 @@ export class PeableBillingProvider implements BillingProvider {
       ...(s.trial_end !== null ? { trialEndsAt: fromUnixSeconds(s.trial_end) } : {}),
       ...(s.cancel_at !== null ? { cancelAt: fromUnixSeconds(s.cancel_at) } : {}),
       ...(s.canceled_at !== null ? { cancelledAt: fromUnixSeconds(s.canceled_at) } : {}),
+      collectionMethod: s.collection_method,
+      // Days until due describe an invoice; on a card debit they mean nothing.
+      ...(s.collection_method === 'send_invoice' && s.days_until_due !== null
+        ? { daysUntilDue: s.days_until_due }
+        : {}),
     };
   }
 

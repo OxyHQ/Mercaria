@@ -2101,6 +2101,8 @@
       "pricePerMonth": "%{price} · per month",
       "pricePerYear": "%{price} · per year",
       "renewsOn": "Renews on %{date}.",
+      "invoiceDueOn": "Next period: an invoice to pay (FairCoin or card), due %{date}.",
+      "invoiceAtPeriodEnd": "Next period: an invoice to pay (FairCoin or card), issued when this period ends on %{date}.",
       "statuses": {
         "incomplete": {
           "body": "Your plan starts as soon as your first payment is confirmed. A FairCoin payment is confirmed once the network has confirmed your transaction, which can take a while. Until then your store keeps everything it has now. A payment you did not finish lapses on its own within a day.",
@@ -2108,7 +2110,8 @@
         },
         "active": {
           "body": "Your plan renews automatically. You can cancel at any time and keep it until the end of the period you have paid for.",
-          "heading": "Active"
+          "heading": "Active",
+          "invoiceBody": "Your plan renews by invoice, not automatically. Each period starts with an invoice you pay on its page, with FairCoin or a card. You can cancel at any time and keep it until the end of the period you have paid for."
         },
         "cancelled": {
           "body": "You keep this plan's extras until the date below. Nothing else changes.",
@@ -2120,7 +2123,8 @@
         },
         "pastDue": {
           "body": "Your catalogue, orders, refunds and records are unaffected and will stay that way. Only this plan's extras are affected, and only after the date below.",
-          "heading": "We could not take the last payment"
+          "heading": "We could not take the last payment",
+          "invoiceHeading": "Your last invoice has not been paid"
         },
         "paused": {
           "body": "This plan's extras are not active while it is paused.",

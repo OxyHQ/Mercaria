@@ -94,6 +94,8 @@ function nativeSubscription(ref: string, customer: string, status: string) {
     cancel_at_period_end: false,
     cancel_at: null,
     canceled_at: null,
+    collection_method: 'charge_automatically',
+    days_until_due: null,
   };
 }
 
@@ -440,6 +442,38 @@ it('refuses a subscription the gateway answers for the other mode', async () => 
   subscriptions.set(refs[0], {
     ...nativeSubscription(refs[0], customers[0], 'active'),
     livemode: true,
+  });
+  await expect(provider.retrieveSubscription(refs[0])).rejects.toMatchObject({
+    code: 'billing_response_invalid',
+  });
+});
+
+it('reads how each renewal is collected: an invoice to pay once FairCoin started the plan', async () => {
+  // Peable ADR 0021 D3: a FairCoin first payment moves the subscription to
+  // `send_invoice` with the merchant's days until due.
+  subscriptions.set(refs[0], {
+    ...nativeSubscription(refs[0], customers[0], 'active'),
+    collection_method: 'send_invoice',
+    days_until_due: 30,
+  });
+  expect(await provider.retrieveSubscription(refs[0])).toMatchObject({
+    collectionMethod: 'send_invoice',
+    daysUntilDue: 30,
+  });
+
+  // A card debit has no due date, whatever the field says.
+  subscriptions.set(refs[0], {
+    ...nativeSubscription(refs[0], customers[0], 'active'),
+    days_until_due: 30,
+  });
+  const card = await provider.retrieveSubscription(refs[0]);
+  expect(card.collectionMethod).toBe('charge_automatically');
+  expect(card.daysUntilDue).toBeUndefined();
+
+  // A collection method Mercaria cannot describe is refused, never guessed.
+  subscriptions.set(refs[0], {
+    ...nativeSubscription(refs[0], customers[0], 'active'),
+    collection_method: 'direct_debit',
   });
   await expect(provider.retrieveSubscription(refs[0])).rejects.toMatchObject({
     code: 'billing_response_invalid',

@@ -192,9 +192,24 @@ later plan change cannot shorten a grace already running and a redelivered
   the free plan — until Peable reports `active`), the screen says it is waiting
   for the payment, and checkout, plan change and cancellation are refused while
   it lasts. An unpaid one lapses at the rail (`incomplete_expired`, about a day)
-  and arrives as `expired`. A FairCoin-started subscription is `send_invoice`
-  from then on: each renewal is an invoice the merchant pays on Peable's hosted
-  page, by card or FairCoin.
+  and arrives as `expired`.
+- **A FairCoin-started plan renews by invoice, and the screen says so.**
+  FairCoin is never debited (Peable ADR 0018 §3), so Peable moves a subscription
+  whose FIRST invoice was paid in FairCoin to `collection_method: 'send_invoice'`
+  for good (ADR 0021 D3): each renewal is an invoice the merchant pays on its
+  hosted page, by FairCoin or card, at that period's quote. Mercaria reads the
+  subscription's `collection_method` and `days_until_due` into the snapshot and
+  `merchant_subscriptions.collection_method` / `days_until_due` (the sweep
+  compares both), and `GET /plan` carries `collectionMethod` and
+  `nextInvoiceDueAt` — the period end plus `days_until_due`, because Peable
+  issues the renewal invoice as the period ends (its draft finalizes an hour
+  later, so the invoice's own `due_date` can be up to that hour after this
+  date). The plan screen (`lib/plan-renewal.ts`) says "Renews on <date>" only
+  for `charge_automatically`; a `send_invoice` plan reads "Next period: an
+  invoice to pay (FairCoin or card), due <date>", or "issued when this period
+  ends on <date>" when the rail states no days until due — never a due date
+  nobody stated. Its `active` body says it renews by invoice, not
+  automatically, and `past_due` reads as an unpaid invoice, not a failed debit.
 - **One subscription per store.** A checkout is REFUSED while the store has a
   live subscription (anything but `expired`): `merchant_subscriptions_store_key`
   holds one row per store, so a second rail subscription could only be recorded

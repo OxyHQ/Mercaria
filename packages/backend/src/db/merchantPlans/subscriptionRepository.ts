@@ -28,6 +28,7 @@ import type {
   MerchantSubscriptionEventKind,
   MerchantSubscriptionStatus,
   SubscriptionCancellationBehavior,
+  SubscriptionCollectionMethod,
 } from '@mercaria/shared-types';
 import {
   billingCustomers,
@@ -141,6 +142,10 @@ export interface NewMerchantSubscription {
   currentPeriodStart?: Date;
   currentPeriodEnd?: Date;
   trialEndsAt?: Date;
+  /** How the rail collects each renewal — see the column. */
+  collectionMethod: SubscriptionCollectionMethod;
+  /** `send_invoice` only; `null` when the rail states none. */
+  daysUntilDue: number | null;
   acceptedTermsVersion: string;
   acceptedByOxyUserId: string;
   acceptedAt: Date;
@@ -174,6 +179,8 @@ export async function upsertMerchantSubscription(
       ...(input.currentPeriodStart ? { currentPeriodStart: input.currentPeriodStart } : {}),
       ...(input.currentPeriodEnd ? { currentPeriodEnd: input.currentPeriodEnd } : {}),
       ...(input.trialEndsAt ? { trialEndsAt: input.trialEndsAt } : {}),
+      collectionMethod: input.collectionMethod,
+      daysUntilDue: input.daysUntilDue,
       acceptedTermsVersion: input.acceptedTermsVersion,
       acceptedByOxyUserId: input.acceptedByOxyUserId,
       acceptedAt: input.acceptedAt,
@@ -198,6 +205,8 @@ export async function upsertMerchantSubscription(
         cancelAt: null,
         cancelledAt: null,
         endedAt: null,
+        collectionMethod: input.collectionMethod,
+        daysUntilDue: input.daysUntilDue,
         acceptedTermsVersion: input.acceptedTermsVersion,
         acceptedByOxyUserId: input.acceptedByOxyUserId,
         acceptedAt: input.acceptedAt,
@@ -267,6 +276,8 @@ export interface SubscriptionStatePatch {
   cancelAt?: Date | null;
   cancelledAt?: Date | null;
   endedAt?: Date | null;
+  collectionMethod?: SubscriptionCollectionMethod;
+  daysUntilDue?: number | null;
   acceptedTermsVersion?: string;
   acceptedByOxyUserId?: string;
   acceptedAt?: Date;

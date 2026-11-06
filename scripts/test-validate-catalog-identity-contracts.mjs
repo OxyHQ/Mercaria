@@ -448,7 +448,11 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // One Peable checkout session per cart (ADR 0021): the handoff carries the
     // session, not a single payment's FairCoin instruction: -2 properties net.
     // Measured by the real guard.
-    'walked 148 contract module(s), 2477 exported type(s), 8339 property signature(s)',
+    // A FairCoin-started plan renews by invoice (Peable ADR 0021 D3):
+    // `SubscriptionCollectionMethod` and `MerchantSubscriptionView`'s
+    // `collectionMethod` and `nextInvoiceDueAt`: +1 type, +2 properties.
+    // Measured by the real guard.
+    'walked 148 contract module(s), 2478 exported type(s), 8341 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });

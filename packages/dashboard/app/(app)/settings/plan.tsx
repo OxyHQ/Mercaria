@@ -33,6 +33,7 @@ import config, { PEABLE_CHECKOUT_URL, PEABLE_GATEWAY_URL } from '@/lib/config';
 import { planCheckoutExpectation, sheetInterval } from '@/lib/plan-checkout';
 import { useActiveStoreContext } from '@/lib/hooks/use-stores';
 import { CAPABILITY_COPY_KEYS, PLAN_SUMMARY_KEYS } from '@/lib/plan-copy';
+import { INVOICE_STATUS_COPY_KEYS, planRenewalLine, renewsByInvoice } from '@/lib/plan-renewal';
 import {
   useCancelPlan,
   useChangePlan,
@@ -204,7 +205,14 @@ function CurrentPlan({ storeId, status }: { storeId: string; status: MerchantPla
   const cancel = useCancelPlan(storeId);
   const refresh = useRefreshPlan(storeId);
   const subscription = status.subscription;
-  const copy = subscription ? STATUS_COPY[subscription.status] : undefined;
+  // A plan renewed by invoice (FairCoin-started) overrides the copy that would
+  // describe a card debit — see `lib/plan-renewal.ts`.
+  const copy = subscription
+    ? {
+        ...STATUS_COPY[subscription.status],
+        ...(renewsByInvoice(subscription) ? INVOICE_STATUS_COPY_KEYS[subscription.status] : {}),
+      }
+    : undefined;
   // Until the first payment succeeds nothing renews and there is nothing to
   // cancel: the rail activates the plan or lets the checkout lapse.
   const pending = subscription?.status === 'incomplete';
@@ -216,10 +224,9 @@ function CurrentPlan({ storeId, status }: { storeId: string; status: MerchantPla
     ? formatDate(subscription.graceExpiresAt, locale)
     : null;
   const endsOn = subscription?.cancelAt ? formatDate(subscription.cancelAt, locale) : null;
-  const renewsOn =
-    subscription?.currentPeriodEnd && !subscription.cancelAt && !pending
-      ? formatDate(subscription.currentPeriodEnd, locale)
-      : null;
+  // How the next period is paid: renewed by the card, or an invoice to pay.
+  const renewal = planRenewalLine(subscription);
+  const renewalOn = renewal ? formatDate(renewal.date, locale) : null;
 
   async function openPortal(): Promise<void> {
     try {
@@ -263,9 +270,9 @@ function CurrentPlan({ storeId, status }: { storeId: string; status: MerchantPla
           {t('settings.plan.endsOn', { date: endsOn })}
         </Text>
       )}
-      {renewsOn === null ? null : (
+      {renewal === null || renewalOn === null ? null : (
         <Text className="mt-2 text-xs text-muted-foreground">
-          {t('settings.plan.renewsOn', { date: renewsOn })}
+          {t(renewal.key, { date: renewalOn })}
         </Text>
       )}
 

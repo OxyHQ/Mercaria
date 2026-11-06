@@ -375,6 +375,25 @@ export const ENTITLING_SUBSCRIPTION_STATUSES: readonly MerchantSubscriptionStatu
 ];
 
 /**
+ * How the rail collects each renewal of a merchant subscription — Peable's own
+ * `collection_method`, spelled the same.
+ *
+ * `charge_automatically` debits the card saved at checkout; `send_invoice`
+ * issues an invoice the store pays on its hosted page, by FairCoin or card, at
+ * that period's quote. FairCoin is never debited (Peable ADR 0018 §3), so a
+ * subscription whose FIRST invoice was paid in FairCoin moves to `send_invoice`
+ * for good (Peable ADR 0021 D3), and "renews automatically" is no longer true
+ * of it: the plan screen reads this to say how the next period is paid.
+ */
+export type SubscriptionCollectionMethod = 'charge_automatically' | 'send_invoice';
+
+/** {@link SubscriptionCollectionMethod} as the tuple the CHECK reads. */
+export const SUBSCRIPTION_COLLECTION_METHODS: readonly SubscriptionCollectionMethod[] = [
+  'charge_automatically',
+  'send_invoice',
+];
+
+/**
  * What happens at the end of the paid period a merchant cancelled during.
  *
  * `at_period_end` is the initial plan design's answer and the only one the
@@ -645,6 +664,15 @@ export interface MerchantSubscriptionView {
   readonly cancellationBehavior: SubscriptionCancellationBehavior | null;
   readonly cancelAt: string | null;
   readonly acceptedTermsVersion: string | null;
+  /** How the next period is collected: a card debit, or an invoice the store pays. */
+  readonly collectionMethod: SubscriptionCollectionMethod;
+  /**
+   * `send_invoice` only: when the next period's invoice falls due — the period
+   * end plus the rail's `days_until_due` (Peable issues the renewal invoice as
+   * the period ends). `null` when either is unknown, and always on
+   * `charge_automatically`.
+   */
+  readonly nextInvoiceDueAt: string | null;
 }
 
 /**

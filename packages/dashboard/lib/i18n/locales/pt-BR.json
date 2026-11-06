@@ -2120,6 +2120,8 @@
       "pricePerMonth": "%{price} · por mês",
       "pricePerYear": "%{price} · por ano",
       "renewsOn": "Renova em %{date}.",
+      "invoiceDueOn": "Próximo período: uma fatura a pagar (FairCoin ou cartão), com vencimento em %{date}.",
+      "invoiceAtPeriodEnd": "Próximo período: uma fatura a pagar (FairCoin ou cartão), emitida quando este período terminar em %{date}.",
       "statuses": {
         "incomplete": {
           "body": "Seu plano começa assim que seu primeiro pagamento for confirmado. Um pagamento em FairCoin é confirmado quando a rede confirma sua transação, o que pode levar algum tempo. Até lá, sua loja mantém tudo o que tem agora. Um pagamento que você não concluiu expira sozinho em menos de um dia.",
@@ -2127,7 +2129,8 @@
         },
         "active": {
           "body": "Seu plano é renovado automaticamente. Você pode cancelar quando quiser e mantê-lo até o fim do período que já pagou.",
-          "heading": "Ativo"
+          "heading": "Ativo",
+          "invoiceBody": "Seu plano é renovado por fatura, não automaticamente. Cada período começa com uma fatura que você paga na página dela, com FairCoin ou cartão. Você pode cancelar a qualquer momento e mantê-lo até o fim do período que pagou."
         },
         "cancelled": {
           "body": "Você mantém os extras deste plano até a data abaixo. Nada mais muda.",
@@ -2139,7 +2142,8 @@
         },
         "pastDue": {
           "body": "Seu catálogo, seus pedidos, seus reembolsos e seus registros não são afetados e vão continuar assim. Só os extras deste plano são afetados, e apenas depois da data abaixo.",
-          "heading": "Não conseguimos receber o último pagamento"
+          "heading": "Não conseguimos receber o último pagamento",
+          "invoiceHeading": "Sua última fatura não foi paga"
         },
         "paused": {
           "body": "Os extras deste plano não ficam ativos enquanto ele está pausado.",

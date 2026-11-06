@@ -531,6 +531,8 @@ export async function applyProviderSubscriptionState(input: {
       ...(snapshot.currentPeriodStart ? { currentPeriodStart: snapshot.currentPeriodStart } : {}),
       ...(snapshot.currentPeriodEnd ? { currentPeriodEnd: snapshot.currentPeriodEnd } : {}),
       ...(snapshot.trialEndsAt ? { trialEndsAt: snapshot.trialEndsAt } : {}),
+      collectionMethod: snapshot.collectionMethod,
+      daysUntilDue: snapshot.daysUntilDue ?? null,
       acceptedTermsVersion: acceptance.termsVersion,
       acceptedByOxyUserId: acceptance.acceptedByOxyUserId,
       acceptedAt: acceptance.createdAt,
@@ -589,6 +591,8 @@ export async function applyProviderSubscriptionState(input: {
     cancelAt: snapshot.cancelAt ?? null,
     cancelledAt: snapshot.cancelledAt ?? null,
     endedAt: snapshot.status === 'expired' ? (snapshot.cancelledAt ?? at) : null,
+    collectionMethod: snapshot.collectionMethod,
+    daysUntilDue: snapshot.daysUntilDue ?? null,
   });
   if (!updated) return { outcome: 'unknown_customer' };
   invalidateMerchantEntitlements(existing.storeId);
@@ -620,7 +624,9 @@ function snapshotDiffers(
     !sameInstant(existing.currentPeriodEnd, snapshot.currentPeriodEnd) ||
     !sameInstant(existing.trialEndsAt, snapshot.trialEndsAt) ||
     !sameInstant(existing.cancelAt, snapshot.cancelAt) ||
-    !sameInstant(existing.cancelledAt, snapshot.cancelledAt)
+    !sameInstant(existing.cancelledAt, snapshot.cancelledAt) ||
+    existing.collectionMethod !== snapshot.collectionMethod ||
+    existing.daysUntilDue !== (snapshot.daysUntilDue ?? null)
   );
 }
 

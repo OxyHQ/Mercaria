@@ -59,6 +59,8 @@ import { entitlementPeriodKey } from './capabilities.js';
 import { resolveMerchantEntitlements } from './resolve.js';
 import { MERCHANT_CAPABILITY_CATALOG } from './catalog.js';
 
+const DAY_MS = 24 * 60 * 60 * 1_000;
+
 /** Which billing MODE this deployment's prices are published in. */
 function billingLivemode(): boolean {
   return config.payments.peable.livemode;
@@ -191,6 +193,8 @@ export async function buildMerchantPlanStatus(input: {
         cancellationBehavior: subscription.cancellationBehavior,
         cancelAt: subscription.cancelAt,
         acceptedTermsVersion: subscription.acceptedTermsVersion,
+        collectionMethod: subscription.collectionMethod,
+        daysUntilDue: subscription.daysUntilDue,
       })
     : null;
 
@@ -270,6 +274,8 @@ async function buildSubscriptionView(
     cancellationBehavior: MerchantSubscriptionView['cancellationBehavior'];
     cancelAt: Date | null;
     acceptedTermsVersion: string;
+    collectionMethod: MerchantSubscriptionView['collectionMethod'];
+    daysUntilDue: number | null;
   },
 ): Promise<MerchantSubscriptionView> {
   const plan = await findMerchantPlanById(db, planId);
@@ -286,5 +292,26 @@ async function buildSubscriptionView(
     cancellationBehavior: subscription.cancellationBehavior,
     cancelAt: subscription.cancelAt?.toISOString() ?? null,
     acceptedTermsVersion: subscription.acceptedTermsVersion,
+    collectionMethod: subscription.collectionMethod,
+    nextInvoiceDueAt: nextInvoiceDueAt(subscription)?.toISOString() ?? null,
   };
+}
+
+/**
+ * When the next period's invoice falls due, for a plan renewed by invoice.
+ *
+ * Peable issues a `send_invoice` subscription's renewal invoice as the period
+ * ends, due `days_until_due` days after it is issued — so the period end plus
+ * those days, from two facts the rail stated. `null` when either is missing,
+ * and on a card plan, which has nothing to fall due: the screen then says the
+ * invoice arrives when the period ends, rather than a date nobody stated.
+ */
+export function nextInvoiceDueAt(subscription: {
+  collectionMethod: MerchantSubscriptionView['collectionMethod'];
+  currentPeriodEnd: Date | null;
+  daysUntilDue: number | null;
+}): Date | null {
+  if (subscription.collectionMethod !== 'send_invoice') return null;
+  if (subscription.currentPeriodEnd === null || subscription.daysUntilDue === null) return null;
+  return new Date(subscription.currentPeriodEnd.getTime() + subscription.daysUntilDue * DAY_MS);
 }
