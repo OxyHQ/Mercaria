@@ -81,17 +81,16 @@ export function FeeScheduleTerms({ schedule }: FeeScheduleTermsProps) {
         {/*
           A schedule pinned to a fiat currency is a card-sales schedule: card
           checkout presents only in fiat, and no schedule covers FAIR, so a
-          sale paid in FairCoin selects none and carries no fee. That last fact
-          is the accepted summary's own sentence above; this package's copy
-          reaches the storefront, where naming a payment option is a buyer-copy
-          question (`commercial-presentation-isolation.test.ts`), so the line
-          here states only the currency.
+          sale paid in FairCoin selects none and carries no fee (ADR 0018,
+          ADR 0019 D5). FairCoin is a payment method every seller can be paid
+          with, so the terms say so in words.
         */}
         {currency !== undefined && currency !== 'FAIR' ? (
           <Text className="text-xs text-foreground">
             {t('ui.feeTerms.cardSalesOnly', { currency })}
           </Text>
         ) : null}
+        <Text className="text-xs text-foreground">{t('ui.feeTerms.faircoinNoFee')}</Text>
         {/*
           A clamp is an amount, so it can only be rendered in the currency the
           schedule pinned. The type allows the currency to be absent (a pure

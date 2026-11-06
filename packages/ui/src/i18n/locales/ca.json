@@ -1070,7 +1070,8 @@
       "version": "Versió de les condicions %{version}",
       "effectiveFrom": "En vigor des del %{date}",
       "processingIncluded": "El processament de targetes està inclòs. No hi ha cap comissió de processament a part.",
-      "cardSalesOnly": "S'aplica a les vendes amb targeta en %{currency}."
+      "cardSalesOnly": "S'aplica a les vendes amb targeta en %{currency}.",
+      "faircoinNoFee": "Les vendes pagades amb FairCoin no tenen cap comissió."
     }
   }
 }

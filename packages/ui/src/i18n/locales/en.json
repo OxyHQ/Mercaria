@@ -1063,7 +1063,8 @@
       "version": "Terms version %{version}",
       "effectiveFrom": "In force since %{date}",
       "processingIncluded": "Card processing is included. There is no separate processing fee.",
-      "cardSalesOnly": "Applies to card sales in %{currency}."
+      "cardSalesOnly": "Applies to card sales in %{currency}.",
+      "faircoinNoFee": "Sales paid in FairCoin carry no fee."
     }
   }
 }

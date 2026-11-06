@@ -1063,7 +1063,8 @@
       "version": "Bedingungen Version %{version}",
       "effectiveFrom": "Gültig seit %{date}",
       "processingIncluded": "Die Kartenabwicklung ist inbegriffen. Es gibt keine separate Abwicklungsgebühr.",
-      "cardSalesOnly": "Gilt für Kartenverkäufe in %{currency}."
+      "cardSalesOnly": "Gilt für Kartenverkäufe in %{currency}.",
+      "faircoinNoFee": "Für mit FairCoin bezahlte Verkäufe fällt keine Gebühr an."
     }
   }
 }

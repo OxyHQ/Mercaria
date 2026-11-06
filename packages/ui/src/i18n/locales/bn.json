@@ -1063,7 +1063,8 @@
       "version": "শর্তের সংস্করণ %{version}",
       "effectiveFrom": "%{date} থেকে কার্যকর",
       "processingIncluded": "কার্ড প্রসেসিং অন্তর্ভুক্ত। আলাদা কোনো প্রসেসিং ফি নেই।",
-      "cardSalesOnly": "%{currency}-এ কার্ডে বিক্রির ক্ষেত্রে প্রযোজ্য।"
+      "cardSalesOnly": "%{currency}-এ কার্ডে বিক্রির ক্ষেত্রে প্রযোজ্য।",
+      "faircoinNoFee": "FairCoin-এ পরিশোধিত বিক্রিতে কোনো ফি নেই।"
     }
   }
 }

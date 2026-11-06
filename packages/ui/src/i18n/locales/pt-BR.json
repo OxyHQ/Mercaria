@@ -1070,7 +1070,8 @@
       "version": "Termos versão %{version}",
       "effectiveFrom": "Em vigor desde %{date}",
       "processingIncluded": "O processamento de cartão está incluído. Não há taxa de processamento separada.",
-      "cardSalesOnly": "Aplica-se a vendas com cartão em %{currency}."
+      "cardSalesOnly": "Aplica-se a vendas com cartão em %{currency}.",
+      "faircoinNoFee": "Vendas pagas em FairCoin não têm taxa."
     }
   }
 }

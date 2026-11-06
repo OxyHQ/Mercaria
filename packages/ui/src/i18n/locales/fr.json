@@ -1070,7 +1070,8 @@
       "version": "Conditions version %{version}",
       "effectiveFrom": "En vigueur depuis le %{date}",
       "processingIncluded": "Le traitement des cartes est inclus. Il n'y a pas de frais de traitement séparés.",
-      "cardSalesOnly": "S'applique aux ventes par carte en %{currency}."
+      "cardSalesOnly": "S'applique aux ventes par carte en %{currency}.",
+      "faircoinNoFee": "Les ventes payées en FairCoin ne sont soumises à aucuns frais."
     }
   }
 }

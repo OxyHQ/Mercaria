@@ -19,10 +19,15 @@
  *     cannot introduce one under a plausible name.
  *  2. **No referral partner or commission reaches a buyer.** #129 referral
  *     rules 3, 6 and 9, and order rule 11.
- *  3. **No OxyPay or FairCoin payment option, placeholder or teaser.** #129
- *     acceptance 9 and its whole §"Future OxyPay copy boundary" — scanned
- *     against RAW source, copy included, because the prohibition is on the
- *     COPY as much as on the code.
+ *  3. **No OxyPay copy, and no buying, selling or exchanging of FAIR.** #129
+ *     acceptance 9 banned FairCoin as a payment option while it was not one;
+ *     since ADR 0019 FairCoin IS one, always offered (Peable ADR 0021), and
+ *     buyers and sellers must be able to read its name. What stays forbidden
+ *     is the retired `OxyPay` name and the PRODUCT BOUNDARY Peable carries for
+ *     legal reasons: Mercaria, Peable and every Oxy app accept FairCoin as
+ *     payment and never buy, sell or exchange it — no "buy FAIR", no
+ *     conversion, no brokerage, no on-ramp. Scanned against RAW source, copy
+ *     included, because the prohibition is on the COPY as much as the code.
  *  4. **The commercial mode is never re-inferred from a name, a price or a
  *     badge.** It is READ from #57's offer kind, #123's live retail binding and
  *     #123's stored `commercial_role`, and a storefront that started deciding
@@ -271,8 +276,28 @@ const PROCUREMENT_ECONOMICS_REFERENCE =
 const REFERRAL_REFERENCE =
   /\/referral|referralPartner|partnerCommission|affiliateCommission|referralCode|payoutState/i;
 
-/** ADR 0004 D11 and #129 acceptance 9. */
-const OXYPAY_OR_FAIRCOIN_REFERENCE = /oxy_?[Pp]ay|OxyPay|[Ff]air[Cc]oin/;
+/**
+ * Wall 3: the retired OxyPay name, and FAIR as something bought, sold or
+ * exchanged — the product boundary (Peable `AGENTS.md`), never the payment
+ * method's name.
+ *
+ * The exchange half reads an ACTION next to the currency, in either order and
+ * within a short span, so "pay with FairCoin" and "sales paid in FairCoin carry
+ * no fee" are copy a buyer and a seller must be able to read, while "buy
+ * FairCoin", "exchange FAIR" and "FairCoin on-ramp" are not. The key half is
+ * identifier-shaped (`buyFaircoin`, `fairExchange`), which survives
+ * translation where the sentence does not.
+ */
+const OXYPAY_OR_FAIR_EXCHANGE_REFERENCE = new RegExp(
+  [
+    String.raw`oxy_?[Pp]ay|OxyPay`,
+    // Case-sensitive on the CURRENCY on purpose: `FAIR` the code and `FairCoin`
+    // the name, never the English word "fair" ("Used — fair", "a fair price").
+    String.raw`\b(?:[Bb]uy|[Ss]ell|[Pp]urchase|[Ee]xchange|[Ss]wap|[Cc]onvert|[Tt]rade|[Cc]ash[ -]?out|[Tt]op[ -]?up|[Oo]n-?ramp|[Oo]ff-?ramp)(?:s|ing)?\b[^.\n]{0,24}\b(?:FairCoin|FAIR)\b`,
+    String.raw`\b(?:FairCoin|FAIR)\b[^.\n]{0,24}\b(?:[Ee]xchange|[Bb]rokerage|[Oo]n-?ramp|[Oo]ff-?ramp|[Cc]ash[ -]?out)\b`,
+    String.raw`(?:[Bb]uy|[Ss]ell|[Pp]urchase|[Ee]xchange|[Ss]wap|[Cc]onvert)_?[Ff]air(?:[Cc]oin)?\b|[Ff]air(?:[Cc]oin)?_?(?:[Ee]xchange|[Bb]rokerage|[Oo]nramp|[Oo]fframp)`,
+  ].join('|'),
+);
 
 /**
  * Every locale bundle tree whose copy wall 3 must reach.
@@ -296,12 +321,10 @@ const OXYPAY_OR_FAIRCOIN_REFERENCE = /oxy_?[Pp]ay|OxyPay|[Ff]air[Cc]oin/;
 const BUNDLE_ROOTS: readonly {
   readonly label: string;
   readonly root: string;
-  readonly currencyNameKeys: readonly string[];
 }[] = [
   {
     label: 'frontend',
     root: join(REPO_PACKAGES, 'frontend', 'lib', 'i18n', 'locales'),
-    currencyNameKeys: ['settings.currency.description'],
   },
   {
     // `@mercaria/ui`'s own copy, merged under the reserved `ui` namespace by
@@ -311,10 +334,6 @@ const BUNDLE_ROOTS: readonly {
     // first.
     label: 'ui',
     root: join(REPO_PACKAGES, 'ui', 'src', 'i18n', 'locales'),
-    // Deliberately empty: this package ships no currency picker, so no key here
-    // legitimately names the currency. An entry added without one being needed
-    // fails the staleness assertion below rather than sitting unused.
-    currencyNameKeys: [],
   },
 ];
 
@@ -733,20 +752,20 @@ describe('a customer commercial surface cannot reach what it must not', () => {
     }
   });
 
-  it('names no OxyPay or FairCoin payment option, in code OR in copy (#129 acceptance 9)', () => {
-    // RAW source, copy included: #129's §"Future OxyPay copy boundary" forbids a
-    // `coming soon`, a disabled wallet row and a conversion teaser as firmly as
-    // it forbids a provider branch, and every one of those is a STRING.
+  it('names no OxyPay and never buys, sells or exchanges FAIR, in code OR in copy (#129 acceptance 9, ADR 0019)', () => {
+    // RAW source, copy included: the retired OxyPay name and an exchange of
+    // FAIR are as forbidden in a sentence as in a provider branch. Naming
+    // FairCoin as the payment method it is (ADR 0019) is not.
     for (const relative of PRESENTATION_PATHS) {
       expect(
-        OXYPAY_OR_FAIRCOIN_REFERENCE.test(readSource(SRC_ROOT, relative)),
-        `${relative} names OxyPay or FairCoin`,
+        OXYPAY_OR_FAIR_EXCHANGE_REFERENCE.test(readSource(SRC_ROOT, relative)),
+        `${relative} names OxyPay or buys, sells or exchanges FAIR`,
       ).toBe(false);
     }
     for (const relative of STOREFRONT_PATHS) {
       expect(
-        OXYPAY_OR_FAIRCOIN_REFERENCE.test(readSource(REPO_PACKAGES, relative)),
-        `${relative} names OxyPay or FairCoin`,
+        OXYPAY_OR_FAIR_EXCHANGE_REFERENCE.test(readSource(REPO_PACKAGES, relative)),
+        `${relative} names OxyPay or buys, sells or exchanges FAIR`,
       ).toBe(false);
     }
 
@@ -755,7 +774,7 @@ describe('a customer commercial surface cannot reach what it must not', () => {
     // bundle carries "Pay with OxyPay — coming soon" and every assertion here
     // still passes.
     const leavesScanned = new Map<string, number>();
-    for (const { label, root, currencyNameKeys } of BUNDLE_ROOTS) {
+    for (const { label, root } of BUNDLE_ROOTS) {
       leavesScanned.set(label, 0);
       const bundles = localeBundles(root);
       expect(
@@ -777,29 +796,15 @@ describe('a customer commercial surface cannot reach what it must not', () => {
           bundle.leaves.length,
           `${label}/${bundle.locale}.json walked almost no leaves — check the walker`,
         ).toBeGreaterThanOrEqual(100);
-        // Scanned per LEAF so the currency-name exception can be scoped to a key
-        // rather than to a phrase. A phrase exclusion would excuse the same words
-        // in a checkout sentence, which is the thing this wall exists for.
-        const excused: string[] = [];
+        // Scanned per LEAF, key AND value: the key is identifier-shaped and
+        // survives translation where the sentence does not.
         for (const leaf of bundle.leaves) {
           leavesScanned.set(label, (leavesScanned.get(label) ?? 0) + 1);
-          if (currencyNameKeys.includes(leaf.key)) {
-            if (OXYPAY_OR_FAIRCOIN_REFERENCE.test(leafProbe(leaf))) excused.push(leaf.key);
-            continue;
-          }
           expect(
-            OXYPAY_OR_FAIRCOIN_REFERENCE.test(leafProbe(leaf)),
-            `${label}/${bundle.locale}.json → ${leaf.key} names OxyPay or FairCoin`,
+            OXYPAY_OR_FAIR_EXCHANGE_REFERENCE.test(leafProbe(leaf)),
+            `${label}/${bundle.locale}.json → ${leaf.key} names OxyPay or buys, sells or exchanges FAIR`,
           ).toBe(false);
         }
-        // An excusing entry is a PREDICATE, not an identity (#448): assert every
-        // excused key is still present AND still naming the currency, so a
-        // renamed or reworded key fails here instead of quietly excusing nothing.
-        expect(
-          excused.sort(),
-          `${label}/${bundle.locale}.json: the currency-name exceptions no longer match — ` +
-            'remove the stale entry rather than leaving it excusing nothing',
-        ).toEqual([...currencyNameKeys].sort());
       }
     }
     // PER ROOT, never a total. A combined floor is satisfied by the wrong
@@ -953,10 +958,22 @@ describe('a customer commercial surface cannot reach what it must not', () => {
     expect(PROCUREMENT_ECONOMICS_REFERENCE.test('carrierAccount: acct')).toBe(true);
     expect(REFERRAL_REFERENCE.test("from '../referral/attribution.js'")).toBe(true);
     expect(REFERRAL_REFERENCE.test('const referralPartner = load();')).toBe(true);
-    expect(OXYPAY_OR_FAIRCOIN_REFERENCE.test('label: "Pay with FairCoin (coming soon)"')).toBe(
+    expect(OXYPAY_OR_FAIR_EXCHANGE_REFERENCE.test('await payWithOxyPay(order)')).toBe(true);
+    expect(OXYPAY_OR_FAIR_EXCHANGE_REFERENCE.test('label: "Buy FairCoin with your card"')).toBe(
       true,
     );
-    expect(OXYPAY_OR_FAIRCOIN_REFERENCE.test('await payWithOxyPay(order)')).toBe(true);
+    expect(OXYPAY_OR_FAIR_EXCHANGE_REFERENCE.test('Convert your balance to FAIR')).toBe(true);
+    expect(OXYPAY_OR_FAIR_EXCHANGE_REFERENCE.test('The FairCoin exchange is open')).toBe(true);
+    expect(OXYPAY_OR_FAIR_EXCHANGE_REFERENCE.test('const sellFaircoin = () => {}')).toBe(true);
+    // ADR 0019: FairCoin is a payment method buyers and sellers must be able to
+    // read about. These are the sentences the wall exists to LET THROUGH.
+    expect(OXYPAY_OR_FAIR_EXCHANGE_REFERENCE.test('Pay with FairCoin')).toBe(false);
+    expect(OXYPAY_OR_FAIR_EXCHANGE_REFERENCE.test('Sales paid in FairCoin carry no fee.')).toBe(
+      false,
+    );
+    expect(OXYPAY_OR_FAIR_EXCHANGE_REFERENCE.test('Prices are shown in FAIR by default')).toBe(
+      false,
+    );
     expect(MODE_INFERENCE_REFERENCE.test('const mode = vendor.name === "Mercaria" ? a : b;')).toBe(
       true,
     );
@@ -1001,7 +1018,7 @@ describe('a customer commercial surface cannot reach what it must not', () => {
     // beneath a key like this is translated twelve ways and matches the detector
     // in at most one of them.
     expect(
-      OXYPAY_OR_FAIRCOIN_REFERENCE.test(
+      OXYPAY_OR_FAIR_EXCHANGE_REFERENCE.test(
         leafProbe({ key: 'ui.checkout.payWithOxyPay', value: 'Pagar con la cartera' }),
       ),
     ).toBe(true);
@@ -1015,12 +1032,26 @@ describe('a customer commercial surface cannot reach what it must not', () => {
         leafProbe({ key: 'ui.commercial.supplierSku', value: 'Referencia del proveedor' }),
       ),
     ).toBe(true);
-    // The value half still works.
     expect(
-      OXYPAY_OR_FAIRCOIN_REFERENCE.test(
-        leafProbe({ key: 'ui.commercial.wallet', value: 'Pay with FairCoin — coming soon' }),
+      OXYPAY_OR_FAIR_EXCHANGE_REFERENCE.test(
+        leafProbe({ key: 'ui.wallet.buyFaircoin', value: 'Recargar la cartera' }),
       ),
     ).toBe(true);
+    // The value half still works.
+    expect(
+      OXYPAY_OR_FAIR_EXCHANGE_REFERENCE.test(
+        leafProbe({ key: 'ui.commercial.wallet', value: 'Buy FAIR to pay for this order' }),
+      ),
+    ).toBe(true);
+    // …and the restored fee line (ADR 0019 D5) is legitimate copy.
+    expect(
+      OXYPAY_OR_FAIR_EXCHANGE_REFERENCE.test(
+        leafProbe({
+          key: 'ui.feeTerms.faircoinNoFee',
+          value: 'Sales paid in FairCoin carry no fee.',
+        }),
+      ),
+    ).toBe(false);
 
     // …and does NOT trip on the copy it must leave alone. Both of these are real
     // strings in this repository: `affiliate_disclosure` is REQUIRED copy naming
@@ -1036,7 +1067,7 @@ describe('a customer commercial surface cannot reach what it must not', () => {
       ),
     ).toBe(false);
     expect(
-      OXYPAY_OR_FAIRCOIN_REFERENCE.test(
+      OXYPAY_OR_FAIR_EXCHANGE_REFERENCE.test(
         leafProbe({ key: 'ui.condition.label.used_fair', value: 'Used — fair' }),
       ),
     ).toBe(false);

@@ -1063,7 +1063,8 @@
       "version": "शर्तें संस्करण %{version}",
       "effectiveFrom": "%{date} से प्रभावी",
       "processingIncluded": "कार्ड प्रोसेसिंग शामिल है। कोई अलग प्रोसेसिंग शुल्क नहीं है।",
-      "cardSalesOnly": "%{currency} में कार्ड से हुई बिक्री पर लागू।"
+      "cardSalesOnly": "%{currency} में कार्ड से हुई बिक्री पर लागू।",
+      "faircoinNoFee": "FairCoin में भुगतान की गई बिक्री पर कोई शुल्क नहीं है।"
     }
   }
 }

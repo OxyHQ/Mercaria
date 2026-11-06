@@ -1063,7 +1063,8 @@
       "version": "条款版本 %{version}",
       "effectiveFrom": "自 %{date} 起生效",
       "processingIncluded": "已包含银行卡处理费用，不另收处理费。",
-      "cardSalesOnly": "适用于以 %{currency} 进行的银行卡销售。"
+      "cardSalesOnly": "适用于以 %{currency} 进行的银行卡销售。",
+      "faircoinNoFee": "以 FairCoin 支付的销售不收取费用。"
     }
   }
 }

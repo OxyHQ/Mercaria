@@ -1077,7 +1077,8 @@
       "version": "Версия условий %{version}",
       "effectiveFrom": "Действует с %{date}",
       "processingIncluded": "Обработка карт включена. Отдельной комиссии за обработку нет.",
-      "cardSalesOnly": "Применяется к продажам по карте в %{currency}."
+      "cardSalesOnly": "Применяется к продажам по карте в %{currency}.",
+      "faircoinNoFee": "С продаж, оплаченных в FairCoin, комиссия не взимается."
     }
   }
 }

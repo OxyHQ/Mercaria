@@ -12,8 +12,11 @@
   names the seller's own Oxy account and is confirmed by the seller).
 - **Retires:** the "FairCoin is not a payment method in this roadmap" exclusion
   in `docs/payments.md`, `PaymentProviderId`'s docblock and the isolation gates
-  that enforced it (#105, #107). ADR 0004 D11 (Mercaria-retail never names
-  FairCoin) is unchanged.
+  that enforced it (#105, #107), and #129 acceptance 9's ban on NAMING
+  FairCoin in storefront copy: `commercial-presentation-isolation.test.ts`
+  now forbids the retired OxyPay name and any buying, selling or exchanging of
+  FAIR (the product boundary), never the payment method's name. ADR 0004 D11
+  (Mercaria-retail never names FairCoin) is unchanged.
 
 ## Context
 
@@ -98,7 +101,8 @@ A store's default currency is supported if any native rail is paid in it
 (`nativeCheckoutCurrencies`: USD + FAIR), so a FAIR-default store is never
 `currency_not_supported`. `payment_provider_ready` is satisfied by either rail.
 The fee is selected in the order's currency, which is the rail's (D1): FairCoin
-orders carry no fee (ADR 0018), card orders the card schedule. The fee is
+orders carry no fee (ADR 0018), card orders the card schedule, and the fee terms
+every seller accepts say so (`ui.feeTerms.faircoinNoFee`). The fee is
 therefore decided by the method at pricing, never refunded afterwards.
 
 ## Consequences
