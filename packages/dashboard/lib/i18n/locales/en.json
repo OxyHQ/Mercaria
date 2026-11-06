@@ -2165,7 +2165,9 @@
       "changed": "Your plan has changed.",
       "changeFailed": "Couldn't change your plan. Please try again.",
       "notInCurrency": "Not available in this currency.",
-      "capabilityPerPeriod": "%{name} · %{limit} per billing period"
+      "capabilityPerPeriod": "%{name} · %{limit} per billing period",
+      "checkoutUnreadable": "Peable could not open this payment just now. Nothing was charged — try again in a moment.",
+      "checkoutMismatch": "This checkout no longer matches the plan's price. Nothing was charged — choose the plan again."
     },
     "policies": {
       "documentTitle": "Policies | Wholesale by Mercaria",

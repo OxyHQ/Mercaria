@@ -16,7 +16,7 @@ import {
   cleanAddress,
   isDraftComplete,
 } from '@/components/checkout/CheckoutDestinationForm';
-import { CardPaymentStep } from '@/components/payment/CardPaymentStep';
+import { PeablePaymentSheet } from '@/components/payment/PeablePaymentSheet';
 import { useTranslation } from '@/lib/i18n';
 import {
   prepareSupervisedPurchase,
@@ -197,19 +197,27 @@ export default function SupervisedCheckoutScreen() {
               </Button>
             ) : null}
             {/*
-              The same card step as the storefront checkout (ADR 0006 G2). Its
-              result only decides whether to keep asking: the poll above reads
-              the purchase, which only a verified gateway event marks paid.
+              The same Peable sheet as the storefront checkout (ADR 0006 G2). It
+              only decides whether to keep asking: the poll above reads the
+              purchase, which only a verified gateway event marks paid.
             */}
-            {!paid && checkoutGroupId && resume.data?.payment && !stepDone ? (
-              <CardPaymentStep
+            {checkoutGroupId && resume.data?.payment && !stepDone ? (
+              <PeablePaymentSheet
                 payment={resume.data.payment}
                 checkoutGroupId={checkoutGroupId}
-                onCompleted={() => {
+                orderNumbers={[]}
+                status={purchase.data?.paymentStatus?.status}
+                onSettled={() => {
+                  void purchase.refetch();
+                }}
+                onUnavailable={(message) => {
+                  setStepDone(true);
+                  setPaymentError(message);
+                }}
+                onClose={() => {
                   setStepDone(true);
                   void purchase.refetch();
                 }}
-                onFailed={(message) => setPaymentError(message)}
               />
             ) : null}
             {!paid && stepDone ? (

@@ -2164,7 +2164,9 @@
       "changed": "你的套餐已更改。",
       "changeFailed": "无法更改你的套餐，请重试。",
       "notInCurrency": "此货币不可用。",
-      "capabilityPerPeriod": "%{name} · 每个计费周期 %{limit}"
+      "capabilityPerPeriod": "%{name} · 每个计费周期 %{limit}",
+      "checkoutUnreadable": "Peable 暂时无法打开此付款。未产生任何扣款，请稍后重试。",
+      "checkoutMismatch": "此付款已与套餐价格不符。未产生任何扣款，请重新选择套餐。"
     },
     "policies": {
       "documentTitle": "政策 | Wholesale by Mercaria",

@@ -436,7 +436,10 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // `SellersNotActivatedErrorDetails` joins `ApiErrorDetails` (`reason`,
     // `sellers`); `StoreFeeScheduleView` is renamed `SellerFeeScheduleView`,
     // moving no count: +1 type, +2 properties. Measured by the real guard.
-    'walked 148 contract module(s), 2467 exported type(s), 8318 property signature(s)',
+    // How a cart line is delivered (`CartLineDelivery`, `CartItemDTO.delivery`)
+    // and the plan checkout paid in Peable's sheet (`MerchantPlanCheckoutView`,
+    // five fields): +2 types, +6 properties. Measured by the real guard.
+    'walked 148 contract module(s), 2469 exported type(s), 8324 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });

@@ -584,6 +584,8 @@
       "collectInPerson": "Retrait en personne",
       "continueAsGuest": "Continuer en tant qu'invité",
       "deliverTo": "Livrer à",
+      "digitalHint": "Rien dans cette commande n'est expédié : vos téléchargements sont dans votre bibliothèque dès le paiement. Nous avons seulement besoin du pays où vous êtes, pour la TVA.",
+      "digitalTitle": "Vos informations",
       "guestDeliveryHint": "Pas besoin de compte. Dites-nous où cela va et comment vous joindre au sujet de cette commande.",
       "guestPickupHint": "Pas besoin de compte. Dites-nous comment vous joindre au sujet de ce retrait — nous ne demanderons pas une adresse dont vous n'avez pas besoin.",
       "pickupFallbackName": "la boutique que vous avez choisie"
@@ -601,14 +603,16 @@
     },
     "error": {
       "collectionEmailRequired": "Indiquez l'adresse e-mail à laquelle envoyer les détails du retrait.",
+      "digitalSupplyConsentRequired": "Cette commande contient des téléchargements. Activez la fourniture immédiate pour les acheter, ou commandez les autres articles séparément.",
       "emailAndAddressRequired": "Renseignez votre e-mail et votre adresse de livraison pour continuer.",
       "receiptEmailRequired": "Indiquez l'adresse e-mail à laquelle envoyer votre reçu.",
-      "sellerNotPaymentReady": "%{seller} ne peut pas accepter de paiement pour le moment. Retirez ses articles de votre commande pour régler le reste.",
-      "sellersNotPaymentReady": "Ces vendeurs ne peuvent pas accepter de paiement pour le moment : %{sellers}. Retirez leurs articles de votre commande pour régler le reste.",
-      "unnamedSellersNotPaymentReady": "Certains vendeurs de votre commande ne peuvent pas accepter de paiement pour le moment. Retirez les articles mis en évidence pour régler le reste.",
       "sellerNotActivated": "%{seller} n'accepte pas de commandes pour le moment. Retire ses articles de ta commande pour payer le reste.",
+      "sellerNotPaymentReady": "%{seller} ne peut pas accepter de paiement pour le moment. Retirez ses articles de votre commande pour régler le reste.",
       "sellersNotActivated": "Ces vendeurs n'acceptent pas de commandes pour le moment : %{sellers}. Retire leurs articles de ta commande pour payer le reste.",
-      "unnamedSellersNotActivated": "Certains vendeurs de ta commande n'acceptent pas de commandes pour le moment. Retire les articles mis en évidence pour payer le reste."
+      "sellersNotPaymentReady": "Ces vendeurs ne peuvent pas accepter de paiement pour le moment : %{sellers}. Retirez leurs articles de votre commande pour régler le reste.",
+      "supplyCountryRequired": "Indiquez le pays où vous êtes, en deux lettres.",
+      "unnamedSellersNotActivated": "Certains vendeurs de ta commande n'acceptent pas de commandes pour le moment. Retire les articles mis en évidence pour payer le reste.",
+      "unnamedSellersNotPaymentReady": "Certains vendeurs de votre commande ne peuvent pas accepter de paiement pour le moment. Retirez les articles mis en évidence pour régler le reste."
     },
     "form": {
       "cityLabel": "Ville",
@@ -620,6 +624,8 @@
       "deliveryMethodTitle": "Comment souhaitez-vous le recevoir ?",
       "deliveryPhoneA11y": "Numéro de téléphone que le livreur peut appeler",
       "deliveryPhoneLabel": "Téléphone pour la livraison (facultatif)",
+      "digitalSupplyConsent": "Je veux mes téléchargements tout de suite. Je comprends que je perds mon droit de rétractation une fois qu'ils sont fournis.",
+      "digitalSupplyConsentA11y": "Consentement à recevoir les téléchargements immédiatement",
       "emailA11y": "Adresse e-mail pour la confirmation de votre commande",
       "emailHelp": "Nous l'utilisons pour vous envoyer le reçu et le suivi de livraison de cette commande.",
       "emailLabel": "E-mail",
@@ -643,7 +649,10 @@
       "regionLabel": "Région (facultatif)",
       "regionPlaceholder": "Valencia",
       "saveAddress": "Enregistrer cette adresse dans mon compte",
-      "sellerDataNotice": "Chaque vendeur ne reçoit que ce qu'il lui faut pour assurer sa part de votre commande : l'adresse de livraison, le nom du destinataire et le téléphone de livraison que vous indiquez. Votre adresse e-mail reste chez Mercaria."
+      "sellerDataNotice": "Chaque vendeur ne reçoit que ce qu'il lui faut pour assurer sa part de votre commande : l'adresse de livraison, le nom du destinataire et le téléphone de livraison que vous indiquez. Votre adresse e-mail reste chez Mercaria.",
+      "supplyCountryA11y": "Pays où vous êtes, deux lettres",
+      "supplyCountryHelp": "Deux lettres, par exemple FR. Il détermine la TVA de vos téléchargements.",
+      "supplyCountryLabel": "Pays où vous êtes"
     },
     "keepShopping": "Continuer mes achats",
     "orderNumbers": {
@@ -683,16 +692,8 @@
       "title": "Paiement annulé"
     },
     "card": {
-      "browserIntro": "Vous paierez sur la page sécurisée de Peable dans votre navigateur. Revenez ici une fois terminé : cet écran se met à jour tout seul.",
-      "browserReopen": "Rouvrir la page de paiement",
-      "browserReturned": "Si vous avez effectué le paiement, cet écran se mettra à jour dès sa confirmation. Sinon, vous pouvez rouvrir la page de paiement.",
-      "browserUnavailable": "La page de paiement n’a pas pu s’ouvrir. Veuillez réessayer.",
-      "expressHeading": "Payer en un geste",
-      "loading": "Chargement du formulaire de paiement sécurisé…",
       "notCompleted": "Votre paiement n'a pas pu aboutir.",
-      "orPayByCard": "ou payer par carte",
-      "payNow": "Payer maintenant",
-      "unavailable": "Le formulaire de paiement n’a pas pu être chargé."
+      "payNow": "Payer maintenant"
     },
     "cardDetailsNotice": "Les données de votre carte vont directement à notre prestataire de paiement et n'atteignent jamais Mercaria.",
     "confirming": {
@@ -719,6 +720,11 @@
     "unreadable": {
       "body": "Nous n'avons pas pu vérifier ce paiement depuis ici. S'il est passé, votre commande est en sécurité — cette page n'y change rien de toute façon.",
       "title": "Nous n'avons pas pu lire ce paiement"
+    },
+    "sheet": {
+      "mismatch": "Ce paiement ne correspond plus à votre commande. Quittez et relancez le paiement depuis votre commande.",
+      "orderLine": "Commande %{numbers}",
+      "unreadable": "Peable n'a pas pu ouvrir ce paiement pour l'instant. Votre commande reste réservée : réessayez Payer dans un instant."
     }
   },
   "sellers": {

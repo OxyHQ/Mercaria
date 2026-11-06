@@ -80,7 +80,13 @@ const fakeRail: BillingProvider = {
   ensureCustomer: async () => ({ providerCustomerId: customer }),
   createCheckoutSession: async (input) => {
     checkouts.push(input.providerPriceId);
-    return { url: 'https://checkout.peable.to/c/fixture' };
+    return {
+      sessionId: 'cs_fixture',
+      clientSecret: 'cs_fixture_secret_fixture',
+      amountMinor: 0,
+      currency: 'USD',
+      livemode: false,
+    };
   },
   createPortalSession: async () => ({ url: 'https://checkout.peable.to/p/fixture' }),
   retrieveSubscription: async () => snapshot(),

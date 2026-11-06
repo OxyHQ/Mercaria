@@ -44,6 +44,7 @@ import type {
   BillingInterval,
   CurrencyCode,
   MerchantBillingSessionView,
+  MerchantPlanCheckoutView,
   MerchantSubscriptionStatus,
 } from '@mercaria/shared-types';
 import { and, eq } from 'drizzle-orm';
@@ -137,7 +138,8 @@ export interface StartMerchantPlanCheckoutInput {
 }
 
 /**
- * Record the terms acceptance and open a hosted subscription checkout.
+ * Record the terms acceptance and open the subscription checkout the merchant
+ * pays in the dashboard's Peable sheet (an embedded session: card or FairCoin).
  *
  * The acceptance is written BEFORE the session and deliberately not undone when
  * the session fails: a merchant who agreed to the terms agreed to them, and the
@@ -145,13 +147,12 @@ export interface StartMerchantPlanCheckoutInput {
  */
 export async function startMerchantPlanCheckout(
   input: StartMerchantPlanCheckoutInput,
-): Promise<MerchantBillingSessionView> {
+): Promise<MerchantPlanCheckoutView> {
   if (!merchantBillingAvailable()) {
     throw conflict('Paid plans are not available on this deployment.');
   }
   const provider = requireBillingProvider();
   requireIntent(input.idempotencyKey);
-  const returnUrl = requireReturnUrl();
   const db = getDb();
 
   const plan = await findMerchantPlanById(db, input.planId);
@@ -222,14 +223,31 @@ export async function startMerchantPlanCheckout(
     providerCustomerId,
     providerPriceId: price.providerPriceId,
     trialDays: plan.trialDays,
-    returnUrl,
     storeId: input.storeId,
     planId: plan.id,
     idempotencyKey:
       input.idempotencyKey ??
       `billing-checkout:${input.storeId}:${plan.id}:${input.interval}:${price.unitPriceCurrency}`,
   });
-  return { url: session.url, expiresAt: session.expiresAt?.toISOString() ?? null };
+  // The rail priced the session from the price row; a session for any other
+  // figure is not the plan the merchant chose, and is never handed to a payer.
+  if (
+    session.amountMinor !== price.unitPriceAmount ||
+    session.currency !== price.unitPriceCurrency
+  ) {
+    log.general.error(
+      { storeId: input.storeId, planId: plan.id },
+      'The billing rail priced a plan checkout differently from its price row',
+    );
+    throw conflict(`${plan.name} cannot be bought right now: its price is being updated.`);
+  }
+  return {
+    clientSecret: session.clientSecret,
+    amount: { amount: session.amountMinor, currency: price.unitPriceCurrency },
+    interval: input.interval,
+    livemode: session.livemode,
+    expiresAt: session.expiresAt?.toISOString() ?? null,
+  };
 }
 
 /** What changing a live subscription's plan needs. */

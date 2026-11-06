@@ -2185,7 +2185,9 @@
       "changed": "El teu pla ha canviat.",
       "changeFailed": "No s'ha pogut canviar el pla. Torna-ho a provar.",
       "notInCurrency": "No disponible en aquesta moneda.",
-      "capabilityPerPeriod": "%{name} · %{limit} per període de facturació"
+      "capabilityPerPeriod": "%{name} · %{limit} per període de facturació",
+      "checkoutUnreadable": "Peable no ha pogut obrir aquest pagament ara. No s'ha cobrat res; torna-ho a provar d'aquí a un moment.",
+      "checkoutMismatch": "Aquest pagament ja no coincideix amb el preu del pla. No s'ha cobrat res; torna a triar el pla."
     },
     "policies": {
       "documentTitle": "Polítiques | Wholesale by Mercaria",

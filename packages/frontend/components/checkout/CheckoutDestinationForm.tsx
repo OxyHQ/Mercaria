@@ -43,6 +43,13 @@ export interface CheckoutDestinationDraft {
   saveToAddressBook: boolean;
   /** Opt-IN, separate from the purchase's own transactional permission. */
   marketingOptIn: boolean;
+  /**
+   * What a DIGITAL line needs instead of an address (ADR 0010 D10, #1015 W11):
+   * the country the buyer is in (the place of supply — required when nothing
+   * ships, otherwise derived from the address) and their express consent to
+   * immediate supply. Both are the buyer's declaration; nothing infers them.
+   */
+  digitalSupply: { country: string; consent: boolean };
 }
 
 /** An empty draft — the starting point for both actor kinds. */
@@ -57,6 +64,7 @@ export const EMPTY_CHECKOUT_DRAFT: CheckoutDestinationDraft = {
   contact: { email: '' },
   saveToAddressBook: false,
   marketingOptIn: false,
+  digitalSupply: { country: '', consent: false },
 };
 
 export interface CheckoutDestinationFormProps {
@@ -86,6 +94,26 @@ export interface CheckoutDestinationFormProps {
   /** The chosen collection point, when the buyer picked one. */
   pickupLocationId?: string;
   onChangePickupLocation?: (locationId: string | undefined) => void;
+  /**
+   * Whether anything in this checkout ships (`CartItemDTO.delivery`). `false`
+   * — every line is a download — renders NO address and no collection choice:
+   * there is nowhere to deliver to, so the form asks only where the buyer is.
+   */
+  ships?: boolean;
+  /** Whether any line is digital, which needs the buyer's consent to immediate supply. */
+  includesDigital?: boolean;
+}
+
+/** Whether the digital half of the draft is complete for this checkout. */
+export function isDigitalSupplyComplete(
+  draft: CheckoutDestinationDraft,
+  { ships, includesDigital }: { ships: boolean; includesDigital: boolean },
+): boolean {
+  if (!includesDigital) return true;
+  return (
+    draft.digitalSupply.consent &&
+    (ships || /^[A-Za-z]{2}$/.test(draft.digitalSupply.country.trim()))
+  );
 }
 
 /** The required-field set the submit button gates on (the server re-checks). */
@@ -129,6 +157,32 @@ export function cleanContact(contact: CheckoutContactInput): CheckoutContactInpu
   return out;
 }
 
+/**
+ * The buyer's express consent to immediate digital supply — its own row, so a
+ * signed-in buyer shipping to a saved address (no inline form) is asked too.
+ */
+export function DigitalSupplyConsent({
+  consent,
+  onChange,
+}: {
+  consent: boolean;
+  onChange: (consent: boolean) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <View className="flex-row items-center justify-between gap-3">
+      <Text className="flex-1 text-sm text-foreground">
+        {t('checkout.form.digitalSupplyConsent')}
+      </Text>
+      <Switch
+        checked={consent}
+        onCheckedChange={onChange}
+        accessibilityLabel={t('checkout.form.digitalSupplyConsentA11y')}
+      />
+    </View>
+  );
+}
+
 export function CheckoutDestinationForm({
   draft,
   collectContact = true,
@@ -137,8 +191,12 @@ export function CheckoutDestinationForm({
   pickupLocations = [],
   pickupLocationId,
   onChangePickupLocation,
+  ships = true,
+  includesDigital = false,
 }: CheckoutDestinationFormProps) {
   const { t } = useTranslation();
+  const setDigital = (next: Partial<CheckoutDestinationDraft['digitalSupply']>) =>
+    onChange({ ...draft, digitalSupply: { ...draft.digitalSupply, ...next } });
   const setAddress = (key: keyof CheckoutAddressInput) => (value: string) =>
     onChange({ ...draft, address: { ...draft.address, [key]: value } });
   const setContact = (key: keyof CheckoutContactInput) => (value: string) =>
@@ -147,7 +205,10 @@ export function CheckoutDestinationForm({
   const collecting = pickupLocationId !== undefined;
   // Derived, never stored: the chooser exists only when there is something to
   // choose between, so it cannot present an option the server would refuse.
-  const offersPickup = useMemo(() => pickupLocations.length > 0, [pickupLocations.length]);
+  const offersPickup = useMemo(
+    () => ships && pickupLocations.length > 0,
+    [ships, pickupLocations.length],
+  );
 
   return (
     <View className="gap-4">
@@ -207,7 +268,24 @@ export function CheckoutDestinationForm({
         conditional #105 frontend rule 8 asks for, and the reason a collection
         needs no invented street.
       */}
-      {collecting ? (
+      {!ships ? (
+        <Field
+          label={t('checkout.form.supplyCountryLabel')}
+          description={t('checkout.form.supplyCountryHelp')}
+        >
+          <TextFieldInput
+            label={t('checkout.form.supplyCountryA11y')}
+            value={draft.digitalSupply.country}
+            onValueChange={(country) => setDigital({ country })}
+            placeholder={t('checkout.form.countryPlaceholder')}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            maxLength={2}
+            autoComplete="country"
+            textContentType="countryName"
+          />
+        </Field>
+      ) : collecting ? (
         <Field label={t('checkout.form.pickupPhoneLabel')}>
           <TextFieldInput
             label={t('checkout.form.pickupPhoneA11y')}
@@ -343,7 +421,19 @@ export function CheckoutDestinationForm({
         actor rule 4). A guest never sees it, because there is no account to
         save into — not because the control is hidden from them.
       */}
-      {canSaveToAddressBook && !collecting ? (
+      {/*
+        A download is supplied the moment the order is paid, which ends the
+        statutory withdrawal right — so the buyer says yes to that, explicitly,
+        before paying (#1015 W11 requirement 6). Off by default.
+      */}
+      {includesDigital ? (
+        <DigitalSupplyConsent
+          consent={draft.digitalSupply.consent}
+          onChange={(consent) => setDigital({ consent })}
+        />
+      ) : null}
+
+      {canSaveToAddressBook && ships && !collecting ? (
         <View className="flex-row items-center justify-between gap-3">
           <Text className="flex-1 text-sm text-foreground">{t('checkout.form.saveAddress')}</Text>
           <Switch

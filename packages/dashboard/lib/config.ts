@@ -36,6 +36,20 @@ export const OXY_CLIENT_ID =
  */
 export const GOWAY_API_URL: string | undefined = process.env.EXPO_PUBLIC_GOWAY_API_URL || undefined;
 
+/**
+ * Peable's gateway, which the payment sheet talks to with the merchant-as-payer's
+ * material only (the plan session's own `client_secret`). Unset uses the SDK's
+ * default, `https://api.peable.to` — the backend's `PEABLE_BASE_URL` default.
+ */
+export const PEABLE_GATEWAY_URL = process.env.EXPO_PUBLIC_PEABLE_GATEWAY_URL?.trim() || undefined;
+
+/**
+ * Peable's hosted checkout, which the sheet opens for the card where a native
+ * build cannot host Peable's secure fields. Unset uses Peable's canonical origin.
+ */
+export const PEABLE_CHECKOUT_URL =
+  process.env.EXPO_PUBLIC_PEABLE_CHECKOUT_URL?.trim() || 'https://checkout.peable.to';
+
 const ENV = {
   dev: { apiUrl: DEV_API_BASE_URL },
   prod: { apiUrl: PROD_API_BASE_URL },

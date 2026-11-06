@@ -2185,7 +2185,9 @@
       "changed": "Tu plan ha cambiado.",
       "changeFailed": "No se ha podido cambiar tu plan. Inténtalo de nuevo.",
       "notInCurrency": "No disponible en esta moneda.",
-      "capabilityPerPeriod": "%{name} · %{limit} por periodo de facturación"
+      "capabilityPerPeriod": "%{name} · %{limit} por periodo de facturación",
+      "checkoutUnreadable": "Peable no ha podido abrir este pago ahora. No se ha cobrado nada; vuelve a intentarlo en un momento.",
+      "checkoutMismatch": "Este pago ya no coincide con el precio del plan. No se ha cobrado nada; vuelve a elegir el plan."
     },
     "policies": {
       "documentTitle": "Políticas | Wholesale by Mercaria",

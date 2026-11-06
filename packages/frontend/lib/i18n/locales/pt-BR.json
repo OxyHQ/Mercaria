@@ -584,6 +584,8 @@
       "collectInPerson": "Retirar pessoalmente",
       "continueAsGuest": "Continuar como visitante",
       "deliverTo": "Entregar para",
+      "digitalHint": "Nada neste pedido é enviado: seus downloads ficam na sua biblioteca assim que você pagar. Só precisamos do país em que você está, para os impostos.",
+      "digitalTitle": "Seus dados",
       "guestDeliveryHint": "Não precisa de conta. Diga para onde vai e como falar com você sobre este pedido.",
       "guestPickupHint": "Não precisa de conta. Diga como falar com você sobre esta retirada — não vamos pedir um endereço de que você não precisa.",
       "pickupFallbackName": "a loja que você escolheu"
@@ -601,14 +603,16 @@
     },
     "error": {
       "collectionEmailRequired": "Informe o e-mail para onde os dados da retirada devem ir.",
+      "digitalSupplyConsentRequired": "Este pedido inclui downloads. Ative a entrega imediata para comprá-los ou compre os outros itens separadamente.",
       "emailAndAddressRequired": "Preencha seu e-mail e o endereço de entrega para continuar.",
       "receiptEmailRequired": "Informe o e-mail para onde seu recibo deve ir.",
-      "sellerNotPaymentReady": "%{seller} não pode aceitar pagamentos no momento. Remova os itens desse vendedor do pedido para finalizar a compra do restante.",
-      "sellersNotPaymentReady": "Estes vendedores não podem aceitar pagamentos no momento: %{sellers}. Remova os itens deles do pedido para finalizar a compra do restante.",
-      "unnamedSellersNotPaymentReady": "Alguns vendedores do seu pedido não podem aceitar pagamentos no momento. Remova os itens destacados para finalizar a compra do restante.",
       "sellerNotActivated": "%{seller} não está aceitando pedidos no momento. Remova os itens desse vendedor do pedido para finalizar o restante.",
+      "sellerNotPaymentReady": "%{seller} não pode aceitar pagamentos no momento. Remova os itens desse vendedor do pedido para finalizar a compra do restante.",
       "sellersNotActivated": "Estes vendedores não estão aceitando pedidos no momento: %{sellers}. Remova os itens deles do pedido para finalizar o restante.",
-      "unnamedSellersNotActivated": "Alguns vendedores do seu pedido não estão aceitando pedidos no momento. Remova os itens destacados para finalizar o restante."
+      "sellersNotPaymentReady": "Estes vendedores não podem aceitar pagamentos no momento: %{sellers}. Remova os itens deles do pedido para finalizar a compra do restante.",
+      "supplyCountryRequired": "Informe o país em que você está, com duas letras.",
+      "unnamedSellersNotActivated": "Alguns vendedores do seu pedido não estão aceitando pedidos no momento. Remova os itens destacados para finalizar o restante.",
+      "unnamedSellersNotPaymentReady": "Alguns vendedores do seu pedido não podem aceitar pagamentos no momento. Remova os itens destacados para finalizar a compra do restante."
     },
     "form": {
       "cityLabel": "Cidade",
@@ -620,6 +624,8 @@
       "deliveryMethodTitle": "Como você prefere receber?",
       "deliveryPhoneA11y": "Telefone para o entregador ligar",
       "deliveryPhoneLabel": "Telefone para entrega (opcional)",
+      "digitalSupplyConsent": "Quero meus downloads imediatamente. Entendo que perco o direito de arrependimento depois que forem entregues.",
+      "digitalSupplyConsentA11y": "Consentimento para receber os downloads imediatamente",
       "emailA11y": "E-mail para a confirmação do seu pedido",
       "emailHelp": "Usamos para enviar seu recibo e as atualizações de entrega deste pedido.",
       "emailLabel": "E-mail",
@@ -643,7 +649,10 @@
       "regionLabel": "Estado (opcional)",
       "regionPlaceholder": "Valencia",
       "saveAddress": "Salvar este endereço na minha conta",
-      "sellerDataNotice": "Cada vendedor recebe só o que precisa para cumprir a parte dele do seu pedido: o endereço de entrega, o nome do destinatário e o telefone de entrega que você informar. Seu e-mail fica com a Mercaria."
+      "sellerDataNotice": "Cada vendedor recebe só o que precisa para cumprir a parte dele do seu pedido: o endereço de entrega, o nome do destinatário e o telefone de entrega que você informar. Seu e-mail fica com a Mercaria.",
+      "supplyCountryA11y": "País em que você está, duas letras",
+      "supplyCountryHelp": "Duas letras, como BR. Ele define os impostos dos seus downloads.",
+      "supplyCountryLabel": "País em que você está"
     },
     "keepShopping": "Continuar comprando",
     "orderNumbers": {
@@ -683,16 +692,8 @@
       "title": "Pagamento cancelado"
     },
     "card": {
-      "browserIntro": "Você vai pagar na página segura da Peable no seu navegador. Volte aqui quando terminar — esta tela se atualiza sozinha.",
-      "browserReopen": "Abrir a página de pagamento novamente",
-      "browserReturned": "Se você concluiu o pagamento, esta tela será atualizada assim que ele for confirmado. Se não, você pode abrir a página de pagamento novamente.",
-      "browserUnavailable": "Não foi possível abrir a página de pagamento. Tente novamente.",
-      "expressHeading": "Pague com um toque",
-      "loading": "Carregando o formulário de pagamento seguro…",
       "notCompleted": "Não foi possível concluir seu pagamento.",
-      "orPayByCard": "ou pague com cartão",
-      "payNow": "Pagar agora",
-      "unavailable": "Não foi possível carregar o formulário de pagamento."
+      "payNow": "Pagar agora"
     },
     "cardDetailsNotice": "Os dados do seu cartão vão direto para o nosso provedor de pagamentos e nunca chegam à Mercaria.",
     "confirming": {
@@ -719,6 +720,11 @@
     "unreadable": {
       "body": "Não conseguimos verificar este pagamento daqui. Se ele passou, seu pedido está seguro — esta página não muda isso de nenhum jeito.",
       "title": "Não conseguimos ler este pagamento"
+    },
+    "sheet": {
+      "mismatch": "Este pagamento não corresponde mais ao seu pedido. Saia e inicie o pagamento de novo pelo seu pedido.",
+      "orderLine": "Pedido %{numbers}",
+      "unreadable": "O Peable não conseguiu abrir este pagamento agora. Seu pedido continua reservado — toque em Pagar de novo em instantes."
     }
   },
   "sellers": {

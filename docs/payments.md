@@ -866,36 +866,29 @@ which the sweep never selects again.
 
 ### Client integration
 
-**The storefront's card step** is `components/payment/CardPaymentStep{,.native}.tsx`
-behind one contract (`types.ts`), used by the checkout and the supervised-shopping
-checkout alike, for guests and account buyers alike (ADR 0006 G1/G2). On the WEB
-it mounts Peable's Elements from `@peable.to/sdk/checkout` (the browser entry
-only): the Express Checkout element, narrowed to the wallets the handoff's
-`methods` permit, above the Payment Element, styled from the Bloom theme, and
-`confirmPayment` with a redirect only when the bank insists — back to
-`/checkout/return`, which strips the acquirer's return parameters and only polls.
-The SDK exchanges the handoff's PaymentIntent and secret for the acquirer's
-credential and publishable key at the gateway itself; nothing of the acquirer's
-passes through Mercaria. On iOS and Android there is no native card path in
-Peable's SDK (its Elements and `checkout/ui`'s `PeableProviderFields` are DOM
-fields; the latter renders "unavailable" without a `document`), so the step opens
-Peable's hosted page, `checkout.peable.to/i/:pi#client_secret=…`, in the system
-browser and never reads the browser closing as an outcome. Either way the screen
+**The storefront pays in Peable's payment sheet** —
+`components/payment/PeablePaymentSheet.tsx` over `PeableSheetCheckout` from
+`@peable.to/sdk/checkout/ui`, the SAME sheet Mention opens on /plus — used by the
+checkout and the supervised-shopping checkout alike, for guests and account
+buyers alike, on the web and on iOS and Android (ADR 0006 G1/G2). Mercaria hands
+it the handoff's Peable PaymentIntent and ITS `client_secret` (the payer's
+capability, nothing of the acquirer's), the total it expects (a different
+payment is refused) and the order numbers; the card (Peable's secure fields, or
+Peable's secure page from the native apps), FairCoin and every state of the
+payment are the SDK's. Mercaria keeps no card form, provider frame or payment
+logic. A bank redirect returns to `/checkout/return`, which strips the
+acquirer's return parameters and only polls. Whatever the sheet shows, the screen
 polls `GET /checkout/:groupId/payment-status`, which answers from the payment
-aggregate — a value only a verified webhook (or a live rail read) moves. The
-states it renders are the honest ones: confirming (`requires_action` and
-`processing` as one sentence, because from the buyer's side both mean the bank
-has not finished), succeeded, cancelled and failed (a decline, recoverable with
-another card). The intent is created with `payment_method_types: ['card']`, so
-the Payment Element offers no asynchronous method ADR 0001 D3 excludes.
-`PeableElement.on` does not type the Express Checkout `confirm` event, so the
-step widens that one listener (ADR 0009 D13 "As built"). Apple Pay and Google
-Pay on the web need `mercaria.co` registered as a Peable wallet domain: it is
-`pmd_de5b5c1648a83fcb9e411c99` (live, registered 2026-11-05 as Mercaria's
-workload, both wallets `active`), and the storefront serves Stripe's Apple Pay
-domain-association file from `packages/frontend/public/.well-known/`
-(`docs/runbooks/marketplace-card-rail-live.md`). `www.mercaria.co` serves
-nothing and is not registered; a new host that renders the card step is.
+aggregate — a value only a verified webhook (or a live rail read) moves — and
+hands it back to the sheet as its `outcome` (`lib/payments/peable-payer.ts`
+`sheetOutcome`): paid only on `succeeded`, over only on `canceled`; a `failed`
+attempt is a decline the buyer retries in the sheet. The intent is created with
+`payment_method_types: ['card']`, so nothing asynchronous ADR 0001 D3 excludes
+is offered. Peable's sheet does not yet show Apple Pay or Google Pay (it pays the
+card in split secure fields); the registered wallet domain
+`pmd_de5b5c1648a83fcb9e411c99` and the storefront's Apple Pay
+domain-association file stay in place for when it does
+(`docs/runbooks/marketplace-card-rail-live.md`).
 
 The handoff is `CheckoutPaymentHandoff` = `{paymentId, provider,
 providerPaymentId, clientSecret, amount, methods}`: `providerPaymentId` is the

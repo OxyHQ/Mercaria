@@ -579,6 +579,8 @@
       "collectInPerson": "店頭で受け取る",
       "continueAsGuest": "ゲストとして続ける",
       "deliverTo": "お届け先",
+      "digitalHint": "この注文に配送はありません。お支払い後すぐにダウンロードがライブラリに追加されます。税金のため、現在いる国だけお知らせください。",
+      "digitalTitle": "お客様の情報",
       "guestDeliveryHint": "アカウントは不要です。お届け先と、このご注文についてご連絡する方法をお知らせください。",
       "guestPickupHint": "アカウントは不要です。この受け取りについてご連絡する方法をお知らせください。必要のない住所はお尋ねしません。",
       "pickupFallbackName": "選んだ店舗"
@@ -596,14 +598,16 @@
     },
     "error": {
       "collectionEmailRequired": "受け取りの詳細を送るメールアドレスを入力してください。",
+      "digitalSupplyConsentRequired": "この注文にはダウンロードが含まれます。購入するには即時提供をオンにするか、ほかの商品だけを別に注文してください。",
       "emailAndAddressRequired": "続けるには、メールアドレスとお届け先住所を入力してください。",
       "receiptEmailRequired": "領収書を送るメールアドレスを入力してください。",
-      "sellerNotPaymentReady": "%{seller}は現在お支払いを受け付けられません。この販売者の商品を注文から削除すると、残りの商品を購入できます。",
-      "sellersNotPaymentReady": "次の販売者は現在お支払いを受け付けられません：%{sellers}。これらの販売者の商品を注文から削除すると、残りの商品を購入できます。",
-      "unnamedSellersNotPaymentReady": "ご注文内の一部の販売者は現在お支払いを受け付けられません。強調表示された商品を削除すると、残りの商品を購入できます。",
       "sellerNotActivated": "%{seller}は現在注文を受け付けていません。この販売者の商品を注文から削除すると、残りの商品を購入できます。",
+      "sellerNotPaymentReady": "%{seller}は現在お支払いを受け付けられません。この販売者の商品を注文から削除すると、残りの商品を購入できます。",
       "sellersNotActivated": "次の販売者は現在注文を受け付けていません：%{sellers}。これらの販売者の商品を注文から削除すると、残りの商品を購入できます。",
-      "unnamedSellersNotActivated": "ご注文の一部の販売者は現在注文を受け付けていません。ハイライトされた商品を削除すると、残りの商品を購入できます。"
+      "sellersNotPaymentReady": "次の販売者は現在お支払いを受け付けられません：%{sellers}。これらの販売者の商品を注文から削除すると、残りの商品を購入できます。",
+      "supplyCountryRequired": "現在いる国を 2 文字で入力してください。",
+      "unnamedSellersNotActivated": "ご注文の一部の販売者は現在注文を受け付けていません。ハイライトされた商品を削除すると、残りの商品を購入できます。",
+      "unnamedSellersNotPaymentReady": "ご注文内の一部の販売者は現在お支払いを受け付けられません。強調表示された商品を削除すると、残りの商品を購入できます。"
     },
     "form": {
       "cityLabel": "市区町村",
@@ -615,6 +619,8 @@
       "deliveryMethodTitle": "受け取り方法は？",
       "deliveryPhoneA11y": "配達員が連絡できる電話番号",
       "deliveryPhoneLabel": "配達用の電話番号（任意）",
+      "digitalSupplyConsent": "ダウンロードをすぐに受け取ります。提供された時点でキャンセルの権利がなくなることを理解しています。",
+      "digitalSupplyConsentA11y": "ダウンロードをすぐに受け取ることへの同意",
       "emailA11y": "注文確認を受け取るメールアドレス",
       "emailHelp": "このご注文の領収書とお届け状況をお送りするために使います。",
       "emailLabel": "メールアドレス",
@@ -638,7 +644,10 @@
       "regionLabel": "都道府県（任意）",
       "regionPlaceholder": "Valencia",
       "saveAddress": "この住所をアカウントに保存する",
-      "sellerDataNotice": "各出品者には、ご注文のうち担当分を届けるために必要な情報だけをお伝えします。お届け先住所、受取人の名前、ご記入いただいた配達用の電話番号です。メールアドレスは Mercaria のみが保持します。"
+      "sellerDataNotice": "各出品者には、ご注文のうち担当分を届けるために必要な情報だけをお伝えします。お届け先住所、受取人の名前、ご記入いただいた配達用の電話番号です。メールアドレスは Mercaria のみが保持します。",
+      "supplyCountryA11y": "現在いる国（2 文字）",
+      "supplyCountryHelp": "JP のような 2 文字。ダウンロードにかかる税金が決まります。",
+      "supplyCountryLabel": "現在いる国"
     },
     "keepShopping": "買い物を続ける",
     "orderNumbers": {
@@ -678,16 +687,8 @@
       "title": "支払いをキャンセルしました"
     },
     "card": {
-      "browserIntro": "ブラウザで Peable の安全なページからお支払いいただきます。完了したらこの画面に戻ってください。画面は自動で更新されます。",
-      "browserReopen": "支払いページをもう一度開く",
-      "browserReturned": "お支払いが完了していれば、確認され次第この画面が更新されます。完了していない場合は、支払いページをもう一度開けます。",
-      "browserUnavailable": "支払いページを開けませんでした。もう一度お試しください。",
-      "expressHeading": "ワンタップで支払う",
-      "loading": "安全な支払いフォームを読み込んでいます…",
       "notCompleted": "お支払いを完了できませんでした。",
-      "orPayByCard": "またはカードで支払う",
-      "payNow": "支払う",
-      "unavailable": "支払いフォームを読み込めませんでした。"
+      "payNow": "支払う"
     },
     "cardDetailsNotice": "カード情報は決済代行会社に直接送られ、Mercaria には届きません。",
     "confirming": {
@@ -714,6 +715,11 @@
     "unreadable": {
       "body": "ここからはこの支払いを確認できませんでした。完了していれば、ご注文は無事です。このページで変わることはありません。",
       "title": "この支払いを読み取れませんでした"
+    },
+    "sheet": {
+      "mismatch": "このお支払いは注文と一致しなくなりました。いったん離れ、注文からお支払いをやり直してください。",
+      "orderLine": "注文 %{numbers}",
+      "unreadable": "Peable でこのお支払いを開けませんでした。注文は確保されたままです。しばらくしてからもう一度「支払う」を押してください。"
     }
   },
   "sellers": {

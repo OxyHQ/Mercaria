@@ -2205,7 +2205,9 @@
       "changed": "Ваш тариф изменён.",
       "changeFailed": "Не удалось сменить тариф. Попробуйте ещё раз.",
       "notInCurrency": "Недоступно в этой валюте.",
-      "capabilityPerPeriod": "%{name} · %{limit} за расчётный период"
+      "capabilityPerPeriod": "%{name} · %{limit} за расчётный период",
+      "checkoutUnreadable": "Peable не удалось открыть этот платёж. Деньги не списаны — попробуйте ещё раз чуть позже.",
+      "checkoutMismatch": "Этот платёж больше не соответствует цене тарифа. Деньги не списаны — выберите тариф заново."
     },
     "policies": {
       "documentTitle": "Правила | Wholesale by Mercaria",

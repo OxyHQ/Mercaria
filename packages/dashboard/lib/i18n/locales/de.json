@@ -2165,7 +2165,9 @@
       "changed": "Dein Tarif wurde geändert.",
       "changeFailed": "Dein Tarif konnte nicht geändert werden. Bitte versuche es erneut.",
       "notInCurrency": "In dieser Währung nicht verfügbar.",
-      "capabilityPerPeriod": "%{name} · %{limit} pro Abrechnungszeitraum"
+      "capabilityPerPeriod": "%{name} · %{limit} pro Abrechnungszeitraum",
+      "checkoutUnreadable": "Peable konnte diese Zahlung gerade nicht öffnen. Es wurde nichts belastet – versuche es gleich noch einmal.",
+      "checkoutMismatch": "Diese Zahlung passt nicht mehr zum Preis des Tarifs. Es wurde nichts belastet – wähle den Tarif erneut."
     },
     "policies": {
       "documentTitle": "Richtlinien | Wholesale by Mercaria",

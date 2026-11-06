@@ -70,6 +70,13 @@ const findLiveRetailBindingsForVariants = vi.fn(
   async (..._args: unknown[]): Promise<Map<string, unknown>> => new Map(),
 );
 
+// The catalogue↔digital join, which decides each line's `delivery`. Empty by
+// default (every fixture is physical); one test binds a variant to an asset.
+const findDigitalBindings = vi.fn(async (_variantIds: readonly string[]): Promise<unknown[]> => []);
+vi.mock('../../db/digital/bindingRepository.js', () => ({
+  findDigitalBindings: (variantIds: readonly string[]) => findDigitalBindings(variantIds),
+}));
+
 vi.mock('../../db/stores/storeRepository.js', () => ({
   findStoresByIds: (...args: unknown[]) => findStoresByIds(...args),
 }));
@@ -389,6 +396,39 @@ describe('cart.service.addItem', () => {
       variantId: VARIANT_ID,
       quantity: 1,
     });
+  });
+});
+
+describe('cart.service delivery', () => {
+  it('ships a line with no digital binding, and asks no address of a bound download', async () => {
+    const DOWNLOAD_VARIANT = uuidv7();
+    const cart = storedCart([
+      { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 1 },
+      { listingId: LISTING_ID, variantId: DOWNLOAD_VARIANT, quantity: 1 },
+    ]);
+    findVariantsByIds.mockResolvedValueOnce([variantRow(), variantRow({ id: DOWNLOAD_VARIANT })]);
+    findListingsByIds.mockResolvedValueOnce([listingRow()]);
+    findDigitalBindings.mockResolvedValueOnce([
+      {
+        variantId: DOWNLOAD_VARIANT,
+        assetId: uuidv7(),
+        packageId: uuidv7(),
+        licenceVersionId: uuidv7(),
+        updatePolicy: 'purchased_version_only',
+        optionAcquirable: true,
+        licenceState: 'published',
+        vertical: 'three_d',
+        assetState: 'listed',
+        currentVersionId: uuidv7(),
+        currentVersionState: 'published',
+      },
+    ]);
+
+    const dto = await revalidate(cart, VIEW);
+
+    expect(dto.items.map((item) => item.delivery)).toEqual(['shipped', 'digital']);
+    // The same read checkout decides `digital_delivery` with, over every line.
+    expect(findDigitalBindings).toHaveBeenCalledWith([VARIANT_ID, DOWNLOAD_VARIANT]);
   });
 });
 

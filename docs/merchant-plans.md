@@ -173,8 +173,15 @@ later plan change cannot shorten a grace already running and a redelivered
 
 ### 6. Upgrade, downgrade, cancellation and refund behaviour
 
-- **First plan** — a hosted Peable Checkout Session. The subscription row is
-  written from a provider snapshot, never from the client coming back.
+- **First plan** — an embedded Peable Checkout Session (`ui_mode: 'embedded'`),
+  paid IN the dashboard in Peable's payment sheet (`PeableSheetCheckout` from
+  `@peable.to/sdk/checkout/ui`, the same sheet Mention uses on /plus): card or
+  FairCoin, never a redirect and never a shipping address. `POST /plan/checkout`
+  answers `MerchantPlanCheckoutView` — the session's payer `clientSecret` and
+  the price it was created for, refused (409) if the rail priced it otherwise —
+  and the sheet refuses a session that is not that price. The subscription row
+  is written from a provider snapshot, never from the sheet: the sheet shows
+  success only once `GET /plan` says the store pays (`active`/`trialing`).
 - **One subscription per store.** A checkout is REFUSED while the store has a
   live subscription (anything but `expired`): `merchant_subscriptions_store_key`
   holds one row per store, so a second rail subscription could only be recorded
@@ -352,9 +359,10 @@ confused or cross-linked accidentally" — is held four ways:
    merchant on Mercaria's own account. A single interface would eventually make
    the two objects interchangeable in some caller's mind.
 
-The rail is **Peable's native billing engine** (Peable ADR 0018), hosted
-throughout: a Peable Checkout Session in `mode: 'subscription'` over the plan's
-Orbit price to start, Peable's customer portal to manage, and
+The rail is **Peable's native billing engine** (Peable ADR 0018): an embedded
+Peable Checkout Session in `mode: 'subscription'` over the plan's Orbit price to
+start (paid in the dashboard's Peable sheet), Peable's hosted customer portal to
+manage, and
 `cancel_at_period_end` on the native subscription to cancel
 (`services/billing/peable/native-billing.ts`). Mercaria reaches the gateway as
 its own Oxy workload identity and holds **no provider credential** for billing.
@@ -466,7 +474,7 @@ be able to ask.
 
 ```
 MERCHANT_BILLING_ENABLED=false                        # actions; requires PEABLE_WEBHOOK_SECRET (the rail's events)
-MERCHANT_BILLING_RETURN_URL=                          # where a hosted session returns to
+MERCHANT_BILLING_RETURN_URL=                          # where the hosted billing portal returns to
 MERCHANT_SUBSCRIPTION_RECONCILIATION_ENABLED=true     # the LOOP only
 MERCHANT_SUBSCRIPTION_RECONCILIATION_INTERVAL_MS=21600000
 MERCHANT_SUBSCRIPTION_RECONCILIATION_BATCH_SIZE=50

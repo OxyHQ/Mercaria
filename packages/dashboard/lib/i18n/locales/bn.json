@@ -2165,7 +2165,9 @@
       "changed": "আপনার প্ল্যান বদলানো হয়েছে।",
       "changeFailed": "আপনার প্ল্যান বদলানো যায়নি। আবার চেষ্টা করুন।",
       "notInCurrency": "এই মুদ্রায় উপলভ্য নয়।",
-      "capabilityPerPeriod": "%{name} · প্রতি বিলিং সময়ে %{limit}"
+      "capabilityPerPeriod": "%{name} · প্রতি বিলিং সময়ে %{limit}",
+      "checkoutUnreadable": "Peable এখন এই পেমেন্টটি খুলতে পারেনি। কোনো টাকা কাটা হয়নি — একটু পরে আবার চেষ্টা করুন।",
+      "checkoutMismatch": "এই পেমেন্ট আর প্ল্যানের দামের সঙ্গে মেলে না। কোনো টাকা কাটা হয়নি — আবার প্ল্যানটি বেছে নিন।"
     },
     "policies": {
       "documentTitle": "পলিসি | Wholesale by Mercaria",

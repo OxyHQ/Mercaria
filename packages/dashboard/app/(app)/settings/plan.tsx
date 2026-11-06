@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Pressable } from 'react-native';
+import { Linking, Platform, View, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import Head from 'expo-router/head';
 import * as WebBrowser from 'expo-web-browser';
@@ -8,6 +8,7 @@ import type {
   BillingInterval,
   MerchantEntitlementView,
   MerchantPlanCatalogEntry,
+  MerchantPlanCheckoutView,
   MerchantPlanStatusView,
   MerchantSubscriptionStatus,
 } from '@mercaria/shared-types';
@@ -20,10 +21,16 @@ import {
   SegmentedControlItemText,
 } from '@oxy.so/bloom/segmented-control';
 import { toast } from '@oxy.so/bloom/toast';
+import {
+  PeableSheetCheckout,
+  sessionSource,
+  type SheetSettlement,
+} from '@peable.to/sdk/checkout/ui';
 import { Screen, ScreenLoading, ScreenMessage } from '@/components/shell/Screen';
 import { RequireStore } from '@/components/shell/RequireStore';
 import { useTranslation } from '@/lib/i18n';
-import config from '@/lib/config';
+import config, { PEABLE_CHECKOUT_URL, PEABLE_GATEWAY_URL } from '@/lib/config';
+import { planCheckoutExpectation, sheetInterval } from '@/lib/plan-checkout';
 import { useActiveStoreContext } from '@/lib/hooks/use-stores';
 import { CAPABILITY_COPY_KEYS, PLAN_SUMMARY_KEYS } from '@/lib/plan-copy';
 import {
@@ -31,6 +38,7 @@ import {
   useChangePlan,
   useOpenBillingPortal,
   usePlanCatalog,
+  usePlanCheckoutOutcome,
   usePlanStatus,
   useRefreshPlan,
   useStartPlanCheckout,
@@ -58,10 +66,12 @@ import {
  * would simply be refused — the server re-decides on every write regardless of
  * what this screen believed (#89 entitlement rule 4).
  *
- * ## Hosted flows open in the SYSTEM browser
+ * ## A plan is paid in Peable's sheet; the portal opens in the SYSTEM browser
  *
- * Not a webview: a provider's hosted checkout and billing portal do not run
- * inside one.
+ * Starting a plan opens Peable's payment sheet over this screen — the same
+ * `PeableSheetCheckout` Mention uses — with the card and FairCoin, never a
+ * redirect. The billing portal is still Peable's hosted page, in the system
+ * browser (not a webview, which a hosted provider page does not run inside).
  */
 export default function PlanScreen() {
   const { t } = useTranslation();
@@ -543,6 +553,10 @@ function PlanCard({
  * Start a first paid plan, rendered only where the SERVER says billing is
  * available. Pressing it on a deployment with billing off would simply be
  * refused (#89 entitlement rule 4).
+ *
+ * The press records the terms acceptance and answers a Peable session, paid in
+ * Peable's sheet right here. The subscription is created from a provider event:
+ * the sheet shows success only once this store's plan status says it pays.
  */
 function UpgradeAction({
   storeId,
@@ -555,32 +569,98 @@ function UpgradeAction({
   interval: BillingInterval;
   currency: string;
 }) {
-  const [opening, setOpening] = useState(false);
   const { t } = useTranslation();
   const checkout = useStartPlanCheckout(storeId);
   const refresh = useRefreshPlan(storeId);
+  const [view, setView] = useState<MerchantPlanCheckoutView | null>(null);
 
   async function upgrade(): Promise<void> {
     try {
-      setOpening(true);
-      const session = await checkout.mutateAsync({ planId: plan.planId, interval, currency });
-      // The SYSTEM browser, never a webview: a hosted provider checkout does not
-      // run in one. On web this opens a new tab.
-      await WebBrowser.openBrowserAsync(session.url);
+      setView(await checkout.mutateAsync({ planId: plan.planId, interval, currency }));
     } catch {
       toast.error(t('settings.plan.upgradeFailed'));
-    } finally {
-      setOpening(false);
-      // The browser closing is not evidence of anything — the subscription is
-      // created from a provider event — but a refetch costs little.
-      refresh();
     }
   }
 
   return (
-    <Button tone="accent" onPress={upgrade} disabled={checkout.isPending || opening}>
-      {t('settings.plan.choosePlan', { plan: plan.name })}
-    </Button>
+    <>
+      <Button tone="accent" onPress={upgrade} disabled={checkout.isPending || view !== null}>
+        {t('settings.plan.choosePlan', { plan: plan.name })}
+      </Button>
+      {view ? (
+        <PlanCheckoutSheet
+          storeId={storeId}
+          view={view}
+          onClose={() => {
+            setView(null);
+            // Closing proves nothing; a refetch costs little and shows the
+            // state the provider event has produced so far.
+            refresh();
+          }}
+        />
+      ) : null}
+    </>
+  );
+}
+
+/** Open what the merchant pressed for: Peable's page in the in-app browser, the wallet by its link. */
+async function openFromSheet(url: string, kind: 'wallet' | 'hosted'): Promise<void> {
+  if (Platform.OS === 'web') {
+    if (kind === 'wallet') window.location.href = url;
+    else window.open(url, '_blank', 'noopener');
+    return;
+  }
+  if (kind === 'hosted') await WebBrowser.openBrowserAsync(url);
+  else await Linking.openURL(url);
+}
+
+/** One plan purchase in Peable's sheet; its outcome is this store's plan status, nothing else. */
+function PlanCheckoutSheet({
+  storeId,
+  view,
+  onClose,
+}: {
+  storeId: string;
+  view: MerchantPlanCheckoutView;
+  onClose: () => void;
+}) {
+  const { t, locale } = useTranslation();
+  const [settlement, setSettlement] = useState<SheetSettlement | null>(null);
+  const outcome = usePlanCheckoutOutcome(storeId, settlement);
+  const source = sessionSource(view.clientSecret);
+  if (!source) return null;
+  return (
+    <PeableSheetCheckout
+      source={source}
+      {...(PEABLE_GATEWAY_URL ? { gatewayUrl: PEABLE_GATEWAY_URL } : {})}
+      checkoutUrl={PEABLE_CHECKOUT_URL}
+      locale={locale}
+      expected={planCheckoutExpectation(view)}
+      presentation={{
+        merchant: 'Mercaria',
+        recurring: { interval: sheetInterval(view.interval) },
+        itemDetail: () =>
+          t(
+            view.interval === 'annual'
+              ? 'settings.plan.intervalAnnual'
+              : 'settings.plan.intervalMonthly',
+          ),
+      }}
+      openUrl={openFromSheet}
+      onSettled={setSettlement}
+      outcome={outcome}
+      onUnavailable={(reason) => {
+        toast.error(
+          t(
+            reason === 'mismatch'
+              ? 'settings.plan.checkoutMismatch'
+              : 'settings.plan.checkoutUnreadable',
+          ),
+        );
+        onClose();
+      }}
+      onClose={onClose}
+    />
   );
 }
 
