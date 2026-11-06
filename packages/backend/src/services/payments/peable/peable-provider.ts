@@ -262,6 +262,7 @@ export class PeablePaymentProvider
         {
           mode: 'payment',
           ui_mode: 'embedded',
+          contact_collection: request.contactCollection,
           line_items: request.lines.map((line) => ({
             price_data: {
               currency,

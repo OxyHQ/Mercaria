@@ -146,6 +146,9 @@ describe('the payment metadata (ADR 0006 G7)', () => {
       orders: orders(),
     });
 
+    expect(openCheckoutSession).toHaveBeenCalledWith(
+      expect.objectContaining({ contactCollection: 'merchant_account' }),
+    );
     const metadata = capturedMetadata();
     expect(metadata).not.toHaveProperty('guestCheckoutId');
     // And the buyer is NOT substituted for it. The metadata has no buyer field
@@ -201,6 +204,10 @@ describe('the handoff (ADR 0006 G14)', () => {
       orders: orders(),
     });
 
+    expect(openCheckoutSession).toHaveBeenCalledWith(
+      expect.objectContaining({ contactCollection: 'email' }),
+    );
+    expect(openCheckoutSession.mock.calls[0]?.[0]).not.toHaveProperty('customerEmail');
     expect(handoff?.methods).toEqual(['card', 'apple_pay', 'google_pay', 'link']);
     expect(handoff?.provider).toBe('peable');
     // The cart's checkout session and the payer's secret over it are the ONLY
