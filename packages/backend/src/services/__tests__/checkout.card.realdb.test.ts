@@ -507,6 +507,7 @@ describe('card checkout on the Peable rail — single seller', () => {
     };
     expect(call.params).toEqual({
       mode: 'payment',
+      contact_collection: 'merchant_account',
       ui_mode: 'embedded',
       line_items: [
         {

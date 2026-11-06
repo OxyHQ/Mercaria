@@ -155,6 +155,17 @@ async function fakeGateway(request: FakeRequest): Promise<unknown> {
 
   const body = request.body ?? {};
 
+  if (request.method === 'POST' && request.path === '/v1/checkout_sessions') {
+    return {
+      id: 'cs_contact_fixture',
+      object: 'checkout.session',
+      client_secret: 'cs_contact_fixture_secret',
+      status: 'open',
+      payment_intent: null,
+      contact_collection: body.contact_collection,
+    };
+  }
+
   if (request.method === 'POST' && request.path === '/v1/payment_intents') {
     const key = request.idempotencyKey ?? '';
     const existing = intentsByKey.get(key);
@@ -753,6 +764,38 @@ describe('PeablePaymentProvider settlement', () => {
 });
 
 describe('published SDK HTTP parity', () => {
+  test.each(['email', 'merchant_account'] as const)(
+    'sends the server-owned %s contact policy on the session wire without copied contact',
+    async (contactCollection) => {
+      const provider = new PeablePaymentProvider();
+      const session = await provider.openCheckoutSession({
+        paymentId: 'pay-contact',
+        checkoutGroupId: 'group-contact',
+        currency: 'EUR',
+        lines: [
+          {
+            orderId: 'order-contact',
+            name: 'Order',
+            amountMinor: 1000,
+            providerAccountId: 'ca_seller',
+          },
+        ],
+        metadata: {},
+        idempotencyKey: 'cs:pay-contact',
+        expiresAt: 2100000000,
+        contactCollection,
+      });
+      expect(session.sessionId).toBe('cs_contact_fixture');
+      const sent = wire.find((entry) => entry.path === '/v1/checkout_sessions');
+      expect(sent?.body).toMatchObject({
+        mode: 'payment',
+        ui_mode: 'embedded',
+        contact_collection: contactCollection,
+      });
+      expect(sent?.body).not.toHaveProperty('customer_email');
+      expect(sent?.idempotencyKey).toBe('cs:pay-contact');
+    },
+  );
   const request = {
     paymentId: 'pay-http',
     checkoutGroupId: 'group-http',

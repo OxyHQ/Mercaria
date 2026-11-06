@@ -475,6 +475,8 @@ export interface OpenCheckoutSessionRequest {
   /** Unix seconds; the rail's own window applies (Peable: 30 min–24 h). */
   readonly expiresAt: number;
   readonly customerEmail?: string;
+  /** Merchant-owned account notifications, or payer-supplied receipt email. */
+  readonly contactCollection: 'email' | 'merchant_account';
   /**
    * Narrow what the session offers — `['faircoin']` for a fiat order the buyer
    * chose to pay in FairCoin. Omitted, the session offers every method the

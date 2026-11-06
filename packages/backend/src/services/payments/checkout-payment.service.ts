@@ -291,6 +291,10 @@ export async function openCheckoutPayment(input: {
         paymentId: payment.id,
         checkoutGroupId: input.checkoutGroupId,
         currency: amount.currency,
+        // Only the server-verified Oxy owner delegates receipt delivery to its account.
+        // Guests enter email directly through Peable's payer collection; never decrypt
+        // Mercaria's encrypted guest contact into the payment domain.
+        contactCollection: input.buyerOxyUserId ? 'merchant_account' : 'email',
         lines,
         idempotencyKey: `cs:${payment.id}`,
         metadata: buildPaymentMetadata({
