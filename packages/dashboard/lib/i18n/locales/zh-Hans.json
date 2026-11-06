@@ -2075,6 +2075,44 @@
         "pending": "请先接受佣金条款，您的店铺才能接收银行卡订单。",
         "none": "目前您的销售不收取平台佣金。",
         "action": "查看佣金条款"
+      },
+      "faircoin": {
+        "title": "FairCoin",
+        "action": "在 Peable 钱包中接收 FairCoin",
+        "openFailed": "无法打开 Peable 来设置 FairCoin",
+        "networkLabel": "网络",
+        "confirmedLabel": "确认于",
+        "network": {
+          "mainnet": "FairCoin 主网络",
+          "testnet": "FairCoin 测试网络"
+        },
+        "states": {
+          "notConnected": {
+            "heading": "尚未设置",
+            "body": "买家始终可以选择使用 FairCoin 付款。要接受它，请以拥有此店铺的账户登录 Peable，确认 FairCoin 将进入该账户的 Peable 钱包。无需复制任何密钥或地址。"
+          },
+          "pending": {
+            "heading": "等待你的确认",
+            "body": "请以拥有此店铺的账户登录 Peable 完成确认。在此之前，买家无法使用 FairCoin 向此店铺付款。"
+          },
+          "active": {
+            "heading": "正在接收 FairCoin",
+            "body": "使用 FairCoin 付款的买家会直接付款到拥有此店铺的账户的 Peable 钱包。Mercaria 从不持有这些款项，这些销售也不收取费用。"
+          },
+          "activeUnavailable": {
+            "heading": "已设置，但目前买家无法使用 FairCoin 付款",
+            "body": "你的 FairCoin 设置已确认。下方说明了目前无法使用的原因。"
+          }
+        },
+        "reasons": {
+          "walletMissing": "拥有此店铺的账户还没有 Peable 钱包。请以该账户打开 Peable 创建一个。",
+          "networkClosed": "Peable 尚未在此网络上开放 FairCoin 付款。你无需做任何操作：一旦开放，买家即可使用 FairCoin 付款。",
+          "priceUnavailable": "Peable 目前无法计算 FairCoin 金额。这通常会自行恢复。",
+          "temporarilyUnavailable": "Peable 的 FairCoin 付款暂时不可用。这通常会自行恢复。",
+          "sellerNotConnected": "尚未设置 FairCoin 付款。",
+          "sellerNotConfirmed": "尚未在 Peable 上确认 FairCoin 付款。",
+          "railDisabled": "此 Mercaria 部署尚不支持 FairCoin 付款。"
+        }
       }
     },
     "plan": {
@@ -2122,6 +2160,10 @@
         "trialing": {
           "body": "在试用结束前，你可以完整使用该套餐的附加功能。",
           "heading": "试用中"
+        },
+        "paymentPending": {
+          "body": "此套餐的首笔付款正在确认中。FairCoin 付款需要网络的几次确认。付款完成后，套餐的额外功能即会开启。",
+          "heading": "付款确认中"
         }
       },
       "subtitle": "你的店铺能获得什么，以及需要为此付多少钱",
@@ -2166,7 +2208,8 @@
       "notInCurrency": "此货币不可用。",
       "capabilityPerPeriod": "%{name} · 每个计费周期 %{limit}",
       "checkoutUnreadable": "Peable 暂时无法打开此付款。未产生任何扣款，请稍后重试。",
-      "checkoutMismatch": "此付款已与套餐价格不符。未产生任何扣款，请重新选择套餐。"
+      "checkoutMismatch": "此付款已与套餐价格不符。未产生任何扣款，请重新选择套餐。",
+      "changeAfterPayment": "首笔付款确认后，你就可以更换套餐。"
     },
     "policies": {
       "documentTitle": "政策 | Wholesale by Mercaria",

@@ -125,6 +125,44 @@
           "body": "Before your first card sale, accept Mercaria's fee on card sales. Until you do, buyers can't pay you by card.",
           "action": "Review the fee"
         }
+      },
+      "faircoin": {
+        "title": "FairCoin",
+        "action": "Receive FairCoin in your Peable wallet",
+        "openFailed": "Couldn't open Peable to set up FairCoin",
+        "networkLabel": "Network",
+        "confirmedLabel": "Confirmed on",
+        "network": {
+          "mainnet": "FairCoin main network",
+          "testnet": "FairCoin test network"
+        },
+        "states": {
+          "notConnected": {
+            "heading": "Not set up yet",
+            "body": "Buyers can always choose to pay in FairCoin. To accept it, confirm on Peable that FairCoin goes into your own Peable wallet. There is no key or address to copy."
+          },
+          "pending": {
+            "heading": "Waiting for your confirmation",
+            "body": "Finish on Peable, signed in with your Oxy account. Until then, buyers can't pay you in FairCoin."
+          },
+          "active": {
+            "heading": "Receiving FairCoin",
+            "body": "Buyers who pay in FairCoin pay straight into your Peable wallet. Mercaria never holds it, and these sales carry no fee."
+          },
+          "activeUnavailable": {
+            "heading": "Set up, but buyers can't pay in FairCoin right now",
+            "body": "Your FairCoin setup is confirmed. The reason below is why it can't be used at the moment."
+          }
+        },
+        "reasons": {
+          "walletMissing": "Your Oxy account has no Peable wallet yet. Open Peable to create one.",
+          "networkClosed": "Peable has not opened FairCoin payments on this network yet. There is nothing for you to do: buyers can pay in FairCoin as soon as it does.",
+          "priceUnavailable": "Peable can't work out FairCoin amounts right now. This usually clears on its own.",
+          "temporarilyUnavailable": "FairCoin payments are briefly unavailable at Peable. This usually clears on its own.",
+          "sellerNotConnected": "FairCoin payments are not set up yet.",
+          "sellerNotConfirmed": "FairCoin payments have not been confirmed on Peable yet.",
+          "railDisabled": "FairCoin payments are not available on this Mercaria deployment yet."
+        }
       }
     }
   },

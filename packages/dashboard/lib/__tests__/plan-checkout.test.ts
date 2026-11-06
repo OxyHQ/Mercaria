@@ -48,3 +48,9 @@ describe('a plan bought in the Peable sheet', () => {
     expect(sheetInterval('monthly')).toBe('month');
   });
 });
+
+describe('a plan whose first payment is still confirming', () => {
+  it('keeps the sheet waiting — a FairCoin payment in flight is not a plan the store has', () => {
+    expect(planCheckoutOutcome('complete', status('payment_pending'))).toBeNull();
+  });
+});

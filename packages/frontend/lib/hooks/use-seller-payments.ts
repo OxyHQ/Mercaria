@@ -7,6 +7,7 @@ import type {
 } from '@mercaria/shared-types';
 import {
   acceptSellerFeeSchedule,
+  createSellerFaircoinLink,
   createSellerOnboardingLink,
   fetchSellerFeeSchedule,
   fetchSellerPaymentSettings,
@@ -33,6 +34,14 @@ export function useCreateSellerOnboardingLink() {
   return useMutation({
     mutationFn: (input: { country?: string }) => createSellerOnboardingLink(input.country),
   });
+}
+
+/**
+ * Mint the FairCoin confirmation link. Does not invalidate, like the card link:
+ * the seller confirms on Peable's page and the page refreshes after it.
+ */
+export function useCreateSellerFaircoinLink() {
+  return useMutation({ mutationFn: () => createSellerFaircoinLink() });
 }
 
 /** Ask Peable to re-read the account and put its answer in the cache. */

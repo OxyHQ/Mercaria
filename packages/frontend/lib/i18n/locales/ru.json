@@ -127,6 +127,44 @@
           "body": "Перед первой продажей по карте примите комиссию Mercaria с продаж по карте. До этого покупатели не смогут оплатить вам картой.",
           "action": "Посмотреть комиссию"
         }
+      },
+      "faircoin": {
+        "title": "FairCoin",
+        "action": "Получать FairCoin в кошелёк Peable",
+        "openFailed": "Не удалось открыть Peable для настройки FairCoin",
+        "networkLabel": "Сеть",
+        "confirmedLabel": "Подтверждено",
+        "network": {
+          "mainnet": "Основная сеть FairCoin",
+          "testnet": "Тестовая сеть FairCoin"
+        },
+        "states": {
+          "notConnected": {
+            "heading": "Ещё не настроено",
+            "body": "Покупатели всегда могут выбрать оплату в FairCoin. Чтобы принимать её, подтвердите в Peable, что FairCoin поступает в ваш собственный кошелёк Peable. Никаких ключей или адресов копировать не нужно."
+          },
+          "pending": {
+            "heading": "Ожидает вашего подтверждения",
+            "body": "Завершите в Peable под своим аккаунтом Oxy. До этого покупатели не смогут заплатить вам в FairCoin."
+          },
+          "active": {
+            "heading": "Приём FairCoin включён",
+            "body": "Покупатели, которые платят в FairCoin, платят напрямую в ваш кошелёк Peable. Mercaria никогда его не держит, и с этих продаж нет комиссии."
+          },
+          "activeUnavailable": {
+            "heading": "Настроено, но сейчас оплатить в FairCoin нельзя",
+            "body": "Настройка FairCoin подтверждена. Ниже указана причина, по которой ею сейчас нельзя воспользоваться."
+          }
+        },
+        "reasons": {
+          "walletMissing": "У вашего аккаунта Oxy ещё нет кошелька Peable. Откройте Peable, чтобы создать его.",
+          "networkClosed": "Peable ещё не открыл платежи в FairCoin в этой сети. Вам ничего делать не нужно: покупатели смогут платить в FairCoin, как только это произойдёт.",
+          "priceUnavailable": "Peable сейчас не может рассчитать суммы в FairCoin. Обычно это проходит само.",
+          "temporarilyUnavailable": "Платежи в FairCoin в Peable ненадолго недоступны. Обычно это проходит само.",
+          "sellerNotConnected": "Платежи в FairCoin ещё не настроены.",
+          "sellerNotConfirmed": "Платежи в FairCoin ещё не подтверждены в Peable.",
+          "railDisabled": "Платежи в FairCoin пока недоступны в этой установке Mercaria."
+        }
       }
     }
   },

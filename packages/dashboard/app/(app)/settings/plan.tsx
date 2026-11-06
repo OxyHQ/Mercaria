@@ -165,6 +165,10 @@ function AlwaysIncluded() {
  * language loaded first. `CurrentPlan` resolves them per render.
  */
 const STATUS_COPY: Record<MerchantSubscriptionStatus, { headingKey: string; bodyKey: string }> = {
+  payment_pending: {
+    headingKey: 'settings.plan.statuses.paymentPending.heading',
+    bodyKey: 'settings.plan.statuses.paymentPending.body',
+  },
   trialing: {
     headingKey: 'settings.plan.statuses.trialing.heading',
     bodyKey: 'settings.plan.statuses.trialing.body',
@@ -199,6 +203,9 @@ function CurrentPlan({ storeId, status }: { storeId: string; status: MerchantPla
   const refresh = useRefreshPlan(storeId);
   const subscription = status.subscription;
   const copy = subscription ? STATUS_COPY[subscription.status] : undefined;
+  // A first payment still confirming has not started a period the plan renews
+  // from, and there is nothing to cancel yet: the rail ends an unpaid one itself.
+  const pending = subscription?.status === 'payment_pending';
   // Three plain dates, never a countdown. Each is bound here rather than
   // formatted inline so the null a bad instant produces guards its own
   // sentence: every one of them NAMES its date, and i18n-js renders a
@@ -208,7 +215,7 @@ function CurrentPlan({ storeId, status }: { storeId: string; status: MerchantPla
     : null;
   const endsOn = subscription?.cancelAt ? formatDate(subscription.cancelAt, locale) : null;
   const renewsOn =
-    subscription?.currentPeriodEnd && !subscription.cancelAt
+    subscription?.currentPeriodEnd && !subscription.cancelAt && !pending
       ? formatDate(subscription.currentPeriodEnd, locale)
       : null;
 
@@ -267,7 +274,7 @@ function CurrentPlan({ storeId, status }: { storeId: string; status: MerchantPla
           <Button tone="accent" onPress={openPortal} disabled={portal.isPending || opening}>
             {t('settings.plan.manageBilling')}
           </Button>
-          {subscription && !subscription.cancelAt ? (
+          {subscription && !subscription.cancelAt && !pending ? (
             <Button
               appearance="outline"
               tone="neutral"
@@ -327,8 +334,12 @@ function Entitlements({ entitlements }: { entitlements: readonly MerchantEntitle
 /** The currencies a store can be billed in, in the order the picker shows them. */
 const BILLING_CURRENCIES = ['USD', 'EUR'] as const;
 
-/** A subscription that still bills — anything but ended. */
+/**
+ * A subscription that still bills — anything but ended. `payment_pending` is
+ * live: its first payment is confirming, and a second checkout would pay twice.
+ */
 const LIVE: readonly MerchantSubscriptionStatus[] = [
+  'payment_pending',
   'trialing',
   'active',
   'past_due',
@@ -537,6 +548,12 @@ function PlanCard({
       {current ? (
         <Text className="text-sm font-medium text-foreground">
           {t('settings.plan.currentPlan')}
+        </Text>
+      ) : subscription?.status === 'payment_pending' ? (
+        // The server refuses a change or a second checkout until the first
+        // payment settles; say so instead of offering a button it refuses.
+        <Text className="text-xs text-muted-foreground">
+          {t('settings.plan.changeAfterPayment')}
         </Text>
       ) : status.billingAvailable && price ? (
         live ? (

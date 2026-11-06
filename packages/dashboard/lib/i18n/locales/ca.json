@@ -2095,6 +2095,44 @@
         "pending": "Accepta les condicions de la comissió perquè la teva botiga pugui rebre comandes amb targeta.",
         "none": "Avui no s'aplica cap comissió del marketplace a les teves vendes.",
         "action": "Veure les condicions de la comissió"
+      },
+      "faircoin": {
+        "title": "FairCoin",
+        "action": "Rep FairCoin al teu moneder Peable",
+        "openFailed": "No s'ha pogut obrir Peable per configurar FairCoin",
+        "networkLabel": "Xarxa",
+        "confirmedLabel": "Confirmat el",
+        "network": {
+          "mainnet": "Xarxa principal de FairCoin",
+          "testnet": "Xarxa de proves de FairCoin"
+        },
+        "states": {
+          "notConnected": {
+            "heading": "Encara sense configurar",
+            "body": "Els compradors sempre poden triar pagar amb FairCoin. Per acceptar-ho, confirma a Peable, amb la sessió del compte propietari d'aquesta botiga, que FairCoin arriba al moneder Peable d'aquest compte. No hi ha cap clau ni adreça per copiar."
+          },
+          "pending": {
+            "heading": "Esperant la teva confirmació",
+            "body": "Acaba a Peable amb la sessió del compte propietari d'aquesta botiga. Fins aleshores, els compradors no poden pagar a aquesta botiga amb FairCoin."
+          },
+          "active": {
+            "heading": "Rebent FairCoin",
+            "body": "Qui paga amb FairCoin paga directament al moneder Peable del compte propietari d'aquesta botiga. Mercaria no el reté mai i aquestes vendes no tenen comissió."
+          },
+          "activeUnavailable": {
+            "heading": "Configurat, però ara mateix no es pot pagar amb FairCoin",
+            "body": "La teva configuració de FairCoin està confirmada. El motiu de sota explica per què no es pot fer servir ara mateix."
+          }
+        },
+        "reasons": {
+          "walletMissing": "El compte propietari d'aquesta botiga encara no té moneder Peable. Obre Peable amb la sessió d'aquest compte per crear-lo.",
+          "networkClosed": "Peable encara no ha obert els pagaments amb FairCoin en aquesta xarxa. No has de fer res: els compradors podran pagar amb FairCoin tan aviat com ho faci.",
+          "priceUnavailable": "Peable no pot calcular imports en FairCoin ara mateix. Normalment es resol sol.",
+          "temporarilyUnavailable": "Els pagaments amb FairCoin no estan disponibles a Peable per un moment. Normalment es resol sol.",
+          "sellerNotConnected": "Els pagaments amb FairCoin encara no estan configurats.",
+          "sellerNotConfirmed": "Els pagaments amb FairCoin encara no s'han confirmat a Peable.",
+          "railDisabled": "Els pagaments amb FairCoin encara no estan disponibles en aquesta instal·lació de Mercaria."
+        }
       }
     },
     "plan": {
@@ -2142,6 +2180,10 @@
         "trialing": {
           "body": "Tens accés complet als extres d'aquest pla fins que acabi la prova.",
           "heading": "Prova en curs"
+        },
+        "paymentPending": {
+          "body": "S'està confirmant el teu primer pagament d'aquest pla. Un pagament amb FairCoin necessita algunes confirmacions de la xarxa. Els avantatges del pla comencen tan aviat com quedi pagat.",
+          "heading": "Confirmant el pagament"
         }
       },
       "subtitle": "Què obté la teva botiga i què en pagues",
@@ -2187,7 +2229,8 @@
       "notInCurrency": "No disponible en aquesta moneda.",
       "capabilityPerPeriod": "%{name} · %{limit} per període de facturació",
       "checkoutUnreadable": "Peable no ha pogut obrir aquest pagament ara. No s'ha cobrat res; torna-ho a provar d'aquí a un moment.",
-      "checkoutMismatch": "Aquest pagament ja no coincideix amb el preu del pla. No s'ha cobrat res; torna a triar el pla."
+      "checkoutMismatch": "Aquest pagament ja no coincideix amb el preu del pla. No s'ha cobrat res; torna a triar el pla.",
+      "changeAfterPayment": "Podràs canviar de pla quan es confirmi el teu primer pagament."
     },
     "policies": {
       "documentTitle": "Polítiques | Wholesale by Mercaria",

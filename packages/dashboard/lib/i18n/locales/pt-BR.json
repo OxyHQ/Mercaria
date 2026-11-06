@@ -2095,6 +2095,44 @@
         "pending": "Aceite os termos da taxa para que sua loja possa receber pedidos com cartão.",
         "none": "Nenhuma taxa do marketplace se aplica às suas vendas hoje.",
         "action": "Ver os termos da taxa"
+      },
+      "faircoin": {
+        "title": "FairCoin",
+        "action": "Receber FairCoin na sua carteira Peable",
+        "openFailed": "Não foi possível abrir o Peable para configurar o FairCoin",
+        "networkLabel": "Rede",
+        "confirmedLabel": "Confirmado em",
+        "network": {
+          "mainnet": "Rede principal do FairCoin",
+          "testnet": "Rede de testes do FairCoin"
+        },
+        "states": {
+          "notConnected": {
+            "heading": "Ainda não configurado",
+            "body": "Os compradores sempre podem escolher pagar com FairCoin. Para aceitar, confirme no Peable, conectado com a conta dona desta loja, que o FairCoin vai para a carteira Peable dessa conta. Não há chave nem endereço para copiar."
+          },
+          "pending": {
+            "heading": "Aguardando sua confirmação",
+            "body": "Conclua no Peable, conectado com a conta dona desta loja. Até lá, os compradores não podem pagar esta loja com FairCoin."
+          },
+          "active": {
+            "heading": "Recebendo FairCoin",
+            "body": "Quem paga com FairCoin paga direto na carteira Peable da conta dona desta loja. O Mercaria nunca fica com ele, e essas vendas não têm taxa."
+          },
+          "activeUnavailable": {
+            "heading": "Configurado, mas no momento não é possível pagar com FairCoin",
+            "body": "Sua configuração de FairCoin está confirmada. O motivo abaixo explica por que ela não pode ser usada agora."
+          }
+        },
+        "reasons": {
+          "walletMissing": "A conta dona desta loja ainda não tem carteira Peable. Abra o Peable conectado com essa conta para criar uma.",
+          "networkClosed": "O Peable ainda não abriu pagamentos com FairCoin nesta rede. Você não precisa fazer nada: os compradores poderão pagar com FairCoin assim que isso acontecer.",
+          "priceUnavailable": "O Peable não consegue calcular valores em FairCoin agora. Isso costuma se resolver sozinho.",
+          "temporarilyUnavailable": "Os pagamentos com FairCoin estão indisponíveis no Peable por um momento. Isso costuma se resolver sozinho.",
+          "sellerNotConnected": "Os pagamentos com FairCoin ainda não estão configurados.",
+          "sellerNotConfirmed": "Os pagamentos com FairCoin ainda não foram confirmados no Peable.",
+          "railDisabled": "Os pagamentos com FairCoin ainda não estão disponíveis nesta instalação do Mercaria."
+        }
       }
     },
     "plan": {
@@ -2142,6 +2180,10 @@
         "trialing": {
           "body": "Você tem acesso completo aos extras deste plano até o fim do período de teste.",
           "heading": "Teste em andamento"
+        },
+        "paymentPending": {
+          "body": "Seu primeiro pagamento deste plano está sendo confirmado. Um pagamento com FairCoin precisa de algumas confirmações da rede. Os extras do plano começam assim que ele for pago.",
+          "heading": "Confirmando o pagamento"
         }
       },
       "subtitle": "O que sua loja recebe e quanto você paga por isso",
@@ -2187,7 +2229,8 @@
       "notInCurrency": "Indisponível nesta moeda.",
       "capabilityPerPeriod": "%{name} · %{limit} por período de cobrança",
       "checkoutUnreadable": "O Peable não conseguiu abrir este pagamento agora. Nada foi cobrado — tente de novo em instantes.",
-      "checkoutMismatch": "Este pagamento não corresponde mais ao preço do plano. Nada foi cobrado — escolha o plano de novo."
+      "checkoutMismatch": "Este pagamento não corresponde mais ao preço do plano. Nada foi cobrado — escolha o plano de novo.",
+      "changeAfterPayment": "Você poderá trocar de plano quando seu primeiro pagamento for confirmado."
     },
     "policies": {
       "documentTitle": "Políticas | Wholesale by Mercaria",

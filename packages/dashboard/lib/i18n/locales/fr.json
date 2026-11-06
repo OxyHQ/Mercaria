@@ -2095,6 +2095,44 @@
         "pending": "Acceptez les conditions de la commission pour que votre boutique puisse recevoir des commandes par carte.",
         "none": "Aucune commission de la marketplace ne s'applique à vos ventes aujourd'hui.",
         "action": "Voir les conditions de la commission"
+      },
+      "faircoin": {
+        "title": "FairCoin",
+        "action": "Recevoir des FairCoin dans votre portefeuille Peable",
+        "openFailed": "Impossible d'ouvrir Peable pour configurer FairCoin",
+        "networkLabel": "Réseau",
+        "confirmedLabel": "Confirmé le",
+        "network": {
+          "mainnet": "Réseau principal FairCoin",
+          "testnet": "Réseau de test FairCoin"
+        },
+        "states": {
+          "notConnected": {
+            "heading": "Pas encore configuré",
+            "body": "Les acheteurs peuvent toujours choisir de payer en FairCoin. Pour l'accepter, confirmez sur Peable, connecté avec le compte propriétaire de cette boutique, que les FairCoin arrivent dans le portefeuille Peable de ce compte. Aucune clé ni adresse à copier."
+          },
+          "pending": {
+            "heading": "En attente de votre confirmation",
+            "body": "Terminez sur Peable, connecté avec le compte propriétaire de cette boutique. D'ici là, les acheteurs ne peuvent pas payer cette boutique en FairCoin."
+          },
+          "active": {
+            "heading": "Réception des FairCoin activée",
+            "body": "Les acheteurs qui paient en FairCoin paient directement dans le portefeuille Peable du compte propriétaire de cette boutique. Mercaria ne les détient jamais, et ces ventes sont sans commission."
+          },
+          "activeUnavailable": {
+            "heading": "Configuré, mais les acheteurs ne peuvent pas payer en FairCoin pour l'instant",
+            "body": "Votre configuration FairCoin est confirmée. Le motif ci-dessous explique pourquoi elle ne peut pas être utilisée pour le moment."
+          }
+        },
+        "reasons": {
+          "walletMissing": "Le compte propriétaire de cette boutique n'a pas encore de portefeuille Peable. Ouvrez Peable avec ce compte pour en créer un.",
+          "networkClosed": "Peable n'a pas encore ouvert les paiements FairCoin sur ce réseau. Vous n'avez rien à faire : les acheteurs pourront payer en FairCoin dès que ce sera le cas.",
+          "priceUnavailable": "Peable ne peut pas calculer les montants en FairCoin pour le moment. Cela se règle généralement tout seul.",
+          "temporarilyUnavailable": "Les paiements FairCoin sont brièvement indisponibles chez Peable. Cela se règle généralement tout seul.",
+          "sellerNotConnected": "Les paiements FairCoin ne sont pas encore configurés.",
+          "sellerNotConfirmed": "Les paiements FairCoin n'ont pas encore été confirmés sur Peable.",
+          "railDisabled": "Les paiements FairCoin ne sont pas encore disponibles sur ce déploiement de Mercaria."
+        }
       }
     },
     "plan": {
@@ -2142,6 +2180,10 @@
         "trialing": {
           "body": "Vous avez accès à toutes les options de ce forfait jusqu’à la fin de l’essai.",
           "heading": "Essai en cours"
+        },
+        "paymentPending": {
+          "body": "Votre premier paiement pour ce forfait est en cours de confirmation. Un paiement en FairCoin nécessite quelques confirmations du réseau. Les avantages du forfait commencent dès qu'il est payé.",
+          "heading": "Paiement en cours de confirmation"
         }
       },
       "subtitle": "Ce que votre boutique obtient, et ce que vous payez pour cela",
@@ -2187,7 +2229,8 @@
       "notInCurrency": "Non disponible dans cette devise.",
       "capabilityPerPeriod": "%{name} · %{limit} par période de facturation",
       "checkoutUnreadable": "Peable n'a pas pu ouvrir ce paiement pour l'instant. Rien n'a été débité : réessayez dans un instant.",
-      "checkoutMismatch": "Ce paiement ne correspond plus au prix de l'offre. Rien n'a été débité : choisissez de nouveau l'offre."
+      "checkoutMismatch": "Ce paiement ne correspond plus au prix de l'offre. Rien n'a été débité : choisissez de nouveau l'offre.",
+      "changeAfterPayment": "Vous pourrez changer de forfait une fois votre premier paiement confirmé."
     },
     "policies": {
       "documentTitle": "Politiques | Wholesale by Mercaria",

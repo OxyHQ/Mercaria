@@ -2076,6 +2076,44 @@
         "pending": "Akzeptiere die Gebührenbedingungen, damit dein Shop Kartenbestellungen annehmen kann.",
         "none": "Für deine Verkäufe fällt derzeit keine Marktplatzgebühr an.",
         "action": "Gebührenbedingungen ansehen"
+      },
+      "faircoin": {
+        "title": "FairCoin",
+        "action": "FairCoin in deiner Peable-Wallet empfangen",
+        "openFailed": "Peable konnte zum Einrichten von FairCoin nicht geöffnet werden",
+        "networkLabel": "Netzwerk",
+        "confirmedLabel": "Bestätigt am",
+        "network": {
+          "mainnet": "FairCoin-Hauptnetz",
+          "testnet": "FairCoin-Testnetz"
+        },
+        "states": {
+          "notConnected": {
+            "heading": "Noch nicht eingerichtet",
+            "body": "Käufer können immer mit FairCoin bezahlen. Um das anzunehmen, bestätige bei Peable, angemeldet mit dem Konto, dem dieser Shop gehört, dass FairCoin in die Peable-Wallet dieses Kontos geht. Es gibt keinen Schlüssel und keine Adresse zu kopieren."
+          },
+          "pending": {
+            "heading": "Wartet auf deine Bestätigung",
+            "body": "Schließe den Schritt bei Peable ab, angemeldet mit dem Konto, dem dieser Shop gehört. Bis dahin können Käufer diesen Shop nicht mit FairCoin bezahlen."
+          },
+          "active": {
+            "heading": "FairCoin-Empfang aktiv",
+            "body": "Wer mit FairCoin bezahlt, zahlt direkt in die Peable-Wallet des Kontos, dem dieser Shop gehört. Mercaria verwahrt es nie, und für diese Verkäufe fällt keine Gebühr an."
+          },
+          "activeUnavailable": {
+            "heading": "Eingerichtet, aber gerade ist keine Zahlung mit FairCoin möglich",
+            "body": "Deine FairCoin-Einrichtung ist bestätigt. Der Grund unten erklärt, warum sie gerade nicht genutzt werden kann."
+          }
+        },
+        "reasons": {
+          "walletMissing": "Das Konto, dem dieser Shop gehört, hat noch keine Peable-Wallet. Öffne Peable mit diesem Konto, um eine anzulegen.",
+          "networkClosed": "Peable hat FairCoin-Zahlungen in diesem Netzwerk noch nicht geöffnet. Du musst nichts tun: Käufer können mit FairCoin bezahlen, sobald es so weit ist.",
+          "priceUnavailable": "Peable kann FairCoin-Beträge gerade nicht ermitteln. Das löst sich meist von selbst.",
+          "temporarilyUnavailable": "FairCoin-Zahlungen sind bei Peable kurzzeitig nicht verfügbar. Das löst sich meist von selbst.",
+          "sellerNotConnected": "FairCoin-Zahlungen sind noch nicht eingerichtet.",
+          "sellerNotConfirmed": "FairCoin-Zahlungen wurden bei Peable noch nicht bestätigt.",
+          "railDisabled": "FairCoin-Zahlungen sind in dieser Mercaria-Installation noch nicht verfügbar."
+        }
       }
     },
     "plan": {
@@ -2123,6 +2161,10 @@
         "trialing": {
           "body": "Sie haben vollen Zugriff auf die Zusatzleistungen dieses Tarifs, bis die Testphase endet.",
           "heading": "Testphase läuft"
+        },
+        "paymentPending": {
+          "body": "Deine erste Zahlung für diesen Tarif wird bestätigt. Eine FairCoin-Zahlung braucht einige Bestätigungen im Netzwerk. Die Extras des Tarifs starten, sobald sie bezahlt ist.",
+          "heading": "Zahlung wird bestätigt"
         }
       },
       "subtitle": "Was Ihr Shop bekommt und was Sie dafür zahlen",
@@ -2167,7 +2209,8 @@
       "notInCurrency": "In dieser Währung nicht verfügbar.",
       "capabilityPerPeriod": "%{name} · %{limit} pro Abrechnungszeitraum",
       "checkoutUnreadable": "Peable konnte diese Zahlung gerade nicht öffnen. Es wurde nichts belastet – versuche es gleich noch einmal.",
-      "checkoutMismatch": "Diese Zahlung passt nicht mehr zum Preis des Tarifs. Es wurde nichts belastet – wähle den Tarif erneut."
+      "checkoutMismatch": "Diese Zahlung passt nicht mehr zum Preis des Tarifs. Es wurde nichts belastet – wähle den Tarif erneut.",
+      "changeAfterPayment": "Du kannst den Tarif wechseln, sobald deine erste Zahlung bestätigt ist."
     },
     "policies": {
       "documentTitle": "Richtlinien | Wholesale by Mercaria",

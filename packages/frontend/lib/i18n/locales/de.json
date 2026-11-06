@@ -125,6 +125,44 @@
           "body": "Akzeptiere vor deinem ersten Kartenverkauf die Gebühr von Mercaria auf Kartenverkäufe. Bis dahin können Käufer dich nicht per Karte bezahlen.",
           "action": "Gebühr ansehen"
         }
+      },
+      "faircoin": {
+        "title": "FairCoin",
+        "action": "FairCoin in deiner Peable-Wallet empfangen",
+        "openFailed": "Peable konnte zum Einrichten von FairCoin nicht geöffnet werden",
+        "networkLabel": "Netzwerk",
+        "confirmedLabel": "Bestätigt am",
+        "network": {
+          "mainnet": "FairCoin-Hauptnetz",
+          "testnet": "FairCoin-Testnetz"
+        },
+        "states": {
+          "notConnected": {
+            "heading": "Noch nicht eingerichtet",
+            "body": "Käufer können immer mit FairCoin bezahlen. Um das anzunehmen, bestätige bei Peable, dass FairCoin in deine eigene Peable-Wallet geht. Es gibt keinen Schlüssel und keine Adresse zu kopieren."
+          },
+          "pending": {
+            "heading": "Wartet auf deine Bestätigung",
+            "body": "Schließe den Schritt bei Peable mit deinem Oxy-Konto ab. Bis dahin können Käufer dich nicht mit FairCoin bezahlen."
+          },
+          "active": {
+            "heading": "FairCoin-Empfang aktiv",
+            "body": "Wer mit FairCoin bezahlt, zahlt direkt in deine Peable-Wallet. Mercaria verwahrt es nie, und für diese Verkäufe fällt keine Gebühr an."
+          },
+          "activeUnavailable": {
+            "heading": "Eingerichtet, aber gerade ist keine Zahlung mit FairCoin möglich",
+            "body": "Deine FairCoin-Einrichtung ist bestätigt. Der Grund unten erklärt, warum sie gerade nicht genutzt werden kann."
+          }
+        },
+        "reasons": {
+          "walletMissing": "Dein Oxy-Konto hat noch keine Peable-Wallet. Öffne Peable, um eine anzulegen.",
+          "networkClosed": "Peable hat FairCoin-Zahlungen in diesem Netzwerk noch nicht geöffnet. Du musst nichts tun: Käufer können mit FairCoin bezahlen, sobald es so weit ist.",
+          "priceUnavailable": "Peable kann FairCoin-Beträge gerade nicht ermitteln. Das löst sich meist von selbst.",
+          "temporarilyUnavailable": "FairCoin-Zahlungen sind bei Peable kurzzeitig nicht verfügbar. Das löst sich meist von selbst.",
+          "sellerNotConnected": "FairCoin-Zahlungen sind noch nicht eingerichtet.",
+          "sellerNotConfirmed": "FairCoin-Zahlungen wurden bei Peable noch nicht bestätigt.",
+          "railDisabled": "FairCoin-Zahlungen sind in dieser Mercaria-Installation noch nicht verfügbar."
+        }
       }
     }
   },

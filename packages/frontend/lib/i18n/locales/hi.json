@@ -125,6 +125,44 @@
           "body": "अपनी पहली कार्ड बिक्री से पहले, कार्ड बिक्री पर Mercaria का शुल्क स्वीकार करें। तब तक खरीदार आपको कार्ड से भुगतान नहीं कर सकते।",
           "action": "शुल्क देखें"
         }
+      },
+      "faircoin": {
+        "title": "FairCoin",
+        "action": "अपने Peable वॉलेट में FairCoin पाएँ",
+        "openFailed": "FairCoin सेट अप करने के लिए Peable नहीं खुल सका",
+        "networkLabel": "नेटवर्क",
+        "confirmedLabel": "पुष्टि की तारीख",
+        "network": {
+          "mainnet": "FairCoin मुख्य नेटवर्क",
+          "testnet": "FairCoin परीक्षण नेटवर्क"
+        },
+        "states": {
+          "notConnected": {
+            "heading": "अभी सेट अप नहीं है",
+            "body": "खरीदार हमेशा FairCoin से भुगतान चुन सकते हैं। इसे स्वीकार करने के लिए, Peable पर पुष्टि करें कि FairCoin आपके अपने Peable वॉलेट में जाएगा। कॉपी करने के लिए कोई की या पता नहीं है।"
+          },
+          "pending": {
+            "heading": "आपकी पुष्टि की प्रतीक्षा है",
+            "body": "अपने Oxy खाते से Peable पर पूरा करें। तब तक खरीदार आपको FairCoin से भुगतान नहीं कर सकते।"
+          },
+          "active": {
+            "heading": "FairCoin प्राप्त हो रहा है",
+            "body": "FairCoin से भुगतान करने वाले खरीदार सीधे आपके Peable वॉलेट में भुगतान करते हैं। Mercaria इसे कभी अपने पास नहीं रखता, और इन बिक्रियों पर कोई शुल्क नहीं है।"
+          },
+          "activeUnavailable": {
+            "heading": "सेट अप है, लेकिन अभी खरीदार FairCoin से भुगतान नहीं कर सकते",
+            "body": "आपका FairCoin सेटअप पुष्ट है। नीचे दिया गया कारण बताता है कि इसे अभी क्यों इस्तेमाल नहीं किया जा सकता।"
+          }
+        },
+        "reasons": {
+          "walletMissing": "आपके Oxy खाते का अभी कोई Peable वॉलेट नहीं है। एक बनाने के लिए Peable खोलें।",
+          "networkClosed": "Peable ने इस नेटवर्क पर अभी FairCoin भुगतान शुरू नहीं किए हैं। आपको कुछ नहीं करना है: शुरू होते ही खरीदार FairCoin से भुगतान कर सकेंगे।",
+          "priceUnavailable": "Peable अभी FairCoin राशियाँ तय नहीं कर पा रहा है। यह आमतौर पर अपने आप ठीक हो जाता है।",
+          "temporarilyUnavailable": "Peable पर FairCoin भुगतान कुछ समय के लिए उपलब्ध नहीं हैं। यह आमतौर पर अपने आप ठीक हो जाता है।",
+          "sellerNotConnected": "FairCoin भुगतान अभी सेट अप नहीं हैं।",
+          "sellerNotConfirmed": "FairCoin भुगतानों की Peable पर अभी पुष्टि नहीं हुई है।",
+          "railDisabled": "इस Mercaria डिप्लॉयमेंट पर FairCoin भुगतान अभी उपलब्ध नहीं हैं।"
+        }
       }
     }
   },

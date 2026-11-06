@@ -180,8 +180,15 @@ export async function startMerchantPlanCheckout(
   // that the store's row could only record by overwriting the first — which
   // would keep billing with nothing in Mercaria pointing at it. A store that
   // already pays changes plan instead (`changeMerchantPlan`); one whose plan
-  // has ENDED (`expired`) starts afresh here.
+  // has ENDED (`expired`) starts afresh here. One whose first payment is still
+  // confirming (`payment_pending`) is not ended: a second checkout would pay for
+  // the same plan twice while the first payment settles.
   const live = await findSubscriptionByStore(db, input.storeId);
+  if (live?.status === 'payment_pending') {
+    throw conflict(
+      'This store’s first payment for a plan is still being confirmed. Wait for it to settle.',
+    );
+  }
   if (live && live.status !== 'expired') {
     throw conflict(
       'This store already has a plan. Change plan instead of starting a second subscription.',
@@ -269,8 +276,8 @@ export interface ChangeMerchantPlanInput {
  * upgrade is paid now, a downgrade leaves a credit — and the snapshot it
  * answers is applied through the one path every provider change takes.
  *
- * Refused while the store's last payment failed (`past_due`) or the plan is
- * paused: settling billing comes first, and a proration invoice on top of an
+ * Refused while the first payment is still confirming (`payment_pending`), the
+ * store's last payment failed (`past_due`) or the plan is paused: settling billing comes first, and a proration invoice on top of an
  * unpaid one would only add to what is owed. The currency must be the one the
  * subscription already bills in — the rail invoices one currency per
  * subscription.
@@ -288,6 +295,11 @@ export async function changeMerchantPlan(
   const subscription = await findSubscriptionByStore(db, input.storeId);
   if (!subscription || subscription.status === 'expired') {
     throw conflict('This store has no plan to change. Choose a plan instead.');
+  }
+  if (subscription.status === 'payment_pending') {
+    throw conflict(
+      'This plan’s first payment is still being confirmed. Change plan once it is paid.',
+    );
   }
   if (subscription.status === 'past_due' || subscription.status === 'paused') {
     throw conflict('Settle this store’s billing before changing plan.');

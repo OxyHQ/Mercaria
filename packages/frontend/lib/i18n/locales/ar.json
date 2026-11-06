@@ -129,6 +129,44 @@
           "body": "قبل أول بيع لك بالبطاقة، اقبل عمولة Mercaria على المبيعات بالبطاقة. وحتى ذلك الحين، لا يمكن للمشترين الدفع لك بالبطاقة.",
           "action": "مراجعة العمولة"
         }
+      },
+      "faircoin": {
+        "title": "FairCoin",
+        "action": "استلم FairCoin في محفظة Peable الخاصة بك",
+        "openFailed": "تعذّر فتح Peable لإعداد FairCoin",
+        "networkLabel": "الشبكة",
+        "confirmedLabel": "تاريخ التأكيد",
+        "network": {
+          "mainnet": "شبكة FairCoin الرئيسية",
+          "testnet": "شبكة FairCoin التجريبية"
+        },
+        "states": {
+          "notConnected": {
+            "heading": "لم يتم الإعداد بعد",
+            "body": "يمكن للمشترين دائمًا اختيار الدفع بـ FairCoin. لقبوله، أكّد على Peable أن FairCoin يذهب إلى محفظة Peable الخاصة بك. لا يوجد مفتاح أو عنوان لنسخه."
+          },
+          "pending": {
+            "heading": "بانتظار تأكيدك",
+            "body": "أكمل على Peable بحساب Oxy الخاص بك. حتى ذلك الحين، لا يمكن للمشترين الدفع لك بـ FairCoin."
+          },
+          "active": {
+            "heading": "استلام FairCoin مفعّل",
+            "body": "المشترون الذين يدفعون بـ FairCoin يدفعون مباشرةً إلى محفظة Peable الخاصة بك. لا يحتفظ Mercaria به أبدًا، ولا توجد رسوم على هذه المبيعات."
+          },
+          "activeUnavailable": {
+            "heading": "تم الإعداد، لكن لا يمكن للمشترين الدفع بـ FairCoin حاليًا",
+            "body": "تم تأكيد إعداد FairCoin الخاص بك. يوضح السبب أدناه لماذا لا يمكن استخدامه في الوقت الحالي."
+          }
+        },
+        "reasons": {
+          "walletMissing": "حساب Oxy الخاص بك ليست لديه محفظة Peable بعد. افتح Peable لإنشاء واحدة.",
+          "networkClosed": "لم يفتح Peable مدفوعات FairCoin على هذه الشبكة بعد. لا يلزمك فعل أي شيء: سيتمكن المشترون من الدفع بـ FairCoin فور فتحها.",
+          "priceUnavailable": "لا يستطيع Peable حساب مبالغ FairCoin حاليًا. عادةً ما يُحل ذلك تلقائيًا.",
+          "temporarilyUnavailable": "مدفوعات FairCoin غير متاحة مؤقتًا لدى Peable. عادةً ما يُحل ذلك تلقائيًا.",
+          "sellerNotConnected": "لم يتم إعداد مدفوعات FairCoin بعد.",
+          "sellerNotConfirmed": "لم يتم تأكيد مدفوعات FairCoin على Peable بعد.",
+          "railDisabled": "مدفوعات FairCoin غير متاحة بعد على نشر Mercaria هذا."
+        }
       }
     }
   },

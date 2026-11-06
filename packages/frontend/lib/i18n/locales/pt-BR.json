@@ -126,6 +126,44 @@
           "body": "Antes da sua primeira venda com cartão, aceite a taxa da Mercaria nas vendas com cartão. Até lá, os compradores não podem pagar você com cartão.",
           "action": "Ver a taxa"
         }
+      },
+      "faircoin": {
+        "title": "FairCoin",
+        "action": "Receber FairCoin na sua carteira Peable",
+        "openFailed": "Não foi possível abrir o Peable para configurar o FairCoin",
+        "networkLabel": "Rede",
+        "confirmedLabel": "Confirmado em",
+        "network": {
+          "mainnet": "Rede principal do FairCoin",
+          "testnet": "Rede de testes do FairCoin"
+        },
+        "states": {
+          "notConnected": {
+            "heading": "Ainda não configurado",
+            "body": "Os compradores sempre podem escolher pagar com FairCoin. Para aceitar, confirme no Peable que o FairCoin vai para a sua própria carteira Peable. Não há chave nem endereço para copiar."
+          },
+          "pending": {
+            "heading": "Aguardando sua confirmação",
+            "body": "Conclua no Peable com sua conta Oxy. Até lá, os compradores não podem pagar você com FairCoin."
+          },
+          "active": {
+            "heading": "Recebendo FairCoin",
+            "body": "Quem paga com FairCoin paga direto na sua carteira Peable. O Mercaria nunca fica com ele, e essas vendas não têm taxa."
+          },
+          "activeUnavailable": {
+            "heading": "Configurado, mas no momento não é possível pagar com FairCoin",
+            "body": "Sua configuração de FairCoin está confirmada. O motivo abaixo explica por que ela não pode ser usada agora."
+          }
+        },
+        "reasons": {
+          "walletMissing": "Sua conta Oxy ainda não tem carteira Peable. Abra o Peable para criar uma.",
+          "networkClosed": "O Peable ainda não abriu pagamentos com FairCoin nesta rede. Você não precisa fazer nada: os compradores poderão pagar com FairCoin assim que isso acontecer.",
+          "priceUnavailable": "O Peable não consegue calcular valores em FairCoin agora. Isso costuma se resolver sozinho.",
+          "temporarilyUnavailable": "Os pagamentos com FairCoin estão indisponíveis no Peable por um momento. Isso costuma se resolver sozinho.",
+          "sellerNotConnected": "Os pagamentos com FairCoin ainda não estão configurados.",
+          "sellerNotConfirmed": "Os pagamentos com FairCoin ainda não foram confirmados no Peable.",
+          "railDisabled": "Os pagamentos com FairCoin ainda não estão disponíveis nesta instalação do Mercaria."
+        }
       }
     }
   },

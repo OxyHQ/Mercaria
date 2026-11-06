@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { SellerPaymentSettings } from '@mercaria/shared-types';
 import {
+  createFaircoinLink,
   createOnboardingLink,
   fetchPaymentSettings,
   refreshPaymentSettings,
@@ -28,6 +29,15 @@ export function useCreateOnboardingLink(storeId: string) {
   return useMutation({
     mutationFn: (input: { country?: string }) => createOnboardingLink(storeId, input.country),
   });
+}
+
+/**
+ * Mint the link on which the store's owning account confirms FairCoin goes to
+ * its Peable wallet. Like the card link, it does not invalidate: the
+ * confirmation happens on Peable's page, and the screen refreshes after it.
+ */
+export function useCreateFaircoinLink(storeId: string) {
+  return useMutation({ mutationFn: () => createFaircoinLink(storeId) });
 }
 
 /**

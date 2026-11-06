@@ -124,6 +124,44 @@
           "body": "最初のカード販売の前に、Mercariaのカード販売手数料を承諾してください。承諾するまで、購入者はカードで支払えません。",
           "action": "手数料を確認する"
         }
+      },
+      "faircoin": {
+        "title": "FairCoin",
+        "action": "Peable ウォレットで FairCoin を受け取る",
+        "openFailed": "FairCoin の設定のために Peable を開けませんでした",
+        "networkLabel": "ネットワーク",
+        "confirmedLabel": "確認日",
+        "network": {
+          "mainnet": "FairCoin メインネットワーク",
+          "testnet": "FairCoin テストネットワーク"
+        },
+        "states": {
+          "notConnected": {
+            "heading": "まだ設定されていません",
+            "body": "購入者はいつでも FairCoin での支払いを選べます。受け付けるには、FairCoin がご自身の Peable ウォレットに入ることを Peable で確認してください。コピーするキーやアドレスはありません。"
+          },
+          "pending": {
+            "heading": "確認を待っています",
+            "body": "Oxy アカウントで Peable にサインインして完了してください。それまでは、購入者はあなたに FairCoin で支払えません。"
+          },
+          "active": {
+            "heading": "FairCoin を受け取れます",
+            "body": "FairCoin で支払う購入者は、あなたの Peable ウォレットに直接支払います。Mercaria が保管することはなく、これらの販売に手数料はかかりません。"
+          },
+          "activeUnavailable": {
+            "heading": "設定済みですが、現在 FairCoin での支払いはできません",
+            "body": "FairCoin の設定は確認済みです。現在利用できない理由は下記のとおりです。"
+          }
+        },
+        "reasons": {
+          "walletMissing": "お使いの Oxy アカウントにはまだ Peable ウォレットがありません。Peable を開いて作成してください。",
+          "networkClosed": "Peable はこのネットワークで FairCoin の支払いをまだ開始していません。対応は不要です。開始され次第、購入者は FairCoin で支払えるようになります。",
+          "priceUnavailable": "Peable は現在 FairCoin の金額を算出できません。通常は自然に解消します。",
+          "temporarilyUnavailable": "Peable で FairCoin の支払いが一時的に利用できません。通常は自然に解消します。",
+          "sellerNotConnected": "FairCoin の支払いはまだ設定されていません。",
+          "sellerNotConfirmed": "FairCoin の支払いはまだ Peable で確認されていません。",
+          "railDisabled": "この Mercaria 環境では FairCoin の支払いはまだ利用できません。"
+        }
       }
     }
   },

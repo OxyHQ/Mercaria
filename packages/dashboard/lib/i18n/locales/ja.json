@@ -2075,6 +2075,44 @@
         "pending": "ストアでカード注文を受け付けるには、手数料の規約に同意してください。",
         "none": "現在、販売にマーケットプレイス手数料はかかりません。",
         "action": "手数料の規約を見る"
+      },
+      "faircoin": {
+        "title": "FairCoin",
+        "action": "Peable ウォレットで FairCoin を受け取る",
+        "openFailed": "FairCoin の設定のために Peable を開けませんでした",
+        "networkLabel": "ネットワーク",
+        "confirmedLabel": "確認日",
+        "network": {
+          "mainnet": "FairCoin メインネットワーク",
+          "testnet": "FairCoin テストネットワーク"
+        },
+        "states": {
+          "notConnected": {
+            "heading": "まだ設定されていません",
+            "body": "購入者はいつでも FairCoin での支払いを選べます。受け付けるには、このストアを所有するアカウントで Peable にサインインし、FairCoin がそのアカウントの Peable ウォレットに入ることを確認してください。コピーするキーやアドレスはありません。"
+          },
+          "pending": {
+            "heading": "確認を待っています",
+            "body": "このストアを所有するアカウントで Peable にサインインして完了してください。それまでは、購入者はこのストアに FairCoin で支払えません。"
+          },
+          "active": {
+            "heading": "FairCoin を受け取れます",
+            "body": "FairCoin で支払う購入者は、このストアを所有するアカウントの Peable ウォレットに直接支払います。Mercaria が保管することはなく、これらの販売に手数料はかかりません。"
+          },
+          "activeUnavailable": {
+            "heading": "設定済みですが、現在 FairCoin での支払いはできません",
+            "body": "FairCoin の設定は確認済みです。現在利用できない理由は下記のとおりです。"
+          }
+        },
+        "reasons": {
+          "walletMissing": "このストアを所有するアカウントにはまだ Peable ウォレットがありません。そのアカウントで Peable を開いて作成してください。",
+          "networkClosed": "Peable はこのネットワークで FairCoin の支払いをまだ開始していません。対応は不要です。開始され次第、購入者は FairCoin で支払えるようになります。",
+          "priceUnavailable": "Peable は現在 FairCoin の金額を算出できません。通常は自然に解消します。",
+          "temporarilyUnavailable": "Peable で FairCoin の支払いが一時的に利用できません。通常は自然に解消します。",
+          "sellerNotConnected": "FairCoin の支払いはまだ設定されていません。",
+          "sellerNotConfirmed": "FairCoin の支払いはまだ Peable で確認されていません。",
+          "railDisabled": "この Mercaria 環境では FairCoin の支払いはまだ利用できません。"
+        }
       }
     },
     "plan": {
@@ -2122,6 +2160,10 @@
         "trialing": {
           "body": "トライアルが終わるまで、このプランの追加機能をすべてご利用いただけます。",
           "heading": "トライアル中"
+        },
+        "paymentPending": {
+          "body": "このプランの初回の支払いを確認しています。FairCoin の支払いにはネットワークでの確認が何回か必要です。支払いが完了すると、プランの特典が使えるようになります。",
+          "heading": "支払いを確認中"
         }
       },
       "subtitle": "ストアが得られるものと、その費用",
@@ -2166,7 +2208,8 @@
       "notInCurrency": "この通貨ではご利用いただけません。",
       "capabilityPerPeriod": "%{name} · 請求期間ごとに %{limit}",
       "checkoutUnreadable": "Peable でこのお支払いを開けませんでした。請求は発生していません。しばらくしてからもう一度お試しください。",
-      "checkoutMismatch": "このお支払いはプランの価格と一致しなくなりました。請求は発生していません。もう一度プランを選んでください。"
+      "checkoutMismatch": "このお支払いはプランの価格と一致しなくなりました。請求は発生していません。もう一度プランを選んでください。",
+      "changeAfterPayment": "初回の支払いが確認されると、プランを変更できます。"
     },
     "policies": {
       "documentTitle": "ポリシー | Wholesale by Mercaria",

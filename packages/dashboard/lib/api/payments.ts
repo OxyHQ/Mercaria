@@ -35,6 +35,21 @@ export async function createOnboardingLink(
   return unwrap(data);
 }
 
+/**
+ * POST for the link on which the store's OWNING Oxy account confirms that
+ * FairCoin is paid into its Peable wallet (ADR 0019 D2), opening the FairCoin
+ * half the first time. No country and no key: the server reads the receiving
+ * account from the store, and Peable never takes a key (Peable ADR 0021 D5).
+ * Single-use, like the card link — opened at once in the SYSTEM browser.
+ */
+export async function createFaircoinLink(storeId: string): Promise<ProviderOnboardingLink> {
+  const { data } = await apiClient.post<ApiResponse<ProviderOnboardingLink>>(
+    `${base(storeId)}/account/onboarding-link`,
+    { rail: 'faircoin' },
+  );
+  return unwrap(data);
+}
+
 /** POST to re-read the account from Peable now — the owner is back from the hosted flow. */
 export async function refreshPaymentSettings(storeId: string): Promise<SellerPaymentSettings> {
   const { data } = await apiClient.post<ApiResponse<SellerPaymentSettings>>(

@@ -2095,6 +2095,44 @@
         "pending": "Acepta las condiciones de la comisión para que tu tienda pueda recibir pedidos con tarjeta.",
         "none": "Hoy no se aplica ninguna comisión del marketplace a tus ventas.",
         "action": "Ver las condiciones de la comisión"
+      },
+      "faircoin": {
+        "title": "FairCoin",
+        "action": "Recibe FairCoin en tu monedero Peable",
+        "openFailed": "No se pudo abrir Peable para configurar FairCoin",
+        "networkLabel": "Red",
+        "confirmedLabel": "Confirmado el",
+        "network": {
+          "mainnet": "Red principal de FairCoin",
+          "testnet": "Red de pruebas de FairCoin"
+        },
+        "states": {
+          "notConnected": {
+            "heading": "Aún sin configurar",
+            "body": "Los compradores siempre pueden elegir pagar con FairCoin. Para aceptarlo, confirma en Peable, con la sesión de la cuenta propietaria de esta tienda, que FairCoin llega al monedero Peable de esa cuenta. No hay ninguna clave ni dirección que copiar."
+          },
+          "pending": {
+            "heading": "Esperando tu confirmación",
+            "body": "Termina en Peable con la sesión de la cuenta propietaria de esta tienda. Hasta entonces, los compradores no pueden pagar a esta tienda con FairCoin."
+          },
+          "active": {
+            "heading": "Recibiendo FairCoin",
+            "body": "Quien paga con FairCoin paga directamente al monedero Peable de la cuenta propietaria de esta tienda. Mercaria nunca lo retiene y estas ventas no tienen comisión."
+          },
+          "activeUnavailable": {
+            "heading": "Configurado, pero ahora mismo no se puede pagar con FairCoin",
+            "body": "Tu configuración de FairCoin está confirmada. El motivo de abajo explica por qué no se puede usar en este momento."
+          }
+        },
+        "reasons": {
+          "walletMissing": "La cuenta propietaria de esta tienda aún no tiene monedero Peable. Abre Peable con la sesión de esa cuenta para crearlo.",
+          "networkClosed": "Peable todavía no ha abierto los pagos con FairCoin en esta red. No tienes que hacer nada: los compradores podrán pagar con FairCoin en cuanto lo haga.",
+          "priceUnavailable": "Peable no puede calcular importes en FairCoin ahora mismo. Normalmente se resuelve solo.",
+          "temporarilyUnavailable": "Los pagos con FairCoin no están disponibles en Peable por un momento. Normalmente se resuelve solo.",
+          "sellerNotConnected": "Los pagos con FairCoin aún no están configurados.",
+          "sellerNotConfirmed": "Los pagos con FairCoin aún no se han confirmado en Peable.",
+          "railDisabled": "Los pagos con FairCoin aún no están disponibles en esta instalación de Mercaria."
+        }
       }
     },
     "plan": {
@@ -2142,6 +2180,10 @@
         "trialing": {
           "body": "Tienes acceso completo a los extras de este plan hasta que termine la prueba.",
           "heading": "Prueba en curso"
+        },
+        "paymentPending": {
+          "body": "Se está confirmando tu primer pago de este plan. Un pago con FairCoin necesita algunas confirmaciones de la red. Las ventajas del plan empiezan en cuanto quede pagado.",
+          "heading": "Confirmando el pago"
         }
       },
       "subtitle": "Qué obtiene tu tienda y qué pagas por ello",
@@ -2187,7 +2229,8 @@
       "notInCurrency": "No disponible en esta moneda.",
       "capabilityPerPeriod": "%{name} · %{limit} por periodo de facturación",
       "checkoutUnreadable": "Peable no ha podido abrir este pago ahora. No se ha cobrado nada; vuelve a intentarlo en un momento.",
-      "checkoutMismatch": "Este pago ya no coincide con el precio del plan. No se ha cobrado nada; vuelve a elegir el plan."
+      "checkoutMismatch": "Este pago ya no coincide con el precio del plan. No se ha cobrado nada; vuelve a elegir el plan.",
+      "changeAfterPayment": "Podrás cambiar de plan cuando se confirme tu primer pago."
     },
     "policies": {
       "documentTitle": "Políticas | Wholesale by Mercaria",

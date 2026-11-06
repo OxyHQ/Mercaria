@@ -44,6 +44,20 @@ export async function createSellerOnboardingLink(
   return unwrap(data, 'Failed to start payment onboarding');
 }
 
+/**
+ * The link on which the seller confirms, from their own Oxy session, that
+ * FairCoin is paid into their Peable wallet (ADR 0019 D2), opening the FairCoin
+ * half the first time. No country and no key (Peable ADR 0021 D5). Single-use:
+ * opened at once in the SYSTEM browser.
+ */
+export async function createSellerFaircoinLink(): Promise<ProviderOnboardingLink> {
+  const { data } = await apiClient.post<ApiResponse<ProviderOnboardingLink>>(
+    '/seller/payments/account/onboarding-link',
+    { rail: 'faircoin' },
+  );
+  return unwrap(data, 'Failed to start FairCoin setup');
+}
+
 /** Ask Peable to re-read the account now — the seller is back from the hosted flow. */
 export async function refreshSellerPaymentSettings(): Promise<SellerPaymentSettings> {
   const { data } = await apiClient.post<ApiResponse<SellerPaymentSettings>>(

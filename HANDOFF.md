@@ -221,18 +221,21 @@ account events. No seller is `ready`, so every native checkout is refused
       the ONE seller's own Peable wallet, no fee, nothing booked; FAIR-default
       stores activate. Production answers `faircoin_network_closed` until
       Peable opens mainnet identity receive.
-- [ ] **The FairCoin seller UI** (dashboard and storefront payments settings:
-      the FairCoin row, its reason and "Get paid in FairCoin", which posts
-      `rail: 'faircoin'` to the onboarding-link route), and the checkout's
-      FairCoin step over the `rail: 'faircoin'` handoff — owned by the Peable
-      sheet work.
+- [x] **The FairCoin seller UI** — dashboard and storefront payments settings
+      carry a FairCoin card (state, network, confirmed date, every unavailable
+      reason in words) whose one step, "Receive FairCoin in your Peable wallet",
+      posts `rail: 'faircoin'` to the onboarding-link route (`docs/payments.md`).
+- [ ] **The checkout's FairCoin step** over the `rail: 'faircoin'` handoff —
+      owned by the Peable sheet work.
 - [ ] **FairCoin on USD orders** — a FairCoin-only Peable Checkout Session per
       seller (`@peable.to/sdk` 4.1.0), the fee decided once the method is known.
-- [ ] **FairCoin-paid merchant plans** — the plan screen reads a Peable
-      `incomplete` subscription (paid in FairCoin, awaiting confirmations) as
-      "Ended" until the first invoice is paid, and `invoice.paid` books the
+- [x] **A FairCoin-paid plan read as "Ended" while confirming** — Peable's
+      `incomplete` is `payment_pending` ("Payment confirming"), non-entitling,
+      and refuses a second checkout or a change (migration `0192`,
+      `docs/merchant-plans.md`).
+- [ ] **FairCoin-paid merchant plans' revenue** — `invoice.paid` books the
       quoted fiat amount as subscription revenue though the coins are in the
-      `oxy` organization's Peable wallet. Both before Mercaria's own wallet exists.
+      `oxy` organization's Peable wallet. Before Mercaria's own wallet exists.
 
 ## 6. Known limitations (code, not blockers)
 - FX static rates for the 15 new currencies are dev defaults — need a real feed for accuracy.

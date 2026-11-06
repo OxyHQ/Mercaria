@@ -124,6 +124,44 @@
           "body": "在你的第一笔银行卡销售之前，请接受 Mercaria 的银行卡销售手续费。在此之前，买家无法用银行卡向你付款。",
           "action": "查看手续费"
         }
+      },
+      "faircoin": {
+        "title": "FairCoin",
+        "action": "在 Peable 钱包中接收 FairCoin",
+        "openFailed": "无法打开 Peable 来设置 FairCoin",
+        "networkLabel": "网络",
+        "confirmedLabel": "确认于",
+        "network": {
+          "mainnet": "FairCoin 主网络",
+          "testnet": "FairCoin 测试网络"
+        },
+        "states": {
+          "notConnected": {
+            "heading": "尚未设置",
+            "body": "买家始终可以选择使用 FairCoin 付款。要接受它，请在 Peable 上确认 FairCoin 将进入你自己的 Peable 钱包。无需复制任何密钥或地址。"
+          },
+          "pending": {
+            "heading": "等待你的确认",
+            "body": "请使用你的 Oxy 账户在 Peable 上完成确认。在此之前，买家无法使用 FairCoin 向你付款。"
+          },
+          "active": {
+            "heading": "正在接收 FairCoin",
+            "body": "使用 FairCoin 付款的买家会直接付款到你的 Peable 钱包。Mercaria 从不持有这些款项，这些销售也不收取费用。"
+          },
+          "activeUnavailable": {
+            "heading": "已设置，但目前买家无法使用 FairCoin 付款",
+            "body": "你的 FairCoin 设置已确认。下方说明了目前无法使用的原因。"
+          }
+        },
+        "reasons": {
+          "walletMissing": "你的 Oxy 账户还没有 Peable 钱包。请打开 Peable 创建一个。",
+          "networkClosed": "Peable 尚未在此网络上开放 FairCoin 付款。你无需做任何操作：一旦开放，买家即可使用 FairCoin 付款。",
+          "priceUnavailable": "Peable 目前无法计算 FairCoin 金额。这通常会自行恢复。",
+          "temporarilyUnavailable": "Peable 的 FairCoin 付款暂时不可用。这通常会自行恢复。",
+          "sellerNotConnected": "尚未设置 FairCoin 付款。",
+          "sellerNotConfirmed": "尚未在 Peable 上确认 FairCoin 付款。",
+          "railDisabled": "此 Mercaria 部署尚不支持 FairCoin 付款。"
+        }
       }
     }
   },

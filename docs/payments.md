@@ -602,8 +602,8 @@ knows its shape:
   (`store:<id>` / `user:<id>`), `business_type` from the owner kind. Peable
   converges a repeated create on `external_ref`, which is what makes two racing
   clicks one account; the owner index is the second line. The FairCoin half is
-  never requested: a seller's key comes only from the seller (Peable ADR 0012)
-  and Mercaria's checkout has no FairCoin rail.
+  opened only by `rail: 'faircoin'` (ADR 0019 D2) and names an Oxy account,
+  never a key: a seller's key comes only from the seller (Peable ADR 0012).
 - **When.** Onboarding needs only the gateway's account events to be heard
   (`PEABLE_WEBHOOK_SECRET`, which mounts `/webhooks/peable`), NOT
   `PEABLE_ENABLED`: sellers onboard and reach `ready` first, and only then does
@@ -629,6 +629,16 @@ owner for the country once, opens the link in the system browser and calls
 Settings dialog (`components/settings/payments-page.tsx`, signed in only), with
 `/settings/payments` as its deep-link bridge — which is also where the hosted
 flow returns them.
+
+Both screens carry a **FairCoin card** over `SellerPaymentSettings.faircoin`
+(`lib/faircoin-settings.ts` in each app, pure and unit-tested): not set up,
+waiting for the seller's confirmation, receiving (network and confirmed date),
+or confirmed but not payable with the reason in words — every
+`FaircoinUnavailableReason` has its sentence. Its one step, "Receive FairCoin
+in your Peable wallet", posts `{ rail: 'faircoin' }` (never a `country`) and
+opens Peable's page in the system browser, then refreshes like the card flow.
+There is no key or address field anywhere, and the copy names FairCoin only as
+a way buyers pay (the product boundary; `commercial-presentation-isolation`).
 
 ### One account per owner, and the index that enforces it
 

@@ -16,9 +16,11 @@ import { useTranslation } from '@/lib/i18n';
 import { useFeeSchedule } from '@/lib/hooks/use-fees';
 import {
   usePaymentSettings,
+  useCreateFaircoinLink,
   useCreateOnboardingLink,
   useRefreshPaymentSettings,
 } from '@/lib/hooks/use-payments';
+import { FAIRCOIN_NETWORK_KEYS, faircoinCard } from '@/lib/faircoin-settings';
 
 /**
  * Payments & payouts — the store's Peable connected account (ADR 0001 D9,
@@ -252,10 +254,85 @@ function PaymentsPanel({
         ) : null}
       </View>
 
+      <FaircoinPaymentsCard storeId={storeId} settings={settings} />
       <MarketplaceFeeCard storeId={storeId} />
       <RequirementsCard settings={settings} />
       <PayoutDetailsCard settings={settings} />
       <ReasonCodesCard settings={settings} />
+    </View>
+  );
+}
+
+/**
+ * FairCoin (ADR 0019): always offered to buyers, received into the Peable
+ * wallet of the Oxy account that owns the store (often an organization). Its standing is the FairCoin half of the same Peable
+ * account and is shown whatever it is, with the reason in words when buyers
+ * cannot pay it (D4). The one step opens Peable's page, where that account
+ * confirms from its own Oxy session — there is no key or address to enter here,
+ * ever (Peable ADR 0021 D5). As with the card flow, the browser closing proves
+ * nothing: the screen asks Peable to re-read the account.
+ */
+function FaircoinPaymentsCard({
+  storeId,
+  settings,
+}: {
+  storeId: string;
+  settings: SellerPaymentSettings;
+}) {
+  const { t, locale } = useTranslation();
+  const [opening, setOpening] = useState(false);
+  const createLink = useCreateFaircoinLink(storeId);
+  const refresh = useRefreshPaymentSettings(storeId);
+  const card = faircoinCard(settings);
+  const { faircoin } = settings;
+  const confirmedOn =
+    faircoin.confirmedAt === undefined ? null : formatDate(faircoin.confirmedAt, locale);
+
+  async function setUp(): Promise<void> {
+    try {
+      setOpening(true);
+      const link = await createLink.mutateAsync();
+      await WebBrowser.openBrowserAsync(link.url);
+      await refresh();
+    } catch {
+      toast.error(t('settings.payments.faircoin.openFailed'));
+    } finally {
+      setOpening(false);
+    }
+  }
+
+  return (
+    <View
+      testID="faircoin-payments"
+      className={`rounded-2xl border p-4 bg-surface ${card.state === 'active' ? 'border-primary' : 'border-border'}`}
+    >
+      <Text className="mb-1 text-sm font-semibold text-foreground">
+        {t('settings.payments.faircoin.title')}
+      </Text>
+      <Text className="text-sm font-medium text-foreground">{t(card.headingKey)}</Text>
+      <Text className="mt-1 text-xs text-muted-foreground">{t(card.bodyKey)}</Text>
+      {card.reasonKey === null ? null : (
+        <Text className="mt-2 text-xs text-muted-foreground">{t(card.reasonKey)}</Text>
+      )}
+      <View className="mt-3">
+        <Row
+          label={t('settings.payments.faircoin.networkLabel')}
+          value={t(FAIRCOIN_NETWORK_KEYS[faircoin.network])}
+        />
+        {confirmedOn === null ? null : (
+          <Row label={t('settings.payments.faircoin.confirmedLabel')} value={confirmedOn} />
+        )}
+      </View>
+      {card.offersSetup ? (
+        <Button
+          tone="accent"
+          onPress={setUp}
+          loading={createLink.isPending || opening}
+          className="mt-4 self-start"
+        >
+          {t('settings.payments.faircoin.action')}
+        </Button>
+      ) : null}
     </View>
   );
 }

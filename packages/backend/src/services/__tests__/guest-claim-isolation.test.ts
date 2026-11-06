@@ -407,6 +407,17 @@ function localeBundles(): {
 const CURRENCY_NAME_KEYS: readonly string[] = ['settings.currency.description'];
 
 /**
+ * The SELLER's FairCoin payment settings (ADR 0019 D2/D4), where FairCoin is
+ * named as the payment method a P2P seller receives — the storefront's Settings
+ * → Payments card, never the guest claim flow. ADR 0019 retired the ban on
+ * naming the method; what stays forbidden is FairCoin as a claim BENEFIT, and
+ * no claim screen reads this namespace (the source scans above prove that).
+ * Excused by key PREFIX, and the prefix must still name FairCoin in every
+ * locale — asserted below — so a moved namespace fails as stale.
+ */
+const SELLER_FAIRCOIN_SETTINGS_PREFIX = 'settings.payments.faircoin.';
+
+/**
  * The vacuity floors, PER SHAPE rather than one on the total.
  *
  * Called by every scan below. The five sources break independently, and one
@@ -608,7 +619,12 @@ describe('the guest claim path cannot reach what it must not', () => {
 
       // Scanned per LEAF so the currency-name exception can be scoped to a KEY.
       const excused: string[] = [];
+      let sellerSettingsNamingFaircoin = 0;
       for (const leaf of bundle.leaves) {
+        if (leaf.key.startsWith(SELLER_FAIRCOIN_SETTINGS_PREFIX)) {
+          if (OXYPAY_OR_FAIRCOIN_REFERENCE.test(leaf.value)) sellerSettingsNamingFaircoin += 1;
+          continue;
+        }
         if (CURRENCY_NAME_KEYS.includes(leaf.key)) {
           if (OXYPAY_OR_FAIRCOIN_REFERENCE.test(leaf.value)) excused.push(leaf.key);
           continue;
@@ -627,6 +643,11 @@ describe('the guest claim path cannot reach what it must not', () => {
         `${bundle.locale}.json: the currency-name exceptions no longer match — ` +
           'a renamed or reworded key excuses nothing while looking like a decision',
       ).toEqual([...CURRENCY_NAME_KEYS].sort());
+      expect(
+        sellerSettingsNamingFaircoin,
+        `${bundle.locale}.json: ${SELLER_FAIRCOIN_SETTINGS_PREFIX}* no longer names FairCoin — ` +
+          'the excused namespace moved, and the exception now excuses nothing',
+      ).toBeGreaterThan(0);
     }
   });
 
