@@ -11,9 +11,17 @@ import type {
   SellerFeeScheduleView,
   SellerPaymentSettings,
 } from '@mercaria/shared-types';
-import { Text, formatDate, formatRegionName } from '@mercaria/ui';
+import { useOxy } from '@oxy.so/services/ui/client';
+import {
+  FaircoinSellerPayments,
+  Text,
+  formatDate,
+  formatRegionName,
+  useRefreshOnReturn,
+} from '@mercaria/ui';
 import { useTranslation } from '@/lib/i18n';
 import {
+  useCreateSellerFaircoinLink,
   useCreateSellerOnboardingLink,
   useRefreshSellerPaymentSettings,
   useSellerFeeSchedule,
@@ -39,6 +47,12 @@ import { SellerFeeTermsCard, isFeeTermsPending } from './seller-fee-terms';
  * acceptance, so a seller meets the fee before their first card sale rather than
  * learning of it from a refused one. A seller already set up is never stopped
  * from managing payouts by it — the card tells them card sales wait on it.
+ *
+ * FairCoin is its own card (ADR 0019): the seller's FairCoin half is opened for
+ * their OWN Oxy account and turned on by confirming on Peable's page, opened the
+ * way the card onboarding opens the hosted flow. It does not wait on the fee
+ * terms — FairCoin sales carry no fee. On web the page opens in a new tab, so
+ * the settings are re-read when this tab is active again as well.
  */
 export function PaymentsSettingsPage() {
   const { t } = useTranslation();
@@ -59,6 +73,7 @@ export function PaymentsSettingsPage() {
       ) : fees.data ? (
         <SellerFeeTermsCard view={fees.data} />
       ) : null}
+      <FaircoinCard settings={data} />
       <PaymentsPanel settings={data} fees={fees.data} />
     </View>
   );
@@ -116,6 +131,51 @@ const STATE_COPY: Record<
     bodyKey: 'settings.payments.states.disabled.body',
   },
 };
+
+/** The seller's FairCoin half; the receiving account is the signed-in seller themself. */
+function FaircoinCard({ settings }: { settings: SellerPaymentSettings }) {
+  const { t } = useTranslation();
+  const { user } = useOxy();
+  const [opening, setOpening] = useState(false);
+  const createLink = useCreateSellerFaircoinLink();
+  const refresh = useRefreshSellerPaymentSettings();
+  const armReturn = useRefreshOnReturn(refresh);
+  const { faircoin } = settings;
+  const ownName =
+    user?.name?.displayName?.trim() || (user?.username ? `@${user.username}` : undefined);
+
+  async function confirmInPeable(): Promise<void> {
+    try {
+      setOpening(true);
+      const link = await createLink.mutateAsync();
+      // The card onboarding's pattern: the SYSTEM browser on native, a new tab
+      // on web — where the open returns at once, so the re-read is also armed
+      // for the moment this tab is active again.
+      armReturn();
+      await WebBrowser.openBrowserAsync(link.url);
+      await refresh();
+    } catch {
+      toast.error(t('settings.payments.confirmOpenFailed'));
+    } finally {
+      setOpening(false);
+    }
+  }
+
+  return (
+    <View
+      className={`rounded-2xl border p-4 ${faircoin.payable ? 'border-primary' : 'border-border'} bg-card`}
+    >
+      <FaircoinSellerPayments
+        faircoin={faircoin}
+        audience="self"
+        receivingAccountName={ownName}
+        onboardingAvailable={settings.onboardingAvailable}
+        onConfirm={confirmInPeable}
+        busy={createLink.isPending || opening}
+      />
+    </View>
+  );
+}
 
 function PaymentsPanel({
   settings,

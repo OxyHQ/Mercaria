@@ -1065,6 +1065,39 @@
       "processingIncluded": "কার্ড প্রসেসিং অন্তর্ভুক্ত। আলাদা কোনো প্রসেসিং ফি নেই।",
       "cardSalesOnly": "%{currency}-এ কার্ডে বিক্রির ক্ষেত্রে প্রযোজ্য।",
       "faircoinNoFee": "FairCoin-এ পরিশোধিত বিক্রিতে কোনো ফি নেই।"
+    },
+    "faircoinSeller": {
+      "title": "FairCoin",
+      "explanationStore": "কোনো ক্রেতা FairCoin-এ পেমেন্ট করলে কয়েনগুলো সরাসরি এই স্টোরের মালিক Oxy অ্যাকাউন্টের Peable ওয়ালেটে যায়। Peable বা Mercaria কখনোই সেগুলো নিজেদের কাছে রাখে না, এবং FairCoin-এ পরিশোধিত বিক্রয়ে কোনো মার্কেটপ্লেস ফি নেই।",
+      "explanationSelf": "কোনো ক্রেতা FairCoin-এ পেমেন্ট করলে কয়েনগুলো সরাসরি আপনার নিজের Oxy অ্যাকাউন্টের Peable ওয়ালেটে যায়। Peable বা Mercaria কখনোই সেগুলো নিজেদের কাছে রাখে না, এবং FairCoin-এ পরিশোধিত বিক্রয়ে কোনো মার্কেটপ্লেস ফি নেই।",
+      "stateLabel": "অবস্থা",
+      "state": {
+        "notConnected": "সেট আপ করা হয়নি",
+        "pending": "আপনার নিশ্চিতকরণের অপেক্ষায়",
+        "active": "সক্রিয়"
+      },
+      "payableLabel": "ক্রেতারা এখন FairCoin-এ পেমেন্ট করতে পারেন",
+      "payableYes": "হ্যাঁ",
+      "payableNo": "না",
+      "receiverLabel": "গ্রহণকারী Oxy অ্যাকাউন্ট",
+      "confirmedLabel": "নিশ্চিত করার তারিখ",
+      "reason": {
+        "walletMissingStore": "গ্রহণকারী Oxy অ্যাকাউন্টের এখনো কোনো Peable ওয়ালেট নেই। সেই অ্যাকাউন্টে সাইন ইন করে, বা তার পক্ষে কাজ করে, Peable খুলুন, তার ওয়ালেট তৈরি করুন, তারপর আবার নিশ্চিত করুন।",
+        "walletMissingSelf": "আপনার Oxy অ্যাকাউন্টের এখনো কোনো Peable ওয়ালেট নেই। সেই অ্যাকাউন্ট দিয়ে Peable খুলুন, আপনার ওয়ালেট তৈরি করুন, তারপর আবার নিশ্চিত করুন।",
+        "networkClosed": "Peable এখনো এই নেটওয়ার্কে FairCoin পেমেন্ট চালু করেনি। আপনার কিছু করার নেই: Peable চালু করলেই এখানে FairCoin চালু হয়ে যাবে।",
+        "priceUnavailable": "Peable এই মুহূর্তে FairCoin পেমেন্টের মূল্য নির্ধারণ করতে পারছে না। এটি সাময়িক; পরে আবার চেষ্টা করুন।",
+        "temporarilyUnavailable": "Peable-এ FairCoin পেমেন্ট সাময়িকভাবে অনুপলব্ধ। পরে আবার চেষ্টা করুন।",
+        "notConnected": "FairCoin পেমেন্ট এখনো সেট আপ করা হয়নি।",
+        "notConfirmed": "FairCoin পেমেন্ট Peable-এ আপনার নিশ্চিতকরণের অপেক্ষায় আছে।",
+        "railDisabled": "এই Mercaria ডিপ্লয়মেন্টে FairCoin পেমেন্ট উপলব্ধ নয়।"
+      },
+      "confirmAsStore": "এই স্টোরের মালিক Oxy অ্যাকাউন্টে সাইন ইন করে, বা তার পক্ষে কাজ করে, Peable-এ নিশ্চিত করুন।",
+      "confirmAsSelf": "আপনার নিজের Oxy অ্যাকাউন্টে সাইন ইন করে Peable-এ নিশ্চিত করুন।",
+      "action": {
+        "start": "FairCoin-এ পেমেন্ট নিন",
+        "confirm": "Peable-এ নিশ্চিত করুন"
+      },
+      "setupUnavailable": "এই ডিপ্লয়মেন্টে এখনো FairCoin সেটআপ শুরু করা যাচ্ছে না।"
     }
   }
 }

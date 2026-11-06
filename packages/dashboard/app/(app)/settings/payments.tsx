@@ -5,7 +5,15 @@ import Head from 'expo-router/head';
 import * as WebBrowser from 'expo-web-browser';
 import { ChevronLeft } from 'lucide-react-native';
 import type { ProviderOnboardingState, SellerPaymentSettings } from '@mercaria/shared-types';
-import { Text, formatDate, formatRegionName, useColorScheme, useFormatters } from '@mercaria/ui';
+import {
+  FaircoinSellerPayments,
+  Text,
+  formatDate,
+  formatRegionName,
+  useColorScheme,
+  useFormatters,
+  useRefreshOnReturn,
+} from '@mercaria/ui';
 import { Button } from '@oxy.so/bloom/button';
 import { Field } from '@oxy.so/bloom/field';
 import { TextFieldInput } from '@oxy.so/bloom/text-field';
@@ -16,9 +24,12 @@ import { useTranslation } from '@/lib/i18n';
 import { useFeeSchedule } from '@/lib/hooks/use-fees';
 import {
   usePaymentSettings,
+  useCreateFaircoinLink,
   useCreateOnboardingLink,
   useRefreshPaymentSettings,
 } from '@/lib/hooks/use-payments';
+import { useActiveStoreContext } from '@/lib/hooks/use-stores';
+import { useOwnerAccount } from '@/lib/hooks/use-store-people';
 
 /**
  * Payments & payouts — the store's Peable connected account (ADR 0001 D9,
@@ -53,6 +64,16 @@ import {
  * is Peable's answer rather than a list here, so the owner names it before the
  * first link. It is immutable at the acquirer afterwards; the field disappears
  * once an account exists.
+ *
+ * ## FairCoin is its own card, and its own confirmation
+ *
+ * FairCoin is always offered (ADR 0019): its half of the account is opened for
+ * the store's OWNING Oxy account and turned on by that account confirming on
+ * Peable's page. The card says where the coins go and why they cannot be paid
+ * yet, in words, and its action opens that page the way the card onboarding
+ * opens the hosted flow. On web the page opens in a new tab, so the screen
+ * re-reads the account when this tab becomes active again as well as after the
+ * open returns.
  */
 export default function PaymentsScreen() {
   const { t } = useTranslation();
@@ -210,6 +231,8 @@ function PaymentsPanel({
 
   return (
     <View className="gap-5">
+      <FaircoinCard storeId={storeId} settings={settings} />
+
       <View className={`rounded-2xl border p-4 ${STATE_TONE[account.onboardingState]}`}>
         <Text className="text-sm font-semibold text-foreground">{t(copy.headingKey)}</Text>
         <Text className="mt-1 text-xs text-muted-foreground">{t(copy.bodyKey)}</Text>
@@ -256,6 +279,57 @@ function PaymentsPanel({
       <RequirementsCard settings={settings} />
       <PayoutDetailsCard settings={settings} />
       <ReasonCodesCard settings={settings} />
+    </View>
+  );
+}
+
+/**
+ * The store's FairCoin half (ADR 0019). The receiving account is named in words
+ * — the owning account's display name or handle, read from Oxy — and falls back
+ * to the id the settings carry while that read is pending or refused.
+ */
+function FaircoinCard({ storeId, settings }: { storeId: string; settings: SellerPaymentSettings }) {
+  const { t } = useTranslation();
+  const { store } = useActiveStoreContext();
+  const { faircoin } = settings;
+  const owner = useOwnerAccount(faircoin.receivingOxyAccountId ?? store?.oxyAccountId);
+  const [opening, setOpening] = useState(false);
+  const createLink = useCreateFaircoinLink(storeId);
+  const refresh = useRefreshPaymentSettings(storeId);
+  const armReturn = useRefreshOnReturn(refresh);
+  const ownerName =
+    owner.data?.account.name?.displayName?.trim() ||
+    (owner.data?.account.username ? `@${owner.data.account.username}` : undefined);
+
+  async function confirmInPeable(): Promise<void> {
+    try {
+      setOpening(true);
+      const link = await createLink.mutateAsync();
+      // Same as the card onboarding: the SYSTEM browser on native, a new tab on
+      // web. On web the open returns at once, so the re-read is also armed for
+      // the moment this tab is active again.
+      armReturn();
+      await WebBrowser.openBrowserAsync(link.url);
+      await refresh();
+    } catch {
+      toast.error(t('settings.payments.faircoinOpenFailed'));
+    } finally {
+      setOpening(false);
+    }
+  }
+
+  return (
+    <View
+      className={`rounded-2xl border p-4 ${faircoin.payable ? 'border-primary' : 'border-border'} bg-surface`}
+    >
+      <FaircoinSellerPayments
+        faircoin={faircoin}
+        audience="store"
+        receivingAccountName={ownerName}
+        onboardingAvailable={settings.onboardingAvailable}
+        onConfirm={confirmInPeable}
+        busy={createLink.isPending || opening}
+      />
     </View>
   );
 }

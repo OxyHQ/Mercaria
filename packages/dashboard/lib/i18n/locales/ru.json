@@ -2067,6 +2067,7 @@
       "neededNow": "Нужно сейчас",
       "onboardingUnavailable": "Настройка выплат пока недоступна в этой инсталляции Mercaria.",
       "openFailed": "Не удалось открыть настройку выплат",
+      "faircoinOpenFailed": "Не удалось открыть подтверждение FairCoin в Peable",
       "outstandingTitle": "Что ещё нужно Peable",
       "paidOutIn": "Валюта выплат",
       "payoutsTitle": "Выплаты",

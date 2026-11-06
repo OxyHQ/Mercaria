@@ -70,6 +70,7 @@
       "neededNow": "Necessari ara",
       "onboardingUnavailable": "La configuració de les liquidacions encara no està disponible en aquest desplegament de Mercaria.",
       "openFailed": "No s'ha pogut obrir la configuració de les liquidacions",
+      "confirmOpenFailed": "No s'ha pogut obrir la pàgina de confirmació a Peable",
       "outstandingTitle": "Pendent amb Peable",
       "paidOutIn": "Moneda de liquidació",
       "payoutsTitle": "Liquidacions",

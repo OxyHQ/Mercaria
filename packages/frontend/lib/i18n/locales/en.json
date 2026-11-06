@@ -69,6 +69,7 @@
       "neededNow": "Needed now",
       "onboardingUnavailable": "Payout setup is not available on this Mercaria deployment yet.",
       "openFailed": "Couldn't open the payout setup",
+      "confirmOpenFailed": "Couldn't open the confirmation page in Peable",
       "outstandingTitle": "Outstanding with Peable",
       "paidOutIn": "Paid out in",
       "payoutsTitle": "Payouts",

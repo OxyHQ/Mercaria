@@ -2048,6 +2048,7 @@
       "neededNow": "Necessari ara",
       "onboardingUnavailable": "La configuració de les liquidacions encara no està disponible en aquest desplegament de Mercaria.",
       "openFailed": "No s'ha pogut obrir la configuració de les liquidacions",
+      "faircoinOpenFailed": "No s'ha pogut obrir la confirmació de FairCoin a Peable",
       "outstandingTitle": "Pendent amb Peable",
       "paidOutIn": "Moneda de liquidació",
       "payoutsTitle": "Liquidacions",

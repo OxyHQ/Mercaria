@@ -2033,6 +2033,7 @@
       "neededNow": "مطلوب الآن",
       "onboardingUnavailable": "إعداد التحويلات المالية غير متاح بعد في نسخة Mercaria هذه.",
       "openFailed": "تعذّر فتح إعداد التحويلات المالية",
+      "faircoinOpenFailed": "تعذّر فتح تأكيد FairCoin في Peable",
       "outstandingTitle": "المعلّق لدى Peable",
       "paidOutIn": "تُحوَّل بعملة",
       "payoutsTitle": "التحويلات المالية",

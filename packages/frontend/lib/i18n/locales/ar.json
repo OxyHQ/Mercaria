@@ -73,6 +73,7 @@
       "neededNow": "مطلوب الآن",
       "onboardingUnavailable": "إعداد التحويلات المالية غير متاح بعد في نسخة Mercaria هذه.",
       "openFailed": "تعذّر فتح إعداد التحويلات المالية",
+      "confirmOpenFailed": "تعذّر فتح صفحة التأكيد في Peable",
       "outstandingTitle": "المعلّق لدى Peable",
       "paidOutIn": "تُحوَّل بعملة",
       "payoutsTitle": "التحويلات المالية",

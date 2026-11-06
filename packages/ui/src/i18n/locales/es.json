@@ -1072,6 +1072,39 @@
       "processingIncluded": "El procesamiento de tarjetas está incluido. No hay una comisión de procesamiento aparte.",
       "cardSalesOnly": "Se aplica a las ventas con tarjeta en %{currency}.",
       "faircoinNoFee": "Las ventas pagadas con FairCoin no tienen comisión."
+    },
+    "faircoinSeller": {
+      "title": "FairCoin",
+      "explanationStore": "Cuando un comprador paga con FairCoin, las monedas van directamente a la cartera Peable de la cuenta Oxy propietaria de esta tienda. Ni Peable ni Mercaria las custodian nunca, y las ventas pagadas con FairCoin no tienen comisión del marketplace.",
+      "explanationSelf": "Cuando un comprador paga con FairCoin, las monedas van directamente a la cartera Peable de tu propia cuenta Oxy. Ni Peable ni Mercaria las custodian nunca, y las ventas pagadas con FairCoin no tienen comisión del marketplace.",
+      "stateLabel": "Estado",
+      "state": {
+        "notConnected": "Sin configurar",
+        "pending": "Esperando tu confirmación",
+        "active": "Activo"
+      },
+      "payableLabel": "Los compradores pueden pagar con FairCoin ahora",
+      "payableYes": "Sí",
+      "payableNo": "No",
+      "receiverLabel": "Cuenta Oxy receptora",
+      "confirmedLabel": "Confirmado el",
+      "reason": {
+        "walletMissingStore": "La cuenta Oxy receptora aún no tiene cartera Peable. Abre Peable con la sesión iniciada como esa cuenta, o actuando en su nombre, crea su cartera y vuelve a confirmar.",
+        "walletMissingSelf": "Tu cuenta Oxy aún no tiene cartera Peable. Abre Peable con esa cuenta, crea tu cartera y vuelve a confirmar.",
+        "networkClosed": "Peable aún no ha abierto los pagos con FairCoin en esta red. No tienes que hacer nada: FairCoin se activará aquí en cuanto Peable lo abra.",
+        "priceUnavailable": "Peable no puede poner precio a los pagos con FairCoin en este momento. Es temporal; inténtalo más tarde.",
+        "temporarilyUnavailable": "Los pagos con FairCoin no están disponibles temporalmente en Peable. Inténtalo más tarde.",
+        "notConnected": "Los pagos con FairCoin aún no están configurados.",
+        "notConfirmed": "Los pagos con FairCoin esperan a que los confirmes en Peable.",
+        "railDisabled": "Los pagos con FairCoin no están disponibles en esta instalación de Mercaria."
+      },
+      "confirmAsStore": "Confirma en Peable con la sesión iniciada como la cuenta Oxy propietaria de esta tienda, o actuando en su nombre.",
+      "confirmAsSelf": "Confirma en Peable con tu propia cuenta Oxy.",
+      "action": {
+        "start": "Cobrar con FairCoin",
+        "confirm": "Confirmar en Peable"
+      },
+      "setupUnavailable": "La configuración de FairCoin aún no se puede iniciar en esta instalación."
     }
   }
 }
