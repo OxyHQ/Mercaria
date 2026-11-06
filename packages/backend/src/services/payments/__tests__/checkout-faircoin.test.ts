@@ -32,9 +32,14 @@ vi.mock('../registry.js', () => ({
     createPayment: (...args: unknown[]) => createPayment(...args),
   }),
 }));
-vi.mock('../provider-account.service.js', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../provider-account.service.js')>()),
+// Both exports the opener reads. Written out rather than spread from the
+// original, which Bun's `vi.mock` cannot supply (the suite also runs under Bun).
+vi.mock('../provider-account.service.js', () => ({
   findSellerAccount: (...args: unknown[]) => findSellerAccount(...args),
+  parseSellerKey: (key: string) => {
+    const [type, id] = key.split(':');
+    return type === 'store' || type === 'user' ? { ownerType: type, ownerId: id ?? '' } : undefined;
+  },
 }));
 vi.mock('../../../db/payments/paymentRepository.js', () => ({
   attachPaymentProviderObject: () => Promise.resolve(undefined),
