@@ -41,13 +41,19 @@
  * that could pick a different version, and the acceptance would then be checked
  * against a schedule the order does not use.
  *
- * ## ONE reason code for three levers
+ * ## ONE reason code for three levers, and the seller NAMED
  *
  * `seller_not_activated`, the `guest_rollout_blocked` decision applied to the
  * authenticated path. A buyer cannot act on which of the three fired, and a
  * client able to vary one input at a time could read out whether a particular
  * merchant is under an operator hold — which is a moderation fact about somebody
  * else's business. Which lever fired goes to the log line and the operator trace.
+ *
+ * WHICH seller is refused is the buyer's to know, because their remedy is to
+ * deselect it: the message names each one by its public name (the store's name,
+ * a private seller's Oxy display name — `nameRefusedSellers`, the same reader
+ * the payment-readiness refusal uses), and the keys ride `details.sellers`, never
+ * the sentence. Naming the seller says nothing about the lever.
  *
  * ## A deployment that has published no fee schedule is unaffected
  *
@@ -69,21 +75,23 @@
  * and pause levers are store-only and are not evaluated for them — that is a
  * fact about the schema, not a lenience: there is no P2P hold to miss.
  *
- * **This gate refuses; it is not the acceptance surface.** There is none for
- * `owner_type = 'user'` — `fee_schedule_acceptances` is written only by
- * `/admin/stores/:storeId/fees/accept`, and `POST /seller/activation/policies`
- * writes `merchant_activation_policy_acceptances`, a different table. Building
- * one needs a decision this code cannot make: a store selects its schedule in
- * `stores.default_currency`, and a person has no default currency to select in.
- * Until that is decided, a `user`-reaching schedule takes P2P sales offline
- * rather than billing them silently, which is the direction that is visible.
+ * **This gate refuses; it is not the acceptance surface.** A private seller
+ * accepts on the storefront's Settings → Payments (`/seller/fees/accept`), a
+ * store on the dashboard's Settings → Marketplace fees
+ * (`/admin/stores/:storeId/fees/accept`); both write `fee_schedule_acceptances`
+ * through the same handler, and both select in the card rail's currencies, so
+ * the version a seller accepted is the version this gate is handed (ADR 0018
+ * D3). `POST /seller/activation/policies` writes
+ * `merchant_activation_policy_acceptances`, a different table.
  */
 
+import type { RefusedCheckoutSeller } from '@mercaria/shared-types';
 import { getDb } from '../../db/postgres.js';
 import { findFeeScheduleAcceptance } from '../../db/fees/feeScheduleRepository.js';
 import { readMerchantActivationSettings } from '../../db/merchantActivation/activationSettingsRepository.js';
 import { log } from '../../lib/logger.js';
 import { checkoutRefusal } from '../checkout/refusal.js';
+import { nameRefusedSellers } from '../payments/provider-account.service.js';
 import {
   deriveFeeScheduleAccepted,
   deriveNativeCheckoutNotPaused,
@@ -169,9 +177,25 @@ export async function assertSellerGroupsActivated(
     { refused },
     '[Activation] checkout refused: a seller is not currently activated',
   );
-  throw checkoutRefusal(
-    'seller_not_activated',
-    'One of the sellers in this order is not currently accepting orders. ' +
-      'Remove it to check out with the rest.',
+  const sellers = await nameRefusedSellers(refused.map((group) => group.sellerKey));
+  throw checkoutRefusal('seller_not_activated', sellersNotActivatedMessage(sellers), {
+    reason: 'seller_not_activated',
+    sellers,
+  });
+}
+
+/** The English refusal sentence. Clients localize it from `details`; this is the fallback. */
+function sellersNotActivatedMessage(sellers: readonly RefusedCheckoutSeller[]): string {
+  if (sellers.length === 1) {
+    return (
+      `${sellers[0]?.name ?? 'A seller'} is not accepting orders right now. ` +
+      'Remove their items from your order to check out with the rest.'
+    );
+  }
+  const names = sellers.map((seller) => seller.name ?? 'a seller');
+  const list = new Intl.ListFormat('en', { style: 'long', type: 'conjunction' }).format(names);
+  return (
+    `These sellers are not accepting orders right now: ${list}. ` +
+    'Remove their items from your order to check out with the rest.'
   );
 }

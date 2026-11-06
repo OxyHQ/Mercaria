@@ -432,7 +432,11 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // The marketplace commission (ADR 0018) types `MerchantOrder.marketplaceFee`,
     // the fee snapshot the single-order read already sent: +1 property.
     // Measured by the real guard.
-    'walked 148 contract module(s), 2466 exported type(s), 8316 property signature(s)',
+    // A private seller's fee acceptance (ADR 0018 D3) names its refusal:
+    // `SellersNotActivatedErrorDetails` joins `ApiErrorDetails` (`reason`,
+    // `sellers`); `StoreFeeScheduleView` is renamed `SellerFeeScheduleView`,
+    // moving no count: +1 type, +2 properties. Measured by the real guard.
+    'walked 148 contract module(s), 2467 exported type(s), 8318 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });

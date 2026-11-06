@@ -371,6 +371,10 @@ export {
 export { ShopDetailIcon } from './components/marketplace/ShopDetailIcon';
 export { useShelfCarouselProps } from './lib/shelf-carousel';
 export { ListingSaveProvider } from './components/marketplace/ListingSaveProvider';
+export {
+  FeeScheduleTerms,
+  type FeeScheduleTermsProps,
+} from './components/marketplace/FeeScheduleTerms';
 export { CategoryPills, type CategoryPillsProps } from './components/marketplace/CategoryPills';
 export {
   MerchantCard,

@@ -54,6 +54,8 @@ export const queryKeys = {
   /** The signed-in P2P seller's own Peable payment account. */
   sellerPayments: {
     all: ['seller', 'payments'] as const,
+    /** The marketplace fee terms the seller's card sales are charged under (ADR 0018 D3). */
+    feeSchedule: ['seller', 'fees', 'schedule'] as const,
   },
   /**
    * Price alerts (#79).

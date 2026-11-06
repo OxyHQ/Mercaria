@@ -7,12 +7,10 @@ import {
   CURRENCY_PRECISION,
   type CurrencyCode,
   type FeePreview,
-  type FeeRefundPolicy,
   type FeeScheduleSummary,
-  type FeeTaxTreatment,
-  type StoreFeeScheduleView,
+  type SellerFeeScheduleView,
 } from '@mercaria/shared-types';
-import { Text, formatDate, useColorScheme, useFormatters } from '@mercaria/ui';
+import { FeeScheduleTerms, Text, formatDate, useColorScheme, useFormatters } from '@mercaria/ui';
 import { Button } from '@oxy.so/bloom/button';
 import { toast } from '@oxy.so/bloom/toast';
 import { Screen, ScreenLoading, ScreenMessage } from '@/components/shell/Screen';
@@ -107,36 +105,7 @@ function FeesBody({ storeId }: { storeId: string }) {
   );
 }
 
-/**
- * How each tax treatment is worded.
- *
- * KEYS rather than sentences, and a full literal per member: this map is read
- * before the locale store has rehydrated, and `validate:i18n-strings` resolves
- * `t()` arguments as literals — a key composed from the value at runtime would
- * be invisible to it and could go missing from a bundle unnoticed.
- */
-const TAX_COPY: Record<FeeTaxTreatment, string> = {
-  unknown: 'settings.fees.terms.taxUnknown',
-  exclusive: 'settings.fees.terms.taxExclusive',
-  inclusive: 'settings.fees.terms.taxInclusive',
-};
-
-/**
- * How each refund policy is worded.
- *
- * A `Record<FeeRefundPolicy, string>` rather than the one key the single member
- * needs today, for the reason `FeeRefundPolicy`'s own docblock gives: adding a
- * `retain` policy is "a code change plus a CHECK widening under its own
- * review". This map is what makes that review reach this screen — a new member
- * fails `tsc` here. Keyed on a literal sentence instead, a second policy would
- * leave every merchant reading "refunded in proportion" about a fee Mercaria
- * now keeps, on a green build, inside the screen that records their consent.
- */
-const REFUND_COPY: Record<FeeRefundPolicy, string> = {
-  proportional: 'settings.fees.terms.refundProportional',
-};
-
-function FeesPanel({ storeId, view }: { storeId: string; view: StoreFeeScheduleView }) {
+function FeesPanel({ storeId, view }: { storeId: string; view: SellerFeeScheduleView }) {
   const { t, locale } = useTranslation();
   const { schedule, acceptance } = view;
   const acceptedOn = acceptance ? formatDate(acceptance.acceptedAt, locale) : null;
@@ -189,81 +158,15 @@ function FeesPanel({ storeId, view }: { storeId: string; view: StoreFeeScheduleV
   );
 }
 
-/** The commercial offer itself, stated in the schedule's own terms. */
+/**
+ * The commercial offer itself, stated in the schedule's own terms — the ONE
+ * rendering of the terms, shared with a private seller's Settings → Payments on
+ * the storefront (`@mercaria/ui`'s `FeeScheduleTerms`).
+ */
 function ScheduleTerms({ schedule }: { schedule: FeeScheduleSummary }) {
-  const { t, locale } = useTranslation();
-  const { formatMoney, formatPercent } = useFormatters();
-  const currency = schedule.eligibleCurrency;
-  const effectiveFrom = formatDate(schedule.effectiveStart, locale);
-
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
-      <Text className="text-sm font-semibold text-foreground">{schedule.name}</Text>
-      <Text className="mt-1 text-xs text-muted-foreground">{schedule.merchantSummary}</Text>
-      <View className="mt-3 gap-1">
-        <Text className="text-xs text-foreground">
-          {t('settings.fees.terms.percentage', {
-            percent: formatPercent(schedule.percentageBps),
-          })}
-        </Text>
-        {schedule.fixedFee ? (
-          <Text className="text-xs text-foreground">
-            {t('settings.fees.terms.fixed', { amount: formatMoney(schedule.fixedFee) })}
-          </Text>
-        ) : null}
-        {/*
-          True of every schedule under the charge model (ADR 0001 D3, ADR 0018):
-          Mercaria is the platform and pays the card processor itself, so the
-          fee above is the whole of what a seller pays per sale.
-        */}
-        <Text className="text-xs text-foreground">
-          {t('settings.fees.terms.processingIncluded')}
-        </Text>
-        {/*
-          A schedule pinned to a fiat currency is a card-sales schedule: card
-          checkout presents only in fiat, and no schedule covers FAIR, so a
-          sale paid in FairCoin selects none and carries no fee.
-        */}
-        {currency !== undefined && currency !== 'FAIR' ? (
-          <Text className="text-xs text-foreground">
-            {t('settings.fees.terms.cardSalesOnly', { currency })}
-          </Text>
-        ) : null}
-        {/*
-          A clamp is an amount, so it can only be rendered in the currency the
-          schedule pinned. The type allows the currency to be absent (a pure
-          percentage applies in any), and the database refuses that combination
-          — so this shows nothing rather than guessing a currency, which is the
-          "unknown is never zero" rule applied to a unit.
-        */}
-        {schedule.minFeeMinor !== undefined && currency !== undefined ? (
-          <Text className="text-xs text-foreground">
-            {t('settings.fees.terms.min', {
-              amount: formatMoney({ amount: schedule.minFeeMinor, currency }),
-            })}
-          </Text>
-        ) : null}
-        {schedule.maxFeeMinor !== undefined && currency !== undefined ? (
-          <Text className="text-xs text-foreground">
-            {t('settings.fees.terms.max', {
-              amount: formatMoney({ amount: schedule.maxFeeMinor, currency }),
-            })}
-          </Text>
-        ) : null}
-        <Text className="text-xs text-muted-foreground">{t('settings.fees.terms.basis')}</Text>
-        <Text className="text-xs text-muted-foreground">
-          {t(REFUND_COPY[schedule.refundPolicy])}
-        </Text>
-        <Text className="text-xs text-muted-foreground">{t(TAX_COPY[schedule.taxTreatment])}</Text>
-        <Text className="text-xs text-muted-foreground">
-          {t('settings.fees.terms.version', { version: schedule.termsVersion })}
-        </Text>
-        {effectiveFrom === null ? null : (
-          <Text className="text-xs text-muted-foreground">
-            {t('settings.fees.terms.effectiveFrom', { date: effectiveFrom })}
-          </Text>
-        )}
-      </View>
+      <FeeScheduleTerms schedule={schedule} />
     </View>
   );
 }

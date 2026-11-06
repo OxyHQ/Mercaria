@@ -104,6 +104,26 @@
           "body": "Peable 已收到所需资料，正在审核。你无需做任何事 —— 通常需要一到两天。审核完成前，买家无法结账购买你的商品。",
           "heading": "审核中"
         }
+      },
+      "fees": {
+        "loadFailed": "无法加载你的佣金条款",
+        "acceptSucceeded": "已接受佣金条款",
+        "acceptFailed": "无法记录你的接受。条款可能已更改——请查看后重试。",
+        "acceptBeforeSetup": "请先接受上方的市场手续费，再设置收款。",
+        "englishTerms": "你接受的文本是上方的英文摘要。其下各行说明的是相同的条款。",
+        "pending": {
+          "heading": "接受市场手续费",
+          "body": "Mercaria 对银行卡销售收取手续费。在你接受这些条款之前，买家无法用银行卡向你付款。在你售出之前不会收取任何费用。",
+          "action": "接受这些条款"
+        },
+        "accepted": {
+          "heading": "已接受市场手续费",
+          "body": "条款 %{version} 已于 %{date} 接受。"
+        },
+        "notice": {
+          "body": "在你的第一笔银行卡销售之前，请接受 Mercaria 的银行卡销售手续费。在此之前，买家无法用银行卡向你付款。",
+          "action": "查看手续费"
+        }
       }
     }
   },
@@ -580,7 +600,10 @@
       "receiptEmailRequired": "请填写接收收据的邮箱地址。",
       "sellerNotPaymentReady": "%{seller}目前无法接受付款。请从订单中移除该卖家的商品，以结算其余商品。",
       "sellersNotPaymentReady": "以下卖家目前无法接受付款：%{sellers}。请从订单中移除他们的商品，以结算其余商品。",
-      "unnamedSellersNotPaymentReady": "您订单中的部分卖家目前无法接受付款。请移除突出显示的商品，以结算其余商品。"
+      "unnamedSellersNotPaymentReady": "您订单中的部分卖家目前无法接受付款。请移除突出显示的商品，以结算其余商品。",
+      "sellerNotActivated": "%{seller}目前不接受订单。请从订单中移除该卖家的商品，以便结算其余商品。",
+      "sellersNotActivated": "以下卖家目前不接受订单：%{sellers}。请从订单中移除他们的商品，以便结算其余商品。",
+      "unnamedSellersNotActivated": "你订单中的部分卖家目前不接受订单。请移除高亮显示的商品，以便结算其余商品。"
     },
     "form": {
       "cityLabel": "城市",
@@ -635,7 +658,8 @@
       "calculatedAtPlacement": "优惠、税费和运费在提交订单时计算。",
       "cannotAcceptPayment": "目前无法接受付款",
       "subtotal": "小计",
-      "title": "订单摘要"
+      "title": "订单摘要",
+      "notAcceptingOrders": "目前不接受订单"
     },
     "title": "结算",
     "toast": {

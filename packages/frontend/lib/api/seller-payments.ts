@@ -1,6 +1,9 @@
 import type {
+  AcceptFeeScheduleInput,
   ApiResponse,
+  FeeScheduleAcceptanceSummary,
   ProviderOnboardingLink,
+  SellerFeeScheduleView,
   SellerPaymentSettings,
 } from '@mercaria/shared-types';
 import apiClient from './client';
@@ -48,4 +51,27 @@ export async function refreshSellerPaymentSettings(): Promise<SellerPaymentSetti
     {},
   );
   return unwrap(data, 'Failed to refresh payment settings');
+}
+
+/**
+ * The marketplace fee schedule the seller's card sales are charged under, and
+ * their acceptance of it (ADR 0018 D3). Empty when no schedule applies.
+ */
+export async function fetchSellerFeeSchedule(): Promise<SellerFeeScheduleView> {
+  const { data } = await apiClient.get<ApiResponse<SellerFeeScheduleView>>('/seller/fees/schedule');
+  return unwrap(data, 'Failed to load the marketplace fee');
+}
+
+/**
+ * Accept the schedule's terms. The body echoes the version the screen showed, so
+ * a schedule that moved underneath it is refused rather than accepted blind.
+ */
+export async function acceptSellerFeeSchedule(
+  input: AcceptFeeScheduleInput,
+): Promise<FeeScheduleAcceptanceSummary> {
+  const { data } = await apiClient.post<ApiResponse<FeeScheduleAcceptanceSummary>>(
+    '/seller/fees/accept',
+    input,
+  );
+  return unwrap(data, 'Failed to accept the marketplace fee');
 }

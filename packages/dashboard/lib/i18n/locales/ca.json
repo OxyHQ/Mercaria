@@ -1688,21 +1688,6 @@
         "heading": "Condicions acceptades",
         "body": "Condicions %{version} acceptades el %{date}."
       },
-      "terms": {
-        "percentage": "%{percent} del subtotal d'articles",
-        "fixed": "Més %{amount} per comanda",
-        "min": "Comissió mínima %{amount}",
-        "max": "Comissió màxima %{amount}",
-        "basis": "Es cobra sobre el preu dels articles després dels descomptes. L'enviament i els impostos mai s'hi inclouen.",
-        "refundProportional": "Es retorna en proporció a qualsevol reemborsament que emetis.",
-        "taxUnknown": "Tractament fiscal: sense especificar.",
-        "taxExclusive": "Els impostos es cobren a part d'aquesta comissió.",
-        "taxInclusive": "Els impostos estan inclosos en aquesta comissió.",
-        "version": "Versió de les condicions %{version}",
-        "effectiveFrom": "En vigor des del %{date}",
-        "processingIncluded": "El processament de targetes està inclòs. No hi ha cap comissió de processament a part.",
-        "cardSalesOnly": "S'aplica a les vendes amb targeta en %{currency}. Les vendes pagades en FairCoin no tenen comissió."
-      },
       "preview": {
         "title": "Quant costa",
         "body": "Tria un total de comanda d'exemple per veure la comissió i el que et queda.",

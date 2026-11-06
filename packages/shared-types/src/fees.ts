@@ -227,11 +227,15 @@ export interface FeeScheduleAcceptanceSummary {
   acceptedAt: string;
 }
 
-/** What `GET /admin/stores/:storeId/fees/schedule` answers. */
-export interface StoreFeeScheduleView {
-  /** The schedule currently applicable to this store, or absent when none is. */
+/**
+ * What `GET /admin/stores/:storeId/fees/schedule` (a store) and
+ * `GET /seller/fees/schedule` (a private seller) answer — one shape, because the
+ * terms and the acceptance record are the same for both kinds of seller.
+ */
+export interface SellerFeeScheduleView {
+  /** The schedule currently applicable to this seller's sales, or absent when none is. */
   schedule?: FeeScheduleSummary;
-  /** This store's acceptance of that exact version, when one exists. */
+  /** This seller's acceptance of that exact version, when one exists. */
   acceptance?: FeeScheduleAcceptanceSummary;
 }
 

@@ -4,7 +4,7 @@ import type {
   FeePreview,
   FeePreviewInput,
   FeeScheduleAcceptanceSummary,
-  StoreFeeScheduleView,
+  SellerFeeScheduleView,
 } from '@mercaria/shared-types';
 import apiClient from './client';
 import { unwrap } from './unwrap';
@@ -19,8 +19,8 @@ const base = (storeId: string) => `/admin/stores/${storeId}/fees`;
  * schedule charges a real zero, and the screen says so rather than implying
  * something failed to load.
  */
-export async function fetchFeeSchedule(storeId: string): Promise<StoreFeeScheduleView> {
-  const { data } = await apiClient.get<ApiResponse<StoreFeeScheduleView>>(
+export async function fetchFeeSchedule(storeId: string): Promise<SellerFeeScheduleView> {
+  const { data } = await apiClient.get<ApiResponse<SellerFeeScheduleView>>(
     `${base(storeId)}/schedule`,
   );
   return unwrap(data);

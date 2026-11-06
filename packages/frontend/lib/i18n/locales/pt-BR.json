@@ -106,6 +106,26 @@
           "body": "A Peable recebeu o que pediu e está analisando. Não há nada a fazer da sua parte — isso costuma levar um ou dois dias. Os compradores não conseguem finalizar a compra dos seus anúncios até isso terminar.",
           "heading": "Em análise"
         }
+      },
+      "fees": {
+        "loadFailed": "Não foi possível carregar seus termos de comissão",
+        "acceptSucceeded": "Termos de comissão aceitos",
+        "acceptFailed": "Não foi possível registrar seu aceite. Os termos podem ter mudado — confira-os e tente de novo.",
+        "acceptBeforeSetup": "Aceite a taxa do marketplace acima para configurar os repasses.",
+        "englishTerms": "O texto que você aceita é o resumo acima, em inglês. As linhas abaixo dele descrevem os mesmos termos.",
+        "pending": {
+          "heading": "Aceite a taxa do marketplace",
+          "body": "A Mercaria cobra uma taxa nas vendas com cartão. Os compradores só podem pagar você com cartão depois que você aceitar estes termos. Nada é cobrado até você vender.",
+          "action": "Aceitar estes termos"
+        },
+        "accepted": {
+          "heading": "Taxa do marketplace aceita",
+          "body": "Termos %{version} aceitos em %{date}."
+        },
+        "notice": {
+          "body": "Antes da sua primeira venda com cartão, aceite a taxa da Mercaria nas vendas com cartão. Até lá, os compradores não podem pagar você com cartão.",
+          "action": "Ver a taxa"
+        }
       }
     }
   },
@@ -585,7 +605,10 @@
       "receiptEmailRequired": "Informe o e-mail para onde seu recibo deve ir.",
       "sellerNotPaymentReady": "%{seller} não pode aceitar pagamentos no momento. Remova os itens desse vendedor do pedido para finalizar a compra do restante.",
       "sellersNotPaymentReady": "Estes vendedores não podem aceitar pagamentos no momento: %{sellers}. Remova os itens deles do pedido para finalizar a compra do restante.",
-      "unnamedSellersNotPaymentReady": "Alguns vendedores do seu pedido não podem aceitar pagamentos no momento. Remova os itens destacados para finalizar a compra do restante."
+      "unnamedSellersNotPaymentReady": "Alguns vendedores do seu pedido não podem aceitar pagamentos no momento. Remova os itens destacados para finalizar a compra do restante.",
+      "sellerNotActivated": "%{seller} não está aceitando pedidos no momento. Remova os itens desse vendedor do pedido para finalizar o restante.",
+      "sellersNotActivated": "Estes vendedores não estão aceitando pedidos no momento: %{sellers}. Remova os itens deles do pedido para finalizar o restante.",
+      "unnamedSellersNotActivated": "Alguns vendedores do seu pedido não estão aceitando pedidos no momento. Remova os itens destacados para finalizar o restante."
     },
     "form": {
       "cityLabel": "Cidade",
@@ -640,7 +663,8 @@
       "calculatedAtPlacement": "Descontos, impostos e frete são calculados quando o pedido é feito.",
       "cannotAcceptPayment": "Não pode aceitar pagamentos no momento",
       "subtotal": "Subtotal",
-      "title": "Resumo do pedido"
+      "title": "Resumo do pedido",
+      "notAcceptingOrders": "Não está aceitando pedidos no momento"
     },
     "title": "Finalizar compra",
     "toast": {

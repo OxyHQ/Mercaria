@@ -16,7 +16,7 @@ The owner approved: register `mercaria.co` as a wallet domain and sell in USD.
 | Wallet domain | `mercaria.co` = `pmd_de5b5c1648a83fcb9e411c99`, live, enabled, `apple_pay` and `google_pay` both `active` | Registered and validated as Mercaria's workload (§3) |
 | Apple Pay file | `https://mercaria.co/.well-known/apple-developer-merchantid-domain-association`, Stripe's file, from `packages/frontend/public/.well-known/` | Byte-identical to `https://stripe.com/files/apple-pay/apple-developer-merchantid-domain-association` |
 | Sellers | **None `ready`.** `provider_accounts` was empty when the rail went on | Read-only count, 2026-11-05 |
-| Commission | 5% + $0.30 per order on store card sales in USD, processing included; none on FairCoin or P2P sales (ADR 0018). The unpublished EUR schedule is retired | `services/fees/catalog.ts` `marketplace-card` v1; published by `publish-fee-schedules.yml` (§5) |
+| Commission | 5% + $0.30 per order on marketplace card sales in USD, processing included; none on FairCoin (ADR 0018). Stores: `marketplace-card` v1, active. Private sellers: `marketplace-card-individual` v1, accepted on storefront Settings → Payments (ADR 0018 D3), activated per §5 | `services/fees/catalog.ts`; published by `publish-fee-schedules.yml` (§5) |
 
 `www.mercaria.co` does not resolve, so it is not registered. Register any new
 host that renders the card step (§3), or Apple Pay and Google Pay do not show
@@ -104,16 +104,27 @@ a one-shot on the live task definition that records the live image's commit as
 the author. Never write `fee_schedules` by hand.
 
 1. Merge the catalogue change and wait for **Deploy to AWS** to finish: the task
-   runs the LIVE image's catalogue.
-2. Run it with `mode: preview`. It lists every published version and which
-   catalogue versions `draft` would add. It writes nothing.
+   runs the LIVE image's catalogue. A version that reaches a seller kind for the
+   first time also waits for the screen that seller accepts on (stores: the
+   dashboard, **Deploy Dashboard**; private sellers: the storefront, **Deploy to
+   Cloudflare**).
+2. Run it with `mode: preview`. It lists every published version, which
+   catalogue versions `draft` would add, and for each version not yet active
+   how many payment-ready sellers have not accepted it (`readySellersWithoutAcceptance`,
+   with `byOwnerType`; counts only, never an id). It writes nothing.
 3. Run it with `mode: draft`. Each new version becomes a DRAFT, which charges
    nobody. A second run changes nothing.
-4. Run it with `mode: activate`. It refuses, and activates nothing, while any
-   payment-ready seller the schedule reaches has not accepted it, because
-   activation would refuse that seller's checkout. With no seller `ready` it
-   activates, and each store meets the terms as pending under Settings →
-   Marketplace fees before its first card sale.
+4. Run it with `mode: activate`. It checks every draft first and refuses, and
+   activates nothing, while any payment-ready seller a draft reaches has not
+   accepted it, because activation would refuse that seller's checkout. With no
+   such seller it activates, and each seller meets the terms as pending before
+   its first card sale: a store under Settings → Marketplace fees, a private
+   seller under Settings → Payments (where payout setup waits on it) and on
+   `/sell`.
+
+If `preview` reports a payment-ready seller who has not accepted, do not try to
+force activation: those sellers keep selling with no fee until they accept, and a
+new version cannot be accepted until it is active (`HANDOFF.md`).
 
 From a terminal: `gh workflow run publish-fee-schedules.yml -R OxyHQ/Mercaria -f mode=preview`
 (then `draft`, then `activate`), and `gh run watch` the run it starts.

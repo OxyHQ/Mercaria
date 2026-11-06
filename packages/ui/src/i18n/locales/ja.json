@@ -1049,6 +1049,21 @@
         "manageDescription": "名前、写真、セキュリティ、デバイスは Oxy アカウントで管理します。",
         "manage": "管理"
       }
+    },
+    "feeTerms": {
+      "percentage": "商品小計の %{percent}",
+      "fixed": "さらに 1 注文あたり %{amount}",
+      "min": "最低手数料 %{amount}",
+      "max": "上限手数料 %{amount}",
+      "basis": "割引後の商品価格に対して請求されます。配送料と税は含まれません。",
+      "refundProportional": "お客様が行った返金に比例して返還されます。",
+      "taxUnknown": "税の扱い: 記載なし。",
+      "taxExclusive": "税はこの手数料に加えて請求されます。",
+      "taxInclusive": "税はこの手数料に含まれています。",
+      "version": "条件バージョン %{version}",
+      "effectiveFrom": "%{date} から有効",
+      "processingIncluded": "カード決済の処理費用は含まれています。別途の処理手数料はありません。",
+      "cardSalesOnly": "%{currency} でのカード販売に適用されます。"
     }
   }
 }

@@ -6,14 +6,20 @@ import { Field } from '@oxy.so/bloom/field';
 import { Loading } from '@oxy.so/bloom/loading';
 import { TextFieldInput } from '@oxy.so/bloom/text-field';
 import { toast } from '@oxy.so/bloom/toast';
-import type { ProviderOnboardingState, SellerPaymentSettings } from '@mercaria/shared-types';
+import type {
+  ProviderOnboardingState,
+  SellerFeeScheduleView,
+  SellerPaymentSettings,
+} from '@mercaria/shared-types';
 import { Text, formatDate, formatRegionName } from '@mercaria/ui';
 import { useTranslation } from '@/lib/i18n';
 import {
   useCreateSellerOnboardingLink,
   useRefreshSellerPaymentSettings,
+  useSellerFeeSchedule,
   useSellerPaymentSettings,
 } from '@/lib/hooks/use-seller-payments';
+import { SellerFeeTermsCard, isFeeTermsPending } from './seller-fee-terms';
 
 /**
  * Payments & payouts — a P2P seller's own Peable connected account (ADR 0001
@@ -27,18 +33,42 @@ import {
  *
  * The country is the seller's choice, once: Mercaria stores none, and which
  * countries can be onboarded is Peable's answer.
+ *
+ * The marketplace fee terms (ADR 0018 D3) sit FIRST and are a step of payout
+ * setup: while a schedule applies and is not accepted, starting setup waits on
+ * acceptance, so a seller meets the fee before their first card sale rather than
+ * learning of it from a refused one. A seller already set up is never stopped
+ * from managing payouts by it — the card tells them card sales wait on it.
  */
 export function PaymentsSettingsPage() {
   const { t } = useTranslation();
   const { data, isPending, isError } = useSellerPaymentSettings();
+  const fees = useSellerFeeSchedule();
   if (isPending) return <Loading />;
   if (isError || !data) {
     return (
       <Text className="text-sm text-muted-foreground">{t('settings.payments.loadFailed')}</Text>
     );
   }
-  return <PaymentsPanel settings={data} />;
+  return (
+    <View className="gap-4">
+      {fees.isError ? (
+        <Text className="text-xs text-muted-foreground">
+          {t('settings.payments.fees.loadFailed')}
+        </Text>
+      ) : fees.data ? (
+        <SellerFeeTermsCard view={fees.data} />
+      ) : null}
+      <PaymentsPanel settings={data} fees={fees.data} />
+    </View>
+  );
 }
+
+/** The states whose action STARTS payout setup, rather than managing a running account. */
+const SETUP_STATES: ReadonlySet<ProviderOnboardingState> = new Set([
+  'not_connected',
+  'action_required',
+]);
 
 /**
  * Copy per state, as KEYS: this map is evaluated at import, before the locale
@@ -79,7 +109,13 @@ const STATE_COPY: Record<
   },
 };
 
-function PaymentsPanel({ settings }: { settings: SellerPaymentSettings }) {
+function PaymentsPanel({
+  settings,
+  fees,
+}: {
+  settings: SellerPaymentSettings;
+  fees: SellerFeeScheduleView | undefined;
+}) {
   const { account, onboardingAvailable } = settings;
   const { t, locale } = useTranslation();
   const [opening, setOpening] = useState(false);
@@ -96,6 +132,7 @@ function PaymentsPanel({ settings }: { settings: SellerPaymentSettings }) {
       ? null
       : formatDate(account.requirements.currentDeadline, locale);
   const outstanding = account.requirements.currentlyDue + account.requirements.pastDue;
+  const waitsOnFeeTerms = SETUP_STATES.has(account.onboardingState) && isFeeTermsPending(fees);
 
   async function startOnboarding(): Promise<void> {
     try {
@@ -140,11 +177,17 @@ function PaymentsPanel({ settings }: { settings: SellerPaymentSettings }) {
             tone="accent"
             onPress={startOnboarding}
             loading={createLink.isPending || opening}
-            disabled={needsCountry && !countryValid}
+            disabled={(needsCountry && !countryValid) || waitsOnFeeTerms}
             className="mt-4 self-start"
           >
             {t(copy.actionKey)}
           </Button>
+        ) : null}
+
+        {copy.actionKey !== undefined && onboardingAvailable && waitsOnFeeTerms ? (
+          <Text className="mt-2 text-xs text-muted-foreground">
+            {t('settings.payments.fees.acceptBeforeSetup')}
+          </Text>
         ) : null}
 
         {onboardingAvailable ? null : (

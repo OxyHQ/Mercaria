@@ -71,8 +71,20 @@ export interface SellersNotPaymentReadyErrorDetails {
   sellers: RefusedCheckoutSeller[];
 }
 
+/**
+ * A checkout refused because these sellers are not accepting orders right now —
+ * a store an operator held or its owner paused, or a seller who has not accepted
+ * the marketplace fee terms their sale selects (ADR 0018). Which of those fired
+ * is deliberately NOT carried: a buyer cannot act on it, and it is somebody
+ * else's business. The remedy is the same: deselect them.
+ */
+export interface SellersNotActivatedErrorDetails {
+  reason: 'seller_not_activated';
+  sellers: RefusedCheckoutSeller[];
+}
+
 /** Every structured error detail the API emits, discriminated by `reason`. */
-export type ApiErrorDetails = SellersNotPaymentReadyErrorDetails;
+export type ApiErrorDetails = SellersNotPaymentReadyErrorDetails | SellersNotActivatedErrorDetails;
 
 /** Paginated list envelope: a page of `T` plus its pagination metadata. */
 export interface PaginatedResponse<T> {

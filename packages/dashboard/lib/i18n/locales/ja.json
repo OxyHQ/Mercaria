@@ -1670,21 +1670,6 @@
         "heading": "条件を承諾済み",
         "body": "条件 %{version} を %{date} に承諾しました。"
       },
-      "terms": {
-        "percentage": "商品小計の %{percent}",
-        "fixed": "さらに 1 注文あたり %{amount}",
-        "min": "最低手数料 %{amount}",
-        "max": "上限手数料 %{amount}",
-        "basis": "割引後の商品価格に対して請求されます。配送料と税は含まれません。",
-        "refundProportional": "お客様が行った返金に比例して返還されます。",
-        "taxUnknown": "税の扱い: 記載なし。",
-        "taxExclusive": "税はこの手数料に加えて請求されます。",
-        "taxInclusive": "税はこの手数料に含まれています。",
-        "version": "条件バージョン %{version}",
-        "effectiveFrom": "%{date} から有効",
-        "processingIncluded": "カード決済の処理費用は含まれています。別途の処理手数料はありません。",
-        "cardSalesOnly": "%{currency} でのカード販売に適用されます。FairCoin で支払われた販売には手数料はかかりません。"
-      },
       "preview": {
         "title": "実際の金額",
         "body": "注文合計の例を選ぶと、手数料と手取り額が表示されます。",

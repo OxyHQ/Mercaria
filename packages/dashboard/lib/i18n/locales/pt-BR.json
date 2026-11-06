@@ -1688,21 +1688,6 @@
         "heading": "Termos aceitos",
         "body": "Termos %{version} aceitos em %{date}."
       },
-      "terms": {
-        "percentage": "%{percent} do subtotal dos itens",
-        "fixed": "Mais %{amount} por pedido",
-        "min": "Comissão mínima %{amount}",
-        "max": "Comissão máxima %{amount}",
-        "basis": "Cobrada sobre o preço dos itens após os descontos. Entrega e impostos nunca são incluídos.",
-        "refundProportional": "Devolvida proporcionalmente a qualquer reembolso que você emitir.",
-        "taxUnknown": "Tratamento fiscal: não informado.",
-        "taxExclusive": "O imposto é cobrado além desta comissão.",
-        "taxInclusive": "O imposto está incluído nesta comissão.",
-        "version": "Termos versão %{version}",
-        "effectiveFrom": "Em vigor desde %{date}",
-        "processingIncluded": "O processamento de cartão está incluído. Não há taxa de processamento separada.",
-        "cardSalesOnly": "Aplica-se a vendas com cartão em %{currency}. Vendas pagas em FairCoin não têm taxa."
-      },
       "preview": {
         "title": "Quanto isso custa",
         "body": "Escolha um total de pedido de exemplo para ver a comissão e o que fica com você.",

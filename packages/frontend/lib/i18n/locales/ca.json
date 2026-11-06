@@ -106,6 +106,26 @@
           "body": "Peable té el que havia demanat i ho està revisant. No has de fer res: normalment triga un dia o dos. Els compradors no poden finalitzar la compra amb els teus productes fins que acabi.",
           "heading": "En revisió"
         }
+      },
+      "fees": {
+        "loadFailed": "No s'han pogut carregar les teves condicions de comissió",
+        "acceptSucceeded": "Condicions de comissió acceptades",
+        "acceptFailed": "No s'ha pogut registrar la teva acceptació. Pot ser que les condicions hagin canviat: revisa-les i torna-ho a provar.",
+        "acceptBeforeSetup": "Accepta la comissió del marketplace de dalt per configurar els cobraments.",
+        "englishTerms": "El text que acceptes és el resum de dalt, en anglès. Les línies de sota expressen les mateixes condicions.",
+        "pending": {
+          "heading": "Accepta la comissió del marketplace",
+          "body": "Mercaria cobra una comissió per les vendes amb targeta. Els compradors no et podran pagar amb targeta fins que acceptis aquestes condicions. No es cobra res fins que venguis.",
+          "action": "Acceptar aquestes condicions"
+        },
+        "accepted": {
+          "heading": "Comissió del marketplace acceptada",
+          "body": "Condicions %{version} acceptades el %{date}."
+        },
+        "notice": {
+          "body": "Abans de la teva primera venda amb targeta, accepta la comissió de Mercaria per les vendes amb targeta. Fins aleshores, els compradors no et podran pagar amb targeta.",
+          "action": "Revisa la comissió"
+        }
       }
     }
   },
@@ -585,7 +605,10 @@
       "receiptEmailRequired": "Escriu l'adreça electrònica on ha d'arribar el teu rebut.",
       "sellerNotPaymentReady": "%{seller} no pot acceptar pagaments ara mateix. Treu els seus articles de la comanda per pagar la resta.",
       "sellersNotPaymentReady": "Aquests venedors no poden acceptar pagaments ara mateix: %{sellers}. Treu els seus articles de la comanda per pagar la resta.",
-      "unnamedSellersNotPaymentReady": "Alguns venedors de la teva comanda no poden acceptar pagaments ara mateix. Treu els articles destacats per pagar la resta."
+      "unnamedSellersNotPaymentReady": "Alguns venedors de la teva comanda no poden acceptar pagaments ara mateix. Treu els articles destacats per pagar la resta.",
+      "sellerNotActivated": "%{seller} no accepta comandes ara mateix. Treu-ne els articles de la comanda per pagar la resta.",
+      "sellersNotActivated": "Aquests venedors no accepten comandes ara mateix: %{sellers}. Treu-ne els articles de la comanda per pagar la resta.",
+      "unnamedSellersNotActivated": "Alguns venedors de la teva comanda no accepten comandes ara mateix. Treu els articles destacats per pagar la resta."
     },
     "form": {
       "cityLabel": "Ciutat",
@@ -640,7 +663,8 @@
       "calculatedAtPlacement": "Els descomptes, els impostos i l'enviament es calculen en fer la comanda.",
       "cannotAcceptPayment": "No pot acceptar pagaments ara mateix",
       "subtotal": "Subtotal",
-      "title": "Resum de la comanda"
+      "title": "Resum de la comanda",
+      "notAcceptingOrders": "No accepta comandes ara mateix"
     },
     "title": "Finalitza la compra",
     "toast": {
