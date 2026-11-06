@@ -234,8 +234,9 @@ account events. No seller is `ready`, so every native checkout is refused
       multi-output transaction (Peable ADR 0021 D6); the card stays the platform
       charge + transfers; the fee follows the method USED, at the outcome
       (`order_fee_outcomes`). `@peable.to/sdk` 5.0.0.
-- [ ] **The session events on Peable's endpoint** — add the four
-      `checkout.session.*` types to `we_82b5…` (`docs/payments.md` Webhooks).
+- [x] **The session events on Peable's endpoint** — the four
+      `checkout.session.*` types are on `we_82b5…` since 2026-11-06 (31 types,
+      read back; `docs/runbooks/marketplace-card-rail-live.md` §3b).
 - [x] **FairCoin-paid merchant plans** — a Peable `incomplete` subscription
       (first payment confirming) is Mercaria's `incomplete`, shown as "Waiting
       for your payment to confirm", entitling nothing and refusing checkout,

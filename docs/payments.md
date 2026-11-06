@@ -2231,12 +2231,12 @@ figure and reverses the seller's share. Neither has been run.
       `payout.paid`, `payout.failed`, `payout.canceled`. Done 2026-11-05 (as
       Mercaria's workload, `POST /v1/webhook_endpoints/:id` with the FULL list,
       after the intent marker shipped): 27 types, the seven billing ones kept.
-- [ ] ADR 0021: add `checkout.session.completed`,
+- [x] ADR 0021: `checkout.session.completed`,
       `checkout.session.async_payment_succeeded`,
       `checkout.session.async_payment_failed` and `checkout.session.expired`
-      to the same endpoint (the FULL list again, as Mercaria's workload). Until
-      then a USD order paid in FairCoin moves only through the open-payment
-      reconciliation's session read.
+      on the same endpoint. Done 2026-11-06 as Mercaria's workload (one-off task
+      on `oxy-mercaria:186`, `webhookEndpoints.update` with the FULL list; read
+      back: 31 types, status `enabled`) — `docs/runbooks/marketplace-card-rail-live.md` §3b.
 - [ ] `POST /webhooks/peable` with no signature answers 400 `missing_signature`,
       not 404. A 404 means the secret is unset and the endpoint is unmounted.
 

@@ -102,6 +102,26 @@ account. If Stripe changes it, replace the file, deploy the storefront, then
 validate the domain again. `public/_worker.js` serves it as a plain asset: the
 path has no extension, and the worker only treats an HTML request as a page.
 
+## 3b. Peable event types on the endpoint (as Mercaria's workload)
+
+The marketplace and the plans share ONE Peable endpoint,
+`we_82b5f363eb495108b252e607` (`https://api.mercaria.co/webhooks/peable`). A new
+event type is added the same way as a wallet domain (§3): a one-off task on the
+live `oxy-mercaria` revision through `.github/scripts/run-ecs-task.sh` with a
+`bun -e` override that builds the same `OxyServer` + `peableForOxyService`
+client, checks `merchants.retrieve().id === 'merch_bd106296a0fef49a861ee6b7'`,
+reads `webhookEndpoints.retrieve(id)`, sends `webhookEndpoints.update(id, {
+enabled_events })` with the FULL list (existing ∪ new; the field replaces the
+list), and reads it back. Run it once read-only first. Print only the
+endpoint's id, url, status and event types — never the secret. Never write
+Peable's database.
+
+2026-11-06 (ADR 0021): added `checkout.session.completed`, `.expired`,
+`.async_payment_succeeded` and `.async_payment_failed` on `oxy-mercaria:186`;
+27 → 31 types, read back `enabled`, none missing. The live code already
+answered those types (ADR 0020's session events), so adding them before #1220
+deployed changed nothing for in-flight payments.
+
 ## 4. What is left before the first sale (owner)
 
 1. **A seller reaches `ready`.** This is a real identity check (KYC) at Peable,
