@@ -64,11 +64,19 @@ export function PaymentsSettingsPage() {
   );
 }
 
-/** The states whose action STARTS payout setup, rather than managing a running account. */
-const SETUP_STATES: ReadonlySet<ProviderOnboardingState> = new Set([
-  'not_connected',
-  'action_required',
-]);
+/**
+ * Whether a state's action STARTS payout setup (and so waits on the fee terms),
+ * rather than managing a running account. A Record, so a new state fails `tsc`
+ * here instead of silently skipping the fee step.
+ */
+const STARTS_SETUP: Record<ProviderOnboardingState, boolean> = {
+  not_connected: true,
+  action_required: true,
+  under_review: false,
+  ready: false,
+  restricted: false,
+  disabled: false,
+};
 
 /**
  * Copy per state, as KEYS: this map is evaluated at import, before the locale
@@ -132,7 +140,7 @@ function PaymentsPanel({
       ? null
       : formatDate(account.requirements.currentDeadline, locale);
   const outstanding = account.requirements.currentlyDue + account.requirements.pastDue;
-  const waitsOnFeeTerms = SETUP_STATES.has(account.onboardingState) && isFeeTermsPending(fees);
+  const waitsOnFeeTerms = STARTS_SETUP[account.onboardingState] && isFeeTermsPending(fees);
 
   async function startOnboarding(): Promise<void> {
     try {
