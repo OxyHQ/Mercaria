@@ -62,6 +62,22 @@ export const PAYMENT_STATUS_FOR_EVENT = {
   'charge.refunded': 'reread',
 } as const satisfies Partial<Record<WebhookEventType, PaymentStatus | 'reread'>>;
 
+/**
+ * The Checkout Session events of a fiat order paid in FairCoin (Mercaria ADR
+ * 0020). They assert no status of their own — the router re-reads the session —
+ * and a session Mercaria did not open (a merchant plan's) is ignored there.
+ */
+export const PEABLE_SESSION_EVENT_TYPES = [
+  'checkout.session.completed',
+  'checkout.session.async_payment_succeeded',
+  'checkout.session.async_payment_failed',
+  'checkout.session.expired',
+] as const satisfies readonly WebhookEventType[];
+
+export function isPeableSessionEvent(type: string): boolean {
+  return (PEABLE_SESSION_EVENT_TYPES as readonly string[]).includes(type);
+}
+
 /** An event type this rail acts on. */
 export type PeablePaymentEventType = keyof typeof PAYMENT_STATUS_FOR_EVENT;
 
@@ -156,6 +172,16 @@ function sellerIdsOf(event: WebhookEvent): Record<string, string> {
       const metadata: Readonly<Record<string, string>> | undefined = object.metadata;
       const marker = metadata?.mercaria_payment_id;
       return typeof marker === 'string' && marker !== '' ? { mercaria_payment: marker } : {};
+    }
+    case 'checkout_session': {
+      // A FairCoin-only session Mercaria's checkout opened carries the same
+      // marker on the SESSION (its quoted intent is Peable's and carries none).
+      const metadata: Readonly<Record<string, string>> | undefined = object.metadata;
+      const marker = metadata?.mercaria_payment_id;
+      return {
+        checkout_session: object.id,
+        ...(typeof marker === 'string' && marker !== '' ? { mercaria_payment: marker } : {}),
+      };
     }
     case 'connected_account':
       return { connected_account: object.id };

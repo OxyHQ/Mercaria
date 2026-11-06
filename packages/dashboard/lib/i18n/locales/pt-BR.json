@@ -1168,7 +1168,8 @@
       "processingIncluded": "Incluído",
       "net": "Você recebe",
       "refundNote": "Antes de qualquer reembolso. Se você reembolsar este pedido, a taxa sobre o valor reembolsado é devolvida a você proporcionalmente.",
-      "none": "Nenhuma taxa do marketplace foi cobrada neste pedido."
+      "none": "Nenhuma taxa do marketplace foi cobrada neste pedido.",
+      "faircoin": "Pago em FairCoin: sem taxa do marketplace. O comprador pagou direto na sua carteira Peable, então você recebeu o valor integral."
     }
   },
   "products": {

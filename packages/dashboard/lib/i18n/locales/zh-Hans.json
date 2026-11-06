@@ -1153,7 +1153,8 @@
       "processingIncluded": "已包含",
       "net": "您将收到",
       "refundNote": "未计退款。如果您为此订单退款，退款金额对应的佣金将按比例退还给您。",
-      "none": "此订单未收取平台佣金。"
+      "none": "此订单未收取平台佣金。",
+      "faircoin": "已用 FairCoin 支付：不收取平台费。买家直接付款到您的 Peable 钱包，您收到了全部金额。"
     }
   },
   "products": {

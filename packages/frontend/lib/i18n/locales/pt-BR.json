@@ -684,7 +684,13 @@
     },
     "useSavedAddress": "Usar um endereço salvo",
     "viewOrder": "Ver seu pedido",
-    "viewOrders": "Ver seus pedidos"
+    "viewOrders": "Ver seus pedidos",
+    "payWith": {
+      "label": "Como você vai pagar",
+      "card": "Cartão",
+      "faircoin": "FairCoin",
+      "faircoinHint": "Você paga o total em FairCoin, direto na carteira Peable do vendedor. A Peable calcula o valor em FairCoin no momento do pagamento, e o preço vale por 10 minutos. Um pagamento em FairCoin cobre um único vendedor."
+    }
   },
   "payment": {
     "cancelled": {

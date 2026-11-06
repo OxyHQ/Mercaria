@@ -688,7 +688,13 @@
     },
     "useSavedAddress": "Использовать сохранённый адрес",
     "viewOrder": "Посмотреть заказ",
-    "viewOrders": "Посмотреть ваши заказы"
+    "viewOrders": "Посмотреть ваши заказы",
+    "payWith": {
+      "label": "Способ оплаты",
+      "card": "Карта",
+      "faircoin": "FairCoin",
+      "faircoinHint": "Вы оплачиваете всю сумму в FairCoin прямо в кошелёк Peable продавца. Peable рассчитывает сумму в FairCoin в момент оплаты, и цена действует 10 минут. Один платёж в FairCoin — один продавец."
+    }
   },
   "payment": {
     "cancelled": {

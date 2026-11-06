@@ -679,7 +679,13 @@
     },
     "useSavedAddress": "保存した住所を使う",
     "viewOrder": "注文を見る",
-    "viewOrders": "注文履歴を見る"
+    "viewOrders": "注文履歴を見る",
+    "payWith": {
+      "label": "お支払い方法",
+      "card": "カード",
+      "faircoin": "FairCoin",
+      "faircoinHint": "合計を FairCoin で、出品者自身の Peable ウォレットへ直接お支払いいただきます。金額はお支払い時に Peable が FairCoin で算出し、その価格は 10 分間有効です。FairCoin での支払いは出品者 1 人分です。"
+    }
   },
   "payment": {
     "cancelled": {

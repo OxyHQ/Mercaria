@@ -445,7 +445,7 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // `FaircoinCheckoutUnavailableErrorDetails`, with the handoff's `rail` and
     // `faircoin` and `SellerPaymentSettings.faircoin`: +7 types, +16 properties.
     // Measured by the real guard.
-    'walked 148 contract module(s), 2476 exported type(s), 8340 property signature(s)',
+    'walked 148 contract module(s), 2477 exported type(s), 8341 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });

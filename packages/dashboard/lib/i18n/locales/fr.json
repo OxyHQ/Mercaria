@@ -1168,7 +1168,8 @@
       "processingIncluded": "Inclus",
       "net": "Vous recevez",
       "refundNote": "Avant tout remboursement. Si vous remboursez cette commande, la commission sur le montant remboursé vous est restituée au prorata.",
-      "none": "Aucune commission de la marketplace n'a été prélevée sur cette commande."
+      "none": "Aucune commission de la marketplace n'a été prélevée sur cette commande.",
+      "faircoin": "Payé en FairCoin : aucune commission de la marketplace. L'acheteur a payé directement dans votre portefeuille Peable : vous avez reçu la totalité du montant."
     }
   },
   "products": {

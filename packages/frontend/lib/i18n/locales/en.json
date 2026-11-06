@@ -680,7 +680,13 @@
     },
     "useSavedAddress": "Use a saved address",
     "viewOrder": "View your order",
-    "viewOrders": "View your orders"
+    "viewOrders": "View your orders",
+    "payWith": {
+      "label": "How you'll pay",
+      "card": "Card",
+      "faircoin": "FairCoin",
+      "faircoinHint": "You pay the total in FairCoin, straight into the seller's own Peable wallet. Peable prices it in FairCoin when you pay, and the price holds for 10 minutes. A FairCoin payment covers one seller."
+    }
   },
   "payment": {
     "cancelled": {

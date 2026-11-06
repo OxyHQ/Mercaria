@@ -151,6 +151,9 @@ vi.mock('../../db/payments/providerAccountRepository.js', () => ({
 // above, so the only consumer in this graph is the gate. The sibling suite needs
 // no such mock: with the rail off the gate returns before `getDb()`, which is
 // the property it exists to pin.
+vi.mock('../../db/fees/orderFeeSnapshotRepository.js', () => ({
+  listOrderFeeSnapshots: () => Promise.resolve(new Map()),
+}));
 vi.mock('../../db/postgres.js', () => ({ getDb: () => ({}) }));
 // An ordinary checkout has no supervised purchase operation to guard.
 vi.mock('../supervised-shopping/purchase.service.js', () => ({
@@ -549,15 +552,17 @@ describe('checkout with the Peable rail on', () => {
     expect(reserve).not.toHaveBeenCalled();
   });
 
-  it('refuses FairCoin named on a USD cart: FairCoin is paid in FAIR', async () => {
+  it('refuses FairCoin named on a cart in a currency no rail presents (ADR 0020)', async () => {
     findProviderAccountByOwner.mockResolvedValue({
       ...accountRow('ready'),
       faircoinState: 'active',
       faircoinNetwork: 'testnet',
     });
+    const cart = (await getCart()) as { currency: string };
+    getCart.mockResolvedValue({ ...cart, currency: 'EUR' });
     await expect(
       checkout(ACTOR, { addressId: ADDRESS_ID, paymentMethod: 'faircoin' }),
-    ).rejects.toThrow(/FairCoin payments are made in FAIR/);
+    ).rejects.toThrow(/FairCoin payments are made for orders in FAIR or USD/);
     expect(reserve).not.toHaveBeenCalled();
   });
 
@@ -605,6 +610,7 @@ describe('checkout with the Peable rail on', () => {
       paymentId: 'payment-gate',
       provider: 'peable',
       rail: 'card',
+      payerObject: 'payment_intent',
       providerPaymentId: 'pi_gate',
       clientSecret: 'pi_gate_secret_x',
       amount: { amount: 1000, currency: 'USD' },

@@ -1153,7 +1153,8 @@
       "processingIncluded": "Inbegriffen",
       "net": "Du erhältst",
       "refundNote": "Vor etwaigen Erstattungen. Wenn du diese Bestellung erstattest, erhältst du die Gebühr auf den erstatteten Betrag anteilig zurück.",
-      "none": "Für diese Bestellung wurde keine Marktplatzgebühr berechnet."
+      "none": "Für diese Bestellung wurde keine Marktplatzgebühr berechnet.",
+      "faircoin": "In FairCoin bezahlt: keine Marktplatzgebühr. Der Käufer hat direkt in deine Peable-Wallet gezahlt, du hast also den vollen Betrag erhalten."
     }
   },
   "products": {

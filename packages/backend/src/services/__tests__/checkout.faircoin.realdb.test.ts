@@ -91,8 +91,11 @@ beforeEach(() => {
   resetFaircoinNetworkCache();
 });
 
-/** A P2P seller with one FAIR-priced listing, and no payment account yet. */
-async function seedSeller(label: string) {
+/** A P2P seller with one listing (FAIR-priced unless told otherwise), and no payment account yet. */
+async function seedSeller(
+  label: string,
+  price: { amount: number; currency: 'FAIR' | 'USD' } = { amount: 250_000_000, currency: 'FAIR' },
+) {
   const sellerId = `fair-seller-${RUN}-${label}`;
   await ensureSellerProfile(sellerId);
   const [listing] = await db
@@ -111,8 +114,8 @@ async function seedSeller(label: string) {
   const [variant] = await insertVariants(listing.id, [
     {
       title: 'Default',
-      priceAmount: 250_000_000, // 2.5 ⊜
-      priceCurrency: 'FAIR',
+      priceAmount: price.amount, // 2.5 ⊜ by default
+      priceCurrency: price.currency,
       inventoryTracked: true,
       inventoryAvailable: 5,
       position: 0,
@@ -127,9 +130,10 @@ async function seedSeller(label: string) {
 async function seedBuyer(
   label: string,
   lines: { listingId: string; variantId: string; quantity: number }[],
+  preferredCurrency: 'FAIR' | 'USD' = 'FAIR',
 ) {
   const buyerId = `fair-buyer-${RUN}-${label}`;
-  await upsertUserPreference(buyerId, { preferredCurrency: 'FAIR' });
+  await upsertUserPreference(buyerId, { preferredCurrency });
   const address = await insertAddress(buyerId, {
     recipientName: 'Buyer',
     line1: '1 Street',
@@ -143,8 +147,8 @@ async function seedBuyer(
 }
 
 /** Open the seller's FairCoin half through the REAL onboarding path, and confirm it as the seller would. */
-async function confirmedFaircoinSeller(label: string) {
-  const seller = await seedSeller(label);
+async function confirmedFaircoinSeller(label: string, price?: Parameters<typeof seedSeller>[1]) {
+  const seller = await seedSeller(label, price);
   await accounts.createSellerFaircoinLink({ owner: seller.owner, receiver: seller.sellerId });
   const [account] = await db
     .select()
@@ -319,5 +323,189 @@ describe('a FAIR checkout is paid in FairCoin, to the seller (ADR 0019 D1, D3)',
       details: { reason: 'faircoin_one_seller_per_checkout' },
     });
     expect(gateway.state.intentCalls).toEqual([]);
+  });
+});
+
+describe('a USD order paid in FairCoin (ADR 0020)', () => {
+  const USD_PRICE = { amount: 2_500, currency: 'USD' as const }; // $25.00
+
+  it("opens a FairCoin-only session for the seller, takes no fee, and completes on Peable's outcome", async () => {
+    const seller = await confirmedFaircoinSeller('usd-pay', USD_PRICE);
+    const buyer = await seedBuyer(
+      'usd-pay',
+      [{ listingId: seller.listing.id, variantId: seller.variant.id, quantity: 1 }],
+      'USD',
+    );
+
+    const result = await checkout(buyer.actor, {
+      addressId: buyer.addressId,
+      paymentMethod: 'faircoin',
+    });
+
+    // The handoff is the SESSION: the buyer's client opens Peable's sheet over
+    // it, and Peable quotes the USD total in FAIR when they confirm.
+    expect(result.payment).toMatchObject({
+      rail: 'faircoin',
+      provider: 'peable_faircoin',
+      payerObject: 'checkout_session',
+      amount: { currency: 'USD' },
+      methods: [],
+    });
+    expect(result.payment?.faircoin).toBeUndefined();
+    expect(result.payment?.providerPaymentId).toMatch(/^cs_/);
+    expect(result.payment?.clientSecret).toBe(
+      `${result.payment?.providerPaymentId}_secret_fixture`,
+    );
+    expect(gateway.state.intentCalls).toEqual([]);
+
+    const payment = await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId);
+    if (!payment?.providerObjectId) throw new Error('no FairCoin payment opened');
+    expect(payment.provider).toBe('peable_faircoin');
+    expect(payment.providerObjectId).toBe(result.payment?.providerPaymentId);
+
+    const [call] = gateway.state.sessionCalls;
+    const orders = await findOrdersInCheckoutGroup(result.checkoutGroupId);
+    expect(orders).toHaveLength(1);
+    const [order] = orders;
+    if (!order) throw new Error('no order');
+    expect(call?.params).toMatchObject({
+      mode: 'payment',
+      ui_mode: 'embedded',
+      payment_method_types: ['faircoin'],
+      // Never without the seller: a marketplace sale must not pay the wallet
+      // of the account that owns Mercaria's own application.
+      connected_account: seller.providerAccountId,
+      client_reference_id: payment.id,
+      line_items: [
+        {
+          price_data: {
+            currency: 'USD',
+            unit_amount: String(order.totalsGrandTotalPresentmentAmount),
+          },
+          quantity: 1,
+        },
+      ],
+      metadata: { mercaria_payment_id: payment.id, paymentId: payment.id },
+    });
+    expect(call?.idempotencyKey).toBe(`pi:${payment.id}`);
+
+    // The fee follows the METHOD, decided once at pricing: FairCoin is exempt
+    // in USD too — a real zero, never a card fee refunded afterwards.
+    const [snapshot] = await db
+      .select()
+      .from(feeSchema.orderFeeSnapshots)
+      .where(eq(feeSchema.orderFeeSnapshots.orderId, order.id));
+    expect(snapshot).toMatchObject({
+      result: 'faircoin_exempt',
+      feeAmount: 0,
+      feeCurrency: 'USD',
+      scheduleKey: null,
+    });
+
+    // The payer confirms FairCoin on the session: Peable's own intent, with no
+    // Mercaria metadata. Its events are not the marketplace's to correlate.
+    const intentId = gateway.confirmSessionFaircoin(payment.providerObjectId);
+    await ingestPeableDelivery(
+      gateway.intentDelivery({
+        eventId: `evt_usd_intent_${RUN}`,
+        type: 'payment_intent.requires_action',
+        intentId,
+        secret: WEBHOOK_SECRET,
+      }),
+    );
+    expect((await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId))?.status).toBe(
+      'created',
+    );
+
+    // Broadcast: `checkout.session.completed`, unpaid — money on its way.
+    gateway.broadcastSession(payment.providerObjectId);
+    await ingestPeableDelivery(
+      gateway.sessionDelivery({
+        eventId: `evt_usd_completed_${RUN}`,
+        type: 'checkout.session.completed',
+        sessionId: payment.providerObjectId,
+        secret: WEBHOOK_SECRET,
+      }),
+    );
+    expect((await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId))?.status).toBe(
+      'processing',
+    );
+    expect((await findOrdersInCheckoutGroup(result.checkoutGroupId)).map((o) => o.status)).toEqual([
+      'pending_payment',
+    ]);
+
+    // Confirmed: `async_payment_succeeded`, paid — money received.
+    gateway.settleSession(payment.providerObjectId);
+    await ingestPeableDelivery(
+      gateway.sessionDelivery({
+        eventId: `evt_usd_paid_${RUN}`,
+        type: 'checkout.session.async_payment_succeeded',
+        sessionId: payment.providerObjectId,
+        secret: WEBHOOK_SECRET,
+      }),
+    );
+    expect((await findOrdersInCheckoutGroup(result.checkoutGroupId)).map((o) => o.status)).toEqual([
+      'paid',
+    ]);
+    // The coins are in the seller's own wallet: nothing booked, nothing moved.
+    const ledger = await db
+      .select()
+      .from(ledgerSchema.ledgerTransactions)
+      .where(eq(ledgerSchema.ledgerTransactions.paymentId, payment.id));
+    expect(ledger).toEqual([]);
+    expect(gateway.state.transferCalls).toEqual([]);
+  });
+
+  it('expires the session when the reservation sweep releases an unpaid order', async () => {
+    const seller = await confirmedFaircoinSeller('usd-expire', USD_PRICE);
+    const buyer = await seedBuyer(
+      'usd-expire',
+      [{ listingId: seller.listing.id, variantId: seller.variant.id, quantity: 1 }],
+      'USD',
+    );
+    const result = await checkout(buyer.actor, {
+      addressId: buyer.addressId,
+      paymentMethod: 'faircoin',
+    });
+    const { cancelPaymentForCheckoutGroup } = await import('../payments/payment.service.js');
+    await cancelPaymentForCheckoutGroup(result.checkoutGroupId);
+
+    expect(gateway.state.sessionExpires).toEqual([result.payment?.providerPaymentId]);
+    expect((await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId))?.status).toBe(
+      'canceled',
+    );
+  });
+
+  it('refuses FairCoin for a USD cart of two sellers, before reserving', async () => {
+    const first = await confirmedFaircoinSeller('usd-two-a', USD_PRICE);
+    const second = await confirmedFaircoinSeller('usd-two-b', USD_PRICE);
+    const buyer = await seedBuyer(
+      'usd-two',
+      [
+        { listingId: first.listing.id, variantId: first.variant.id, quantity: 1 },
+        { listingId: second.listing.id, variantId: second.variant.id, quantity: 1 },
+      ],
+      'USD',
+    );
+
+    await expect(
+      checkout(buyer.actor, { addressId: buyer.addressId, paymentMethod: 'faircoin' }),
+    ).rejects.toMatchObject({ details: { reason: 'faircoin_one_seller_per_checkout' } });
+    expect(gateway.state.sessionCalls).toEqual([]);
+  });
+
+  it('refuses FairCoin for a USD order whose seller never opened it, naming why', async () => {
+    const seller = await seedSeller('usd-unopened', USD_PRICE);
+    const buyer = await seedBuyer(
+      'usd-unopened',
+      [{ listingId: seller.listing.id, variantId: seller.variant.id, quantity: 1 }],
+      'USD',
+    );
+    await expect(
+      checkout(buyer.actor, { addressId: buyer.addressId, paymentMethod: 'faircoin' }),
+    ).rejects.toMatchObject({
+      details: { reason: 'faircoin_unavailable', unavailableReason: 'seller_not_connected' },
+    });
+    expect(gateway.state.sessionCalls).toEqual([]);
   });
 });

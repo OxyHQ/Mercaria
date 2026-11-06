@@ -684,7 +684,13 @@
     },
     "useSavedAddress": "Utiliser une adresse enregistrée",
     "viewOrder": "Voir votre commande",
-    "viewOrders": "Voir vos commandes"
+    "viewOrders": "Voir vos commandes",
+    "payWith": {
+      "label": "Comment vous payez",
+      "card": "Carte",
+      "faircoin": "FairCoin",
+      "faircoinHint": "Vous payez le total en FairCoin, directement dans le portefeuille Peable du vendeur. Peable calcule le montant en FairCoin au moment du paiement, et ce prix est garanti 10 minutes. Un paiement en FairCoin concerne un seul vendeur."
+    }
   },
   "payment": {
     "cancelled": {

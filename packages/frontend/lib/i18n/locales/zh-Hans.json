@@ -679,7 +679,13 @@
     },
     "useSavedAddress": "使用已保存的地址",
     "viewOrder": "查看订单",
-    "viewOrders": "查看你的订单"
+    "viewOrders": "查看你的订单",
+    "payWith": {
+      "label": "付款方式",
+      "card": "银行卡",
+      "faircoin": "FairCoin",
+      "faircoinHint": "您将以 FairCoin 支付全部金额，直接付入卖家本人的 Peable 钱包。Peable 会在您付款时以 FairCoin 计价，该价格保留 10 分钟。一笔 FairCoin 付款只对应一位卖家。"
+    }
   },
   "payment": {
     "cancelled": {

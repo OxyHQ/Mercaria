@@ -1168,7 +1168,8 @@
       "processingIncluded": "Inclòs",
       "net": "Reps",
       "refundNote": "Abans de qualsevol reemborsament. Si reemborses aquesta comanda, se't retorna la part proporcional de la comissió sobre l'import reemborsat.",
-      "none": "No s'ha cobrat cap comissió del marketplace en aquesta comanda."
+      "none": "No s'ha cobrat cap comissió del marketplace en aquesta comanda.",
+      "faircoin": "Pagat en FairCoin: sense comissió del marketplace. El comprador ha pagat directament al teu moneder de Peable, així que has rebut l'import sencer."
     }
   },
   "products": {

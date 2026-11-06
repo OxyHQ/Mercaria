@@ -513,6 +513,7 @@ describe('card checkout on the Peable rail — single seller', () => {
       paymentId: payment.id,
       provider: 'peable',
       rail: 'card',
+      payerObject: 'payment_intent',
       // The gateway PaymentIntent and the PAYER's secret over it — exactly what
       // `createPeableElements({ paymentIntent })` mounts on — and never the
       // acquirer's confirmation secret in `client_action.value`.

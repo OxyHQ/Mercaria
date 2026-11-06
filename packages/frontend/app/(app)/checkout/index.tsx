@@ -7,6 +7,11 @@ import Head from 'expo-router/head';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useOxy } from '@oxy.so/services/ui/client';
 import { EmptyState } from '@oxy.so/bloom/empty-state';
+import {
+  SegmentedControl,
+  SegmentedControlItem,
+  SegmentedControlItemText,
+} from '@oxy.so/bloom/segmented-control';
 import { PriceSummary } from '@oxy.so/bloom/price-breakdown';
 import { Check, Plus } from 'lucide-react-native';
 import { nanoid } from 'nanoid/non-secure';
@@ -617,6 +622,13 @@ function CheckoutBody() {
     orderNumbers: string[];
     payment: CheckoutPaymentHandoff;
   } | null>(null);
+  /**
+   * How the buyer pays a card-currency order (ADR 0020): by card, or in
+   * FairCoin at Peable's quote. A FAIR order is always FairCoin and shows no
+   * choice. Changing it mints a new `Idempotency-Key`: a different method is a
+   * different request.
+   */
+  const [payWith, setPayWith] = useState<'card' | 'faircoin'>('card');
   const [awaitingPayment, setAwaitingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
@@ -678,6 +690,10 @@ function CheckoutBody() {
     isAuthenticated &&
     !usingInlineAddress &&
     effectiveAddressId !== undefined;
+
+  // FairCoin is always offered (ADR 0019/0020): on a FAIR order it is the only
+  // method, so only a card-currency order asks.
+  const offersMethodChoice = cart !== undefined && cart !== null && cart.currency !== 'FAIR';
 
   if (cartLoading && !cart) {
     return (
@@ -819,6 +835,7 @@ function CheckoutBody() {
         ...(cart?.currency ? { currency: cart.currency } : {}),
         ...(sellerKeys.length > 0 ? { sellerKeys } : {}),
         ...(discountCode.trim() ? { discountCodes: [discountCode.trim()] } : {}),
+        ...(offersMethodChoice && payWith === 'faircoin' ? { paymentMethod: 'faircoin' } : {}),
       },
       {
         onSuccess: (result) => {
@@ -1020,6 +1037,34 @@ function CheckoutBody() {
             autoCorrect={false}
           />
         </Field>
+
+        {offersMethodChoice ? (
+          <Field label={t('checkout.payWith.label')}>
+            <SegmentedControl
+              type="radio"
+              value={payWith}
+              onValueChange={(next) => {
+                if (next !== 'card' && next !== 'faircoin') return;
+                idempotencyKey.current = null;
+                setPayWith(next);
+              }}
+            >
+              <SegmentedControlItem value="card">
+                <SegmentedControlItemText>{t('checkout.payWith.card')}</SegmentedControlItemText>
+              </SegmentedControlItem>
+              <SegmentedControlItem value="faircoin">
+                <SegmentedControlItemText>
+                  {t('checkout.payWith.faircoin')}
+                </SegmentedControlItemText>
+              </SegmentedControlItem>
+            </SegmentedControl>
+            {payWith === 'faircoin' ? (
+              <Text className="mt-2 text-xs text-muted-foreground">
+                {t('checkout.payWith.faircoinHint')}
+              </Text>
+            ) : null}
+          </Field>
+        ) : null}
 
         <OrderSummaryCard
           groups={targetGroups}

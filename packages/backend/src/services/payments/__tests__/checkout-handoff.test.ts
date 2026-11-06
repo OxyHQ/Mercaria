@@ -47,6 +47,9 @@ vi.mock('../../../db/payments/paymentRepository.js', () => ({
   attachPaymentProviderObject: () => Promise.resolve(undefined),
   findNativePaymentByCheckoutGroupId: () => Promise.resolve(undefined),
 }));
+vi.mock('../../../db/fees/orderFeeSnapshotRepository.js', () => ({
+  listOrderFeeSnapshots: () => Promise.resolve(new Map()),
+}));
 vi.mock('../../../db/postgres.js', () => ({ getDb: () => ({}) }));
 // An ordinary checkout has no supervised purchase operation to guard.
 vi.mock('../../supervised-shopping/purchase.service.js', () => ({
@@ -188,6 +191,7 @@ describe('the handoff (ADR 0006 G14)', () => {
         'amount',
         'clientSecret',
         'methods',
+        'payerObject',
         'paymentId',
         'provider',
         'providerPaymentId',

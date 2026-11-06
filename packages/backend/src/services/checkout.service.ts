@@ -60,6 +60,7 @@ import type {
   AddressSnapshot,
   CheckoutInput,
   CheckoutPaymentHandoff,
+  CheckoutPaymentRail,
   CheckoutResult,
   CurrencyCode,
   DualMoney,
@@ -143,6 +144,7 @@ import { selectFeeSchedule } from './fees/fee-calculation.js';
 import {
   loadFeeScheduleContext,
   notApplicableFeeSnapshot,
+  paymentRailCarriesFee,
   planConnectedMarketplaceFee,
   type ConnectedMarketplaceSellerType,
 } from './fees/order-fees.service.js';
@@ -1268,9 +1270,19 @@ export async function checkout(
   // configuration question that needs no stock should never have taken any,
   // the same reasoning as 4c–4e. No schedule matching is a fine answer (the
   // zero-fee configuration), so only the throw matters here.
+  //
+  // The fee follows the METHOD the buyer pays with (Mercaria ADR 0020), decided
+  // here once and snapshotted with each order: a FairCoin payment selects no
+  // schedule in any currency — a USD order paid in FairCoin included — so its
+  // seller is asked to accept no card terms, and a card payment selects the
+  // card schedule. The method is the checkout's own (`rail`, settled at 2b and
+  // checked at 4e), never changed after the orders exist, so nothing is ever
+  // charged and then refunded.
+  const feeRail: CheckoutPaymentRail = rail === 'none' ? 'card' : rail;
   const feeContext = await loadFeeScheduleContext();
   const selectedSchedules = new Map<string, { scheduleKey: string; version: number }>();
   for (const [sellerKey, group] of groups.entries()) {
+    if (!paymentRailCarriesFee(feeRail)) break;
     const schedule = selectFeeSchedule({
       schedules: feeContext.schedules,
       facts: { sellerType: group.sellerType, currency: cart.currency },
@@ -1584,6 +1596,7 @@ export async function checkout(
           lineTotalMinor: item.lineTotal.presentment.amount,
           discountMinor: item.discountTotal?.presentment.amount ?? 0,
         })),
+        paymentRail: feeRail,
       });
 
       const doc: NewOrder = {

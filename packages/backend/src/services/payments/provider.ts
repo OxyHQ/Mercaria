@@ -153,6 +153,8 @@ export interface CreatePaymentRequest {
   onBehalfOf?: { providerAccountId: string; network: FaircoinNetwork };
   /** When an UNPAID payment stops being payable at the rail. */
   expiresInSeconds?: number;
+  /** What the payer sees the payment is for (the order numbers), where the rail shows a line. */
+  description?: string;
 }
 
 /**
