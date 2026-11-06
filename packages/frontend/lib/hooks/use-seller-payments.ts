@@ -1,8 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useOxy } from '@oxy.so/services/ui/client';
-import type { SellerPaymentSettings } from '@mercaria/shared-types';
+import type {
+  AcceptFeeScheduleInput,
+  SellerFeeScheduleView,
+  SellerPaymentSettings,
+} from '@mercaria/shared-types';
 import {
+  acceptSellerFeeSchedule,
   createSellerOnboardingLink,
+  fetchSellerFeeSchedule,
   fetchSellerPaymentSettings,
   refreshSellerPaymentSettings,
 } from '../api/seller-payments';
@@ -36,4 +42,28 @@ export function useRefreshSellerPaymentSettings() {
     const settings = await refreshSellerPaymentSettings();
     queryClient.setQueryData(queryKeys.sellerPayments.all, settings);
   };
+}
+
+/** The marketplace fee the seller's card sales are charged under, and their acceptance. */
+export function useSellerFeeSchedule() {
+  const { isAuthenticated } = useOxy();
+  return useQuery<SellerFeeScheduleView>({
+    queryKey: queryKeys.sellerPayments.feeSchedule,
+    queryFn: fetchSellerFeeSchedule,
+    enabled: isAuthenticated,
+  });
+}
+
+/**
+ * Accept the fee terms. Invalidates on SETTLE, not only on success: a conflict
+ * means the schedule moved, and the seller must read the current terms before
+ * pressing again.
+ */
+export function useAcceptSellerFeeSchedule() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: AcceptFeeScheduleInput) => acceptSellerFeeSchedule(input),
+    onSettled: () =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.sellerPayments.feeSchedule }),
+  });
 }

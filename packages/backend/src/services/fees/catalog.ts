@@ -68,9 +68,21 @@ export interface FeeScheduleDefinition {
  * an acceptance record is for. Translating it means a new version with its own
  * `termsVersion`, accepted afresh.
  */
+/**
+ * The words of the card-sales terms (ADR 0018 D1), English only by design (see
+ * above). ONE string, so a store and a private seller accept the same text: a
+ * reword is a new version of BOTH schedules, each with its own `termsVersion`.
+ */
+const CARD_SALES_SUMMARY =
+  'Mercaria charges 5% of the item subtotal after discounts, plus $0.30 per order, on ' +
+  'card sales in US dollars. Card processing is included: there is no separate ' +
+  'processing fee. Delivery and tax are never included. Sales paid in FairCoin carry ' +
+  'no fee. If you refund an order, the fee on the refunded amount is returned to you ' +
+  'in proportion.';
+
 export const FEE_SCHEDULE_CATALOG: readonly FeeScheduleDefinition[] = [
   /**
-   * The marketplace commission on card sales (ADR 0018).
+   * The marketplace commission on STORE card sales (ADR 0018).
    *
    * 5% + $0.30 per order, ALL-IN: Oxy Platforms, Inc. is the platform on
    * separate charges and transfers (ADR 0001 D3), so it already pays the card
@@ -82,21 +94,17 @@ export const FEE_SCHEDULE_CATALOG: readonly FeeScheduleDefinition[] = [
    * which is how "0% on FairCoin" is expressed — the scope set has no
    * payment-method column, deliberately, and does not need one.
    *
-   * Scoped to STORES because there is no P2P acceptance surface yet
-   * (`merchant-activation/checkout-gate.ts`): a schedule reaching `user`
-   * sellers would take every individual's card checkout offline rather than
-   * bill it. ADR 0018 records that gap and what closes it.
+   * Scoped to STORES, with the private sellers' twin below under its own key,
+   * so the two kinds of seller are versioned and activated independently: a
+   * stores-and-people v2 of this key would have superseded v1 and asked every
+   * store to accept identical terms again before it could take another card
+   * order (ADR 0018 D3).
    */
   {
     scheduleKey: 'marketplace-card',
     version: 1,
     name: 'Marketplace fee on card sales',
-    merchantSummary:
-      'Mercaria charges 5% of the item subtotal after discounts, plus $0.30 per order, on ' +
-      'card sales in US dollars. Card processing is included: there is no separate ' +
-      'processing fee. Delivery and tax are never included. Sales paid in FairCoin carry ' +
-      'no fee. If you refund an order, the fee on the refunded amount is returned to you ' +
-      'in proportion.',
+    merchantSummary: CARD_SALES_SUMMARY,
     effectiveStart: new Date('2026-11-06T00:00:00.000Z'),
     eligibleSellerType: 'store',
     eligibleCurrency: 'USD',
@@ -104,5 +112,28 @@ export const FEE_SCHEDULE_CATALOG: readonly FeeScheduleDefinition[] = [
     fixedFee: { amount: 30, currency: 'USD' },
     taxTreatment: 'unknown',
     termsVersion: 'marketplace-card-v1',
+  },
+  /**
+   * The same commission on PRIVATE (P2P) sellers' card sales (ADR 0018 D3):
+   * the owner's decision is that it applies to marketplace card sales
+   * generally. Identical rate and words; `user`-scoped, so it and the store
+   * schedule are disjoint and `selectFeeSchedule` never sees two matches.
+   *
+   * A private seller accepts it on the storefront's Settings → Payments
+   * (`/seller/fees/accept`), which shipped before this version was activated —
+   * activation is refused while a payment-ready private seller has not.
+   */
+  {
+    scheduleKey: 'marketplace-card-individual',
+    version: 1,
+    name: 'Marketplace fee on card sales',
+    merchantSummary: CARD_SALES_SUMMARY,
+    effectiveStart: new Date('2026-11-06T00:00:00.000Z'),
+    eligibleSellerType: 'user',
+    eligibleCurrency: 'USD',
+    percentageBps: 500,
+    fixedFee: { amount: 30, currency: 'USD' },
+    taxTreatment: 'unknown',
+    termsVersion: 'marketplace-card-individual-v1',
   },
 ];

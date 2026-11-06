@@ -9,6 +9,7 @@ import { useOxy } from '@oxy.so/services/ui/client';
 import { Text, formatDateTime } from '@mercaria/ui';
 import type { SellerDraftEntryPath } from '@mercaria/shared-types';
 import { ScreenShell } from '@/components/shell/ScreenShell';
+import { SellerFeeTermsNotice } from '@/components/settings/seller-fee-terms';
 import { useTranslation } from '@/lib/i18n';
 import {
   useMatchCandidates,
@@ -116,6 +117,9 @@ export default function SellIndexScreen() {
 
       <View className="gap-6 py-6">
         <Text className="text-2xl font-semibold">{t('sell.index.heading')}</Text>
+
+        {/* The marketplace fee, before the first card sale (ADR 0018 D3). */}
+        <SellerFeeTermsNotice />
 
         {arrivedFromProduct ? (
           <View className="flex-row items-center gap-3">

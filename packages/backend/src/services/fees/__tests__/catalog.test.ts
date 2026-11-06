@@ -1,7 +1,8 @@
 /**
  * The published commission is the one ADR 0018 decided: 5% + $0.30 per order on
- * store card sales in USD, processing included, and nothing on any sale that is
- * not a USD card sale — FairCoin above all.
+ * every marketplace card sale in USD — a store's and a private seller's alike —
+ * processing included, and nothing on any sale that is not a USD card sale —
+ * FairCoin above all.
  *
  * Run through the SAME pure selection and arithmetic checkout runs, so what
  * this pins is what an order is charged, not what the catalogue literally says.
@@ -43,9 +44,9 @@ function select(sellerType: OrderSellerType, currency: CurrencyCode) {
   return selectFeeSchedule({ schedules, facts: { sellerType, currency }, at });
 }
 
-function feeOn(subtotalMinor: number): number {
-  const schedule = select('store', 'USD');
-  if (!schedule) throw new Error('no USD store schedule in the catalogue');
+function feeOn(subtotalMinor: number, sellerType: OrderSellerType = 'store'): number {
+  const schedule = select(sellerType, 'USD');
+  if (!schedule) throw new Error(`no USD ${sellerType} schedule in the catalogue`);
   return calculateFee({
     schedule,
     currency: 'USD',
@@ -74,10 +75,31 @@ describe('the published marketplace commission (ADR 0018)', () => {
     expect(select('user', 'FAIR')).toBeUndefined();
   });
 
-  it('reaches no individual seller until a P2P acceptance surface exists', () => {
-    // A schedule reaching `user` sellers would take their checkout offline
-    // (`merchant-activation/checkout-gate.ts`), so the catalogue must not.
-    expect(select('user', 'USD')).toBeUndefined();
+  it('charges a private seller’s USD card sale exactly what a store’s is charged', () => {
+    for (const subtotal of [10_000, 2_000, 999, 25]) {
+      expect(feeOn(subtotal, 'user')).toBe(feeOn(subtotal, 'store'));
+    }
+  });
+
+  it('keeps the store and private-seller schedules disjoint, under separate keys', () => {
+    // Disjoint, or `selectFeeSchedule` refuses the order as ambiguous; separate
+    // keys, or activating the private sellers' version would supersede the
+    // stores' and ask every store to accept again (ADR 0018 D3).
+    const store = select('store', 'USD');
+    const user = select('user', 'USD');
+    expect(store?.eligibleSellerType).toBe('store');
+    expect(user?.eligibleSellerType).toBe('user');
+    expect(store?.scheduleKey).not.toBe(user?.scheduleKey);
+    expect(store?.termsVersion).not.toBe(user?.termsVersion);
+  });
+
+  it('offers a private seller the same words a store accepts', () => {
+    const [store, user] = (['store', 'user'] as const).map((type) =>
+      FEE_SCHEDULE_CATALOG.find(
+        (entry) => entry.eligibleSellerType === type && entry.eligibleCurrency === 'USD',
+      ),
+    );
+    expect(user?.merchantSummary).toBe(store?.merchantSummary);
   });
 
   it('every version is unique by key and version', () => {

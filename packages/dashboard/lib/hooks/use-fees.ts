@@ -3,14 +3,14 @@ import type {
   AcceptFeeScheduleInput,
   FeePreview,
   FeePreviewInput,
-  StoreFeeScheduleView,
+  SellerFeeScheduleView,
 } from '@mercaria/shared-types';
 import { acceptFeeSchedule, fetchFeeSchedule, previewFee } from '../api/fees';
 import { queryKeys } from '../queryKeys';
 
 /** The schedule applicable to this store right now, and whether it accepted it. */
 export function useFeeSchedule(storeId: string) {
-  return useQuery<StoreFeeScheduleView>({
+  return useQuery<SellerFeeScheduleView>({
     queryKey: queryKeys.feeSchedule(storeId),
     queryFn: () => fetchFeeSchedule(storeId),
     enabled: Boolean(storeId),

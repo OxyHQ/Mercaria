@@ -113,32 +113,56 @@ describe('provision-fee-schedule', () => {
   }, 240_000);
 
   it('refuses to activate while a ready seller it reaches has not accepted, then activates', async () => {
-    const [definition] = FEE_SCHEDULE_CATALOG;
-    if (!definition) throw new Error('the catalogue is empty');
-    const ownerType = definition.eligibleSellerType === 'user' ? 'user' : 'store';
-    const ownerId = `seller-${String(Date.now())}`;
-    const account = await insertProviderAccount(db, {
-      provider: 'peable',
-      ownerType,
-      ownerId,
-      providerAccountId: `acct_${ownerId}`,
-      country: 'US',
-    });
-    await applyProviderAccountState(db, {
-      id: account.id,
-      state: {
-        onboardingState: 'ready',
-        chargesEnabled: true,
-        payoutsEnabled: true,
-        transfersCapability: 'active',
-        requirementsCurrentlyDue: 0,
-        requirementsEventuallyDue: 0,
-        requirementsPastDue: 0,
-        requirementsPendingVerification: 0,
-        disabledReasonCodes: [],
-        syncedAt: new Date(),
-      },
-    });
+    // One payment-ready seller of EVERY kind the catalogue reaches — a store and
+    // a private seller — so the store schedule and the private sellers' are
+    // each blocked by their own seller, and neither by the other's.
+    const ownerTypes = [
+      ...new Set(
+        FEE_SCHEDULE_CATALOG.map((entry) =>
+          entry.eligibleSellerType === 'user' ? 'user' : 'store',
+        ),
+      ),
+    ];
+    expect(ownerTypes).toEqual(['store', 'user']);
+    const owners = new Map<'store' | 'user', string>();
+    for (const ownerType of ownerTypes) {
+      const ownerId = `${ownerType}-seller-${String(Date.now())}`;
+      owners.set(ownerType, ownerId);
+      const account = await insertProviderAccount(db, {
+        provider: 'peable',
+        ownerType,
+        ownerId,
+        providerAccountId: `acct_${ownerId}`,
+        country: 'US',
+      });
+      await applyProviderAccountState(db, {
+        id: account.id,
+        state: {
+          onboardingState: 'ready',
+          chargesEnabled: true,
+          payoutsEnabled: true,
+          transfersCapability: 'active',
+          requirementsCurrentlyDue: 0,
+          requirementsEventuallyDue: 0,
+          requirementsPastDue: 0,
+          requirementsPendingVerification: 0,
+          disabledReasonCodes: [],
+          syncedAt: new Date(),
+        },
+      });
+    }
+
+    // Preview says so first, in counts per owner kind and never an owner id.
+    const preview = await run(`--ref=${REF}`);
+    expect(preview.code, preview.text).toBe(0);
+    expect(preview.text).toContain('--activate would REFUSE');
+    // The dev logger colours its keys; compare the words.
+    const plain = preview.text.replace(
+      new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g'),
+      '',
+    );
+    expect(plain).toMatch(/readySellersWithoutAcceptance"?:\s*1/);
+    for (const ownerId of owners.values()) expect(preview.text).not.toContain(ownerId);
 
     const refused = await run('--activate', `--ref=${REF}`);
     expect(refused.code).not.toBe(0);
@@ -147,16 +171,32 @@ describe('provision-fee-schedule', () => {
       FEE_SCHEDULE_CATALOG.map(() => 'draft'),
     );
 
-    for (const entry of FEE_SCHEDULE_CATALOG) {
-      await insertFeeScheduleAcceptance(db, {
+    // The store accepts its schedule: the private seller still blocks theirs,
+    // and the refusal activates NOTHING — not even the store's, which passed.
+    const [storeEntry, userEntry] = (['store', 'user'] as const).map((type) =>
+      FEE_SCHEDULE_CATALOG.find((entry) => entry.eligibleSellerType === type),
+    );
+    if (!storeEntry || !userEntry) throw new Error('the catalogue lacks a store or user schedule');
+    const accept = async (ownerType: 'store' | 'user', entry: typeof storeEntry) =>
+      insertFeeScheduleAcceptance(db, {
         scheduleKey: entry.scheduleKey,
         scheduleVersion: entry.version,
         termsVersion: entry.termsVersion,
         ownerType,
-        ownerId,
+        ownerId: owners.get(ownerType) ?? '',
         acceptedByOxyUserId: 'owner-1',
       });
-    }
+    await accept('store', storeEntry);
+    const stillRefused = await run('--activate', `--ref=${REF}`);
+    expect(stillRefused.code).not.toBe(0);
+    expect(stillRefused.text).toContain(`Refusing to activate ${userEntry.scheduleKey}`);
+    expect((await listFeeSchedules(db)).map((row) => row.status)).toEqual(
+      FEE_SCHEDULE_CATALOG.map(() => 'draft'),
+    );
+
+    await accept('user', userEntry);
+    const clear = await run(`--ref=${REF}`);
+    expect(clear.text).not.toContain('--activate would REFUSE');
 
     const activated = await run('--activate', `--ref=${REF}`);
     expect(activated.code, activated.text).toBe(0);

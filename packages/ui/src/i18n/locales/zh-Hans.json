@@ -1049,6 +1049,21 @@
         "manageDescription": "你的姓名、照片、安全和设备均在 Oxy 账号中管理。",
         "manage": "管理"
       }
+    },
+    "feeTerms": {
+      "percentage": "商品小计的 %{percent}",
+      "fixed": "另加每笔订单 %{amount}",
+      "min": "最低佣金 %{amount}",
+      "max": "最高佣金 %{amount}",
+      "basis": "按折扣后的商品价格计收。配送费和税费从不计入。",
+      "refundProportional": "按你发起的退款金额比例退还。",
+      "taxUnknown": "税务处理：未说明。",
+      "taxExclusive": "税费在此佣金之外另行收取。",
+      "taxInclusive": "税费已包含在此佣金内。",
+      "version": "条款版本 %{version}",
+      "effectiveFrom": "自 %{date} 起生效",
+      "processingIncluded": "已包含银行卡处理费用，不另收处理费。",
+      "cardSalesOnly": "适用于以 %{currency} 进行的银行卡销售。"
     }
   }
 }

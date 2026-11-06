@@ -1056,6 +1056,21 @@
         "manageDescription": "Votre nom, votre photo, la sécurité et vos appareils se gèrent dans votre compte Oxy.",
         "manage": "Gérer"
       }
+    },
+    "feeTerms": {
+      "percentage": "%{percent} du sous-total des articles",
+      "fixed": "Plus %{amount} par commande",
+      "min": "Commission minimale %{amount}",
+      "max": "Commission maximale %{amount}",
+      "basis": "Facturée sur le prix des articles après remises. La livraison et les taxes ne sont jamais incluses.",
+      "refundProportional": "Restituée au prorata de tout remboursement que vous effectuez.",
+      "taxUnknown": "Traitement fiscal : non précisé.",
+      "taxExclusive": "La taxe s'ajoute à cette commission.",
+      "taxInclusive": "La taxe est comprise dans cette commission.",
+      "version": "Conditions version %{version}",
+      "effectiveFrom": "En vigueur depuis le %{date}",
+      "processingIncluded": "Le traitement des cartes est inclus. Il n'y a pas de frais de traitement séparés.",
+      "cardSalesOnly": "S'applique aux ventes par carte en %{currency}."
     }
   }
 }

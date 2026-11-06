@@ -105,6 +105,26 @@
           "body": "Peable hat alles Angeforderte erhalten und prüft es. Für Sie gibt es nichts zu tun — das dauert meist ein bis zwei Tage. Bis dahin können Käufer mit Ihren Angeboten nicht bezahlen.",
           "heading": "Wird geprüft"
         }
+      },
+      "fees": {
+        "loadFailed": "Ihre Gebührenbedingungen konnten nicht geladen werden",
+        "acceptSucceeded": "Gebührenbedingungen akzeptiert",
+        "acceptFailed": "Ihre Zustimmung konnte nicht gespeichert werden. Die Bedingungen haben sich möglicherweise geändert — prüfen Sie sie und versuchen Sie es erneut.",
+        "acceptBeforeSetup": "Akzeptiere die Marktplatzgebühr oben, um Auszahlungen einzurichten.",
+        "englishTerms": "Der Text, dem du zustimmst, ist die Zusammenfassung oben auf Englisch. Die Zeilen darunter nennen dieselben Bedingungen.",
+        "pending": {
+          "heading": "Akzeptiere die Marktplatzgebühr",
+          "body": "Mercaria erhebt eine Gebühr auf Kartenverkäufe. Käufer können dich erst per Karte bezahlen, wenn du diese Bedingungen akzeptierst. Berechnet wird erst, wenn du verkaufst.",
+          "action": "Diese Bedingungen akzeptieren"
+        },
+        "accepted": {
+          "heading": "Marktplatzgebühr akzeptiert",
+          "body": "Bedingungen %{version} akzeptiert am %{date}."
+        },
+        "notice": {
+          "body": "Akzeptiere vor deinem ersten Kartenverkauf die Gebühr von Mercaria auf Kartenverkäufe. Bis dahin können Käufer dich nicht per Karte bezahlen.",
+          "action": "Gebühr ansehen"
+        }
       }
     }
   },
@@ -581,7 +601,10 @@
       "receiptEmailRequired": "Gib die E-Mail-Adresse an, an die dein Beleg gehen soll.",
       "sellerNotPaymentReady": "%{seller} kann gerade keine Zahlungen annehmen. Entferne die Artikel dieses Verkäufers aus deiner Bestellung, um den Rest zu bezahlen.",
       "sellersNotPaymentReady": "Diese Verkäufer können gerade keine Zahlungen annehmen: %{sellers}. Entferne ihre Artikel aus deiner Bestellung, um den Rest zu bezahlen.",
-      "unnamedSellersNotPaymentReady": "Einige Verkäufer in deiner Bestellung können gerade keine Zahlungen annehmen. Entferne die hervorgehobenen Artikel, um den Rest zu bezahlen."
+      "unnamedSellersNotPaymentReady": "Einige Verkäufer in deiner Bestellung können gerade keine Zahlungen annehmen. Entferne die hervorgehobenen Artikel, um den Rest zu bezahlen.",
+      "sellerNotActivated": "%{seller} nimmt gerade keine Bestellungen an. Entferne die Artikel dieses Verkäufers aus deiner Bestellung, um den Rest zu bezahlen.",
+      "sellersNotActivated": "Diese Verkäufer nehmen gerade keine Bestellungen an: %{sellers}. Entferne ihre Artikel aus deiner Bestellung, um den Rest zu bezahlen.",
+      "unnamedSellersNotActivated": "Einige Verkäufer in deiner Bestellung nehmen gerade keine Bestellungen an. Entferne die markierten Artikel, um den Rest zu bezahlen."
     },
     "form": {
       "cityLabel": "Stadt",
@@ -636,7 +659,8 @@
       "calculatedAtPlacement": "Rabatte, Steuern und Versand werden bei der Bestellung berechnet.",
       "cannotAcceptPayment": "Kann gerade keine Zahlungen annehmen",
       "subtotal": "Zwischensumme",
-      "title": "Bestellübersicht"
+      "title": "Bestellübersicht",
+      "notAcceptingOrders": "Nimmt gerade keine Bestellungen an"
     },
     "title": "Kasse",
     "toast": {

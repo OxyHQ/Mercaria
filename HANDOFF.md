@@ -201,11 +201,17 @@ account events. No seller is `ready`, so every native checkout is refused
 - [ ] **ADR 0009 D18's three real-world checks**, starting with one real USD
       sale (`docs/payments.md` §9 "What the first real sale confirms").
 - [x] **A USD marketplace fee schedule** — ADR 0018: 5% + $0.30 per order on
-      store card sales, processing included; none on FairCoin. Published by
+      marketplace card sales, processing included; none on FairCoin. Published by
       `publish-fee-schedules.yml` (`docs/runbooks/marketplace-card-rail-live.md` §5).
-- [ ] **A P2P fee acceptance surface.** ADR 0018 D3: the schedule reaches stores
-      only, so an individual seller's card sale carries no commission until
-      storefront Settings → Payments can record a `user` acceptance.
+- [x] **A P2P fee acceptance surface.** ADR 0018 D3 (amended): storefront
+      Settings → Payments records a `user` acceptance through the store's own
+      handlers; `marketplace-card-individual` v1 bills private sellers' USD card
+      sales once activated (runbook §5).
+- [ ] **Accepting a fee version before it is active.** A version can be accepted
+      only once active, and `activate` refuses while a payment-ready seller it
+      reaches has not accepted it. Fine for first versions; a rate CHANGE while
+      sellers are `ready` needs the fee screens to offer the published draft for
+      acceptance first (ADR 0018 Consequences).
 - [ ] **A referral payout rail.** The port is empty; batches fail
       `rail_not_configured`, retryably.
 - [ ] **A reconciliation of the gateway's settled movements** (the deleted

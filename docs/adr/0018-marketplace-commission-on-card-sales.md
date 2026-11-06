@@ -1,7 +1,9 @@
 # 0018 — The marketplace commission: 5% + $0.30 per card order, processing included
 
 - **Status:** Accepted, 2026-11-06. Decided by the owner's delegate under the
-  owner's instruction "you choose, economical".
+  owner's instruction "you choose, economical". D3 amended 2026-11-06: the
+  owner decided the commission applies to marketplace card sales generally,
+  private (P2P) sellers included.
 - **Supersedes:** the EUR `marketplace-standard` v1 schedule (10% + €0.30) that
   `services/fees/catalog.ts` carried but never published. It is removed at the
   root: `fee_schedules` held no row for it (read 2026-11-05), so nothing was
@@ -65,16 +67,52 @@ A future rail that settles a USD-priced order in FairCoin would select this
 schedule. Such a rail must decide its fee treatment before it ships; this ADR
 does not.
 
-### D3. Stores only, until individual sellers have somewhere to accept
+### D3. Private sellers pay the same fee, accepted where they manage payments
 
-`merchant-activation/checkout-gate.ts` refuses a checkout whose seller has not
-accepted the schedule its order selects, and individual (P2P) sellers have no
-acceptance surface: `fee_schedule_acceptances` is written only by the store
-dashboard. A schedule reaching `user` sellers would therefore take every
-individual's card checkout offline instead of billing it. So the schedule is
-`eligibleSellerType: store`, and **a P2P card sale carries no commission**
-until a P2P acceptance surface (storefront Settings → Payments, writing
-`owner_type = 'user'`) ships with a `user`-scoped version.
+*As amended 2026-11-06.* The first version scoped the schedule to stores only,
+because `merchant-activation/checkout-gate.ts` refuses a checkout whose seller
+has not accepted the schedule its order selects, and private (P2P) sellers had
+nowhere to accept: a `user`-reaching schedule would have taken every
+individual's card checkout offline instead of billing it. The owner then
+decided that the commission applies to marketplace card sales generally, so the
+gap is closed at the root:
+
+- **One acceptance model.** A private seller accepts on the storefront's
+  Settings → Payments (`GET /seller/fees/schedule`, `POST /seller/fees/accept`),
+  served by the SAME handlers as the store routes with the caller as the owner,
+  writing the same `fee_schedule_acceptances` rows with `owner_type = 'user'` —
+  the table the gate already read for `user:` groups. The terms render through
+  one component (`@mercaria/ui`'s `FeeScheduleTerms`) on both apps, in every
+  language each ships; the summary a seller accepts is the store's English text,
+  by design (`catalog.ts`).
+- **Selected in the card rail's currencies.** A person has no currency of their
+  own, so `findApplicableSellerSchedule` asks only the rail's presentment
+  currencies for them (a store asks its own first). Those are exactly the
+  currencies a P2P card order is presented in, so the version a seller accepts
+  is the version checkout hands the gate. This was the decision the gate's
+  docblock said was missing.
+- **A separate schedule key.** `marketplace-card-individual` v1 (terms
+  `marketplace-card-individual-v1`): the same 500 bps + 30 USD, the same words,
+  `eligibleSellerType: user`, `eligibleCurrency: USD`. Not a v2 of
+  `marketplace-card` without a seller scope: activating a version supersedes
+  the key's active one, so that v2 would have voided every store's v1
+  acceptance and asked each store to accept identical terms again before its
+  next card order. Disjoint scopes also keep `selectFeeSchedule` from ever
+  seeing two matches.
+- **Prompted before the first sale, never a generic error.** The fee card sits
+  first on Settings → Payments and starting payout setup waits on it; `/sell`
+  shows the same prompt while it is pending; an already-onboarded seller is
+  told card sales wait on it and is never stopped from managing payouts. A
+  buyer refused by the gate is told which seller is not accepting orders, by
+  public name (`details.reason: seller_not_activated`, the keys in
+  `details.sellers`, as #1208 did for payment readiness) — never which lever
+  fired, which stays somebody else's business.
+- **Activated only after the screen shipped.** The version is drafted and
+  activated through `publish-fee-schedules.yml` once the storefront carrying
+  the screen is deployed. `preview` now reports, per version not yet active,
+  how many payment-ready sellers would block activation (counts by owner kind,
+  no ids), and `activate` checks every draft before activating any, so a
+  refusal leaves the whole catalogue as it was.
 
 ### D4. A store's fee is selected in the currency its card sales are charged in
 
@@ -99,6 +137,9 @@ activating would refuse that seller's checkout. Both writes record
 
 ## Consequences
 
+- Every marketplace card sale in USD carries the commission once its seller's
+  schedule is active: `marketplace-card` for stores, `marketplace-card-individual`
+  for private sellers.
 - Seller surfaces state the fee from the schedule itself, never a literal:
   Settings → Marketplace fees (the terms, "card processing is included",
   "FairCoin sales carry no fee"), Settings → Payments & payouts (a summary and a
@@ -107,5 +148,11 @@ activating would refuse that seller's checkout. Both writes record
   language the dashboard ships. The merchant summary a store accepts is English
   only by design (`catalog.ts`: a translation is a new terms version).
 - A store that becomes payment-ready after activation sees the terms as pending
-  and cannot take card orders until an owner accepts them.
+  and cannot take card orders until an owner accepts them; a private seller
+  meets them as a step of payout setup, on Settings → Payments.
+- A NEW version of either schedule cannot be accepted until it is active, and
+  `activate` refuses while a payment-ready seller it reaches has not accepted
+  it — so a version change while sellers are `ready` needs a way to accept a
+  published draft first. That does not arise for these two first versions and
+  is recorded in `HANDOFF.md`.
 - A rate change is a new version with its own terms version, accepted afresh.

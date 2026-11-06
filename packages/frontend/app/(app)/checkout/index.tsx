@@ -15,6 +15,7 @@ import type {
   CartGroup,
   CheckoutDestination,
   CheckoutPaymentHandoff,
+  ApiErrorDetails,
   CheckoutPaymentStatus,
   Money,
   RefusedCheckoutSeller,
@@ -92,7 +93,25 @@ function formatNameList(names: readonly string[], locale: string): string {
 }
 
 /**
- * The refusal for sellers who cannot be paid right now, in the buyer's language.
+ * The sentences a seller refusal is told in, per reason. KEYS, as full literals,
+ * so `validate:i18n-strings` sees every one.
+ */
+const SELLER_REFUSAL_COPY = {
+  seller_not_payment_ready: {
+    one: 'checkout.error.sellerNotPaymentReady',
+    several: 'checkout.error.sellersNotPaymentReady',
+    unnamed: 'checkout.error.unnamedSellersNotPaymentReady',
+  },
+  seller_not_activated: {
+    one: 'checkout.error.sellerNotActivated',
+    several: 'checkout.error.sellersNotActivated',
+    unnamed: 'checkout.error.unnamedSellersNotActivated',
+  },
+} as const satisfies Record<ApiErrorDetails['reason'], Record<string, string>>;
+
+/**
+ * The refusal for sellers who cannot be paid right now — or are not accepting
+ * orders right now — in the buyer's language.
  *
  * Rendered HERE from the refusal's `details` rather than shown as the server's
  * sentence, which is English. Each seller is named by the name the server read
@@ -100,12 +119,14 @@ function formatNameList(names: readonly string[], locale: string): string {
  * label this screen already shows over their items. Never by `sellerKey`: that
  * is a machine id, and it only selects which groups to highlight.
  */
-function unpayableSellersMessage(
+function refusedSellersMessage(
   t: Translate,
   locale: string,
+  reason: ApiErrorDetails['reason'],
   sellers: readonly RefusedCheckoutSeller[],
   groups: readonly CartGroup[],
 ): string {
+  const copy = SELLER_REFUSAL_COPY[reason];
   const names = sellers.map(
     (seller) =>
       seller.name ??
@@ -116,12 +137,12 @@ function unpayableSellersMessage(
   );
   const named = names.filter((name): name is string => name !== undefined);
   if (named.length === 0 || named.length !== names.length) {
-    return t('checkout.error.unnamedSellersNotPaymentReady');
+    return t(copy.unnamed);
   }
   if (named.length === 1) {
-    return t('checkout.error.sellerNotPaymentReady', { seller: named[0] });
+    return t(copy.one, { seller: named[0] });
   }
-  return t('checkout.error.sellersNotPaymentReady', { sellers: formatNameList(named, locale) });
+  return t(copy.several, { sellers: formatNameList(named, locale) });
 }
 
 function AddressOption({
@@ -212,10 +233,13 @@ function SignInBenefit() {
 function OrderSummaryCard({
   groups,
   unpayableSellerKeys,
+  refusalReason,
 }: {
   groups: CartGroup[];
-  /** Groups the last checkout refused because their seller cannot be paid right now. */
+  /** Groups the last checkout refused because of their seller. */
   unpayableSellerKeys: ReadonlySet<string>;
+  /** Why those groups were refused: cannot be paid, or not accepting orders. */
+  refusalReason: ApiErrorDetails['reason'];
 }) {
   const { t } = useTranslation();
   const priceText = usePriceText();
@@ -240,7 +264,11 @@ function OrderSummaryCard({
             >
               {unpayable ? (
                 <Text className="text-xs font-semibold text-destructive">
-                  {t('checkout.summary.cannotAcceptPayment')}
+                  {t(
+                    refusalReason === 'seller_not_activated'
+                      ? 'checkout.summary.notAcceptingOrders'
+                      : 'checkout.summary.cannotAcceptPayment',
+                  )}
                 </Text>
               ) : null}
               {/*
@@ -533,6 +561,9 @@ function CheckoutBody() {
   /** The groups the last attempt was refused for, highlighted in the summary. */
   const [unpayableSellerKeys, setUnpayableSellerKeys] =
     useState<ReadonlySet<string>>(NO_UNPAYABLE_SELLERS);
+  const [refusalReason, setRefusalReason] = useState<ApiErrorDetails['reason']>(
+    'seller_not_payment_ready',
+  );
   // The placed group and its payment handoff, once the order exists. Holding
   // them here is what turns checkout into two steps without a second route:
   // orders are placed and reserved, and the buyer then pays for them.
@@ -743,9 +774,12 @@ function CheckoutBody() {
         // never a value, so it is safe to show and beats a generic sentence.
         onError: (error) => {
           const details = apiErrorDetails(error);
-          if (details?.reason === 'seller_not_payment_ready' && details.sellers.length > 0) {
+          if (details !== undefined && details.sellers.length > 0) {
             setUnpayableSellerKeys(new Set(details.sellers.map((seller) => seller.sellerKey)));
-            setFormError(unpayableSellersMessage(t, locale, details.sellers, targetGroups));
+            setRefusalReason(details.reason);
+            setFormError(
+              refusedSellersMessage(t, locale, details.reason, details.sellers, targetGroups),
+            );
             return;
           }
           setFormError(apiErrorMessage(error, error.message));
@@ -897,7 +931,11 @@ function CheckoutBody() {
           />
         </Field>
 
-        <OrderSummaryCard groups={targetGroups} unpayableSellerKeys={unpayableSellerKeys} />
+        <OrderSummaryCard
+          groups={targetGroups}
+          unpayableSellerKeys={unpayableSellerKeys}
+          refusalReason={refusalReason}
+        />
 
         {formError ? (
           <View

@@ -1670,21 +1670,6 @@
         "heading": "条款已接受",
         "body": "条款 %{version} 已于 %{date} 接受。"
       },
-      "terms": {
-        "percentage": "商品小计的 %{percent}",
-        "fixed": "另加每笔订单 %{amount}",
-        "min": "最低佣金 %{amount}",
-        "max": "最高佣金 %{amount}",
-        "basis": "按折扣后的商品价格计收。配送费和税费从不计入。",
-        "refundProportional": "按你发起的退款金额比例退还。",
-        "taxUnknown": "税务处理：未说明。",
-        "taxExclusive": "税费在此佣金之外另行收取。",
-        "taxInclusive": "税费已包含在此佣金内。",
-        "version": "条款版本 %{version}",
-        "effectiveFrom": "自 %{date} 起生效",
-        "processingIncluded": "已包含银行卡处理费用，不另收处理费。",
-        "cardSalesOnly": "适用于以 %{currency} 进行的银行卡销售。以 FairCoin 支付的销售不收费。"
-      },
       "preview": {
         "title": "实际花费",
         "body": "选择一个示例订单金额，查看佣金和你的所得。",

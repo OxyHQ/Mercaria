@@ -1670,21 +1670,6 @@
         "heading": "Terms accepted",
         "body": "Terms %{version} accepted on %{date}."
       },
-      "terms": {
-        "percentage": "%{percent} of the item subtotal",
-        "fixed": "Plus %{amount} per order",
-        "min": "Minimum fee %{amount}",
-        "max": "Maximum fee %{amount}",
-        "basis": "Charged on item prices after discounts. Delivery and tax are never included.",
-        "refundProportional": "Refunded in proportion to any refund you issue.",
-        "taxUnknown": "Tax treatment: not stated.",
-        "taxExclusive": "Tax is charged on top of this fee.",
-        "taxInclusive": "Tax is included in this fee.",
-        "version": "Terms version %{version}",
-        "effectiveFrom": "In force since %{date}",
-        "processingIncluded": "Card processing is included. There is no separate processing fee.",
-        "cardSalesOnly": "Applies to card sales in %{currency}. Sales paid in FairCoin carry no fee."
-      },
       "preview": {
         "title": "What this costs",
         "body": "Pick an example order total to see the fee and what you keep.",

@@ -96,7 +96,12 @@ export function apiErrorDetails(error: unknown): ApiErrorDetails | undefined {
   const details = (body as { details?: unknown }).details;
   if (typeof details !== 'object' || details === null) return undefined;
   const { reason, sellers } = details as { reason?: unknown; sellers?: unknown };
-  if (reason !== 'seller_not_payment_ready' || !Array.isArray(sellers)) return undefined;
+  if (
+    (reason !== 'seller_not_payment_ready' && reason !== 'seller_not_activated') ||
+    !Array.isArray(sellers)
+  ) {
+    return undefined;
+  }
   return {
     reason,
     sellers: sellers.flatMap((seller: unknown) => {

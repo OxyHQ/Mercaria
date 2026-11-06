@@ -224,7 +224,9 @@ export async function readSellerPaymentReadiness(
  * account id (a listing's store row is behind a foreign key) — and the buyer is
  * then told "a seller"; the key stays in `sellerKey`, the machine field.
  */
-async function nameRefusedSellers(sellerKeys: readonly string[]): Promise<RefusedCheckoutSeller[]> {
+export async function nameRefusedSellers(
+  sellerKeys: readonly string[],
+): Promise<RefusedCheckoutSeller[]> {
   const owners = sellerKeys.map((sellerKey) => ({ sellerKey, owner: parseSellerKey(sellerKey) }));
   const storeIds = owners.flatMap(({ owner }) =>
     owner?.ownerType === 'store' ? [owner.ownerId] : [],

@@ -1278,16 +1278,23 @@ activation supersedes atomically. Policy changes are new versions, always.
 The rate is code: `services/fees/catalog.ts`, published by
 `.github/workflows/publish-fee-schedules.yml` (preview, draft, then a guarded
 activate — runbook `runbooks/marketplace-card-rail-live.md` §5). There is no
-operator route. Merchants read, accept and preview at
+operator route. Stores read, accept and preview at
 `/admin/stores/:storeId/fees/*` behind `store:manage`, because agreeing to what
-a store pays Mercaria is the owner's decision; the schedule shown is selected in
-the store's currency and then in the card rail's presentment currencies
-(`findApplicableStoreSchedule`), because that is what its card sales select.
+a store pays Mercaria is the owner's decision; private (P2P) sellers read and
+accept at `/seller/fees/{schedule,accept}` as themselves (storefront Settings →
+Payments, which also prompts it before payout setup and on `/sell`). Both are
+the SAME handlers writing the same `fee_schedule_acceptances` rows (`owner_type`
+`store` / `user`), and both select with `findApplicableSellerSchedule`: a
+store's own currency first, then the card rail's presentment currencies — a
+person has no currency of their own, so only the rail's, which is exactly what
+their card sales select. The terms render through ONE component,
+`@mercaria/ui`'s `FeeScheduleTerms`.
 
-**The published rate (ADR 0018):** `marketplace-card` v1, 5% of the item
-subtotal + $0.30 per order on store card sales in USD, card processing included;
-no fee on FairCoin sales (no schedule covers FAIR) and none yet on P2P sales
-(no P2P acceptance surface).
+**The published rate (ADR 0018):** 5% of the item subtotal + $0.30 per order on
+marketplace card sales in USD, card processing included: `marketplace-card` v1
+for stores and `marketplace-card-individual` v1 for private sellers (separate
+keys, so neither's activation supersedes the other's acceptances); no fee on
+FairCoin sales (no schedule covers FAIR).
 
 ### The calculation, and the snapshot it becomes
 
@@ -1342,17 +1349,15 @@ channel policy exists for them yet — an absent snapshot reads as zero fee).
 Schedule-change NOTIFICATIONS and downloadable breakdowns are still owed: PUSHING
 a message needs the outbound transport #108 owns.
 
-**There is still NO P2P fee-schedule acceptance surface.**
+**The P2P acceptance surface (ADR 0018 D3).** A schedule's
+`eligible_seller_type` is `store`, `user`, or ABSENT meaning both, so
+`planConnectedMarketplaceFee` selects for an individual seller exactly as for a
+store and the gate reads `user:` groups on the same `fee_schedule_not_accepted`
+requirement. A private seller accepts at `/seller/fees/accept`;
 `POST /seller/activation/policies` writes `merchant_activation_policy_acceptances`,
-a different table from `fee_schedule_acceptances`, which only
-`/admin/stores/:storeId/fees/accept` writes. A schedule's `eligible_seller_type`
-is `store`, `user`, or ABSENT meaning both, so `planConnectedMarketplaceFee`
-selects for an individual seller exactly as for a store; the gate therefore reads
-`user:` groups too and refuses on the same `fee_schedule_not_accepted`
-requirement, so a `user`-reaching schedule takes P2P sales offline rather than
-billing them silently. Building the surface needs a decision this domain cannot
-take alone: a store selects its schedule in `stores.default_currency`, and a
-person has no default currency to select in.
+a different table. A refused buyer is told WHICH seller is not accepting orders
+(by public name, keys in `details.sellers`, `reason: seller_not_activated`),
+never which lever fired.
 
 ---
 

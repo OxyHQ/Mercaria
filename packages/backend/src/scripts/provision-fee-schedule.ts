@@ -23,8 +23,10 @@
  *
  * ## Three modes, and only the third one charges anybody
  *
- * - **preview** (the default) reads: every published version, and what `--apply`
- *   would draft. It writes nothing.
+ * - **preview** (the default) reads: every published version, what `--apply`
+ *   would draft, and — for each version not yet active — how many payment-ready
+ *   sellers it reaches have not accepted it, by owner kind (counts only, never an
+ *   id): exactly what `--activate` would refuse on. It writes nothing.
  * - **`--apply`** DRAFTS each catalogue version that is not yet published. A
  *   draft charges nobody — `order-fees.service.ts` selects only active schedules.
  * - **`--activate`** activates each catalogue version that is still a draft. It is
@@ -170,6 +172,7 @@ export async function provisionFeeSchedules(input: {
 
   let drafted = 0;
   let activated = 0;
+  const toActivate: FeeScheduleRow[] = [];
   for (const definition of catalog) {
     const existing = await findFeeScheduleVersion(db, {
       scheduleKey: definition.scheduleKey,
@@ -183,6 +186,31 @@ export async function provisionFeeSchedules(input: {
           ? `[Fees] catalogue version already published (${existing.status})`
           : '[Fees] catalogue version would be drafted by --apply',
       );
+      if (!existing || existing.status === 'draft') {
+        // The read --activate makes before it refuses, made early: whether
+        // activating this version would take any payment-ready seller offline.
+        // Counts per owner kind only — no owner id reaches a public run log.
+        const unaccepted = await listReadySellersWithoutAcceptance(db, {
+          scheduleKey: definition.scheduleKey,
+          scheduleVersion: definition.version,
+          ownerTypes: sellersReached(definition.eligibleSellerType ?? null),
+        });
+        const byOwnerType: Record<string, number> = {};
+        for (const seller of unaccepted) {
+          byOwnerType[seller.ownerType] = (byOwnerType[seller.ownerType] ?? 0) + 1;
+        }
+        log.general.info(
+          {
+            scheduleKey: definition.scheduleKey,
+            version: definition.version,
+            readySellersWithoutAcceptance: unaccepted.length,
+            byOwnerType,
+          },
+          unaccepted.length === 0
+            ? '[Fees] --activate would take no payment-ready seller offline'
+            : '[Fees] --activate would REFUSE: payment-ready sellers have not accepted',
+        );
+      }
       continue;
     }
 
@@ -201,7 +229,9 @@ export async function provisionFeeSchedules(input: {
       continue;
     }
 
-    // --activate
+    // --activate. Every draft is CHECKED here and activated only after the
+    // loop, so a refusal of one version leaves every version as it was —
+    // "nothing was activated" is then true of the whole run, not of one entry.
     if (!existing) {
       throw new Error(
         `${definition.scheduleKey} v${String(definition.version)} is not published. Run --apply ` +
@@ -224,6 +254,10 @@ export async function provisionFeeSchedules(input: {
           'activation would refuse their checkout. Nothing was activated.',
       );
     }
+    toActivate.push(existing);
+  }
+
+  for (const existing of toActivate) {
     const row = await activateFeeSchedule(db, {
       id: existing.id,
       approvedBy: { authority: 'deployment', ref: input.ref },

@@ -10,6 +10,11 @@ import {
   orderListQuerySchema,
 } from '../middleware/schemas.js';
 import { onboardingLinkSchema } from '../middleware/payments-schemas.js';
+import { acceptFeeScheduleSchema } from '../middleware/fees-schemas.js';
+import {
+  acceptSellerFeeScheduleHandler,
+  getSellerFeeScheduleHandler,
+} from '../controllers/fees.controller.js';
 import { acceptActivationPolicySchema } from '../middleware/merchant-activation-schemas.js';
 import {
   acceptSellerPolicyHandler,
@@ -131,6 +136,23 @@ router.post(
   '/payments/account/refresh',
   makeRateLimiter('payments'),
   refreshSellerPaymentAccountHandler,
+);
+
+/**
+ * The private seller's marketplace fee terms (ADR 0018 D3) — the storefront's
+ * Settings → Payments, beside payout setup.
+ *
+ * The SAME handlers as `/admin/stores/:storeId/fees/{schedule,accept}` with the
+ * caller as the owner, writing the same `fee_schedule_acceptances` rows with
+ * `owner_type = 'user'`: the checkout gate reads one table for both kinds of
+ * seller, so a person's consent is recorded exactly as a store's is.
+ */
+router.get('/fees/schedule', makeRateLimiter('payments'), getSellerFeeScheduleHandler);
+router.post(
+  '/fees/accept',
+  makeRateLimiter('payments'),
+  validateBody(acceptFeeScheduleSchema),
+  acceptSellerFeeScheduleHandler,
 );
 
 // Seller listings (P2P).

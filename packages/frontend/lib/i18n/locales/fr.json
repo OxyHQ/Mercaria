@@ -106,6 +106,26 @@
           "body": "Peable a reçu ce qu’il demandait et l’examine. Vous n’avez rien à faire — cela prend généralement un jour ou deux. Les acheteurs ne peuvent pas régler vos annonces tant que ce n’est pas terminé.",
           "heading": "En cours d’examen"
         }
+      },
+      "fees": {
+        "loadFailed": "Impossible de charger vos conditions de commission",
+        "acceptSucceeded": "Conditions de commission acceptées",
+        "acceptFailed": "Votre acceptation n'a pas pu être enregistrée. Les conditions ont peut-être changé — vérifiez-les et réessayez.",
+        "acceptBeforeSetup": "Accepte la commission de la marketplace ci-dessus pour configurer les versements.",
+        "englishTerms": "Le texte que tu acceptes est le résumé ci-dessus, en anglais. Les lignes en dessous énoncent les mêmes conditions.",
+        "pending": {
+          "heading": "Accepte la commission de la marketplace",
+          "body": "Mercaria prélève une commission sur les ventes par carte. Les acheteurs ne peuvent pas te payer par carte tant que tu n'as pas accepté ces conditions. Rien n'est prélevé avant que tu vendes.",
+          "action": "Accepter ces conditions"
+        },
+        "accepted": {
+          "heading": "Commission de la marketplace acceptée",
+          "body": "Conditions %{version} acceptées le %{date}."
+        },
+        "notice": {
+          "body": "Avant ta première vente par carte, accepte la commission de Mercaria sur les ventes par carte. D'ici là, les acheteurs ne peuvent pas te payer par carte.",
+          "action": "Voir la commission"
+        }
       }
     }
   },
@@ -585,7 +605,10 @@
       "receiptEmailRequired": "Indiquez l'adresse e-mail à laquelle envoyer votre reçu.",
       "sellerNotPaymentReady": "%{seller} ne peut pas accepter de paiement pour le moment. Retirez ses articles de votre commande pour régler le reste.",
       "sellersNotPaymentReady": "Ces vendeurs ne peuvent pas accepter de paiement pour le moment : %{sellers}. Retirez leurs articles de votre commande pour régler le reste.",
-      "unnamedSellersNotPaymentReady": "Certains vendeurs de votre commande ne peuvent pas accepter de paiement pour le moment. Retirez les articles mis en évidence pour régler le reste."
+      "unnamedSellersNotPaymentReady": "Certains vendeurs de votre commande ne peuvent pas accepter de paiement pour le moment. Retirez les articles mis en évidence pour régler le reste.",
+      "sellerNotActivated": "%{seller} n'accepte pas de commandes pour le moment. Retire ses articles de ta commande pour payer le reste.",
+      "sellersNotActivated": "Ces vendeurs n'acceptent pas de commandes pour le moment : %{sellers}. Retire leurs articles de ta commande pour payer le reste.",
+      "unnamedSellersNotActivated": "Certains vendeurs de ta commande n'acceptent pas de commandes pour le moment. Retire les articles mis en évidence pour payer le reste."
     },
     "form": {
       "cityLabel": "Ville",
@@ -640,7 +663,8 @@
       "calculatedAtPlacement": "Les remises, les taxes et la livraison sont calculées au moment de la commande.",
       "cannotAcceptPayment": "Ne peut pas accepter de paiement pour le moment",
       "subtotal": "Sous-total",
-      "title": "Récapitulatif de la commande"
+      "title": "Récapitulatif de la commande",
+      "notAcceptingOrders": "N'accepte pas de commandes pour le moment"
     },
     "title": "Commande",
     "toast": {

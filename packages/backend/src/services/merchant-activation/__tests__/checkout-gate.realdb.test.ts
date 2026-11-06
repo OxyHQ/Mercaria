@@ -30,12 +30,24 @@
  * They leave with the throwaway database.
  */
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import { insertFeeScheduleAcceptance } from '../../../db/fees/feeScheduleRepository.js';
+import { insertStore } from '../../../db/stores/storeRepository.js';
 import { isCheckoutRefusal } from '../../checkout/refusal.js';
 import { assertSellerGroupsActivated } from '../checkout-gate.js';
+
+/**
+ * Oxy's profile lookup is a network call to another service; what it answers is
+ * the input to the refusal's naming, so it is stubbed at the module boundary.
+ * The gate, the acceptance read and the store row are real.
+ */
+const oxyProfiles = new Map<string, { id: string; username: string; displayName: string }>();
+vi.mock('../../oxy-user.service.js', () => ({
+  getProfiles: async (ids: string[]) =>
+    new Map(ids.flatMap((id) => (oxyProfiles.has(id) ? [[id, oxyProfiles.get(id)]] : []))),
+}));
 
 let db: Database;
 
@@ -132,5 +144,78 @@ describe('the activation gate reads both owner kinds', () => {
     await expect(
       assertSellerGroupsActivated([{ sellerKey: `nonsense-${RUN}`, feeSchedule: SCHEDULE }]),
     ).resolves.toBeUndefined();
+  });
+});
+
+describe('the refusal names the seller, never the lever', () => {
+  async function refusalOf(
+    groups: Parameters<typeof assertSellerGroupsActivated>[0],
+  ): Promise<{ message: string; details?: unknown }> {
+    const raised = await assertSellerGroupsActivated(groups).then(
+      () => undefined,
+      (err: unknown) => err,
+    );
+    expect(isCheckoutRefusal(raised), 'the gate admitted a seller it should have refused').toBe(
+      true,
+    );
+    return raised as { message: string; details?: unknown };
+  }
+
+  it('names a store by its name and a private seller by their Oxy display name', async () => {
+    const store = await insertStore({
+      oxyAccountId: `gate-owner-${RUN}`,
+      handle: `gate-${uuidv7()}`,
+      name: 'Lumen Ceramics',
+      description: '',
+      brandColor: '#204060',
+      defaultCurrency: 'USD',
+    });
+    const personId = `seller-named-${RUN}`;
+    oxyProfiles.set(personId, { id: personId, username: 'ana', displayName: 'Ana García' });
+    const storeKey = `store:${store.id}`;
+    const personKey = `user:${personId}`;
+
+    const refusal = await refusalOf([
+      { sellerKey: storeKey, feeSchedule: SCHEDULE },
+      { sellerKey: personKey, feeSchedule: SCHEDULE },
+    ]);
+    expect(refusal.message).toBe(
+      'These sellers are not accepting orders right now: Lumen Ceramics and Ana García. ' +
+        'Remove their items from your order to check out with the rest.',
+    );
+    expect(refusal.message).not.toContain(store.id);
+    expect(refusal.message).not.toContain(personId);
+    expect(refusal.details).toEqual({
+      reason: 'seller_not_activated',
+      sellers: [
+        { sellerKey: storeKey, name: 'Lumen Ceramics' },
+        { sellerKey: personKey, name: 'Ana García' },
+      ],
+    });
+  });
+
+  it('names only the refused seller, and says "a seller" when no name can be read', async () => {
+    const acceptedId = `seller-ok-${RUN}`;
+    await insertFeeScheduleAcceptance(db, {
+      scheduleKey: SCHEDULE.scheduleKey,
+      scheduleVersion: SCHEDULE.version,
+      termsVersion: 'v1',
+      ownerType: 'user',
+      ownerId: acceptedId,
+      acceptedByOxyUserId: `oxy-${RUN}`,
+    });
+    const unnamedKey = `user:seller-unnamed-${RUN}`;
+    const refusal = await refusalOf([
+      { sellerKey: `user:${acceptedId}`, feeSchedule: SCHEDULE },
+      { sellerKey: unnamedKey, feeSchedule: SCHEDULE },
+    ]);
+    expect(refusal.message).toBe(
+      'A seller is not accepting orders right now. ' +
+        'Remove their items from your order to check out with the rest.',
+    );
+    expect(refusal.details).toEqual({
+      reason: 'seller_not_activated',
+      sellers: [{ sellerKey: unnamedKey }],
+    });
   });
 });

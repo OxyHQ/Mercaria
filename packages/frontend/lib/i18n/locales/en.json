@@ -105,6 +105,26 @@
           "body": "Peable has what it asked for and is reviewing it. There is nothing for you to do — this usually takes a day or two. Buyers cannot check out with your listings until it finishes.",
           "heading": "Under review"
         }
+      },
+      "fees": {
+        "loadFailed": "Couldn't load your fee terms",
+        "acceptSucceeded": "Fee terms accepted",
+        "acceptFailed": "Couldn't record your acceptance. The terms may have changed — check them and try again.",
+        "acceptBeforeSetup": "Accept the marketplace fee above to set up payouts.",
+        "englishTerms": "The text you accept is the summary above, in English. The lines below it state the same terms.",
+        "pending": {
+          "heading": "Accept the marketplace fee",
+          "body": "Mercaria charges a fee on card sales. Buyers can't pay you by card until you accept these terms. Nothing is charged until you sell.",
+          "action": "Accept these terms"
+        },
+        "accepted": {
+          "heading": "Marketplace fee accepted",
+          "body": "Terms %{version} accepted on %{date}."
+        },
+        "notice": {
+          "body": "Before your first card sale, accept Mercaria's fee on card sales. Until you do, buyers can't pay you by card.",
+          "action": "Review the fee"
+        }
       }
     }
   },
@@ -581,7 +601,10 @@
       "receiptEmailRequired": "Enter the email address your receipt should go to.",
       "sellerNotPaymentReady": "%{seller} can't accept payment right now. Remove their items from your order to check out with the rest.",
       "sellersNotPaymentReady": "These sellers can't accept payment right now: %{sellers}. Remove their items from your order to check out with the rest.",
-      "unnamedSellersNotPaymentReady": "Some sellers in your order can't accept payment right now. Remove the highlighted items to check out with the rest."
+      "unnamedSellersNotPaymentReady": "Some sellers in your order can't accept payment right now. Remove the highlighted items to check out with the rest.",
+      "sellerNotActivated": "%{seller} isn't accepting orders right now. Remove their items from your order to check out with the rest.",
+      "sellersNotActivated": "These sellers aren't accepting orders right now: %{sellers}. Remove their items from your order to check out with the rest.",
+      "unnamedSellersNotActivated": "Some sellers in your order aren't accepting orders right now. Remove the highlighted items to check out with the rest."
     },
     "form": {
       "cityLabel": "City",
@@ -636,7 +659,8 @@
       "calculatedAtPlacement": "Discounts, taxes and shipping are calculated when your order is placed.",
       "cannotAcceptPayment": "Can't accept payment right now",
       "subtotal": "Subtotal",
-      "title": "Order summary"
+      "title": "Order summary",
+      "notAcceptingOrders": "Not accepting orders right now"
     },
     "title": "Checkout",
     "toast": {
