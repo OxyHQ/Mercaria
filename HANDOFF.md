@@ -244,14 +244,11 @@ account events. No seller is `ready`, so every native checkout is refused
       payment's rail from Peable and books a FairCoin payment as the FAIR
       received (`faircoin_received` / `subscription_revenue`, quote on the event
       row), never fiat through `provider_clearing` (`docs/merchant-plans.md`
-      "The ledger"). Still inert in production until the `oxy` organization has
-      its Peable wallet and mainnet identity receive opens.
-- [ ] **A FairCoin-started plan renews by invoice, and the screen does not say
-      so.** Peable moves it to `send_invoice` (each renewal paid on the hosted
-      invoice page), but Mercaria stores no collection method, so the plan
-      screen's `active` copy still says it "renews automatically". Needs the
-      subscription's `collection_method` on the snapshot and row, and copy that
-      says where the next invoice is paid.
+      "The ledger"). Its renewals are invoices (`send_invoice`), stored on the
+      row, and the plan screen says the next period is an invoice to pay, due
+      on a date, never that it "renews automatically". Still inert in
+      production until the `oxy` organization has its Peable wallet and
+      mainnet identity receive opens.
 
 ## 6. Known limitations (code, not blockers)
 - FX static rates for the 15 new currencies are dev defaults — need a real feed for accuracy.

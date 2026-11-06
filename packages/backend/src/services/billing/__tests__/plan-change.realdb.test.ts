@@ -71,6 +71,7 @@ function snapshot(): BillingSubscriptionSnapshot {
     providerPriceId: railPrice,
     currentPeriodStart: new Date(Date.now() - 86_400_000),
     currentPeriodEnd: new Date(Date.now() + 29 * 86_400_000),
+    collectionMethod: 'charge_automatically',
   };
 }
 

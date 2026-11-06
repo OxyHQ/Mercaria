@@ -2101,6 +2101,8 @@
       "pricePerMonth": "%{price} · pro Monat",
       "pricePerYear": "%{price} · pro Jahr",
       "renewsOn": "Verlängert sich am %{date}.",
+      "invoiceDueOn": "Nächster Zeitraum: eine Rechnung zum Bezahlen (FairCoin oder Karte), fällig am %{date}.",
+      "invoiceAtPeriodEnd": "Nächster Zeitraum: eine Rechnung zum Bezahlen (FairCoin oder Karte), ausgestellt, wenn dieser Zeitraum am %{date} endet.",
       "statuses": {
         "incomplete": {
           "body": "Ihr Tarif beginnt, sobald Ihre erste Zahlung bestätigt ist. Eine FairCoin-Zahlung ist bestätigt, sobald das Netzwerk Ihre Transaktion bestätigt hat, was eine Weile dauern kann. Bis dahin behält Ihr Shop alles, was er jetzt hat. Eine nicht abgeschlossene Zahlung verfällt innerhalb eines Tages von selbst.",
@@ -2108,7 +2110,8 @@
         },
         "active": {
           "body": "Ihr Tarif verlängert sich automatisch. Sie können jederzeit kündigen und ihn bis zum Ende des bezahlten Zeitraums behalten.",
-          "heading": "Aktiv"
+          "heading": "Aktiv",
+          "invoiceBody": "Ihr Tarif verlängert sich per Rechnung, nicht automatisch. Jeder Zeitraum beginnt mit einer Rechnung, die Sie auf ihrer Seite bezahlen, mit FairCoin oder per Karte. Sie können jederzeit kündigen und ihn bis zum Ende des bezahlten Zeitraums behalten."
         },
         "cancelled": {
           "body": "Sie behalten die Zusatzleistungen dieses Tarifs bis zum unten genannten Datum. Sonst ändert sich nichts.",
@@ -2120,7 +2123,8 @@
         },
         "pastDue": {
           "body": "Ihr Katalog, Ihre Bestellungen, Rückerstattungen und Aufzeichnungen sind nicht betroffen und bleiben es auch. Betroffen sind nur die Zusatzleistungen dieses Tarifs, und das erst nach dem unten genannten Datum.",
-          "heading": "Die letzte Zahlung konnte nicht eingezogen werden"
+          "heading": "Die letzte Zahlung konnte nicht eingezogen werden",
+          "invoiceHeading": "Ihre letzte Rechnung ist noch nicht bezahlt"
         },
         "paused": {
           "body": "Solange der Tarif pausiert ist, sind seine Zusatzleistungen nicht aktiv.",

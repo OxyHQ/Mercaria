@@ -5363,6 +5363,17 @@ worth reading first.
   ORDER**: the row cannot be written and then stamped with the ledger transaction
   it booked, so the posting comes FIRST and a claim that finds the event already
   applied THROWS, rolling the posting back inside the same transaction.
+- **`merchant_subscriptions.collection_method` is NOT NULL with a DEFAULT, and
+  the default is only for the rows that predate it.** A subscription whose first
+  invoice was paid in FairCoin is `send_invoice` from then on (Peable ADR 0021
+  D3, FairCoin is never debited), so the plan screen cannot say "renews
+  automatically" from the status alone. Every row older than the column is
+  card-started — FairCoin plans never opened in production — so
+  `charge_automatically` is true of each, and the reconciliation sweep compares
+  the column against the rail anyway. Every writer names it from the snapshot;
+  none relies on the default. `days_until_due` is nullable and CHECKed to an
+  invoice plan (`…_days_until_due_check`): a card debit has no due date, and a
+  value there would read as an invoice nobody issued.
 - **`incomplete` is a status, and it is NOT `expired`** (Peable ADR 0021 D3): a
   subscription whose first payment has not succeeded — a FairCoin transaction
   confirming on chain. It sits outside `ENTITLING_SUBSCRIPTION_STATUSES`, so the

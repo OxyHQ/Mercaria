@@ -2120,6 +2120,8 @@
       "pricePerMonth": "%{price} · al mes",
       "pricePerYear": "%{price} · a l'any",
       "renewsOn": "Es renova el %{date}.",
+      "invoiceDueOn": "Període següent: una factura per pagar (FairCoin o targeta), que venç el %{date}.",
+      "invoiceAtPeriodEnd": "Període següent: una factura per pagar (FairCoin o targeta), emesa quan acabi aquest període el %{date}.",
       "statuses": {
         "incomplete": {
           "body": "El teu pla comença tan bon punt es confirmi el teu primer pagament. Un pagament en FairCoin es confirma quan la xarxa ha confirmat la teva transacció, cosa que pot trigar una mica. Fins aleshores la teva botiga conserva tot el que té ara. Un pagament que no vas acabar caduca sol en menys d'un dia.",
@@ -2127,7 +2129,8 @@
         },
         "active": {
           "body": "El teu pla es renova automàticament. El pots cancel·lar quan vulguis i el conserves fins al final del període que has pagat.",
-          "heading": "Actiu"
+          "heading": "Actiu",
+          "invoiceBody": "El teu pla es renova per factura, no automàticament. Cada període comença amb una factura que pagues a la seva pàgina, amb FairCoin o amb targeta. Pots cancel·lar-lo en qualsevol moment i conservar-lo fins al final del període que has pagat."
         },
         "cancelled": {
           "body": "Conserves els extres d'aquest pla fins a la data de sota. No canvia res més.",
@@ -2139,7 +2142,8 @@
         },
         "pastDue": {
           "body": "El teu catàleg, les comandes, els reemborsaments i els registres no es veuen afectats i continuaran així. Només afecta els extres d'aquest pla, i només a partir de la data de sota.",
-          "heading": "No hem pogut cobrar l'últim pagament"
+          "heading": "No hem pogut cobrar l'últim pagament",
+          "invoiceHeading": "La teva última factura no s'ha pagat"
         },
         "paused": {
           "body": "Els extres d'aquest pla no estan actius mentre està en pausa.",

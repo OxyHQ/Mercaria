@@ -82,6 +82,7 @@ import {
   MERCHANT_SUBSCRIPTION_EVENT_KINDS,
   MERCHANT_SUBSCRIPTION_STATUSES,
   SUBSCRIPTION_CANCELLATION_BEHAVIORS,
+  SUBSCRIPTION_COLLECTION_METHODS,
 } from '@mercaria/shared-types';
 import { asEnumValues, checkOneOf, currencyChecks, money, optionalMoney } from './columns';
 import { ledgerTransactions } from './ledger';
@@ -488,6 +489,23 @@ export const merchantSubscriptions = pgTable(
     cancelAt: timestamptz(),
     cancelledAt: timestamptz(),
     endedAt: timestamptz(),
+    /**
+     * How the rail collects each renewal, as its subscription last said
+     * (Peable's `collection_method`). A FairCoin-started plan is `send_invoice`
+     * — FairCoin is never debited (Peable ADR 0021 D3) — so the plan screen
+     * reads this, never the status, to say whether the next period renews by
+     * itself or arrives as an invoice to pay. The default exists for the rows
+     * that predate the column, every one of them card-started (see
+     * CONVENTIONS.md); every write names it from the snapshot.
+     */
+    collectionMethod: text({ enum: asEnumValues(SUBSCRIPTION_COLLECTION_METHODS) })
+      .notNull()
+      .default('charge_automatically'),
+    /**
+     * `send_invoice` only: the rail's days from a renewal invoice being issued
+     * to it falling due. `null` when the rail states none.
+     */
+    daysUntilDue: integer(),
     /** The terms version the merchant actually agreed to, denormalized. */
     acceptedTermsVersion: text().notNull(),
     acceptedByOxyUserId: text().notNull(),
@@ -503,6 +521,17 @@ export const merchantSubscriptions = pgTable(
       'merchant_subscriptions_cancellation_behavior_check',
       t.cancellationBehavior,
       SUBSCRIPTION_CANCELLATION_BEHAVIORS,
+    ),
+    checkOneOf(
+      'merchant_subscriptions_collection_method_check',
+      t.collectionMethod,
+      SUBSCRIPTION_COLLECTION_METHODS,
+    ),
+    // Days until due describe an invoice; a card debit has no due date.
+    check(
+      'merchant_subscriptions_days_until_due_check',
+      sql`${t.daysUntilDue} is null
+          or (${t.collectionMethod} = 'send_invoice' and ${t.daysUntilDue} >= 0)`,
     ),
     // A `past_due` with no deadline either never expires or expires immediately
     // depending on which reader you ask — the exact shape of a control that

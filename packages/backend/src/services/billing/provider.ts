@@ -31,6 +31,7 @@ import type {
   BillingInterval,
   BillingProviderId,
   MerchantSubscriptionStatus,
+  SubscriptionCollectionMethod,
 } from '@mercaria/shared-types';
 
 /** Which call failed, for an error that has to say. */
@@ -94,6 +95,14 @@ export interface BillingSubscriptionSnapshot {
   /** When a scheduled cancellation takes effect, if one is scheduled. */
   readonly cancelAt?: Date;
   readonly cancelledAt?: Date;
+  /**
+   * How each renewal is collected. `send_invoice` once a FairCoin first payment
+   * moved it off the card (Peable ADR 0021 D3): every renewal is an invoice the
+   * store pays on its hosted page.
+   */
+  readonly collectionMethod: SubscriptionCollectionMethod;
+  /** `send_invoice` only: days from a renewal invoice being issued to its due date. */
+  readonly daysUntilDue?: number;
 }
 
 /**

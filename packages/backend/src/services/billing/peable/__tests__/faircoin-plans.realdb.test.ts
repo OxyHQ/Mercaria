@@ -9,6 +9,9 @@
  * 2. `invoice.paid` books what the payment actually received: a card payment as
  *    fiat through `provider_clearing`; a FairCoin payment as FAIR in
  *    `faircoin_received`, priced at the quote, with no fiat clearing at all.
+ * 3. A FairCoin-started plan renews by INVOICE (`send_invoice`): the row keeps
+ *    how each renewal is collected, and the plan view says when the next
+ *    invoice falls due rather than that the plan renews automatically.
  */
 import { afterAll, beforeAll, beforeEach, expect, it } from 'vitest';
 import { createServer, type IncomingMessage, type Server } from 'node:http';
@@ -33,6 +36,7 @@ import {
 import { ensureBillingCustomer } from '../../../../db/merchantPlans/subscriptionRepository.js';
 import { registerBillingProvider, resetBillingProviders } from '../../provider.js';
 import { resolveMerchantEntitlements } from '../../../entitlements/resolve.js';
+import { buildMerchantPlanStatus } from '../../../entitlements/projection.js';
 import { PeableBillingProvider } from '../native-billing.js';
 import { routePeableEvent } from '../../../payments/peable/event-router.js';
 import type { PeableEventContext } from '../../../payments/peable/event-router.js';
@@ -85,6 +89,8 @@ function nativeSubscription(ref: string, cus: string, status: string) {
     cancel_at_period_end: false,
     cancel_at: null,
     canceled_at: null,
+    collection_method: 'charge_automatically',
+    days_until_due: null,
   };
 }
 
@@ -512,6 +518,55 @@ it('the database refuses a quote on anything but FAIR received for a paid invoic
   ).rejects.toMatchObject({
     cause: expect.objectContaining({
       constraint_name: 'merchant_subscription_events_quote_faircoin_check',
+    }),
+  });
+});
+
+it('a FairCoin-started plan renews by invoice: the row and the plan view say so, a card plan does not', async () => {
+  // Peable ADR 0021 D3: once FairCoin paid the first invoice the rail moves the
+  // subscription to `send_invoice`, with the merchant's days until due.
+  const invoiced = {
+    ...nativeSubscription(sub.faircoin, customer.faircoin, 'active'),
+    collection_method: 'send_invoice',
+    days_until_due: 30,
+  };
+  subscriptions.set(sub.faircoin, invoiced);
+  await deliver('customer.subscription.updated', {
+    subscription: sub.faircoin,
+    customer: customer.faircoin,
+  });
+  const [row] = await db
+    .select({
+      collectionMethod: merchantSubscriptions.collectionMethod,
+      daysUntilDue: merchantSubscriptions.daysUntilDue,
+      currentPeriodEnd: merchantSubscriptions.currentPeriodEnd,
+    })
+    .from(merchantSubscriptions)
+    .where(eq(merchantSubscriptions.storeId, store.faircoin));
+  expect(row).toMatchObject({ collectionMethod: 'send_invoice', daysUntilDue: 30 });
+
+  const view = (await buildMerchantPlanStatus({ storeId: store.faircoin })).subscription;
+  expect(view?.status).toBe('active');
+  expect(view?.collectionMethod).toBe('send_invoice');
+  const periodEnd = (invoiced.current_period_end as number) * 1000;
+  expect(view?.nextInvoiceDueAt).toBe(new Date(periodEnd + 30 * 86_400_000).toISOString());
+  expect(row?.currentPeriodEnd?.getTime()).toBe(periodEnd);
+
+  // The card-started plan keeps its saved card, and nothing falls due.
+  const card = (await buildMerchantPlanStatus({ storeId: store.card })).subscription;
+  expect(card?.collectionMethod).toBe('charge_automatically');
+  expect(card?.nextInvoiceDueAt).toBeNull();
+});
+
+it('the database refuses days until due on a plan the card renews', async () => {
+  await expect(
+    db
+      .update(merchantSubscriptions)
+      .set({ daysUntilDue: 30 })
+      .where(eq(merchantSubscriptions.storeId, store.card)),
+  ).rejects.toMatchObject({
+    cause: expect.objectContaining({
+      constraint_name: 'merchant_subscriptions_days_until_due_check',
     }),
   });
 });
