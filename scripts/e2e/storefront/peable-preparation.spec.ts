@@ -277,3 +277,13 @@ test('authoritative repricing and cart invalidation retain the same sheet before
   expect(requests).toHaveLength(1);
   await expect(page.getByRole('textbox', { name: 'Email', exact: true })).toHaveCount(0);
 });
+
+test('a guest opens the same sheet and supplies contact inside it', async ({ page }) => {
+  const requests = await fixture(page, false);
+  await page.goto('/checkout');
+  await page.getByRole('button', { name: 'Pay now', exact: true }).click();
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: 'Email', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Continue', exact: true })).toBeDisabled();
+  expect(requests).toHaveLength(0);
+});
