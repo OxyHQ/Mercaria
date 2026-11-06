@@ -2143,6 +2143,10 @@
         "trialing": {
           "body": "Tens accés complet als extres d'aquest pla fins que acabi la prova.",
           "heading": "Prova en curs"
+        },
+        "paymentPending": {
+          "body": "S'està confirmant el teu primer pagament d'aquest pla. Un pagament amb FairCoin necessita algunes confirmacions de la xarxa. Els avantatges del pla comencen tan aviat com quedi pagat.",
+          "heading": "Confirmant el pagament"
         }
       },
       "subtitle": "Què obté la teva botiga i què en pagues",
@@ -2188,7 +2192,8 @@
       "notInCurrency": "No disponible en aquesta moneda.",
       "capabilityPerPeriod": "%{name} · %{limit} per període de facturació",
       "checkoutUnreadable": "Peable no ha pogut obrir aquest pagament ara. No s'ha cobrat res; torna-ho a provar d'aquí a un moment.",
-      "checkoutMismatch": "Aquest pagament ja no coincideix amb el preu del pla. No s'ha cobrat res; torna a triar el pla."
+      "checkoutMismatch": "Aquest pagament ja no coincideix amb el preu del pla. No s'ha cobrat res; torna a triar el pla.",
+      "changeAfterPayment": "Podràs canviar de pla quan es confirmi el teu primer pagament."
     },
     "policies": {
       "documentTitle": "Polítiques | Wholesale by Mercaria",

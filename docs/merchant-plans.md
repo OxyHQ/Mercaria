@@ -182,6 +182,15 @@ later plan change cannot shorten a grace already running and a redelivered
   and the sheet refuses a session that is not that price. The subscription row
   is written from a provider snapshot, never from the sheet: the sheet shows
   success only once `GET /plan` says the store pays (`active`/`trialing`).
+- **A first payment still settling is `payment_pending`, not ended.** The
+  rail's `incomplete` — a FairCoin first invoice (`send_invoice`, ADR 0019)
+  confirming on chain, or a card payment awaiting action — maps to
+  `payment_pending` (`peable/status.ts`): the plan screen says "Payment
+  confirming", grants nothing (it is not in `ENTITLING_SUBSCRIPTION_STATUSES`,
+  exactly as when it read `expired`), and refuses a second checkout and a
+  plan change until it settles. Only the rail's `incomplete_expired` (an unpaid
+  first invoice it ended) and `canceled` are `expired`. Migration `0192` widened
+  the three status CHECKs.
 - **One subscription per store.** A checkout is REFUSED while the store has a
   live subscription (anything but `expired`): `merchant_subscriptions_store_key`
   holds one row per store, so a second rail subscription could only be recorded
@@ -193,7 +202,8 @@ later plan change cannot shorten a grace already running and a redelivered
   is credited and the new plan's remaining time charged on one invoice NOW, so an
   upgrade is paid when it is taken and a downgrade leaves a credit the next
   invoices draw down (never cash). A pending cancellation is withdrawn. The
-  currency stays the subscription's. Refused while `past_due` or `paused`.
+  currency stays the subscription's. Refused while `payment_pending`, `past_due`
+  or `paused`.
 - **Cancellation** — at the END of the paid period. There is no immediate
   cancellation route on the merchant surface.
 - **Refunds** — none are issued for a subscription. A credit, if one is ever

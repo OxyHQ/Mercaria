@@ -2143,6 +2143,10 @@
         "trialing": {
           "body": "Você tem acesso completo aos extras deste plano até o fim do período de teste.",
           "heading": "Teste em andamento"
+        },
+        "paymentPending": {
+          "body": "Seu primeiro pagamento deste plano está sendo confirmado. Um pagamento com FairCoin precisa de algumas confirmações da rede. Os extras do plano começam assim que ele for pago.",
+          "heading": "Confirmando o pagamento"
         }
       },
       "subtitle": "O que sua loja recebe e quanto você paga por isso",
@@ -2188,7 +2192,8 @@
       "notInCurrency": "Indisponível nesta moeda.",
       "capabilityPerPeriod": "%{name} · %{limit} por período de cobrança",
       "checkoutUnreadable": "O Peable não conseguiu abrir este pagamento agora. Nada foi cobrado — tente de novo em instantes.",
-      "checkoutMismatch": "Este pagamento não corresponde mais ao preço do plano. Nada foi cobrado — escolha o plano de novo."
+      "checkoutMismatch": "Este pagamento não corresponde mais ao preço do plano. Nada foi cobrado — escolha o plano de novo.",
+      "changeAfterPayment": "Você poderá trocar de plano quando seu primeiro pagamento for confirmado."
     },
     "policies": {
       "documentTitle": "Políticas | Wholesale by Mercaria",

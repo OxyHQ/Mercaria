@@ -2124,6 +2124,10 @@
         "trialing": {
           "body": "You have full access to this plan's extras until the trial ends.",
           "heading": "Trial in progress"
+        },
+        "paymentPending": {
+          "body": "Your first payment for this plan is being confirmed. A FairCoin payment needs a few network confirmations. The plan's extras start as soon as it is paid.",
+          "heading": "Payment confirming"
         }
       },
       "subtitle": "What your store gets, and what you pay for it",
@@ -2168,7 +2172,8 @@
       "notInCurrency": "Not available in this currency.",
       "capabilityPerPeriod": "%{name} · %{limit} per billing period",
       "checkoutUnreadable": "Peable could not open this payment just now. Nothing was charged — try again in a moment.",
-      "checkoutMismatch": "This checkout no longer matches the plan's price. Nothing was charged — choose the plan again."
+      "checkoutMismatch": "This checkout no longer matches the plan's price. Nothing was charged — choose the plan again.",
+      "changeAfterPayment": "You can change plan once your first payment is confirmed."
     },
     "policies": {
       "documentTitle": "Policies | Wholesale by Mercaria",

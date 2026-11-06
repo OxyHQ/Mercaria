@@ -2143,6 +2143,10 @@
         "trialing": {
           "body": "Vous avez accès à toutes les options de ce forfait jusqu’à la fin de l’essai.",
           "heading": "Essai en cours"
+        },
+        "paymentPending": {
+          "body": "Votre premier paiement pour ce forfait est en cours de confirmation. Un paiement en FairCoin nécessite quelques confirmations du réseau. Les avantages du forfait commencent dès qu'il est payé.",
+          "heading": "Paiement en cours de confirmation"
         }
       },
       "subtitle": "Ce que votre boutique obtient, et ce que vous payez pour cela",
@@ -2188,7 +2192,8 @@
       "notInCurrency": "Non disponible dans cette devise.",
       "capabilityPerPeriod": "%{name} · %{limit} par période de facturation",
       "checkoutUnreadable": "Peable n'a pas pu ouvrir ce paiement pour l'instant. Rien n'a été débité : réessayez dans un instant.",
-      "checkoutMismatch": "Ce paiement ne correspond plus au prix de l'offre. Rien n'a été débité : choisissez de nouveau l'offre."
+      "checkoutMismatch": "Ce paiement ne correspond plus au prix de l'offre. Rien n'a été débité : choisissez de nouveau l'offre.",
+      "changeAfterPayment": "Vous pourrez changer de forfait une fois votre premier paiement confirmé."
     },
     "policies": {
       "documentTitle": "Politiques | Wholesale by Mercaria",

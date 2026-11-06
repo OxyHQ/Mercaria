@@ -2124,6 +2124,10 @@
         "trialing": {
           "body": "Sie haben vollen Zugriff auf die Zusatzleistungen dieses Tarifs, bis die Testphase endet.",
           "heading": "Testphase läuft"
+        },
+        "paymentPending": {
+          "body": "Deine erste Zahlung für diesen Tarif wird bestätigt. Eine FairCoin-Zahlung braucht einige Bestätigungen im Netzwerk. Die Extras des Tarifs starten, sobald sie bezahlt ist.",
+          "heading": "Zahlung wird bestätigt"
         }
       },
       "subtitle": "Was Ihr Shop bekommt und was Sie dafür zahlen",
@@ -2168,7 +2172,8 @@
       "notInCurrency": "In dieser Währung nicht verfügbar.",
       "capabilityPerPeriod": "%{name} · %{limit} pro Abrechnungszeitraum",
       "checkoutUnreadable": "Peable konnte diese Zahlung gerade nicht öffnen. Es wurde nichts belastet – versuche es gleich noch einmal.",
-      "checkoutMismatch": "Diese Zahlung passt nicht mehr zum Preis des Tarifs. Es wurde nichts belastet – wähle den Tarif erneut."
+      "checkoutMismatch": "Diese Zahlung passt nicht mehr zum Preis des Tarifs. Es wurde nichts belastet – wähle den Tarif erneut.",
+      "changeAfterPayment": "Du kannst den Tarif wechseln, sobald deine erste Zahlung bestätigt ist."
     },
     "policies": {
       "documentTitle": "Richtlinien | Wholesale by Mercaria",

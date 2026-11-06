@@ -2123,6 +2123,10 @@
         "trialing": {
           "body": "在试用结束前，你可以完整使用该套餐的附加功能。",
           "heading": "试用中"
+        },
+        "paymentPending": {
+          "body": "此套餐的首笔付款正在确认中。FairCoin 付款需要网络的几次确认。付款完成后，套餐的额外功能即会开启。",
+          "heading": "付款确认中"
         }
       },
       "subtitle": "你的店铺能获得什么，以及需要为此付多少钱",
@@ -2167,7 +2171,8 @@
       "notInCurrency": "此货币不可用。",
       "capabilityPerPeriod": "%{name} · 每个计费周期 %{limit}",
       "checkoutUnreadable": "Peable 暂时无法打开此付款。未产生任何扣款，请稍后重试。",
-      "checkoutMismatch": "此付款已与套餐价格不符。未产生任何扣款，请重新选择套餐。"
+      "checkoutMismatch": "此付款已与套餐价格不符。未产生任何扣款，请重新选择套餐。",
+      "changeAfterPayment": "首笔付款确认后，你就可以更换套餐。"
     },
     "policies": {
       "documentTitle": "政策 | Wholesale by Mercaria",

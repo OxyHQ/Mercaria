@@ -232,11 +232,13 @@ account events. No seller is `ready`, so every native checkout is refused
       owned by the Peable sheet work.
 - [ ] **FairCoin on USD orders** — a FairCoin-only Peable Checkout Session per
       seller (`@peable.to/sdk` 4.1.0), the fee decided once the method is known.
-- [ ] **FairCoin-paid merchant plans** — the plan screen reads a Peable
-      `incomplete` subscription (paid in FairCoin, awaiting confirmations) as
-      "Ended" until the first invoice is paid, and `invoice.paid` books the
+- [x] **A FairCoin-paid plan read as "Ended" while confirming** — Peable's
+      `incomplete` is `payment_pending` ("Payment confirming"), non-entitling,
+      and refuses a second checkout or a change (migration `0192`,
+      `docs/merchant-plans.md`).
+- [ ] **FairCoin-paid merchant plans' revenue** — `invoice.paid` books the
       quoted fiat amount as subscription revenue though the coins are in the
-      `oxy` organization's Peable wallet. Both before Mercaria's own wallet exists.
+      `oxy` organization's Peable wallet. Before Mercaria's own wallet exists.
 
 ## 6. Known limitations (code, not blockers)
 - FX static rates for the 15 new currencies are dev defaults — need a real feed for accuracy.

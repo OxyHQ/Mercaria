@@ -328,8 +328,17 @@ export const BILLING_PROVIDER_IDS: readonly BillingProviderId[] = ['peable'];
  * `expired` is where a `cancelled` subscription lands once its paid period has
  * actually run out. Keeping them apart is what lets "cancel now, keep what you
  * paid for until the period ends" be a real state rather than a comment.
+ *
+ * `payment_pending` is a subscription whose FIRST invoice is not paid yet — the
+ * rail's `incomplete`: a FairCoin payment broadcast and confirming on chain
+ * (ADR 0019: a FairCoin first invoice is `send_invoice`), or a card payment
+ * still awaiting the merchant. It is NOT `expired` — that told a merchant who
+ * had just paid that their plan had ended — and it is not entitling either: the
+ * plan's tools unlock when the rail says `active`, never on a payment in flight.
+ * The rail ends one that is never paid (`incomplete_expired`), which is `expired`.
  */
 export type MerchantSubscriptionStatus =
+  | 'payment_pending'
   | 'trialing'
   | 'active'
   | 'past_due'
@@ -339,6 +348,7 @@ export type MerchantSubscriptionStatus =
 
 /** {@link MerchantSubscriptionStatus} as the tuple the CHECKs read. */
 export const MERCHANT_SUBSCRIPTION_STATUSES: readonly MerchantSubscriptionStatus[] = [
+  'payment_pending',
   'trialing',
   'active',
   'past_due',

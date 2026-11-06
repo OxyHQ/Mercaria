@@ -1,0 +1,9 @@
+-- oxy:deploy-phase=pre
+-- oxy:rollback=restore: merchant_subscriptions_status_check, merchant_subscription_events_from_status_check and merchant_subscription_events_to_status_check are widened with `payment_pending`; their narrower forms are in 0066, and re-adding them fails against any subscription or audit row already naming payment_pending — move those rows to `expired` (what the previous image mapped Peable's `incomplete` to) first
+-- A Peable `incomplete` subscription (a FairCoin first payment confirming on chain, ADR 0019) is `payment_pending`, no longer `expired`.
+ALTER TABLE "merchant_subscription_events" DROP CONSTRAINT "merchant_subscription_events_from_status_check";--> statement-breakpoint
+ALTER TABLE "merchant_subscription_events" DROP CONSTRAINT "merchant_subscription_events_to_status_check";--> statement-breakpoint
+ALTER TABLE "merchant_subscriptions" DROP CONSTRAINT "merchant_subscriptions_status_check";--> statement-breakpoint
+ALTER TABLE "merchant_subscription_events" ADD CONSTRAINT "merchant_subscription_events_from_status_check" CHECK ("merchant_subscription_events"."from_status" in ('payment_pending', 'trialing', 'active', 'past_due', 'paused', 'cancelled', 'expired'));--> statement-breakpoint
+ALTER TABLE "merchant_subscription_events" ADD CONSTRAINT "merchant_subscription_events_to_status_check" CHECK ("merchant_subscription_events"."to_status" in ('payment_pending', 'trialing', 'active', 'past_due', 'paused', 'cancelled', 'expired'));--> statement-breakpoint
+ALTER TABLE "merchant_subscriptions" ADD CONSTRAINT "merchant_subscriptions_status_check" CHECK ("merchant_subscriptions"."status" in ('payment_pending', 'trialing', 'active', 'past_due', 'paused', 'cancelled', 'expired'));

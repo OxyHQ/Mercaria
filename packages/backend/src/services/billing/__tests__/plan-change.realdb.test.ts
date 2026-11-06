@@ -264,3 +264,33 @@ describe('a store that already pays', () => {
     expect((refusal as MercariaError).httpStatus).toBe(409);
   });
 });
+
+describe('a store whose first payment is still confirming (payment_pending)', () => {
+  it('is refused a second checkout and a plan change, so the plan is never paid for twice', async () => {
+    await db
+      .update(merchantSubscriptions)
+      .set({ status: 'payment_pending', graceExpiresAt: null })
+      .where(eq(merchantSubscriptions.storeId, storeId));
+    const before = checkouts.length;
+    await expect(
+      startMerchantPlanCheckout({
+        storeId,
+        storeName: 'fixture',
+        planId: plans.plus,
+        interval: 'monthly',
+        currency: 'USD',
+        actorOxyUserId: 'owner',
+      }),
+    ).rejects.toThrow(/still being confirmed/);
+    expect(checkouts.length).toBe(before);
+    const refusal = await changeMerchantPlan({
+      storeId,
+      planId: plans.plus,
+      interval: 'monthly',
+      currency: 'USD',
+      actorOxyUserId: 'owner',
+    }).catch((error: unknown) => error);
+    expect(refusal).toBeInstanceOf(MercariaError);
+    expect((refusal as MercariaError).httpStatus).toBe(409);
+  });
+});
