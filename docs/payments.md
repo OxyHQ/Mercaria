@@ -900,7 +900,7 @@ it the handoff's Peable PaymentIntent and ITS `client_secret` (the payer's
 capability, nothing of the acquirer's), the total it expects (a different
 payment is refused) and the order numbers; the card (Peable's secure fields, or
 Peable's secure page from the native apps), FairCoin and every state of the
-payment are the SDK's. Mercaria keeps no card form, provider frame or payment
+payment are the SDK's — Apple Pay and Google Pay included (below). Mercaria keeps no card form, provider frame or payment
 logic. A bank redirect returns to `/checkout/return`, which strips the
 acquirer's return parameters and only polls. Whatever the sheet shows, the screen
 polls `GET /checkout/:groupId/payment-status`, which answers from the payment
@@ -909,11 +909,16 @@ hands it back to the sheet as its `outcome` (`lib/payments/peable-payer.ts`
 `sheetOutcome`): paid only on `succeeded`, over only on `canceled`; a `failed`
 attempt is a decline the buyer retries in the sheet. The intent is created with
 `payment_method_types: ['card']`, so nothing asynchronous ADR 0001 D3 excludes
-is offered. Peable's sheet does not yet show Apple Pay or Google Pay (it pays the
-card in split secure fields); the registered wallet domain
-`pmd_de5b5c1648a83fcb9e411c99` and the storefront's Apple Pay
-domain-association file stay in place for when it does
-(`docs/runbooks/marketplace-card-rail-live.md`).
+is offered; Apple Pay and Google Pay are card payments, so they ride on it.
+Since `@peable.to/sdk` 4.3.0 the sheet's card step on the web opens with the
+provider's Apple Pay / Google Pay buttons (Express Checkout) mounted on this
+payment, shown where the device has a wallet and the page's domain is
+registered — `mercaria.co` is (`pmd_de5b5c1648a83fcb9e411c99`, with the
+storefront's Apple Pay domain-association file;
+`docs/runbooks/marketplace-card-rail-live.md`). From the native apps the card
+opens Peable's secure page, which offers the same wallets. The sheet speaks the
+buyer's language from the SDK's own catalog (`locale`); Mercaria translates
+none of it.
 
 The handoff is `CheckoutPaymentHandoff` = `{paymentId, provider,
 providerPaymentId, clientSecret, amount, methods}`: `providerPaymentId` is the
