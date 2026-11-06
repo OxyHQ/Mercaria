@@ -250,11 +250,11 @@ export function normalizeCheckoutAddress(input: CheckoutAddressInput): Normalize
     throw validationError('Country must be a valid ISO-3166 alpha-2 country code.');
   }
 
-  const postalCode = normalizeText(
-    input.postalCode,
-    'Postal code',
-    CHECKOUT_TEXT_LIMITS.postalCode,
-  );
+  // The generic address shape must not invent a postcode where none exists.
+  // Known country patterns still require their real nonempty format below;
+  // the remaining destinations retain carrier/market eligibility validation.
+  const postalCode =
+    normalizeOptionalText(input.postalCode, 'Postal code', CHECKOUT_TEXT_LIMITS.postalCode) ?? '';
   const pattern = POSTAL_CODE_PATTERNS.get(country);
   if (pattern && !pattern.test(postalCode.toUpperCase())) {
     throw validationError(`Postal code is not a valid format for ${country}.`);

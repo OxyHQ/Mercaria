@@ -520,6 +520,21 @@ describe('calculateTotals — combinability', () => {
 });
 
 describe('calculateTotals — taxes', () => {
+  it('keeps country tax but never matches a postcode-specific rate against an absent postcode', async () => {
+    findActiveTaxRates.mockResolvedValue([
+      taxRate({ _id: 'country', rateBps: 800, region: { country: 'HK' } }),
+      taxRate({ _id: 'postal', rateBps: 1200, region: { country: 'HK', postalCodePattern: '.*' } }),
+    ]);
+    const result = await priceGroup({
+      storeId: STORE_ID,
+      lines: [line({ listingId: L1, amount: 1000, quantity: 1 })],
+      currency: 'FAIR',
+      shippingAddress: { country: 'HK', postalCode: '' },
+    });
+    expect(result.tax.shop.amount).toBe(80);
+    expect(result.taxLines).toHaveLength(1);
+    assertReconciled(result, [1000]);
+  });
   it('adds exclusive tax to the grand total', async () => {
     findActiveTaxRates.mockResolvedValue([
       taxRate({ _id: 't1', rateBps: 800, region: { country: 'US' } }),

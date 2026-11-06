@@ -52,6 +52,11 @@ describe('postal-code validation is country-aware and only where reliable', () =
     expect(normalizeCheckoutAddress(address({ postalCode: '46004' })).postalCode).toBe('46004');
   });
 
+  it('still refuses a missing postcode where the existing country pattern requires one', () => {
+    expect(() => normalizeCheckoutAddress(address({ postalCode: '' }))).toThrow(/ES/);
+    expect(() => normalizeCheckoutAddress(address({ postalCode: '   ' }))).toThrow(/ES/);
+  });
+
   it('accepts a lower-case UK postcode and a Dutch one with no space', () => {
     expect(
       normalizeCheckoutAddress(address({ country: 'GB', postalCode: 'sw1a 1aa', city: 'London' }))
@@ -66,7 +71,7 @@ describe('postal-code validation is country-aware and only where reliable', () =
   });
 
   it('does NOT pattern-check a country with no reliable rule', () => {
-    // Ireland's Eircode, Hong Kong (no postal system at all): an overfitted
+    // Ireland's Eircode and Hong Kong (no postcode): an overfitted
     // regex here is exactly the failure #105 validation rule 3 names, so the
     // long tail is length-checked and left alone.
     expect(
@@ -74,9 +79,9 @@ describe('postal-code validation is country-aware and only where reliable', () =
         .postalCode,
     ).toBe('D02 AF30');
     expect(
-      normalizeCheckoutAddress(address({ country: 'HK', postalCode: '000', city: 'Kowloon' }))
+      normalizeCheckoutAddress(address({ country: 'HK', postalCode: '', city: 'Kowloon' }))
         .postalCode,
-    ).toBe('000');
+    ).toBe('');
   });
 });
 

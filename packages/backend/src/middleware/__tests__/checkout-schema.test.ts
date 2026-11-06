@@ -19,7 +19,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { CHECKOUT_PAYMENT_METHODS } from '@mercaria/shared-types';
-import { checkoutSchema } from '../schemas.js';
+import { checkoutSchema, createAddressSchema, updateAddressSchema } from '../schemas.js';
 
 /** The smallest body the route accepts. */
 const VALID = { addressId: 'addr-1' };
@@ -72,4 +72,19 @@ describe('checkoutSchema', () => {
     // them is the surface where one would eventually be trusted.
     expect(checkoutSchema.safeParse({ ...VALID, [field]: value }).success).toBe(false);
   });
+});
+
+it('passes a real destination without a postcode to country-aware service validation', () => {
+  const address = {
+    recipientName: 'Recipient',
+    line1: '1 Road',
+    city: 'Kowloon',
+    country: 'HK',
+    postalCode: '',
+  };
+  expect(
+    checkoutSchema.safeParse({ destination: { type: 'inline_shipping_address', address } }).success,
+  ).toBe(true);
+  expect(createAddressSchema.safeParse(address).success).toBe(true);
+  expect(updateAddressSchema.safeParse({ postalCode: '' }).success).toBe(true);
 });
