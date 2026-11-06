@@ -155,7 +155,7 @@ function FaircoinCard({ settings }: { settings: SellerPaymentSettings }) {
       await WebBrowser.openBrowserAsync(link.url);
       await refresh();
     } catch {
-      toast.error(t('settings.payments.faircoinOpenFailed'));
+      toast.error(t('settings.payments.confirmOpenFailed'));
     } finally {
       setOpening(false);
     }

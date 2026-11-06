@@ -68,7 +68,7 @@
       "neededNow": "现在需要提供",
       "onboardingUnavailable": "当前 Mercaria 部署尚不支持结算设置。",
       "openFailed": "无法打开结算设置",
-      "faircoinOpenFailed": "无法在 Peable 中打开 FairCoin 确认页面",
+      "confirmOpenFailed": "无法在 Peable 中打开确认页面",
       "outstandingTitle": "Peable 尚待处理的事项",
       "paidOutIn": "结算币种",
       "payoutsTitle": "结算",

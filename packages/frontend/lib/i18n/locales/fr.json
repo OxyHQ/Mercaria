@@ -70,7 +70,7 @@
       "neededNow": "Requis maintenant",
       "onboardingUnavailable": "La configuration des versements n’est pas encore disponible sur ce déploiement Mercaria.",
       "openFailed": "Impossible d’ouvrir la configuration des versements",
-      "faircoinOpenFailed": "Impossible d'ouvrir la confirmation FairCoin dans Peable",
+      "confirmOpenFailed": "Impossible d'ouvrir la page de confirmation dans Peable",
       "outstandingTitle": "En attente chez Peable",
       "paidOutIn": "Versé en",
       "payoutsTitle": "Versements",

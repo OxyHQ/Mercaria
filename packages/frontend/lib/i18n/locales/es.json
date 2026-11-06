@@ -70,7 +70,7 @@
       "neededNow": "Necesario ahora",
       "onboardingUnavailable": "La configuración de cobros aún no está disponible en esta instalación de Mercaria.",
       "openFailed": "No se ha podido abrir la configuración de cobros",
-      "faircoinOpenFailed": "No se pudo abrir la confirmación de FairCoin en Peable",
+      "confirmOpenFailed": "No se pudo abrir la página de confirmación en Peable",
       "outstandingTitle": "Pendiente con Peable",
       "paidOutIn": "Se abona en",
       "payoutsTitle": "Cobros",

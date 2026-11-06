@@ -69,7 +69,7 @@
       "neededNow": "Jetzt erforderlich",
       "onboardingUnavailable": "Die Einrichtung von Auszahlungen ist auf dieser Mercaria-Installation noch nicht verfügbar.",
       "openFailed": "Die Einrichtung der Auszahlungen konnte nicht geöffnet werden",
-      "faircoinOpenFailed": "Die FairCoin-Bestätigung in Peable konnte nicht geöffnet werden",
+      "confirmOpenFailed": "Die Bestätigungsseite in Peable konnte nicht geöffnet werden",
       "outstandingTitle": "Offen bei Peable",
       "paidOutIn": "Auszahlung in",
       "payoutsTitle": "Auszahlungen",
