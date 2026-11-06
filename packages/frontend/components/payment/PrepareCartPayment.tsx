@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useOxy } from '@oxy.so/services/ui/client';
 import { Button } from '@oxy.so/bloom/button';
 import { Field } from '@oxy.so/bloom/field';
+import { Image as ShapeImage } from '@oxy.so/bloom/shapes';
 import { TextFieldInput } from '@oxy.so/bloom/text-field';
 import {
   PeableSheetCheckout,
@@ -128,6 +129,18 @@ export function PrepareCartPayment({
         detail: line.variantTitle,
         quantity: line.quantity,
         amountMinorUnits: line.lineTotal.amount,
+        ...(line.imageUrl
+          ? {
+              artwork: (
+                <ShapeImage
+                  shape="squircle"
+                  size={40}
+                  source={{ uri: line.imageUrl }}
+                  alt={line.title}
+                />
+              ),
+            }
+          : {}),
       })),
       requiresShipping: ships && !pickup,
       requiresContact: !actor,

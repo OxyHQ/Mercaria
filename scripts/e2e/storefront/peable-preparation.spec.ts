@@ -99,6 +99,7 @@ const group = {
       listingId: 'listing',
       variantId: 'variant',
       title: 'Fixture sweater',
+      imageUrl: 'https://assets.oxy.so/fixture-sweater.png',
       variantTitle: 'Medium',
       quantity: 1,
       available: 5,
@@ -148,6 +149,12 @@ async function fixture(
         );
     },
     { signedIn },
+  );
+  await page.route('https://assets.oxy.so/fixture-sweater.png', (route) =>
+    route.fulfill({
+      contentType: 'image/svg+xml',
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="#9ecf9b"/></svg>',
+    }),
   );
   await page.route('https://api.oxy.so/**', async (route) => {
     const path = new URL(route.request().url()).pathname;
@@ -318,6 +325,9 @@ test('authoritative repricing and cart invalidation retain the same sheet before
   const requests = await fixture(page, true, true, { payerUpdates, noEmail: true, cartResponses });
   await page.goto('/checkout');
   await page.getByRole('button', { name: 'Pay now', exact: true }).click();
+  const artwork = page.getByRole('img', { name: 'Fixture sweater', exact: true });
+  await expect(artwork).toBeVisible();
+  await expect(artwork.locator('clipPath path')).toHaveAttribute('d', /.+/);
   const frame = page.getByTestId('bloom-checkout-step');
   const sheet = page.locator('[role="dialog"]:visible').last();
   await sheet.evaluate((element) => element.setAttribute('data-mount-probe', 'same'));
