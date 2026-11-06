@@ -39,7 +39,7 @@ const session = {
   allow_promotion_codes: false,
   automatic_tax: { enabled: false, status: null },
   customer_details: {
-    email: 'alex@example.test',
+    email: null,
     name: null,
     phone: null,
     address: null,
@@ -109,7 +109,18 @@ const group = {
   ],
   subtotal: { amount: 3000, currency: 'USD' },
 };
-async function fixture(page: Page, signedIn: boolean, success = false) {
+async function fixture(
+  page: Page,
+  signedIn: boolean,
+  success = false,
+  options: {
+    profileOnly?: boolean;
+    saved?: unknown[];
+    payerUpdates?: unknown[];
+    noEmail?: boolean;
+    cartResponses?: number[];
+  } = {},
+) {
   let placed = false;
   const requests: { key: string | undefined; body: unknown }[] = [];
   await page.addInitScript(
@@ -158,16 +169,42 @@ async function fixture(page: Page, signedIn: boolean, success = false) {
         json: {
           id: 'checkout-fixture',
           username: 'alex',
-          email: 'alex@example.test',
+          ...(options.noEmail ? {} : { email: 'alex@example.test' }),
           name: { displayName: 'Alex Example' },
+          ...(options.profileOnly
+            ? {
+                locations: [
+                  {
+                    id: 'home',
+                    name: 'Home',
+                    address: {
+                      streetNumber: '10',
+                      street: 'Example Street',
+                      city: 'Wilmington',
+                      state: 'DE',
+                      postalCode: '19802',
+                      country: 'United States',
+                    },
+                    metadata: { countryCode: 'US' },
+                  },
+                ],
+              }
+            : {}),
         },
       });
-    if (path === '/addresses') return route.fulfill({ json: [address] });
+    if (path === '/addresses') {
+      if (route.request().method() === 'POST') {
+        options.saved?.push(route.request().postDataJSON());
+        return route.fulfill({ json: address });
+      }
+      return route.fulfill({ json: options.profileOnly ? [] : [address] });
+    }
     return route.fulfill({ status: 404, json: { error: 'Unused fixture' } });
   });
   await page.route('http://localhost:4160/**', async (route) => {
     const path = new URL(route.request().url()).pathname;
-    if (path === '/cart')
+    if (path === '/cart') {
+      options.cartResponses?.push(placed ? 0 : 1);
       return route.fulfill({
         json: {
           success: true,
@@ -180,6 +217,7 @@ async function fixture(page: Page, signedIn: boolean, success = false) {
           },
         },
       });
+    }
     if (path === '/addresses') return route.fulfill({ json: { success: true, data: [] } });
     if (path === '/checkout') {
       requests.push({
@@ -214,13 +252,26 @@ async function fixture(page: Page, signedIn: boolean, success = false) {
     return route.fulfill({ status: 404, json: { success: false, error: 'Unused fixture' } });
   });
   // No request in this test may reach a payment provider or a live gateway.
-  await page.route('https://api.peable.to/**', (route) => {
+  let payerEmail: string | null = null;
+  await page.route('https://api.peable.to/**', async (route) => {
     if (
       success &&
-      route.request().method() === 'GET' &&
       new URL(route.request().url()).pathname === `/v1/checkout_sessions/${SESSION_ID}/public`
-    )
-      return route.fulfill({ json: session });
+    ) {
+      if (route.request().method() === 'POST') {
+        const body = route.request().postDataJSON();
+        options.payerUpdates?.push(body);
+        payerEmail = body.customer_details?.email ?? payerEmail;
+      }
+      return route.fulfill({
+        json: {
+          ...session,
+          contact_collection: signedIn ? 'merchant_account' : 'email',
+          customer_details: { ...session.customer_details, email: payerEmail },
+        },
+      });
+    }
+    // Creating/confirming a payment is forbidden in this synthetic suite.
     return route.abort();
   });
   return requests;
@@ -262,7 +313,9 @@ for (const viewport of [
 test('authoritative repricing and cart invalidation retain the same sheet before Pay', async ({
   page,
 }) => {
-  const requests = await fixture(page, true, true);
+  const payerUpdates: unknown[] = [];
+  const cartResponses: number[] = [];
+  const requests = await fixture(page, true, true, { payerUpdates, noEmail: true, cartResponses });
   await page.goto('/checkout');
   await page.getByRole('button', { name: 'Pay now', exact: true }).click();
   const frame = page.getByTestId('bloom-checkout-step');
@@ -273,6 +326,8 @@ test('authoritative repricing and cart invalidation retain the same sheet before
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await expect(frame.getByText('$35.00', { exact: true }).first()).toBeVisible();
   await expect(sheet).toHaveAttribute('data-mount-probe', 'same');
+  expect(payerUpdates).toHaveLength(0);
+  await expect.poll(() => cartResponses.includes(0)).toBe(true);
   await expect(page.getByText('Your cart is empty', { exact: true })).toHaveCount(0);
   expect(requests).toHaveLength(1);
   await expect(page.getByRole('textbox', { name: 'Email address', exact: true })).toHaveCount(0);
@@ -286,4 +341,60 @@ test('a guest opens the same sheet and supplies contact inside it', async ({ pag
   await expect(page.getByRole('textbox', { name: 'Email address', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Continue', exact: true })).toBeDisabled();
   expect(requests).toHaveLength(0);
+});
+
+test('a structured profile place requires recipient review and an explicit private save', async ({
+  page,
+}) => {
+  const saved: unknown[] = [];
+  const requests = await fixture(page, true, false, { profileOnly: true, saved });
+  await page.goto('/checkout');
+  await page.getByRole('button', { name: 'Pay now', exact: true }).click();
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
+  const name = page.getByRole('textbox', { name: 'Full name', exact: true });
+  await expect(name).toHaveValue('');
+  await page.getByText('Home', { exact: true }).click();
+  await expect(page.getByRole('textbox', { name: 'Street address', exact: true })).toHaveValue(
+    '10 Example Street',
+  );
+  await expect(name).toHaveValue('');
+  expect(saved).toHaveLength(0);
+  expect(requests).toHaveLength(0);
+  await name.fill('Delivery Recipient');
+  await page.getByRole('button', { name: 'Save Delivery Recipient to Oxy', exact: true }).click();
+  await expect.poll(() => saved.length).toBe(1);
+  expect(saved[0]).toMatchObject({
+    recipientName: 'Delivery Recipient',
+    line1: '10 Example Street',
+    country: 'US',
+  });
+  expect(requests).toHaveLength(0);
+});
+
+test('guest receipt email flows through the payer API once without a second contact prompt', async ({
+  page,
+}) => {
+  const payerUpdates: unknown[] = [];
+  const requests = await fixture(page, false, true, { payerUpdates });
+  await page.goto('/checkout');
+  await page.getByRole('button', { name: 'Pay now', exact: true }).click();
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
+  await page
+    .getByRole('textbox', { name: 'Email address', exact: true })
+    .fill('guest@example.test');
+  await page.getByRole('textbox', { name: 'Full name', exact: true }).fill('Guest Recipient');
+  await page
+    .getByRole('textbox', { name: 'Street address', exact: true })
+    .fill('10 Example Street');
+  await page.getByRole('textbox', { name: 'City', exact: true }).fill('Wilmington');
+  await page.getByRole('textbox', { name: 'Postal code', exact: true }).fill('19802');
+  await page.getByRole('button', { name: 'Country', exact: true }).click();
+  await page.getByText('United States', { exact: true }).click();
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
+  await expect(
+    page.getByTestId('bloom-checkout-step').getByText('$35.00', { exact: true }).first(),
+  ).toBeVisible();
+  expect(requests).toHaveLength(1);
+  expect(payerUpdates).toEqual([{ customer_details: { email: 'guest@example.test' } }]);
+  await expect(page.getByRole('textbox', { name: 'Email address', exact: true })).toHaveCount(0);
 });
