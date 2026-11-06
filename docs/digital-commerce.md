@@ -198,6 +198,21 @@ column; `asset_right_events` refuses UPDATE and DELETE.
 All of them are exercised against a real server by
 `db/digital/__tests__/digital-commerce.realdb.test.ts`.
 
+## What the storefront asks a buyer for
+
+**An address only when something ships.** Every cart line carries the server's
+`delivery` (`'shipped' | 'digital'`, `CART_LINE_DELIVERIES`), answered by the
+SAME `resolveDigitalLines` read that refuses a `digital_delivery` destination at
+checkout, so the cart and the checkout cannot disagree. A checkout of only
+downloads renders no address, no saved-address list and no collection choice: it
+sends `destination: { type: 'digital_delivery' }`, the buyer's own two-letter
+`digitalSupplyCountry` (the place of supply, never inferred) and
+`digitalSupplyConsent`. A mixed cart asks for the address (its country is then
+the evidence) and the consent. A line the server did not classify ships — the
+safe direction, since the server refuses an addressless physical order anyway.
+Payment is Peable's sheet either way (`docs/payments.md` §Client integration),
+which itself asks for no shipping address.
+
 ## Tax, withdrawal and the launch gate
 
 **Place of supply is PER LINE.** A physical line matches on shipping country,

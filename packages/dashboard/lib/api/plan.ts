@@ -1,6 +1,7 @@
 import type {
   ApiResponse,
   MerchantBillingSessionView,
+  MerchantPlanCheckoutView,
   MerchantPlanCatalogEntry,
   MerchantPlanStatusView,
   StoreCapabilitiesView,
@@ -34,11 +35,9 @@ export async function fetchPlanCatalog(storeId: string): Promise<MerchantPlanCat
 }
 
 /**
- * POST to start a paid plan, answering a hosted URL.
- *
- * The URL is single-use and short-lived, so it is never cached and never
- * stored — the caller opens it immediately, in the SYSTEM browser: a hosted
- * provider flow does not run inside an embedded webview.
+ * POST to start a paid plan, answering the Peable Checkout Session the merchant
+ * pays in the dashboard's Peable sheet — its payer `clientSecret` and the price
+ * it was created for. Short-lived, so it is never cached and never stored.
  *
  * The body names a plan, a cadence and a currency and nothing about money. The
  * server resolves the price, the trial and the customer itself, so a client
@@ -47,11 +46,11 @@ export async function fetchPlanCatalog(storeId: string): Promise<MerchantPlanCat
 export async function startPlanCheckout(
   storeId: string,
   input: { planId: string; interval: 'monthly' | 'annual'; currency: string },
-): Promise<MerchantBillingSessionView> {
+): Promise<MerchantPlanCheckoutView> {
   return withBillingIntent(
     [storeId, 'checkout', input.planId, input.interval, input.currency],
     async (key) => {
-      const { data } = await apiClient.post<ApiResponse<MerchantBillingSessionView>>(
+      const { data } = await apiClient.post<ApiResponse<MerchantPlanCheckoutView>>(
         `${base(storeId)}/checkout`,
         input,
         { headers: { 'Idempotency-Key': key } },

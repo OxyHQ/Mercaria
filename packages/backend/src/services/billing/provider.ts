@@ -119,6 +119,21 @@ export interface BillingHostedSession {
   readonly expiresAt?: Date;
 }
 
+/**
+ * A subscription checkout the merchant pays INSIDE the dashboard — Peable's
+ * embedded session, paid in Peable's payment sheet. No card data and no rail
+ * credential: `clientSecret` is the session's payer capability.
+ */
+export interface BillingEmbeddedCheckout {
+  readonly sessionId: string;
+  readonly clientSecret: string;
+  /** The session's total, in minor units of `currency`, exactly as the rail priced it. */
+  readonly amountMinor: number;
+  readonly currency: string;
+  readonly livemode: boolean;
+  readonly expiresAt?: Date;
+}
+
 /** The billing rail's operations. Every one of them is idempotent or a read. */
 export interface BillingProvider {
   readonly id: BillingProviderId;
@@ -139,17 +154,20 @@ export interface BillingProvider {
     idempotencyKey: string;
   }): Promise<{ providerCustomerId: string }>;
 
-  /** Open a hosted subscription checkout. No card data crosses this call. */
+  /**
+   * Open an embedded subscription checkout, paid in the dashboard's Peable
+   * sheet. No card data crosses this call, and nothing is redirected: there is
+   * no return URL, because the page around the sheet is the dashboard's own.
+   */
   createCheckoutSession(input: {
     providerCustomerId: string;
     providerPriceId: string;
     trialDays: number;
-    returnUrl: string;
     /** Mercaria's own correlation, carried in provider metadata. */
     storeId: string;
     planId: string;
     idempotencyKey: string;
-  }): Promise<BillingHostedSession>;
+  }): Promise<BillingEmbeddedCheckout>;
 
   /** Open the provider's hosted billing portal (#89 billing rule 5). */
   createPortalSession(input: {

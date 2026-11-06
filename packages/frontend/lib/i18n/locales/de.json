@@ -580,6 +580,8 @@
       "collectInPerson": "Persönlich abholen",
       "continueAsGuest": "Als Gast fortfahren",
       "deliverTo": "Liefern an",
+      "digitalHint": "Nichts in dieser Bestellung wird versendet: Deine Downloads sind sofort nach der Zahlung in deiner Bibliothek. Wir brauchen nur das Land, in dem du bist, für die Steuer.",
+      "digitalTitle": "Deine Angaben",
       "guestDeliveryHint": "Kein Konto nötig. Sag uns, wohin es geht und wie wir dich zu dieser Bestellung erreichen.",
       "guestPickupHint": "Kein Konto nötig. Sag uns, wie wir dich zu dieser Abholung erreichen — nach einer Adresse, die du nicht brauchst, fragen wir nicht.",
       "pickupFallbackName": "der von dir gewählte Laden"
@@ -597,14 +599,16 @@
     },
     "error": {
       "collectionEmailRequired": "Gib die E-Mail-Adresse an, an die die Abholdaten gehen sollen.",
+      "digitalSupplyConsentRequired": "Diese Bestellung enthält Downloads. Aktiviere die sofortige Bereitstellung, um sie zu kaufen, oder bestelle die übrigen Artikel separat.",
       "emailAndAddressRequired": "Fülle deine E-Mail-Adresse und die Lieferadresse aus, um fortzufahren.",
       "receiptEmailRequired": "Gib die E-Mail-Adresse an, an die dein Beleg gehen soll.",
-      "sellerNotPaymentReady": "%{seller} kann gerade keine Zahlungen annehmen. Entferne die Artikel dieses Verkäufers aus deiner Bestellung, um den Rest zu bezahlen.",
-      "sellersNotPaymentReady": "Diese Verkäufer können gerade keine Zahlungen annehmen: %{sellers}. Entferne ihre Artikel aus deiner Bestellung, um den Rest zu bezahlen.",
-      "unnamedSellersNotPaymentReady": "Einige Verkäufer in deiner Bestellung können gerade keine Zahlungen annehmen. Entferne die hervorgehobenen Artikel, um den Rest zu bezahlen.",
       "sellerNotActivated": "%{seller} nimmt gerade keine Bestellungen an. Entferne die Artikel dieses Verkäufers aus deiner Bestellung, um den Rest zu bezahlen.",
+      "sellerNotPaymentReady": "%{seller} kann gerade keine Zahlungen annehmen. Entferne die Artikel dieses Verkäufers aus deiner Bestellung, um den Rest zu bezahlen.",
       "sellersNotActivated": "Diese Verkäufer nehmen gerade keine Bestellungen an: %{sellers}. Entferne ihre Artikel aus deiner Bestellung, um den Rest zu bezahlen.",
-      "unnamedSellersNotActivated": "Einige Verkäufer in deiner Bestellung nehmen gerade keine Bestellungen an. Entferne die markierten Artikel, um den Rest zu bezahlen."
+      "sellersNotPaymentReady": "Diese Verkäufer können gerade keine Zahlungen annehmen: %{sellers}. Entferne ihre Artikel aus deiner Bestellung, um den Rest zu bezahlen.",
+      "supplyCountryRequired": "Gib das Land, in dem du bist, mit zwei Buchstaben an.",
+      "unnamedSellersNotActivated": "Einige Verkäufer in deiner Bestellung nehmen gerade keine Bestellungen an. Entferne die markierten Artikel, um den Rest zu bezahlen.",
+      "unnamedSellersNotPaymentReady": "Einige Verkäufer in deiner Bestellung können gerade keine Zahlungen annehmen. Entferne die hervorgehobenen Artikel, um den Rest zu bezahlen."
     },
     "form": {
       "cityLabel": "Stadt",
@@ -616,6 +620,8 @@
       "deliveryMethodTitle": "Wie möchtest du es bekommen?",
       "deliveryPhoneA11y": "Telefonnummer, unter der der Zusteller anrufen kann",
       "deliveryPhoneLabel": "Telefon für die Lieferung (optional)",
+      "digitalSupplyConsent": "Ich möchte meine Downloads sofort. Mir ist bewusst, dass ich mein Widerrufsrecht verliere, sobald sie bereitgestellt sind.",
+      "digitalSupplyConsentA11y": "Zustimmung zur sofortigen Bereitstellung der Downloads",
       "emailA11y": "E-Mail-Adresse für deine Bestellbestätigung",
       "emailHelp": "Damit schicken wir dir den Beleg und die Lieferupdates zu dieser Bestellung.",
       "emailLabel": "E-Mail",
@@ -639,7 +645,10 @@
       "regionLabel": "Region (optional)",
       "regionPlaceholder": "Valencia",
       "saveAddress": "Diese Adresse in meinem Konto speichern",
-      "sellerDataNotice": "Jeder Verkäufer erhält nur das, was er für seinen Teil deiner Bestellung braucht: die Lieferadresse, den Namen des Empfängers und eine angegebene Telefonnummer für die Lieferung. Deine E-Mail-Adresse bleibt bei Mercaria."
+      "sellerDataNotice": "Jeder Verkäufer erhält nur das, was er für seinen Teil deiner Bestellung braucht: die Lieferadresse, den Namen des Empfängers und eine angegebene Telefonnummer für die Lieferung. Deine E-Mail-Adresse bleibt bei Mercaria.",
+      "supplyCountryA11y": "Land, in dem du bist, zwei Buchstaben",
+      "supplyCountryHelp": "Zwei Buchstaben, z. B. DE. Davon hängt die Steuer auf deine Downloads ab.",
+      "supplyCountryLabel": "Land, in dem du bist"
     },
     "keepShopping": "Weiter einkaufen",
     "orderNumbers": {
@@ -679,16 +688,8 @@
       "title": "Zahlung abgebrochen"
     },
     "card": {
-      "browserIntro": "Du bezahlst auf der sicheren Seite von Peable in deinem Browser. Komm danach hierher zurück – dieser Bildschirm aktualisiert sich von selbst.",
-      "browserReopen": "Zahlungsseite erneut öffnen",
-      "browserReturned": "Wenn du die Zahlung abgeschlossen hast, aktualisiert sich dieser Bildschirm, sobald sie bestätigt ist. Andernfalls kannst du die Zahlungsseite erneut öffnen.",
-      "browserUnavailable": "Die Zahlungsseite konnte nicht geöffnet werden. Bitte versuche es erneut.",
-      "expressHeading": "Mit einem Tipp bezahlen",
-      "loading": "Sicheres Zahlungsformular wird geladen …",
       "notCompleted": "Deine Zahlung konnte nicht abgeschlossen werden.",
-      "orPayByCard": "oder mit Karte bezahlen",
-      "payNow": "Jetzt bezahlen",
-      "unavailable": "Das Zahlungsformular konnte nicht geladen werden."
+      "payNow": "Jetzt bezahlen"
     },
     "cardDetailsNotice": "Deine Kartendaten gehen direkt an unseren Zahlungsdienstleister und erreichen Mercaria nie.",
     "confirming": {
@@ -715,6 +716,11 @@
     "unreadable": {
       "body": "Wir konnten diese Zahlung von hier aus nicht prüfen. Falls sie durchging, ist deine Bestellung sicher — diese Seite kann daran ohnehin nichts ändern.",
       "title": "Wir konnten diese Zahlung nicht auslesen"
+    },
+    "sheet": {
+      "mismatch": "Diese Zahlung passt nicht mehr zu deiner Bestellung. Verlasse sie und starte die Zahlung erneut über deine Bestellung.",
+      "orderLine": "Bestellung %{numbers}",
+      "unreadable": "Peable konnte diese Zahlung gerade nicht öffnen. Deine Bestellung bleibt reserviert – tippe gleich noch einmal auf Bezahlen."
     }
   },
   "sellers": {

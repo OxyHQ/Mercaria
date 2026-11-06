@@ -579,6 +579,8 @@
       "collectInPerson": "到店自取",
       "continueAsGuest": "以访客身份继续",
       "deliverTo": "寄送至",
+      "digitalHint": "此订单不发货：付款后下载内容会立即出现在你的资料库中。我们只需要你所在的国家/地区，用于计税。",
+      "digitalTitle": "你的信息",
       "guestDeliveryHint": "无需账号。告诉我们寄到哪里，以及这笔订单怎么联系你。",
       "guestPickupHint": "无需账号。告诉我们这次自取怎么联系你——用不上的地址我们不会问。",
       "pickupFallbackName": "你选择的店铺"
@@ -596,14 +598,16 @@
     },
     "error": {
       "collectionEmailRequired": "请填写接收自取信息的邮箱地址。",
+      "digitalSupplyConsentRequired": "此订单包含下载内容。开启立即提供才能购买，或单独结算其他商品。",
       "emailAndAddressRequired": "请填写邮箱地址和收货地址后继续。",
       "receiptEmailRequired": "请填写接收收据的邮箱地址。",
-      "sellerNotPaymentReady": "%{seller}目前无法接受付款。请从订单中移除该卖家的商品，以结算其余商品。",
-      "sellersNotPaymentReady": "以下卖家目前无法接受付款：%{sellers}。请从订单中移除他们的商品，以结算其余商品。",
-      "unnamedSellersNotPaymentReady": "您订单中的部分卖家目前无法接受付款。请移除突出显示的商品，以结算其余商品。",
       "sellerNotActivated": "%{seller}目前不接受订单。请从订单中移除该卖家的商品，以便结算其余商品。",
+      "sellerNotPaymentReady": "%{seller}目前无法接受付款。请从订单中移除该卖家的商品，以结算其余商品。",
       "sellersNotActivated": "以下卖家目前不接受订单：%{sellers}。请从订单中移除他们的商品，以便结算其余商品。",
-      "unnamedSellersNotActivated": "你订单中的部分卖家目前不接受订单。请移除高亮显示的商品，以便结算其余商品。"
+      "sellersNotPaymentReady": "以下卖家目前无法接受付款：%{sellers}。请从订单中移除他们的商品，以结算其余商品。",
+      "supplyCountryRequired": "请用两个字母填写你所在的国家/地区。",
+      "unnamedSellersNotActivated": "你订单中的部分卖家目前不接受订单。请移除高亮显示的商品，以便结算其余商品。",
+      "unnamedSellersNotPaymentReady": "您订单中的部分卖家目前无法接受付款。请移除突出显示的商品，以结算其余商品。"
     },
     "form": {
       "cityLabel": "城市",
@@ -615,6 +619,8 @@
       "deliveryMethodTitle": "你想怎么拿到它？",
       "deliveryPhoneA11y": "快递员可以拨打的电话号码",
       "deliveryPhoneLabel": "配送电话（可选）",
+      "digitalSupplyConsent": "我想立即获得下载内容。我明白提供后将失去取消的权利。",
+      "digitalSupplyConsentA11y": "同意立即获得下载内容",
       "emailA11y": "接收订单确认的邮箱地址",
       "emailHelp": "我们用它给你发这笔订单的收据和配送通知。",
       "emailLabel": "邮箱",
@@ -638,7 +644,10 @@
       "regionLabel": "省份（可选）",
       "regionPlaceholder": "Valencia",
       "saveAddress": "把这个地址保存到我的账号",
-      "sellerDataNotice": "每个卖家只会收到履行你订单中他们那部分所需的信息：收货地址、收件人姓名，以及你填写的配送电话。你的邮箱地址只留在 Mercaria。"
+      "sellerDataNotice": "每个卖家只会收到履行你订单中他们那部分所需的信息：收货地址、收件人姓名，以及你填写的配送电话。你的邮箱地址只留在 Mercaria。",
+      "supplyCountryA11y": "你所在的国家/地区，两个字母",
+      "supplyCountryHelp": "两个字母，例如 CN。它决定你下载内容的税费。",
+      "supplyCountryLabel": "你所在的国家/地区"
     },
     "keepShopping": "继续购物",
     "orderNumbers": {
@@ -678,16 +687,8 @@
       "title": "付款已取消"
     },
     "card": {
-      "browserIntro": "你将在浏览器中通过 Peable 的安全页面付款。完成后请回到这里——此页面会自动更新。",
-      "browserReopen": "再次打开付款页面",
-      "browserReturned": "如果你已完成付款，此页面会在确认后立即更新。如果没有，你可以再次打开付款页面。",
-      "browserUnavailable": "无法打开付款页面。请重试。",
-      "expressHeading": "一键付款",
-      "loading": "正在加载安全付款表单…",
       "notCompleted": "付款未能完成。",
-      "orPayByCard": "或使用银行卡付款",
-      "payNow": "立即付款",
-      "unavailable": "无法加载付款表单。"
+      "payNow": "立即付款"
     },
     "cardDetailsNotice": "你的银行卡信息直接发送给我们的支付服务商，不会经过 Mercaria。",
     "confirming": {
@@ -714,6 +715,11 @@
     "unreadable": {
       "body": "我们无法从这里核对这笔付款。如果付款成功，订单不受影响——这个页面也无法改变它。",
       "title": "无法读取这笔付款"
+    },
+    "sheet": {
+      "mismatch": "此付款已与你的订单不符。请离开并从你的订单重新开始付款。",
+      "orderLine": "订单 %{numbers}",
+      "unreadable": "Peable 暂时无法打开此付款。你的订单仍为你保留，请稍后再次点按“付款”。"
     }
   },
   "sellers": {

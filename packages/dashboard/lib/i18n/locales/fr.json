@@ -2185,7 +2185,9 @@
       "changed": "Votre offre a changé.",
       "changeFailed": "Impossible de changer votre offre. Veuillez réessayer.",
       "notInCurrency": "Non disponible dans cette devise.",
-      "capabilityPerPeriod": "%{name} · %{limit} par période de facturation"
+      "capabilityPerPeriod": "%{name} · %{limit} par période de facturation",
+      "checkoutUnreadable": "Peable n'a pas pu ouvrir ce paiement pour l'instant. Rien n'a été débité : réessayez dans un instant.",
+      "checkoutMismatch": "Ce paiement ne correspond plus au prix de l'offre. Rien n'a été débité : choisissez de nouveau l'offre."
     },
     "policies": {
       "documentTitle": "Politiques | Wholesale by Mercaria",

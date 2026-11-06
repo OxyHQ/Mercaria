@@ -32,6 +32,7 @@ import type {
   Cart as CartDTO,
   CartGroup,
   CartItemDTO,
+  CartLineDelivery,
   CartVendor,
   CurrencyCode,
   Money,
@@ -68,6 +69,7 @@ import { activeDiscountCodeExists } from '../db/merchandising/discountRepository
 import { resolveMedia } from './catalog-hydration.service.js';
 import { guestCheckoutAvailabilityFor } from './guest-p2p/gate.js';
 import { RETAIL_SELLER_KEY } from './checkout/retail.js';
+import { resolveDigitalLines } from './checkout/digital-lines.js';
 import { marketplacePresentation } from './commercial-presentation/presentation.js';
 import { resolveVariantCommercialPresentations } from './commercial-presentation/variant-commercial.service.js';
 import { getProfiles, type OxyProfile } from './oxy-user.service.js';
@@ -364,13 +366,18 @@ async function buildCartDTO(cart: CartRecord, view: CartView): Promise<CartDTO> 
   const variantIds = cart.items.map((i) => i.variantId);
   const listingIds = cart.items.map((i) => i.listingId);
 
-  const [variantDocs, listingDocs, children] = await Promise.all([
+  const [variantDocs, listingDocs, children, digitalByVariant] = await Promise.all([
     findVariantsByIds(variantIds),
     findListingsByIds(listingIds),
     // Gallery + collection membership were fields on the listing document and are
     // child tables now; one batched read for the whole cart, not one per line.
     findListingChildren(listingIds),
+    // The SAME read checkout decides a `digital_delivery` destination with, so a
+    // line the cart calls digital is one checkout lets through without an address.
+    resolveDigitalLines(variantIds),
   ]);
+  const deliveryOf = (variantId: string): CartLineDelivery =>
+    digitalByVariant.has(variantId) ? 'digital' : 'shipped';
 
   const variantById = new Map(variantDocs.map((v) => [v.id, v]));
   const listingById = new Map(listingDocs.map((l) => [l.id, l]));
@@ -402,6 +409,7 @@ async function buildCartDTO(cart: CartRecord, view: CartView): Promise<CartDTO> 
         available: 0,
         lineTotal: { amount: 0, currency },
         stale: true,
+        delivery: deliveryOf(variantId),
       };
     }
 
@@ -421,6 +429,7 @@ async function buildCartDTO(cart: CartRecord, view: CartView): Promise<CartDTO> 
       quantity: item.quantity,
       available,
       lineTotal,
+      delivery: deliveryOf(variantId),
     };
     if (imageUrl !== undefined) {
       dto.imageUrl = imageUrl;

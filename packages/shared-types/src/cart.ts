@@ -122,6 +122,21 @@ export interface CartGroup {
 }
 
 /**
+ * How one cart line reaches the buyer — a CLOSED set, decided by the server.
+ *
+ * `digital` is a line whose variant is bound to a digital asset
+ * (`asset_variant_bindings`, ADR 0010): nothing is delivered anywhere, so a
+ * checkout of only such lines asks for no address (`digital_delivery`).
+ * `shipped` is everything else. The server answers it from the same binding
+ * read checkout refuses a `digital_delivery` destination with, so the cart and
+ * the checkout can never disagree about whether an address is needed.
+ */
+export const CART_LINE_DELIVERIES = ['shipped', 'digital'] as const;
+
+/** One of {@link CART_LINE_DELIVERIES}. */
+export type CartLineDelivery = (typeof CART_LINE_DELIVERIES)[number];
+
+/**
  * A single line in the cart, hydrated with live pricing and availability.
  *
  * `available` is the units in stock for the variant right now; `stale` is set
@@ -149,6 +164,8 @@ export interface CartItemDTO {
   lineTotal: Money;
   /** Set when the variant/listing is gone or under-stocked vs `quantity`. */
   stale?: boolean;
+  /** Whether this line ships or is delivered digitally — what decides if checkout asks for an address. */
+  delivery: CartLineDelivery;
   /**
    * Why this line needs the buyer's attention after a guest→Oxy cart merge
    * (#104). `stale` is DERIVED live at every hydration and can therefore clear

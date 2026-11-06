@@ -655,10 +655,32 @@ export interface MerchantPlanStatusView {
   readonly portalAvailable: boolean;
 }
 
-/** What starting a paid subscription hands the client — a URL and nothing else. */
+/** What opening the billing portal hands the client — a URL and nothing else. */
 export interface MerchantBillingSessionView {
   /** The provider-hosted page to send the merchant to. */
   readonly url: string;
   /** When the hosted session stops being usable. */
+  readonly expiresAt: string | null;
+}
+
+/**
+ * What starting a paid plan hands the dashboard: the Peable Checkout Session
+ * the merchant pays IN the dashboard, in Peable's payment sheet
+ * (`PeableSheetCheckout`, the one Mention uses) — card or FairCoin, never a
+ * redirect.
+ *
+ * `clientSecret` is the session's payer capability (`cs_…_secret_…`), never a
+ * credential of the merchant's or of the rail. `amount` is the price Mercaria
+ * resolved and the session was created for, so the sheet refuses a session that
+ * is not the plan the merchant chose. The subscription itself is still created
+ * from a provider event, never from the sheet.
+ */
+export interface MerchantPlanCheckoutView {
+  readonly clientSecret: string;
+  /** Minor units of the plan price, in its currency. */
+  readonly amount: Money;
+  readonly interval: BillingInterval;
+  readonly livemode: boolean;
+  /** When the session stops being payable. */
   readonly expiresAt: string | null;
 }

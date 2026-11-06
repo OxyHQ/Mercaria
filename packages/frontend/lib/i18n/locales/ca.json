@@ -584,6 +584,8 @@
       "collectInPerson": "Recollir en persona",
       "continueAsGuest": "Continua com a convidat",
       "deliverTo": "Enviar a",
+      "digitalHint": "No s'envia res d'aquesta comanda: les teves descàrregues seran a la teva biblioteca tan bon punt paguis. Només necessitem el país on ets, pels impostos.",
+      "digitalTitle": "Les teves dades",
       "guestDeliveryHint": "No cal cap compte. Digues-nos on va i com localitzar-te per a aquesta comanda.",
       "guestPickupHint": "No cal cap compte. Digues-nos com localitzar-te per a aquesta recollida: no et demanarem una adreça que no necessites.",
       "pickupFallbackName": "la botiga que has triat"
@@ -601,14 +603,16 @@
     },
     "error": {
       "collectionEmailRequired": "Escriu l'adreça electrònica on han d'arribar les dades de la recollida.",
+      "digitalSupplyConsentRequired": "Aquesta comanda inclou descàrregues. Activa el lliurament immediat per comprar-les, o compra els altres articles per separat.",
       "emailAndAddressRequired": "Omple el teu correu electrònic i l'adreça de lliurament per continuar.",
       "receiptEmailRequired": "Escriu l'adreça electrònica on ha d'arribar el teu rebut.",
-      "sellerNotPaymentReady": "%{seller} no pot acceptar pagaments ara mateix. Treu els seus articles de la comanda per pagar la resta.",
-      "sellersNotPaymentReady": "Aquests venedors no poden acceptar pagaments ara mateix: %{sellers}. Treu els seus articles de la comanda per pagar la resta.",
-      "unnamedSellersNotPaymentReady": "Alguns venedors de la teva comanda no poden acceptar pagaments ara mateix. Treu els articles destacats per pagar la resta.",
       "sellerNotActivated": "%{seller} no accepta comandes ara mateix. Treu-ne els articles de la comanda per pagar la resta.",
+      "sellerNotPaymentReady": "%{seller} no pot acceptar pagaments ara mateix. Treu els seus articles de la comanda per pagar la resta.",
       "sellersNotActivated": "Aquests venedors no accepten comandes ara mateix: %{sellers}. Treu-ne els articles de la comanda per pagar la resta.",
-      "unnamedSellersNotActivated": "Alguns venedors de la teva comanda no accepten comandes ara mateix. Treu els articles destacats per pagar la resta."
+      "sellersNotPaymentReady": "Aquests venedors no poden acceptar pagaments ara mateix: %{sellers}. Treu els seus articles de la comanda per pagar la resta.",
+      "supplyCountryRequired": "Indica el país on ets, amb dues lletres.",
+      "unnamedSellersNotActivated": "Alguns venedors de la teva comanda no accepten comandes ara mateix. Treu els articles destacats per pagar la resta.",
+      "unnamedSellersNotPaymentReady": "Alguns venedors de la teva comanda no poden acceptar pagaments ara mateix. Treu els articles destacats per pagar la resta."
     },
     "form": {
       "cityLabel": "Ciutat",
@@ -620,6 +624,8 @@
       "deliveryMethodTitle": "Com ho vols?",
       "deliveryPhoneA11y": "Telèfon al qual pot trucar el missatger",
       "deliveryPhoneLabel": "Telèfon de lliurament (opcional)",
+      "digitalSupplyConsent": "Vull les meves descàrregues de seguida. Entenc que perdo el dret de desistiment un cop lliurades.",
+      "digitalSupplyConsentA11y": "Consentiment per rebre les descàrregues de seguida",
       "emailA11y": "Adreça electrònica per a la confirmació de la comanda",
       "emailHelp": "L'utilitzem per enviar-te el rebut i les novetats de lliurament d'aquesta comanda.",
       "emailLabel": "Correu electrònic",
@@ -643,7 +649,10 @@
       "regionLabel": "Província (opcional)",
       "regionPlaceholder": "València",
       "saveAddress": "Desa aquesta adreça al meu compte",
-      "sellerDataNotice": "Cada venedor rep només el que necessita per complir la seva part de la comanda: l'adreça de lliurament, el nom del destinatari i el telèfon de lliurament que indiquis. El teu correu electrònic es queda a Mercaria."
+      "sellerDataNotice": "Cada venedor rep només el que necessita per complir la seva part de la comanda: l'adreça de lliurament, el nom del destinatari i el telèfon de lliurament que indiquis. El teu correu electrònic es queda a Mercaria.",
+      "supplyCountryA11y": "País on ets, dues lletres",
+      "supplyCountryHelp": "Dues lletres, com ES. Determina els impostos de les teves descàrregues.",
+      "supplyCountryLabel": "País on ets"
     },
     "keepShopping": "Continua comprant",
     "orderNumbers": {
@@ -683,16 +692,8 @@
       "title": "Pagament cancel·lat"
     },
     "card": {
-      "browserIntro": "Pagaràs a la pàgina segura de Peable al navegador. Torna aquí quan acabis: aquesta pantalla s’actualitza sola.",
-      "browserReopen": "Torna a obrir la pàgina de pagament",
-      "browserReturned": "Si has completat el pagament, aquesta pantalla s’actualitzarà tan bon punt es confirmi. Si no, pots tornar a obrir la pàgina de pagament.",
-      "browserUnavailable": "No s’ha pogut obrir la pàgina de pagament. Torna-ho a provar.",
-      "expressHeading": "Paga amb un toc",
-      "loading": "S’està carregant el formulari de pagament segur…",
       "notCompleted": "No s'ha pogut completar el teu pagament.",
-      "orPayByCard": "o paga amb targeta",
-      "payNow": "Paga ara",
-      "unavailable": "No s’ha pogut carregar el formulari de pagament."
+      "payNow": "Paga ara"
     },
     "cardDetailsNotice": "Les dades de la teva targeta van directament al nostre proveïdor de pagaments i no arriben mai a Mercaria.",
     "confirming": {
@@ -719,6 +720,11 @@
     "unreadable": {
       "body": "No hem pogut comprovar aquest pagament des d'aquí. Si s'ha fet, la teva comanda és fora de perill: aquesta pàgina no la pot canviar.",
       "title": "No hem pogut llegir aquest pagament"
+    },
+    "sheet": {
+      "mismatch": "Aquest pagament ja no coincideix amb la comanda. Surt i torna a iniciar el pagament des de la comanda.",
+      "orderLine": "Comanda %{numbers}",
+      "unreadable": "Peable no ha pogut obrir aquest pagament ara. La comanda continua reservada: torna a prémer Paga d'aquí a un moment."
     }
   },
   "sellers": {

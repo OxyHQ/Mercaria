@@ -35,6 +35,7 @@ import type { BillingInterval } from '@mercaria/shared-types';
 import { z } from 'zod';
 import {
   BillingProviderError,
+  type BillingEmbeddedCheckout,
   type BillingHostedSession,
   type BillingInvoiceSnapshot,
   type BillingProvider,
@@ -113,6 +114,16 @@ const hostedSchema = z.object({
     .url()
     .refine((value) => new URL(value).protocol === 'https:', 'a hosted page is https'),
   expires_at: z.number().int().positive().nullable().optional(),
+});
+
+/** An embedded session: the payer capability and the total it was priced at, never a URL. */
+const embeddedSchema = z.object({
+  id: z.string().regex(/^cs_[A-Za-z0-9_]+$/),
+  client_secret: z.string().min(1),
+  amount_total: z.string().regex(/^(0|[1-9]\d*)$/),
+  currency: z.string().min(3),
+  livemode: z.boolean(),
+  expires_at: z.number().int().positive(),
 });
 
 /** Monthly or annual, in Mercaria's vocabulary; any other cadence sells no plan. */
@@ -204,6 +215,29 @@ export class PeableBillingProvider implements BillingProvider {
     return { url: parsed.data.url, ...(expiresAt ? { expiresAt } : {}) };
   }
 
+  private embedded(value: unknown): BillingEmbeddedCheckout {
+    const parsed = embeddedSchema.safeParse(value);
+    if (!parsed.success) {
+      malformed('createCheckoutSession', 'The gateway answered a checkout Mercaria cannot pay.');
+    }
+    const session = parsed.data;
+    if (session.livemode !== this.livemode) {
+      malformed('createCheckoutSession', 'The checkout belongs to the other mode.');
+    }
+    const amountMinor = Number(session.amount_total);
+    if (!Number.isSafeInteger(amountMinor)) {
+      malformed('createCheckoutSession', 'The checkout total is outside the safe range.');
+    }
+    return {
+      sessionId: session.id,
+      clientSecret: session.client_secret,
+      amountMinor,
+      currency: session.currency.toUpperCase(),
+      livemode: session.livemode,
+      expiresAt: fromUnixSeconds(session.expires_at),
+    };
+  }
+
   private snapshot(stage: BillingProviderStage, value: unknown): BillingSubscriptionSnapshot {
     const parsed = subscriptionSchema.safeParse(value);
     if (!parsed.success) {
@@ -267,15 +301,14 @@ export class PeableBillingProvider implements BillingProvider {
       malformed('createCheckoutSession', 'The customer or price is not a Peable id.');
     }
     return this.call('createCheckoutSession', async () =>
-      this.hosted(
-        'createCheckoutSession',
+      this.embedded(
         await this.client.checkout.sessions.create(
           {
             mode: 'subscription',
+            // Paid in the dashboard's Peable sheet, never on a redirect.
+            ui_mode: 'embedded',
             customer: input.providerCustomerId,
             line_items: [{ price: input.providerPriceId, quantity: 1 }],
-            success_url: input.returnUrl,
-            cancel_url: input.returnUrl,
             client_reference_id: input.storeId,
             metadata: { store_id: input.storeId, plan_id: input.planId },
           },

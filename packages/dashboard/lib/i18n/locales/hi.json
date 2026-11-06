@@ -2165,7 +2165,9 @@
       "changed": "आपका प्लान बदल गया है।",
       "changeFailed": "आपका प्लान नहीं बदला जा सका। कृपया फिर से कोशिश करें।",
       "notInCurrency": "इस मुद्रा में उपलब्ध नहीं।",
-      "capabilityPerPeriod": "%{name} · हर बिलिंग अवधि में %{limit}"
+      "capabilityPerPeriod": "%{name} · हर बिलिंग अवधि में %{limit}",
+      "checkoutUnreadable": "Peable अभी यह भुगतान नहीं खोल सका। कोई शुल्क नहीं लगा — थोड़ी देर में फिर कोशिश करें।",
+      "checkoutMismatch": "यह भुगतान अब प्लान की कीमत से मेल नहीं खाता। कोई शुल्क नहीं लगा — प्लान फिर से चुनें।"
     },
     "policies": {
       "documentTitle": "पॉलिसी | Wholesale by Mercaria",

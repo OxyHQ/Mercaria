@@ -2164,7 +2164,9 @@
       "changed": "プランを変更しました。",
       "changeFailed": "プランを変更できませんでした。もう一度お試しください。",
       "notInCurrency": "この通貨ではご利用いただけません。",
-      "capabilityPerPeriod": "%{name} · 請求期間ごとに %{limit}"
+      "capabilityPerPeriod": "%{name} · 請求期間ごとに %{limit}",
+      "checkoutUnreadable": "Peable でこのお支払いを開けませんでした。請求は発生していません。しばらくしてからもう一度お試しください。",
+      "checkoutMismatch": "このお支払いはプランの価格と一致しなくなりました。請求は発生していません。もう一度プランを選んでください。"
     },
     "policies": {
       "documentTitle": "ポリシー | Wholesale by Mercaria",

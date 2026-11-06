@@ -180,7 +180,12 @@ beforeAll(async () => {
         json(200, {
           id: `cs_${nonce}`,
           object: 'checkout_session',
-          url: `https://checkout.peable.to/c/cs_${nonce}`,
+          ui_mode: 'embedded',
+          url: null,
+          client_secret: `cs_${nonce}_secret_fixture`,
+          amount_total: '1299',
+          currency: 'usd',
+          livemode: false,
           expires_at: Math.floor(Date.now() / 1000) + 3_600,
         });
         return;
@@ -361,17 +366,24 @@ it('invoice.paid books what the invoice paid exactly once, without a fee leg', a
   expect(claims[0]).toMatchObject({ amountAmount: 1299, amountCurrency: 'USD' });
 });
 
-it('opens a native subscription checkout and the native portal, under the caller key', async () => {
+it('opens an embedded subscription checkout and the native portal, under the caller key', async () => {
   const session = await provider.createCheckoutSession({
     providerCustomerId: customers[0],
     providerPriceId: testPrice,
     trialDays: 0,
-    returnUrl: 'https://dashboard.mercaria.co/settings/plan',
     storeId: ownedStores[0],
     planId,
     idempotencyKey: `billing-checkout:${nonce}`,
   });
-  expect(session.url).toBe(`https://checkout.peable.to/c/cs_${nonce}`);
+  // The payer capability for the dashboard's Peable sheet, and the total it was
+  // priced at — never a URL to redirect to.
+  expect(session).toMatchObject({
+    sessionId: `cs_${nonce}`,
+    clientSecret: `cs_${nonce}_secret_fixture`,
+    amountMinor: 1299,
+    currency: 'USD',
+    livemode: false,
+  });
   expect(session.expiresAt).toBeInstanceOf(Date);
   const portal = await provider.createPortalSession({
     providerCustomerId: customers[0],
@@ -384,9 +396,8 @@ it('opens a native subscription checkout and the native portal, under the caller
   expect(JSON.parse(checkout?.body ?? '{}')).toEqual({
     mode: 'subscription',
     customer: customers[0],
+    ui_mode: 'embedded',
     line_items: [{ price: testPrice, quantity: 1 }],
-    success_url: 'https://dashboard.mercaria.co/settings/plan',
-    cancel_url: 'https://dashboard.mercaria.co/settings/plan',
     client_reference_id: ownedStores[0],
     metadata: { store_id: ownedStores[0], plan_id: planId },
   });
@@ -397,7 +408,6 @@ it('refuses a plan version with a trial rather than selling it without one', asy
     providerCustomerId: customers[0],
     providerPriceId: testPrice,
     trialDays: 14,
-    returnUrl: 'https://dashboard.mercaria.co/settings/plan',
     storeId: ownedStores[0],
     planId,
     idempotencyKey: `billing-trial:${nonce}`,

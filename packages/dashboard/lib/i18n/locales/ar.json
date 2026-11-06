@@ -2169,7 +2169,9 @@
       "changed": "تم تغيير خطتك.",
       "changeFailed": "تعذّر تغيير خطتك. يُرجى المحاولة مرة أخرى.",
       "notInCurrency": "غير متاحة بهذه العملة.",
-      "capabilityPerPeriod": "%{name} · %{limit} في كل فترة فوترة"
+      "capabilityPerPeriod": "%{name} · %{limit} في كل فترة فوترة",
+      "checkoutUnreadable": "تعذّر على Peable فتح هذه الدفعة الآن. لم يُخصم أي مبلغ — حاول مرة أخرى بعد قليل.",
+      "checkoutMismatch": "لم تعد هذه الدفعة مطابقة لسعر الخطة. لم يُخصم أي مبلغ — اختر الخطة من جديد."
     },
     "policies": {
       "documentTitle": "السياسات | Wholesale by Mercaria",

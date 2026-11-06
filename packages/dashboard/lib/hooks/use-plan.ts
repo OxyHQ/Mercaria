@@ -16,6 +16,8 @@ import {
   startPlanCheckout,
 } from '../api/plan';
 import { queryKeys } from '../queryKeys';
+import type { SheetOutcome, SheetSettlement } from '@peable.to/sdk/checkout/ui';
+import { planCheckoutOutcome } from '../plan-checkout';
 
 /** This store's plan, effective entitlements and usage. */
 export function usePlanStatus(storeId: string) {
@@ -62,13 +64,13 @@ export function usePlanCatalog(storeId: string) {
 }
 
 /**
- * Start a paid plan. Resolves with a hosted URL; the caller opens it in the
- * SYSTEM browser.
+ * Start a paid plan. Resolves with the Peable session the merchant pays in the
+ * dashboard's Peable sheet.
  *
  * Deliberately does NOT invalidate on its own, exactly like
  * `useCreateOnboardingLink`: the subscription is created from a provider event,
- * not from the browser coming back, so invalidating here would refetch a state
- * that has not changed yet and make a stale render look authoritative.
+ * not from the sheet closing, so invalidating here would refetch a state that
+ * has not changed yet and make a stale render look authoritative.
  */
 export function useStartPlanCheckout(storeId: string) {
   return useMutation({
@@ -115,4 +117,23 @@ export function useChangePlan(storeId: string) {
 export function useRefreshPlan(storeId: string) {
   const queryClient = useQueryClient();
   return () => queryClient.invalidateQueries({ queryKey: queryKeys.plan(storeId) });
+}
+
+/**
+ * After Peable closed a plan checkout: Mercaria's own plan status, polled until
+ * it says the store pays, as the sheet's outcome. Nothing before the settlement
+ * is polled — the status cannot have changed yet.
+ */
+export function usePlanCheckoutOutcome(
+  storeId: string,
+  settlement: SheetSettlement | null,
+): SheetOutcome {
+  const status = useQuery<MerchantPlanStatusView>({
+    queryKey: queryKeys.plan(storeId),
+    queryFn: () => fetchPlanStatus(storeId),
+    enabled: Boolean(storeId) && settlement === 'complete',
+    refetchInterval: (query) =>
+      planCheckoutOutcome(settlement, query.state.data) === null ? 3000 : false,
+  });
+  return planCheckoutOutcome(settlement, status.data);
 }

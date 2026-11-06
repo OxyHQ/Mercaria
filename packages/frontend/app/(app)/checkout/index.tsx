@@ -35,9 +35,11 @@ import {
 import { ScreenShell } from '@/components/shell/ScreenShell';
 import {
   CheckoutDestinationForm,
+  DigitalSupplyConsent,
   EMPTY_CHECKOUT_DRAFT,
   cleanAddress,
   cleanContact,
+  isDigitalSupplyComplete,
   isDraftComplete,
   type CheckoutDestinationDraft,
 } from '@/components/checkout/CheckoutDestinationForm';
@@ -48,7 +50,7 @@ import { useAddresses } from '@/lib/hooks/use-addresses';
 import { useCheckout, useCheckoutPaymentStatus } from '@/lib/hooks/use-checkout';
 import { usePortalConfirmation } from '@/lib/hooks/use-guest-portal';
 import { useTranslation } from '@/lib/i18n';
-import { CardPaymentStep } from '@/components/payment/CardPaymentStep';
+import { PeablePaymentSheet } from '@/components/payment/PeablePaymentSheet';
 
 /** The stable seller-group key, matching the backend (`store:<id>` / `user:<id>`). */
 function groupKey(group: CartGroup): string {
@@ -344,28 +346,46 @@ function OrderSummaryCard({
  * act on them.
  *
  * A `failed` payment is a declined attempt the buyer can recover from: the
- * gateway returns the intent to "needs a payment method", so the card step
- * renders again under the error.
+ * gateway returns the intent to "needs a payment method", and Peable's sheet
+ * takes the buyer back to the card.
+ *
+ * ## The payment itself is Peable's sheet
+ *
+ * `PeablePaymentSheet` opens over this screen the moment the orders exist and
+ * stays mounted across every status below, so the buyer sees the payment end in
+ * the sheet before this screen says so. Closed early, it reopens from Pay.
  */
-function PaymentStep({
-  payment,
-  checkoutGroupId,
-  status,
-  awaiting,
-  error,
-  isGuest,
-  orderNumbers,
-  onCompleted,
-  onFailed,
-  onLeave,
-  onDone,
-}: {
+function PaymentStep(props: PaymentStepProps) {
+  const [sheetOpen, setSheetOpen] = useState(true);
+  return (
+    <>
+      <PaymentScreen {...props} onPay={() => setSheetOpen(true)} />
+      {sheetOpen ? (
+        <PeablePaymentSheet
+          payment={props.payment}
+          checkoutGroupId={props.checkoutGroupId}
+          orderNumbers={props.orderNumbers}
+          status={props.status}
+          onSettled={props.onCompleted}
+          onUnavailable={(message) => {
+            setSheetOpen(false);
+            props.onFailed(message);
+          }}
+          onClose={() => setSheetOpen(false)}
+        />
+      ) : null}
+    </>
+  );
+}
+
+interface PaymentStepProps {
   payment: CheckoutPaymentHandoff;
   checkoutGroupId: string;
   status: CheckoutPaymentStatus['status'];
-  /** The buyer finished the card step and the server has not answered yet. */
+  /** Peable closed the payment and the server has not answered yet. */
   awaiting: boolean;
   error: string | null;
+  /** Peable closed the payment; the screen polls. It does NOT mark anything paid. */
   onCompleted: () => void;
   onFailed: (message: string) => void;
   /** Whether this purchase was placed without an Oxy account (#107 client rule 8). */
@@ -375,7 +395,20 @@ function PaymentStep({
   /** The buyer leaves an unpaid checkout. Their orders stay reserved. */
   onLeave: () => void;
   onDone: () => void;
-}) {
+}
+
+/** What the payment step says, under the sheet. Every state is the server's. */
+function PaymentScreen({
+  payment,
+  status,
+  awaiting,
+  error,
+  isGuest,
+  orderNumbers,
+  onLeave,
+  onDone,
+  onPay,
+}: PaymentStepProps & { onPay: () => void }) {
   const { t } = useTranslation();
   const { formatMoney } = useFormatters();
   const router = useRouter();
@@ -500,13 +533,12 @@ function PaymentStep({
             <Text className="text-sm text-foreground">{error}</Text>
           </View>
         ) : null}
-        <CardPaymentStep
-          payment={payment}
-          checkoutGroupId={checkoutGroupId}
-          onCompleted={onCompleted}
-          onCancelled={onLeave}
-          onFailed={onFailed}
-        />
+        <Button tone="accent" onPress={onPay} accessibilityLabel={t('payment.card.payNow')}>
+          {t('payment.card.payNow')}
+        </Button>
+        <Button appearance="outline" tone="neutral" onPress={onLeave}>
+          {t('common.back')}
+        </Button>
         <Text className="text-xs text-muted-foreground">{t('payment.cardDetailsNotice')}</Text>
       </View>
       <View className="h-24" />
@@ -613,14 +645,28 @@ function CheckoutBody() {
    * shop from the id and re-validates it against this actor and every line in
    * the group before a unit is reserved (`docs/pickup.md` §8).
    */
-  const pickupLocationId = pickupDeclined ? undefined : pickup;
+  /**
+   * Whether this checkout ships anything, read from the server's own answer per
+   * line (`delivery`). A checkout of only downloads asks for NO address: it is
+   * a `digital_delivery`, which needs where the buyer is and their consent to
+   * immediate supply instead. A line the server did not classify ships — the
+   * safe direction, since the server refuses an addressless physical order.
+   */
+  const lines = targetGroups.flatMap((group) => group.items);
+  const includesDigital = lines.some((line) => line.delivery === 'digital');
+  const ships = lines.length === 0 || lines.some((line) => line.delivery !== 'digital');
+  const pickupLocationId = ships && !pickupDeclined ? pickup : undefined;
   const collecting = pickupLocationId !== undefined;
   // A collection needs NO shipping address, so the saved-address path is not
   // just unnecessary — selecting one would be the invented street #105 actor
   // rule 5 forbids. The inline form renders instead, which is where the contact
   // a collection genuinely does need is collected.
   const usingSavedAddress =
-    !collecting && isAuthenticated && !usingInlineAddress && effectiveAddressId !== undefined;
+    ships &&
+    !collecting &&
+    isAuthenticated &&
+    !usingInlineAddress &&
+    effectiveAddressId !== undefined;
 
   if (cartLoading && !cart) {
     return (
@@ -697,6 +743,12 @@ function CheckoutBody() {
       if (pickupContact.email.length === 0) return null;
       return { type: 'pickup', locationId: pickupLocationId, pickupContact };
     }
+    if (!ships) {
+      // Nothing is delivered anywhere. The country is the place of supply,
+      // declared by the buyer and sent beside the destination.
+      if (!isDigitalSupplyComplete(draft, { ships, includesDigital })) return null;
+      return { type: 'digital_delivery' };
+    }
     if (usingSavedAddress && effectiveAddressId) {
       return { type: 'saved_address', addressId: effectiveAddressId };
     }
@@ -714,10 +766,16 @@ function CheckoutBody() {
     const destination = buildDestination();
     if (!destination) {
       setFormError(
-        collecting
-          ? t('checkout.error.collectionEmailRequired')
-          : t('checkout.error.emailAndAddressRequired'),
+        !ships
+          ? t('checkout.error.supplyCountryRequired')
+          : collecting
+            ? t('checkout.error.collectionEmailRequired')
+            : t('checkout.error.emailAndAddressRequired'),
       );
+      return;
+    }
+    if (!isDigitalSupplyComplete(draft, { ships, includesDigital })) {
+      setFormError(t('checkout.error.digitalSupplyConsentRequired'));
       return;
     }
     // A guest MUST supply contact; a signed-in buyer may, and it is sent when
@@ -737,6 +795,10 @@ function CheckoutBody() {
         destination,
         ...(contact.email.length > 0 ? { contact } : {}),
         ...(draft.marketingOptIn ? { marketingOptIn: true } : {}),
+        ...(includesDigital && draft.digitalSupply.consent ? { digitalSupplyConsent: true } : {}),
+        ...(!ships
+          ? { digitalSupplyCountry: draft.digitalSupply.country.trim().toUpperCase() }
+          : {}),
         // The currency the buyer has been reading prices in, echoed back so a
         // GUEST is charged in it (#107). It leaves as a QUERY parameter, not a
         // body field — see `postCheckout` — and is ignored server-side for a
@@ -849,7 +911,7 @@ function CheckoutBody() {
         {isAuthenticated ? null : <SignInBenefit />}
 
         {/* Saved addresses: an account feature, rendered only for an account. */}
-        {isAuthenticated && savedAddresses.length > 0 ? (
+        {ships && isAuthenticated && savedAddresses.length > 0 ? (
           <View className="gap-3">
             <Text className="text-sm font-semibold text-foreground">
               {t('checkout.shippingAddress')}
@@ -884,17 +946,21 @@ function CheckoutBody() {
         {usingSavedAddress ? null : (
           <View className="gap-3">
             <Text className="text-sm font-semibold text-foreground">
-              {collecting
-                ? t('checkout.destination.collectInPerson')
-                : isAuthenticated
-                  ? t('checkout.destination.deliverTo')
-                  : t('checkout.destination.continueAsGuest')}
+              {!ships
+                ? t('checkout.destination.digitalTitle')
+                : collecting
+                  ? t('checkout.destination.collectInPerson')
+                  : isAuthenticated
+                    ? t('checkout.destination.deliverTo')
+                    : t('checkout.destination.continueAsGuest')}
             </Text>
-            {isAuthenticated ? null : (
+            {isAuthenticated && ships ? null : (
               <Text className="text-sm text-muted-foreground">
-                {collecting
-                  ? t('checkout.destination.guestPickupHint')
-                  : t('checkout.destination.guestDeliveryHint')}
+                {!ships
+                  ? t('checkout.destination.digitalHint')
+                  : collecting
+                    ? t('checkout.destination.guestPickupHint')
+                    : t('checkout.destination.guestDeliveryHint')}
               </Text>
             )}
             <View className="rounded-2xl border border-border bg-card p-4">
@@ -914,10 +980,21 @@ function CheckoutBody() {
                 }
                 {...(pickupLocationId === undefined ? {} : { pickupLocationId })}
                 onChangePickupLocation={(next) => setPickupDeclined(next === undefined)}
+                ships={ships}
+                includesDigital={includesDigital}
               />
             </View>
           </View>
         )}
+
+        {usingSavedAddress && includesDigital ? (
+          <DigitalSupplyConsent
+            consent={draft.digitalSupply.consent}
+            onChange={(consent) =>
+              setDraft({ ...draft, digitalSupply: { ...draft.digitalSupply, consent } })
+            }
+          />
+        ) : null}
 
         {/* Discount code (optional) */}
         <Field label={t('checkout.discount.label')}>
