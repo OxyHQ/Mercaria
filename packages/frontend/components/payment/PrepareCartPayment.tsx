@@ -114,7 +114,7 @@ export function PrepareCartPayment({
   const ships = lines.some((line) => line.delivery !== 'digital');
   const digital = lines.some((line) => line.delivery === 'digital');
   const pickup = ships && usePickup && Boolean(selection.pickupLocationId);
-  const email = actor ? user?.email : undefined;
+  const email = actor ? (profile.data?.email ?? user?.email) : undefined;
   const preparation: SheetCheckoutPreparation = {
     key: `${actor ?? 'guest'}:${attemptId}`,
     amountLabel: t('checkout.account.quoteLabel'),
@@ -139,7 +139,13 @@ export function PrepareCartPayment({
       ...(preferred ? { selectedAddressId: preferred.id, shipping: preferred.address } : {}),
     },
     ...(actor
-      ? { accountSummary: { name: user?.username ?? 'Oxy', ...(email ? { detail: email } : {}) } }
+      ? {
+          accountSummary: {
+            name:
+              profile.data?.name?.displayName ?? user?.name?.displayName ?? user?.username ?? 'Oxy',
+            ...(email ? { detail: email } : {}),
+          },
+        }
       : {}),
     canContinue:
       (!digital || digitalConsent) &&
