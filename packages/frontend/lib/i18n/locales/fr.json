@@ -670,7 +670,8 @@
     "account": {
       "saveToOxy": "Enregistrer %{name} dans Oxy",
       "saveFailed": "Enregistrement impossible. Vérifiez vos adresses Oxy avant de réessayer.",
-      "quoteLabel": "Sous-total · livraison et taxes à l’étape suivante"
+      "quoteLabel": "Sous-total · livraison et taxes à l’étape suivante",
+      "loadFailed": "Impossible de charger vos adresses. Réessayez ou saisissez une adresse."
     }
   },
   "payment": {

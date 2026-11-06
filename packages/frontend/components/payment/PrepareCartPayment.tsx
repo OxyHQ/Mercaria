@@ -153,6 +153,22 @@ export function PrepareCartPayment({
       (!pickup || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pickupEmail.trim())),
     renderAdditionalDetails: ({ disabled, details }) => (
       <View className="gap-4">
+        {actor && (addresses.isError || legacy.isError || profile.isError) ? (
+          <View className="gap-2">
+            <Text accessibilityRole="alert">{t('checkout.account.loadFailed')}</Text>
+            <Button
+              appearance="outline"
+              disabled={disabled}
+              onPress={() => {
+                void addresses.refetch();
+                void legacy.refetch();
+                void profile.refetch();
+              }}
+            >
+              {t('common.tryAgain')}
+            </Button>
+          </View>
+        ) : null}
         {ships && selection.pickupLocationId ? (
           <View className="gap-2">
             <Button

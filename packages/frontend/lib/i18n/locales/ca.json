@@ -670,7 +670,8 @@
     "account": {
       "saveToOxy": "Desa %{name} a Oxy",
       "saveFailed": "No s’ha pogut desar. Revisa les adreces d’Oxy abans de tornar-ho a provar.",
-      "quoteLabel": "Subtotal · enviament i impostos al pas següent"
+      "quoteLabel": "Subtotal · enviament i impostos al pas següent",
+      "loadFailed": "No s’han pogut carregar les adreces. Pots tornar-ho a provar o introduir-ne una."
     }
   },
   "payment": {

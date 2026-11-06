@@ -670,7 +670,8 @@
     "account": {
       "saveToOxy": "Guardar %{name} en Oxy",
       "saveFailed": "No se pudo guardar. Revisa tus direcciones de Oxy antes de reintentarlo.",
-      "quoteLabel": "Subtotal · envío e impuestos en el siguiente paso"
+      "quoteLabel": "Subtotal · envío e impuestos en el siguiente paso",
+      "loadFailed": "No se pudieron cargar tus direcciones. Puedes reintentarlo o introducir una dirección."
     }
   },
   "payment": {

@@ -665,7 +665,8 @@
     "account": {
       "saveToOxy": "将%{name}保存到Oxy",
       "saveFailed": "无法保存。请先检查Oxy地址再重试。",
-      "quoteLabel": "小计 · 下一步计算配送费和税费"
+      "quoteLabel": "小计 · 下一步计算配送费和税费",
+      "loadFailed": "无法加载已保存的地址。请重试或输入地址。"
     }
   },
   "payment": {

@@ -666,7 +666,8 @@
     "account": {
       "saveToOxy": "Save %{name} to Oxy",
       "saveFailed": "Could not save this address. Check your Oxy addresses before trying again.",
-      "quoteLabel": "Subtotal · delivery and taxes calculated next"
+      "quoteLabel": "Subtotal · delivery and taxes calculated next",
+      "loadFailed": "Could not load your saved addresses. You can retry or enter a destination."
     }
   },
   "payment": {

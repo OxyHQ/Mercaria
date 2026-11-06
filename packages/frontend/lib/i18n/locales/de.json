@@ -666,7 +666,8 @@
     "account": {
       "saveToOxy": "%{name} in Oxy speichern",
       "saveFailed": "Speichern fehlgeschlagen. Prüfe deine Oxy-Adressen, bevor du es erneut versuchst.",
-      "quoteLabel": "Zwischensumme · Versand und Steuern folgen"
+      "quoteLabel": "Zwischensumme · Versand und Steuern folgen",
+      "loadFailed": "Deine Adressen konnten nicht geladen werden. Versuche es erneut oder gib eine Adresse ein."
     }
   },
   "payment": {

@@ -670,7 +670,8 @@
     "account": {
       "saveToOxy": "Salvar %{name} no Oxy",
       "saveFailed": "Não foi possível salvar. Confira seus endereços Oxy antes de tentar novamente.",
-      "quoteLabel": "Subtotal · frete e impostos na próxima etapa"
+      "quoteLabel": "Subtotal · frete e impostos na próxima etapa",
+      "loadFailed": "Não foi possível carregar seus endereços. Tente novamente ou informe um endereço."
     }
   },
   "payment": {
