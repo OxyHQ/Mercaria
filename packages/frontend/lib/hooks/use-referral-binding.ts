@@ -52,15 +52,16 @@ interface ReferralDisclosureState {
 }
 
 const disclosureKey = ['referral-disclosure'] as const;
+const emptyDisclosure: ReferralDisclosureState = { required: false };
 export function useReferralDisclosureStore<T>(selector: (state: ReferralDisclosureState) => T): T {
   const { data } = useQuery<ReferralDisclosureState>({
     queryKey: disclosureKey,
     // This observes client-owned cache state; it has no network reader.
     queryFn: skipToken,
-    initialData: { required: false },
+    initialData: emptyDisclosure,
     enabled: false,
   });
-  return selector(data);
+  return selector(data ?? emptyDisclosure);
 }
 function recordDisclosure(
   client: QueryClient,
