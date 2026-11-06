@@ -686,6 +686,11 @@
       "card": "Karte",
       "faircoin": "FairCoin",
       "faircoinHint": "Du zahlst den Gesamtbetrag in FairCoin, direkt in die Peable-Wallet des Verkäufers. Peable berechnet den Betrag in FairCoin beim Bezahlen, und der Preis gilt 10 Minuten. Eine FairCoin-Zahlung gilt für einen Verkäufer."
+    },
+    "account": {
+      "saveToOxy": "%{name} in Oxy speichern",
+      "saveFailed": "Speichern fehlgeschlagen. Prüfe deine Oxy-Adressen, bevor du es erneut versuchst.",
+      "quoteLabel": "Zwischensumme · Versand und Steuern folgen"
     }
   },
   "payment": {

@@ -690,6 +690,11 @@
       "card": "Targeta",
       "faircoin": "FairCoin",
       "faircoinHint": "Pagues el total en FairCoin, directament al moneder de Peable del venedor. Peable calcula l'import en FairCoin quan pagues i el preu es manté 10 minuts. Un pagament en FairCoin cobreix un sol venedor."
+    },
+    "account": {
+      "saveToOxy": "Desa %{name} a Oxy",
+      "saveFailed": "No s’ha pogut desar. Revisa les adreces d’Oxy abans de tornar-ho a provar.",
+      "quoteLabel": "Subtotal · enviament i impostos al pas següent"
     }
   },
   "payment": {

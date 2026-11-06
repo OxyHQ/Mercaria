@@ -686,6 +686,11 @@
       "card": "Card",
       "faircoin": "FairCoin",
       "faircoinHint": "You pay the total in FairCoin, straight into the seller's own Peable wallet. Peable prices it in FairCoin when you pay, and the price holds for 10 minutes. A FairCoin payment covers one seller."
+    },
+    "account": {
+      "saveToOxy": "Save %{name} to Oxy",
+      "saveFailed": "Could not save this address. Check your Oxy addresses before trying again.",
+      "quoteLabel": "Subtotal · delivery and taxes calculated next"
     }
   },
   "payment": {

@@ -685,6 +685,11 @@
       "card": "カード",
       "faircoin": "FairCoin",
       "faircoinHint": "合計を FairCoin で、出品者自身の Peable ウォレットへ直接お支払いいただきます。金額はお支払い時に Peable が FairCoin で算出し、その価格は 10 分間有効です。FairCoin での支払いは出品者 1 人分です。"
+    },
+    "account": {
+      "saveToOxy": "%{name}をOxyに保存",
+      "saveFailed": "保存できませんでした。再試行する前にOxyの住所を確認してください。",
+      "quoteLabel": "小計 · 配送料と税額は次のステップで計算"
     }
   },
   "payment": {

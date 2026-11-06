@@ -1,65 +1,42 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@oxy.so/bloom/button';
-import { Field } from '@oxy.so/bloom/field';
-import { TextFieldInput } from '@oxy.so/bloom/text-field';
-import { View, Pressable } from 'react-native';
+import { View } from 'react-native';
 import Head from 'expo-router/head';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useOxy } from '@oxy.so/services/ui/client';
 import { EmptyState } from '@oxy.so/bloom/empty-state';
-import {
-  SegmentedControl,
-  SegmentedControlItem,
-  SegmentedControlItemText,
-} from '@oxy.so/bloom/segmented-control';
 import { PriceSummary } from '@oxy.so/bloom/price-breakdown';
-import { Check, Plus } from 'lucide-react-native';
 import { nanoid } from 'nanoid/non-secure';
 import type {
-  Address,
   CartGroup,
-  CheckoutDestination,
   CheckoutPaymentHandoff,
-  ApiErrorDetails,
   CheckoutPaymentStatus,
+  ApiErrorDetails,
   Money,
   RefusedCheckoutSeller,
 } from '@mercaria/shared-types';
 import {
-  Icon,
   SectionHeader,
   Text,
-  formatRegionName,
   useFormatters,
   usePriceText,
   CommercialDisclosure,
   commercialSellerLabel,
-  toBloomIcon,
   type Translate,
 } from '@mercaria/ui';
 import { ScreenShell } from '@/components/shell/ScreenShell';
-import {
-  CheckoutDestinationForm,
-  DigitalSupplyConsent,
-  EMPTY_CHECKOUT_DRAFT,
-  cleanAddress,
-  cleanContact,
-  isDigitalSupplyComplete,
-  isDraftComplete,
-  type CheckoutDestinationDraft,
-} from '@/components/checkout/CheckoutDestinationForm';
-import { toast } from '@oxy.so/bloom/toast';
-import { apiErrorDetails, apiErrorMessage } from '@/lib/api/client';
 import { useCart } from '@/lib/hooks/use-cart';
-import { useAddresses } from '@/lib/hooks/use-addresses';
-import { useCheckout, useCheckoutPaymentStatus } from '@/lib/hooks/use-checkout';
+import { useCheckoutPaymentStatus } from '@/lib/hooks/use-checkout';
 import { usePortalConfirmation } from '@/lib/hooks/use-guest-portal';
 import { useTranslation } from '@/lib/i18n';
-import { PeablePaymentSheet } from '@/components/payment/PeablePaymentSheet';
+import { apiErrorDetails, apiErrorMessage } from '@/lib/api/client';
+import { PrepareCartPayment } from '@/components/payment/PrepareCartPayment';
+import type { CheckoutSelection } from '@/lib/payments/checkout-preparation';
+import type { CheckoutResult } from '@mercaria/shared-types';
 
 /** The stable seller-group key, matching the backend (`store:<id>` / `user:<id>`). */
 function groupKey(group: CartGroup): string {
-  return `${group.vendor.kind}:${group.vendor.id}`;
+  return group.sellerKey;
 }
 
 /**
@@ -163,62 +140,6 @@ function refusedSellersMessage(
   return t(copy.several, { sellers: formatNameList(named, locale) });
 }
 
-function AddressOption({
-  address,
-  selected,
-  onSelect,
-}: {
-  address: Address;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  const { t, locale } = useTranslation();
-  return (
-    <Pressable
-      accessibilityRole="radio"
-      accessibilityState={{ selected }}
-      accessibilityLabel={t('checkout.address.shipTo', { name: address.recipientName })}
-      onPress={onSelect}
-      className={`flex-row items-start gap-3 rounded-2xl border p-4 ${
-        selected ? 'border-primary bg-muted/40' : 'border-border bg-card'
-      }`}
-    >
-      <View
-        className={`mt-0.5 h-5 w-5 items-center justify-center rounded-full border ${
-          selected ? 'border-primary bg-primary' : 'border-border'
-        }`}
-      >
-        {selected ? <Icon as={Check} size={12} className="text-primary-foreground" /> : null}
-      </View>
-      <View className="min-w-0 flex-1">
-        <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
-          {address.label ?? address.recipientName}
-        </Text>
-        <Text className="text-sm text-muted-foreground">
-          {address.line1}
-          {address.line2 ? `, ${address.line2}` : ''}
-        </Text>
-        <Text className="text-sm text-muted-foreground">
-          {address.city}
-          {address.region ? `, ${address.region}` : ''} {address.postalCode},{' '}
-          {formatRegionName(address.country, locale)}
-        </Text>
-      </View>
-    </Pressable>
-  );
-}
-
-/**
- * Signing in, offered as a BENEFIT rather than as a gate (#105 frontend rules
- * 1-3).
- *
- * Every capability named here exists today: saved addresses are the account's
- * address book (this screen renders them right below), the cart merge is #104's
- * `POST /cart/merge`, and account-owned order history is `GET /orders`. Nothing
- * is promised that a buyer could not go and use five seconds after signing in —
- * and nothing about a payment rail is mentioned at all, because which rails
- * exist is not a property of having an account.
- */
 function SignInBenefit() {
   const { openAccountDialog } = useOxy();
   const { t } = useTranslation();
@@ -371,49 +292,6 @@ function OrderSummaryCard({
  * stays mounted across every status below, so the buyer sees the payment end in
  * the sheet before this screen says so. Closed early, it reopens from Pay.
  */
-function PaymentStep(props: PaymentStepProps) {
-  const [sheetOpen, setSheetOpen] = useState(true);
-  return (
-    <>
-      <PaymentScreen {...props} onPay={() => setSheetOpen(true)} />
-      {sheetOpen ? (
-        <PeablePaymentSheet
-          payment={props.payment}
-          checkoutGroupId={props.checkoutGroupId}
-          orderNumbers={props.orderNumbers}
-          status={props.status}
-          onSettled={props.onCompleted}
-          onUnavailable={(message) => {
-            setSheetOpen(false);
-            props.onFailed(message);
-          }}
-          onClose={() => setSheetOpen(false)}
-        />
-      ) : null}
-    </>
-  );
-}
-
-interface PaymentStepProps {
-  payment: CheckoutPaymentHandoff;
-  checkoutGroupId: string;
-  status: CheckoutPaymentStatus['status'];
-  /** Peable closed the payment and the server has not answered yet. */
-  awaiting: boolean;
-  error: string | null;
-  /** Peable closed the payment; the screen polls. It does NOT mark anything paid. */
-  onCompleted: () => void;
-  onFailed: (message: string) => void;
-  /** Whether this purchase was placed without an Oxy account (#107 client rule 8). */
-  isGuest: boolean;
-  /** The placed orders' numbers — what a guest keeps instead of a link. */
-  orderNumbers: string[];
-  /** The buyer leaves an unpaid checkout. Their orders stay reserved. */
-  onLeave: () => void;
-  onDone: () => void;
-}
-
-/** What the payment step says, under the sheet. Every state is the server's. */
 function PaymentScreen({
   payment,
   status,
@@ -424,7 +302,18 @@ function PaymentScreen({
   onLeave,
   onDone,
   onPay,
-}: PaymentStepProps & { onPay: () => void }) {
+}: {
+  payment: CheckoutPaymentHandoff;
+  checkoutGroupId: string;
+  status: CheckoutPaymentStatus['status'] | undefined;
+  awaiting: boolean;
+  error: string | null;
+  isGuest: boolean;
+  orderNumbers: string[];
+  onLeave: () => void;
+  onDone: () => void;
+  onPay: () => void;
+}) {
   const { t } = useTranslation();
   const { formatMoney } = useFormatters();
   const router = useRouter();
@@ -565,539 +454,144 @@ function PaymentScreen({
 function CheckoutBody() {
   const { t, locale } = useTranslation();
   const router = useRouter();
-  const { seller, pickup, pickupName } = useLocalSearchParams<{
-    seller?: string;
-    pickup?: string;
-    pickupName?: string;
-  }>();
+  const { seller, pickup } = useLocalSearchParams<{ seller?: string; pickup?: string }>();
   const { isAuthenticated } = useOxy();
-  const { data: cart, isLoading: cartLoading } = useCart();
-  // Saved addresses are an ACCOUNT feature, and `useAddresses` is already
-  // gated on `isAuthenticated` internally — a signed-out checkout issues no
-  // request that would 401, and renders no saved-address list to select from
-  // (#105 frontend rule 6).
-  const { data: addresses, isLoading: addressesLoading } = useAddresses();
-  const checkout = useCheckout();
-  // #108's PULLED confirmation grant, minted when a guest leaves checkout so
-  // the portal they are sent to can already read the order.
+  const { data: cart, isLoading } = useCart();
   const portalConfirmation = usePortalConfirmation();
-
-  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
-  const [usingInlineAddress, setUsingInlineAddress] = useState(false);
-  /**
-   * Whether the buyer has stepped back from the collection they arrived with.
-   *
-   * The CHOICE is the `?pickup=` parameter the collection screen set, and it
-   * stays in the URL so a reload keeps it (#93 client rule 11). This is the one
-   * bit of state the checkout adds on top: "I changed my mind, deliver it" —
-   * held here rather than by rewriting the URL, because a shopper who then
-   * presses back should land on the collection they were looking at.
-   */
-  const [pickupDeclined, setPickupDeclined] = useState(false);
-  const [discountCode, setDiscountCode] = useState('');
-  /**
-   * The typed destination and contact.
-   *
-   * Lifted to the SCREEN, not held inside the form: a failed mutation re-renders
-   * this component and does not unmount it, so every field survives an ordinary
-   * validation error with no persistence anywhere (#105 frontend rule 9). It is
-   * never written to a URL, to storage or to a log (rule 10) — it exists here
-   * and in one request body.
-   */
-  const [draft, setDraft] = useState<CheckoutDestinationDraft>(EMPTY_CHECKOUT_DRAFT);
-  const [formError, setFormError] = useState<string | null>(null);
-  /** The groups the last attempt was refused for, highlighted in the summary. */
-  const [unpayableSellerKeys, setUnpayableSellerKeys] =
-    useState<ReadonlySet<string>>(NO_UNPAYABLE_SELLERS);
+  const [active, setActive] = useState<{ id: string; selection: CheckoutSelection } | null>(null);
+  const [open, setOpen] = useState(false);
+  const [placed, setPlaced] = useState<CheckoutResult | null>(null);
+  const [refusedKeys, setRefusedKeys] = useState<ReadonlySet<string>>(NO_UNPAYABLE_SELLERS);
   const [refusalReason, setRefusalReason] = useState<ApiErrorDetails['reason']>(
     'seller_not_payment_ready',
   );
-  // The placed group and its payment handoff, once the order exists. Holding
-  // them here is what turns checkout into two steps without a second route:
-  // orders are placed and reserved, and the buyer then pays for them.
-  const [placed, setPlaced] = useState<{
-    checkoutGroupId: string;
-    firstOrderId: string | undefined;
-    /** What a guest is handed instead of a link they cannot follow (#107). */
-    orderNumbers: string[];
-    payment: CheckoutPaymentHandoff;
-  } | null>(null);
-  /**
-   * How the buyer pays a card-currency order (ADR 0020): by card, or in
-   * FairCoin at Peable's quote. A FAIR order is always FairCoin and shows no
-   * choice. Changing it mints a new `Idempotency-Key`: a different method is a
-   * different request.
-   */
-  const [payWith, setPayWith] = useState<'card' | 'faircoin'>('card');
-  const [awaitingPayment, setAwaitingPayment] = useState(false);
-  const [paymentError, setPaymentError] = useState<string | null>(null);
-
-  /**
-   * ONE `Idempotency-Key` per "place order" press, stable across retries.
-   *
-   * Minted lazily and kept until a checkout completes: TanStack retries the
-   * mutation on a network failure, and a key regenerated per attempt would let
-   * a request that timed out AFTER the server placed the orders place them a
-   * second time.
-   */
-  const idempotencyKey = useRef<string | null>(null);
-
-  // Poll the SERVER for the outcome once the orders exist: only a verified
-  // webhook makes an order paid, and nothing on this screen can assert it.
-  const paymentStatus = useCheckoutPaymentStatus(placed?.checkoutGroupId, placed !== null);
-
-  // Target groups: the sellers `?seller=` names, else the whole cart.
+  const [awaiting, setAwaiting] = useState(false);
+  const status = useCheckoutPaymentStatus(placed?.checkoutGroupId, placed !== null);
   const sellerKeys = useMemo(() => parseSellerKeys(seller), [seller]);
-  const targetGroups = useMemo<CartGroup[]>(() => {
-    const groups = cart?.groups ?? [];
-    if (sellerKeys.length === 0) return groups;
-    return groups.filter((g) => sellerKeys.includes(groupKey(g)));
-  }, [cart, sellerKeys]);
-
-  const savedAddresses = isAuthenticated ? (addresses ?? []) : [];
-  const defaultAddressId = savedAddresses.find((a) => a.isDefault)?.id ?? savedAddresses[0]?.id;
-  const effectiveAddressId = selectedAddressId ?? defaultAddressId;
-  // A saved address is used when the buyer HAS one and has not chosen to type a
-  // different one. Everyone else — every guest, and any signed-in buyer with an
-  // empty address book — types one inline, through the same form.
-  /**
-   * The collection point this checkout is for, or `undefined` for delivery.
-   *
-   * A location ID and nothing else decides it — the display name beside it in
-   * the URL is for the buyer to read and is never sent: the server resolves the
-   * shop from the id and re-validates it against this actor and every line in
-   * the group before a unit is reserved (`docs/pickup.md` §8).
-   */
-  /**
-   * Whether this checkout ships anything, read from the server's own answer per
-   * line (`delivery`). A checkout of only downloads asks for NO address: it is
-   * a `digital_delivery`, which needs where the buyer is and their consent to
-   * immediate supply instead. A line the server did not classify ships — the
-   * safe direction, since the server refuses an addressless physical order.
-   */
-  const lines = targetGroups.flatMap((group) => group.items);
-  const includesDigital = lines.some((line) => line.delivery === 'digital');
-  const ships = lines.length === 0 || lines.some((line) => line.delivery !== 'digital');
-  const pickupLocationId = ships && !pickupDeclined ? pickup : undefined;
-  const collecting = pickupLocationId !== undefined;
-  // A collection needs NO shipping address, so the saved-address path is not
-  // just unnecessary — selecting one would be the invented street #105 actor
-  // rule 5 forbids. The inline form renders instead, which is where the contact
-  // a collection genuinely does need is collected.
-  const usingSavedAddress =
-    ships &&
-    !collecting &&
-    isAuthenticated &&
-    !usingInlineAddress &&
-    effectiveAddressId !== undefined;
-
-  // FairCoin is always offered (ADR 0019/0020): on a FAIR order it is the only
-  // method, so only a card-currency order asks.
-  const offersMethodChoice = cart !== undefined && cart !== null && cart.currency !== 'FAIR';
-
-  if (cartLoading && !cart) {
-    return (
-      <View className="px-4 py-16">
-        <View className="mb-4 h-40 w-full rounded-3xl bg-muted" />
-        <View className="h-40 w-full rounded-3xl bg-muted" />
-      </View>
-    );
-  }
-
-  if (isAuthenticated && addressesLoading && !addresses) {
-    return (
-      <View className="px-4 py-16">
-        <View className="mb-4 h-40 w-full rounded-3xl bg-muted" />
-        <View className="h-40 w-full rounded-3xl bg-muted" />
-      </View>
-    );
-  }
-
-  if (targetGroups.length === 0) {
-    return (
-      <EmptyState
-        title={t('checkout.empty.title')}
-        description={t('checkout.empty.body')}
-        action={{ label: t('checkout.empty.backToCart'), onPress: () => router.replace('/cart') }}
-      />
-    );
-  }
-
-  /**
-   * Where a buyer goes when they leave this screen.
-   *
-   * `/orders` is ACCOUNT-authenticated, so a guest is sent to the storefront
-   * instead: routing them to a page that would answer 401 is the "route to the
-   * secure guest order experience rather than an authenticated-only order
-   * route" rule failing closed while #108 builds the portal that replaces this.
-   */
-  const leaveCheckout = (orderId: string | undefined, checkoutGroupId: string | undefined) => {
+  const groups = useMemo(
+    () =>
+      (cart?.groups ?? []).filter(
+        (group) => sellerKeys.length === 0 || sellerKeys.includes(groupKey(group)),
+      ),
+    [cart, sellerKeys],
+  );
+  // A refreshed cart is a different checkout; discard the old private draft and abort its callback.
+  // Our own successful placement sets `placed` before invalidating the cart.
+  useEffect(() => {
+    if (!active || placed || !cart) return;
+    const previous = JSON.stringify(active.selection.groups);
+    if (previous !== JSON.stringify(groups) || active.selection.currency !== cart.currency) {
+      setOpen(false);
+      setActive(null);
+    }
+  }, [active, placed, cart, groups]);
+  const leave = () => {
+    if (!placed) return;
     if (!isAuthenticated) {
-      // #93 client rule 12 and #108: a guest goes to the SECURE ORDER PORTAL,
-      // not to the storefront. The comment this replaces said the homepage was
-      // "failing closed while #108 builds the portal that replaces this" — #108
-      // shipped, so that sentence expired and leaving it would strand every
-      // guest on a page that says nothing about the order they just paid for.
-      //
-      // The grant is PULLED here rather than pushed by the payment path
-      // (docs/guest-portal.md): a credential minted inside a webhook handler is
-      // a credential minted into a log, so it is minted at the first moment
-      // there is a client to hand it to — which is this one.
-      if (checkoutGroupId === undefined) {
-        router.replace('/');
-        return;
-      }
-      const toPortal = () =>
-        router.replace(`/guest-orders/portal?group=${encodeURIComponent(checkoutGroupId)}`);
-      // `onSettled`, so a failure to mint still lands on the portal: that
-      // screen has its own "find your order" recovery, and the storefront has
-      // none. Failing to a screen that can recover beats failing to one that
-      // cannot.
-      portalConfirmation.mutate(checkoutGroupId, { onSettled: toPortal });
-      return;
+      portalConfirmation.mutate(placed.checkoutGroupId, {
+        onSettled: () =>
+          router.replace({
+            pathname: '/guest-orders/portal',
+            params: { group: placed.checkoutGroupId },
+          }),
+      });
+    } else {
+      const first = placed.orders[0];
+      router.replace(first ? { pathname: '/orders/[id]', params: { id: first.id } } : '/orders');
     }
-    router.replace(orderId ? `/orders/${orderId}` : '/orders');
   };
-
-  /** The destination this press will send, or `null` when it is incomplete. */
-  const buildDestination = (): CheckoutDestination | null => {
-    if (collecting && pickupLocationId !== undefined) {
-      // Its OWN contact, for both actor kinds: the person collecting is not
-      // necessarily the person who paid, and a collection never reads an email
-      // off an Oxy profile (#105 contact rule 5). Nothing invents an address —
-      // `PickupDestination` has no field for one.
-      const pickupContact = cleanContact(draft.contact);
-      if (pickupContact.email.length === 0) return null;
-      return { type: 'pickup', locationId: pickupLocationId, pickupContact };
-    }
-    if (!ships) {
-      // Nothing is delivered anywhere. The country is the place of supply,
-      // declared by the buyer and sent beside the destination.
-      if (!isDigitalSupplyComplete(draft, { ships, includesDigital })) return null;
-      return { type: 'digital_delivery' };
-    }
-    if (usingSavedAddress && effectiveAddressId) {
-      return { type: 'saved_address', addressId: effectiveAddressId };
-    }
-    if (!isDraftComplete(draft)) return null;
-    return {
-      type: 'inline_shipping_address',
-      address: cleanAddress(draft.address),
-      // Opt-IN, and only ever true for a signed-in buyer — the form does not
-      // render the control for anyone else.
-      ...(isAuthenticated && draft.saveToAddressBook ? { saveToAddressBook: true } : {}),
-    };
-  };
-
-  const onPlaceOrder = () => {
-    const destination = buildDestination();
-    if (!destination) {
-      setFormError(
-        !ships
-          ? t('checkout.error.supplyCountryRequired')
-          : collecting
-            ? t('checkout.error.collectionEmailRequired')
-            : t('checkout.error.emailAndAddressRequired'),
-      );
-      return;
-    }
-    if (!isDigitalSupplyComplete(draft, { ships, includesDigital })) {
-      setFormError(t('checkout.error.digitalSupplyConsentRequired'));
-      return;
-    }
-    // A guest MUST supply contact; a signed-in buyer may, and it is sent when
-    // they filled it in. The server re-checks both — this only avoids a round
-    // trip for a form the buyer can see is incomplete.
-    const contact = cleanContact(draft.contact);
-    if (!isAuthenticated && contact.email.length === 0) {
-      setFormError(t('checkout.error.receiptEmailRequired'));
-      return;
-    }
-    setFormError(null);
-    setUnpayableSellerKeys(NO_UNPAYABLE_SELLERS);
-    idempotencyKey.current ??= nanoid();
-    checkout.mutate(
-      {
-        idempotencyKey: idempotencyKey.current,
-        destination,
-        ...(contact.email.length > 0 ? { contact } : {}),
-        ...(draft.marketingOptIn ? { marketingOptIn: true } : {}),
-        ...(includesDigital && draft.digitalSupply.consent ? { digitalSupplyConsent: true } : {}),
-        ...(!ships
-          ? { digitalSupplyCountry: draft.digitalSupply.country.trim().toUpperCase() }
-          : {}),
-        // The currency the buyer has been reading prices in, echoed back so a
-        // GUEST is charged in it (#107). It leaves as a QUERY parameter, not a
-        // body field — see `postCheckout` — and is ignored server-side for a
-        // signed-in buyer, whose stored preference stays the one authority,
-        // which is why it is sent unconditionally rather than behind an
-        // `isAuthenticated` branch this screen would have to keep in step with.
-        ...(cart?.currency ? { currency: cart.currency } : {}),
-        ...(sellerKeys.length > 0 ? { sellerKeys } : {}),
-        ...(discountCode.trim() ? { discountCodes: [discountCode.trim()] } : {}),
-        ...(offersMethodChoice && payWith === 'faircoin' ? { paymentMethod: 'faircoin' } : {}),
-      },
-      {
-        onSuccess: (result) => {
-          const first = result.orders[0];
-          // No payment to make — this deployment has no card rail, or the dev
-          // seam funds the group elsewhere. Behaviour is exactly what it was
-          // before payments existed.
-          if (!result.payment) {
-            idempotencyKey.current = null;
-            toast.success(t('checkout.toast.orderPlaced'));
-            leaveCheckout(first?.id, result.checkoutGroupId);
-            return;
-          }
-          setPaymentError(null);
-          setAwaitingPayment(false);
-          setPlaced({
-            checkoutGroupId: result.checkoutGroupId,
-            firstOrderId: first?.id,
-            orderNumbers: result.orders.map((order) => order.orderNumber),
-            payment: result.payment,
-          });
-        },
-        // A seller who cannot be paid is refused with `details`: the groups to
-        // highlight by key, and the names to tell the buyer in their language.
-        // Anything else: the server's message names a FIELD or a SELLER and
-        // never a value, so it is safe to show and beats a generic sentence.
-        onError: (error) => {
-          const details = apiErrorDetails(error);
-          if (details !== undefined && details.sellers.length > 0) {
-            setUnpayableSellerKeys(new Set(details.sellers.map((seller) => seller.sellerKey)));
-            setRefusalReason(details.reason);
-            setFormError(
-              isSellerRefusalReason(details.reason)
-                ? refusedSellersMessage(t, locale, details.reason, details.sellers, targetGroups)
-                : apiErrorMessage(error, error.message),
-            );
-            return;
-          }
-          setFormError(apiErrorMessage(error, error.message));
-        },
-      },
-    );
-  };
-
-  // The payment step replaces the form once the orders exist: the address and
-  // the contact are already snapshotted onto them, and editing either would
-  // change nothing.
-  if (placed) {
-    const status = paymentStatus.data?.status;
-    return (
-      <PaymentStep
-        payment={placed.payment}
-        checkoutGroupId={placed.checkoutGroupId}
-        status={status}
-        awaiting={awaitingPayment}
-        // A decline the server learned of after the step handed over is shown
-        // the same way as one the step saw itself.
-        error={
-          paymentError ??
-          (status === 'failed' && awaitingPayment ? t('payment.card.notCompleted') : null)
-        }
-        isGuest={!isAuthenticated}
-        orderNumbers={placed.orderNumbers}
-        onCompleted={() => {
-          // The buyer finished the step. Nothing is marked paid here — the
-          // poll asks the server, which answers from a verified event.
-          idempotencyKey.current = null;
-          setPaymentError(null);
-          setAwaitingPayment(true);
-        }}
-        onFailed={(message) => {
-          setAwaitingPayment(false);
-          setPaymentError(message);
-        }}
-        onLeave={() => {
-          setPlaced(null);
-          setAwaitingPayment(false);
-          toast.info(
-            isAuthenticated
-              ? t('checkout.toast.reservedSignedIn')
-              : t('checkout.toast.reservedGuest'),
-          );
-          leaveCheckout(placed.firstOrderId, placed.checkoutGroupId);
-        }}
-        onDone={() => {
-          setPlaced(null);
-          leaveCheckout(placed.firstOrderId, placed.checkoutGroupId);
-        }}
-      />
-    );
-  }
-
   return (
-    <View className="px-4">
-      <SectionHeader title={t('checkout.title')} />
-      <View className="gap-5">
-        {/*
-          Signing in is offered ONCE, at the top, as an alternative to a path
-          that is already open — never as a gate in front of it (#105 frontend
-          rules 1-2). A guest reaches the form below by scrolling, not by
-          dismissing anything.
-        */}
-        {isAuthenticated ? null : <SignInBenefit />}
-
-        {/* Saved addresses: an account feature, rendered only for an account. */}
-        {ships && isAuthenticated && savedAddresses.length > 0 ? (
-          <View className="gap-3">
-            <Text className="text-sm font-semibold text-foreground">
-              {t('checkout.shippingAddress')}
-            </Text>
-            {usingInlineAddress
-              ? null
-              : savedAddresses.map((address) => (
-                  <AddressOption
-                    key={address.id}
-                    address={address}
-                    selected={address.id === effectiveAddressId}
-                    onSelect={() => setSelectedAddressId(address.id)}
-                  />
-                ))}
-            <Button
-              appearance="outline"
-              tone="neutral"
-              className="self-start"
-              onPress={() => setUsingInlineAddress(!usingInlineAddress)}
-              leadingIcon={toBloomIcon(Plus)}
-            >
-              {usingInlineAddress ? t('checkout.useSavedAddress') : t('checkout.deliverElsewhere')}
-            </Button>
-          </View>
-        ) : null}
-
-        {/*
-          ONE inline form for both actor kinds. A signed-in buyer sees it when
-          they have no saved address or chose to type a different one; a guest
-          always sees it. There is no guest-only variant to drift.
-        */}
-        {usingSavedAddress ? null : (
-          <View className="gap-3">
-            <Text className="text-sm font-semibold text-foreground">
-              {!ships
-                ? t('checkout.destination.digitalTitle')
-                : collecting
-                  ? t('checkout.destination.collectInPerson')
-                  : isAuthenticated
-                    ? t('checkout.destination.deliverTo')
-                    : t('checkout.destination.continueAsGuest')}
-            </Text>
-            {isAuthenticated && ships ? null : (
-              <Text className="text-sm text-muted-foreground">
-                {!ships
-                  ? t('checkout.destination.digitalHint')
-                  : collecting
-                    ? t('checkout.destination.guestPickupHint')
-                    : t('checkout.destination.guestDeliveryHint')}
-              </Text>
-            )}
-            <View className="rounded-2xl border border-border bg-card p-4">
-              <CheckoutDestinationForm
-                draft={draft}
-                onChange={setDraft}
-                canSaveToAddressBook={isAuthenticated}
-                pickupLocations={
-                  pickup === undefined
-                    ? []
-                    : [
-                        {
-                          id: pickup,
-                          name: pickupName ?? t('checkout.destination.pickupFallbackName'),
-                        },
-                      ]
-                }
-                {...(pickupLocationId === undefined ? {} : { pickupLocationId })}
-                onChangePickupLocation={(next) => setPickupDeclined(next === undefined)}
-                ships={ships}
-                includesDigital={includesDigital}
-              />
-            </View>
-          </View>
-        )}
-
-        {usingSavedAddress && includesDigital ? (
-          <DigitalSupplyConsent
-            consent={draft.digitalSupply.consent}
-            onChange={(consent) =>
-              setDraft({ ...draft, digitalSupply: { ...draft.digitalSupply, consent } })
-            }
-          />
-        ) : null}
-
-        {/* Discount code (optional) */}
-        <Field label={t('checkout.discount.label')}>
-          <TextFieldInput
-            label={t('checkout.discount.accessibilityLabel')}
-            value={discountCode}
-            onValueChange={setDiscountCode}
-            placeholder={t('checkout.discount.placeholder')}
-            autoCapitalize="characters"
-            autoCorrect={false}
-          />
-        </Field>
-
-        {offersMethodChoice ? (
-          <Field label={t('checkout.payWith.label')}>
-            <SegmentedControl
-              type="radio"
-              value={payWith}
-              onValueChange={(next) => {
-                if (next !== 'card' && next !== 'faircoin') return;
-                idempotencyKey.current = null;
-                setPayWith(next);
-              }}
-            >
-              <SegmentedControlItem value="card">
-                <SegmentedControlItemText>{t('checkout.payWith.card')}</SegmentedControlItemText>
-              </SegmentedControlItem>
-              <SegmentedControlItem value="faircoin">
-                <SegmentedControlItemText>
-                  {t('checkout.payWith.faircoin')}
-                </SegmentedControlItemText>
-              </SegmentedControlItem>
-            </SegmentedControl>
-            {payWith === 'faircoin' ? (
-              <Text className="mt-2 text-xs text-muted-foreground">
-                {t('checkout.payWith.faircoinHint')}
-              </Text>
-            ) : null}
-          </Field>
-        ) : null}
-
-        <OrderSummaryCard
-          groups={targetGroups}
-          unpayableSellerKeys={unpayableSellerKeys}
-          refusalReason={refusalReason}
+    <>
+      {placed?.payment ? (
+        <PaymentScreen
+          payment={placed.payment}
+          checkoutGroupId={placed.checkoutGroupId}
+          status={status.data?.status}
+          awaiting={awaiting}
+          error={null}
+          isGuest={!isAuthenticated}
+          orderNumbers={placed.orders.map((order) => order.orderNumber)}
+          onPay={() => setOpen(true)}
+          onLeave={leave}
+          onDone={leave}
         />
-
-        {formError ? (
-          <View
-            accessibilityRole="alert"
-            className="rounded-2xl border border-destructive/40 bg-destructive/10 p-4"
+      ) : isLoading && !cart ? (
+        <View className="h-40 bg-muted" />
+      ) : groups.length === 0 && !active ? (
+        <EmptyState
+          title={t('checkout.empty.title')}
+          description={t('checkout.empty.body')}
+          action={{ label: t('checkout.empty.backToCart'), onPress: () => router.replace('/cart') }}
+        />
+      ) : (
+        <View className="gap-5 px-4">
+          <SectionHeader title={t('checkout.title')} />
+          {isAuthenticated ? null : <SignInBenefit />}
+          <OrderSummaryCard
+            groups={active ? [...active.selection.groups] : groups}
+            unpayableSellerKeys={refusedKeys}
+            refusalReason={refusalReason}
+          />
+          <Button
+            tone="accent"
+            onPress={() => {
+              if (!active && cart)
+                setActive({
+                  id: nanoid(),
+                  selection: {
+                    groups,
+                    sellerKeys,
+                    currency: cart.currency,
+                    ...(pickup ? { pickupLocationId: pickup } : {}),
+                  },
+                });
+              setOpen(true);
+            }}
           >
-            <Text className="text-sm text-foreground">{formError}</Text>
-          </View>
-        ) : null}
-
-        <Button tone="accent" loading={checkout.isPending} onPress={onPlaceOrder}>
-          {t('checkout.placeOrder')}
-        </Button>
-      </View>
-      <View className="h-24" />
-    </View>
+            {t('payment.card.payNow')}
+          </Button>
+        </View>
+      )}
+      {active ? (
+        <PrepareCartPayment
+          selection={active.selection}
+          attemptId={active.id}
+          open={open}
+          status={status.data?.status}
+          onRefused={(error) => {
+            const details = apiErrorDetails(error);
+            if (details?.sellers.length) {
+              setRefusedKeys(new Set(details.sellers.map((entry) => entry.sellerKey)));
+              setRefusalReason(details.reason);
+              if (isSellerRefusalReason(details.reason))
+                return refusedSellersMessage(
+                  t,
+                  locale,
+                  details.reason,
+                  details.sellers,
+                  active.selection.groups,
+                );
+            }
+            return apiErrorMessage(error, t('payment.sheet.unreadable'));
+          }}
+          onCreated={setPlaced}
+          onSettled={() => setAwaiting(true)}
+          onClose={() => setOpen(false)}
+        />
+      ) : null}
+    </>
   );
 }
 
 export default function CheckoutScreen() {
   const { t } = useTranslation();
+  const { user, isAuthenticated } = useOxy();
   return (
     <ScreenShell contentClassName="pt-5 web:max-w-[900px]">
       <Head>
         <title>{t('checkout.pageTitle')}</title>
       </Head>
-      <CheckoutBody />
+      <CheckoutBody key={isAuthenticated ? user?.id : 'guest'} />
     </ScreenShell>
   );
 }

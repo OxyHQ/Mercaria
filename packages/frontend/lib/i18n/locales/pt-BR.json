@@ -690,6 +690,11 @@
       "card": "Cartão",
       "faircoin": "FairCoin",
       "faircoinHint": "Você paga o total em FairCoin, direto na carteira Peable do vendedor. A Peable calcula o valor em FairCoin no momento do pagamento, e o preço vale por 10 minutos. Um pagamento em FairCoin cobre um único vendedor."
+    },
+    "account": {
+      "saveToOxy": "Salvar %{name} no Oxy",
+      "saveFailed": "Não foi possível salvar. Confira seus endereços Oxy antes de tentar novamente.",
+      "quoteLabel": "Subtotal · frete e impostos na próxima etapa"
     }
   },
   "payment": {
