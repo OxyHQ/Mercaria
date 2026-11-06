@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { CheckoutAddressInput } from '@mercaria/shared-types';
+import { validateCheckoutAddress, type CheckoutAddressInput } from '@mercaria/shared-types';
 import {
   canonicalizePhone,
   isIsoAlpha2Country,
@@ -174,6 +174,27 @@ describe('phone: canonical for comparison, display preserved', () => {
   it('refuses a number that cannot be one', () => {
     expect(() => normalizeCheckoutContact({ email: 'jane@example.com', phone: '12' })).toThrow(
       /6 to 15 digits/,
+    );
+  });
+});
+
+describe('shared checkout preflight agrees with the authoritative server adapter', () => {
+  it('returns the same normalized address without starting an order', () => {
+    const input = address({ country: 'hk', postalCode: '', city: ' Kowloon ' });
+    expect(validateCheckoutAddress(input)).toEqual({
+      ok: true,
+      address: normalizeCheckoutAddress(input),
+    });
+  });
+  it('returns a value-safe structured issue and keeps the existing server validation error', () => {
+    const input = address({ postalCode: '' });
+    const result = validateCheckoutAddress(input);
+    expect(result).toEqual({ ok: false, message: 'Postal code is not a valid format for ES.' });
+    expect(() => normalizeCheckoutAddress(input)).toThrow(
+      expect.objectContaining({
+        code: 'VALIDATION_ERROR',
+        message: result.ok ? '' : result.message,
+      }),
     );
   });
 });

@@ -765,8 +765,8 @@ const checkoutAddressSchema = z
     postalCode: z.string().max(CHECKOUT_TEXT_LIMITS.postalCode),
     // Length only here. Membership of the real ISO-3166 list, the postal-code
     // format and the Unicode/control-character rules are all
-    // `services/checkout/contact.ts`'s, because they are ONE policy and a
-    // second copy in a schema is a second policy.
+    // shared `validateCheckoutAddress` policy (also used by checkout preflight);
+    // the server adapter remains authoritative. Do not duplicate it here.
     country: z.string().length(2),
     phone: z.string().max(CHECKOUT_TEXT_LIMITS.phone).optional(),
   })
