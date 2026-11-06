@@ -445,7 +445,10 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // `FaircoinCheckoutUnavailableErrorDetails`, with the handoff's `rail` and
     // `faircoin` and `SellerPaymentSettings.faircoin`: +7 types, +16 properties.
     // Measured by the real guard.
-    'walked 148 contract module(s), 2477 exported type(s), 8341 property signature(s)',
+    // One Peable checkout session per cart (ADR 0021): the handoff carries the
+    // session, not a single payment's FairCoin instruction: -2 properties net.
+    // Measured by the real guard.
+    'walked 148 contract module(s), 2477 exported type(s), 8339 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });
