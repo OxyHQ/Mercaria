@@ -1,7 +1,11 @@
 /** Canonical, browser-safe address policy; the server remains authoritative. */
-import { CHECKOUT_TEXT_LIMITS, type CheckoutAddressInput } from './checkout';
+import {
+  CHECKOUT_TEXT_LIMITS,
+  type CheckoutAddressInput,
+  type CheckoutContactInput,
+} from './checkout';
 
-export class CheckoutAddressValidationError extends Error {}
+class CheckoutAddressValidationError extends Error {}
 
 export type CheckoutAddressValidation =
   | { ok: true; address: NormalizedCheckoutAddress }
@@ -135,7 +139,7 @@ const CANONICAL_PHONE_PATTERN = /^\+?\d{6,15}$/;
  * becomes a log line and an error body, and both are places #105's privacy
  * rule 8 says contact and address values must not appear.
  */
-export function normalizeCheckoutText(value: string, field: string, max: number): string {
+function normalizeCheckoutText(value: string, field: string, max: number): string {
   const normalized = value.normalize('NFC').trim();
   if (FORBIDDEN_CHARACTERS.test(normalized)) {
     throw new CheckoutAddressValidationError(
@@ -155,7 +159,7 @@ export function normalizeCheckoutText(value: string, field: string, max: number)
 }
 
 /** {@link normalizeText} for a field that may legitimately be absent. */
-export function normalizeOptionalCheckoutText(
+function normalizeOptionalCheckoutText(
   value: string | undefined,
   field: string,
   max: number,
@@ -255,7 +259,7 @@ export function canonicalizePhone(displayPhone: string): string {
 }
 
 /** Refuse a phone number that cannot be a phone number at all. */
-export function assertPlausibleCheckoutPhone(displayPhone: string): void {
+function assertPlausibleCheckoutPhone(displayPhone: string): void {
   if (!CANONICAL_PHONE_PATTERN.test(canonicalizePhone(displayPhone))) {
     throw new CheckoutAddressValidationError(
       'Phone must be 6 to 15 digits, optionally with a leading +.',
@@ -266,4 +270,68 @@ export function assertPlausibleCheckoutPhone(displayPhone: string): void {
 /** Whether a country code is an assigned ISO-3166 alpha-2 value. */
 export function isIsoAlpha2Country(country: string): boolean {
   return ISO_3166_ALPHA2.has(country);
+}
+
+/**
+ * An email shape check that is deliberately PERMISSIVE about the local part.
+ *
+ * One `@`, a non-empty local part with no whitespace, and a domain with at
+ * least one dot and a two-or-more-letter final label. RFC 5322 permits far
+ * more than this (quoted strings, comments, address literals) and essentially
+ * no mail provider accepts those at signup, so a stricter-than-RFC check is the
+ * right trade — but it stays away from the parts that DO vary in practice: the
+ * local part may contain `+`, `.`, `-`, `_`, `'` and Unicode, and the domain may
+ * be an IDN.
+ */
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)*\.[A-Za-z]{2,}$/u;
+
+/** A validated contact, in both of its forms. */
+export interface NormalizedCheckoutContact {
+  /** Exactly as typed (NFC, trimmed). What mail is addressed to. */
+  displayEmail: string;
+  /** Lower-cased whole address. Hashed, never displayed, never sent to. */
+  normalizedEmail: string;
+  /** As typed. */
+  displayPhone?: string;
+  /** Digits, `+`-prefixed only when the buyer gave one. Comparison only. */
+  canonicalPhone?: string;
+}
+
+export type CheckoutContactValidation =
+  | { ok: true; contact: NormalizedCheckoutContact }
+  | { ok: false; message: string };
+
+/** Receipt and pickup contact preflight; never sends or persists contact data. */
+export function validateCheckoutContact(input: CheckoutContactInput): CheckoutContactValidation {
+  try {
+    return { ok: true, contact: normalizeContact(input) };
+  } catch (error) {
+    if (error instanceof CheckoutAddressValidationError)
+      return { ok: false, message: error.message };
+    throw error;
+  }
+}
+function normalizeContact(input: CheckoutContactInput): NormalizedCheckoutContact {
+  const displayEmail = normalizeCheckoutText(input.email, 'Email', CHECKOUT_TEXT_LIMITS.email);
+  if (!EMAIL_PATTERN.test(displayEmail)) {
+    throw new CheckoutAddressValidationError('Email is not a valid address.');
+  }
+  const displayPhone = normalizeOptionalCheckoutText(
+    input.phone,
+    'Phone',
+    CHECKOUT_TEXT_LIMITS.phone,
+  );
+  if (displayPhone !== undefined) {
+    assertPlausibleCheckoutPhone(displayPhone);
+  }
+
+  return {
+    displayEmail,
+    // ADR 0003 D12, verbatim and nothing beyond it: trim, NFC, lowercase the
+    // WHOLE address. `normalizeText` already did the first two.
+    normalizedEmail: displayEmail.toLowerCase(),
+    ...(displayPhone !== undefined
+      ? { displayPhone, canonicalPhone: canonicalizePhone(displayPhone) }
+      : {}),
+  };
 }

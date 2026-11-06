@@ -9,7 +9,11 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { validateCheckoutAddress, type CheckoutAddressInput } from '@mercaria/shared-types';
+import {
+  validateCheckoutAddress,
+  validateCheckoutContact,
+  type CheckoutAddressInput,
+} from '@mercaria/shared-types';
 import {
   canonicalizePhone,
   isIsoAlpha2Country,
@@ -193,8 +197,21 @@ describe('shared checkout preflight agrees with the authoritative server adapter
     expect(() => normalizeCheckoutAddress(input)).toThrow(
       expect.objectContaining({
         code: 'VALIDATION_ERROR',
-        message: result.ok ? '' : result.message,
+        message: result.ok === false ? result.message : '',
       }),
     );
   });
+});
+
+it('shares receipt and pickup contact preflight with authoritative email and phone validation', () => {
+  expect(validateCheckoutContact({ email: 'x@y.c' })).toEqual({
+    ok: false,
+    message: 'Email is not a valid address.',
+  });
+  const input = { email: 'Buyer+Receipt@Example.com', phone: '+34 612 345 678' };
+  expect(validateCheckoutContact(input)).toEqual({
+    ok: true,
+    contact: normalizeCheckoutContact(input),
+  });
+  expect(validateCheckoutContact({ email: 'buyer@example.com', phone: '123' }).ok).toBe(false);
 });
