@@ -109,7 +109,18 @@ const SELLER_REFUSAL_COPY = {
     several: 'checkout.error.sellersNotActivated',
     unnamed: 'checkout.error.unnamedSellersNotActivated',
   },
-} as const satisfies Record<ApiErrorDetails['reason'], Record<string, string>>;
+} as const satisfies Record<SellerRefusalReason, Record<string, string>>;
+
+/**
+ * The refusals this screen tells in its own words. Every other refusal that
+ * names sellers (ADR 0019's payment-rail refusals) carries a reason the server
+ * words, and is shown as its message with the sellers highlighted.
+ */
+type SellerRefusalReason = 'seller_not_payment_ready' | 'seller_not_activated';
+
+function isSellerRefusalReason(reason: ApiErrorDetails['reason']): reason is SellerRefusalReason {
+  return reason === 'seller_not_payment_ready' || reason === 'seller_not_activated';
+}
 
 /**
  * The refusal for sellers who cannot be paid right now — or are not accepting
@@ -124,7 +135,7 @@ const SELLER_REFUSAL_COPY = {
 function refusedSellersMessage(
   t: Translate,
   locale: string,
-  reason: ApiErrorDetails['reason'],
+  reason: SellerRefusalReason,
   sellers: readonly RefusedCheckoutSeller[],
   groups: readonly CartGroup[],
 ): string {
@@ -840,7 +851,9 @@ function CheckoutBody() {
             setUnpayableSellerKeys(new Set(details.sellers.map((seller) => seller.sellerKey)));
             setRefusalReason(details.reason);
             setFormError(
-              refusedSellersMessage(t, locale, details.reason, details.sellers, targetGroups),
+              isSellerRefusalReason(details.reason)
+                ? refusedSellersMessage(t, locale, details.reason, details.sellers, targetGroups)
+                : apiErrorMessage(error, error.message),
             );
             return;
           }

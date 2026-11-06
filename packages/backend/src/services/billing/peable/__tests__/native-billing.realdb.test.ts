@@ -393,6 +393,8 @@ it('opens an embedded subscription checkout and the native portal, under the cal
 
   const checkout = posts.find((post) => post.path === '/v1/checkout_sessions');
   expect(checkout?.key).toBe(`billing-checkout:${nonce}`);
+  // Exactly these fields: no `payment_method_types`, so the session offers card
+  // AND FairCoin (Peable ADR 0021 D1) — Mercaria never narrows a plan's methods.
   expect(JSON.parse(checkout?.body ?? '{}')).toEqual({
     mode: 'subscription',
     customer: customers[0],

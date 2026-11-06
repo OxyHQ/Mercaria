@@ -14,10 +14,17 @@
  * Mercaria creates the account and mints a single-use hosted-onboarding link
  * with its own merchant identity. The seller completes the acquirer's hosted
  * flow in their own browser: identity data is collected and held there (ADR
- * 0001 D2) and never passes through Mercaria. Only the CARD half is opened. A
- * seller's FairCoin key may come only from the seller's own Oxy session
- * (Peable ADR 0012), and Mercaria's checkout has no FairCoin rail, so the
- * FairCoin half is never requested here.
+ * 0001 D2) and never passes through Mercaria.
+ *
+ * ## Two halves of ONE account (ADR 0019 D2)
+ *
+ * The CARD half is the acquirer's KYC. The FAIRCOIN half names the seller's
+ * own Oxy account — the store's owning account, or the P2P seller — whose
+ * Peable wallet receives; no key is registered anywhere (Peable ADR 0021 D5).
+ * Mercaria opens it, and only the SELLER can turn it on, by confirming from
+ * their own Oxy session on Peable's page (Peable ADR 0012 D3). Either half can
+ * be opened first; the other is added by the same `connectedAccounts.create`
+ * under the same `external_ref`, so a seller has one `ca_…` and one row.
  *
  * ## Every writer re-reads; none applies a payload
  *
@@ -47,6 +54,7 @@ import type {
   ProviderCapabilityStatus,
   ProviderOnboardingLink,
   ProviderOnboardingState,
+  SellerFaircoinStatus,
   SellerPaymentSettings,
 } from '@mercaria/shared-types';
 import { type ConnectedAccount, type Peable, PeableError } from '@peable.to/sdk';
@@ -59,14 +67,18 @@ import {
   insertProviderAccount,
   type ProviderAccountRow,
 } from '../../../db/payments/providerAccountRepository.js';
-import { serviceUnavailable, validationError } from '../../../lib/errors/error-codes.js';
+import { conflict, serviceUnavailable, validationError } from '../../../lib/errors/error-codes.js';
 import { log } from '../../../lib/logger.js';
 import { type AccountSnapshot, safeReasonCodes, toAccountState } from '../account-readiness.js';
 import { enqueuePaymentEvent, providerAccountChangedEventId } from '../payment-outbox.service.js';
+import { isFaircoinRailConfigured } from '../native-rail.js';
 import {
-  readSellerAccountStatus,
+  faircoinUnavailableReasonFor,
+  findSellerAccount,
+  notConnectedStatus,
   type SellerAccountOwner,
   sellerKeyFor,
+  toProviderAccountStatus,
 } from '../provider-account.service.js';
 import { callPeable } from './errors.js';
 import { createPeableClient } from './client.js';
@@ -102,7 +114,22 @@ function capability(value: string | null): ProviderCapabilityStatus | undefined 
  */
 export function snapshotPeableAccount(account: ConnectedAccount): AccountSnapshot {
   const transfers = capability(account.transfers_capability);
+  const faircoin = account.faircoin;
   return {
+    cardOpened: account.rails.includes('card'),
+    ...(account.country ? { country: account.country.toUpperCase() } : {}),
+    ...(faircoin
+      ? {
+          faircoin: {
+            state: faircoin.status,
+            network: faircoin.network,
+            oxyAccountId: faircoin.oxy_user_id,
+            ...(faircoin.registered_at !== null
+              ? { confirmedAt: new Date(faircoin.registered_at * 1_000) }
+              : {}),
+          },
+        }
+      : {}),
     chargesEnabled: account.charges_enabled,
     payoutsEnabled: account.payouts_enabled,
     ...(transfers ? { transfersCapability: transfers } : {}),
@@ -229,7 +256,10 @@ async function ensureSellerAccount(
 ): Promise<ProviderAccountRow> {
   const db = getDb();
   const existing = await findProviderAccountByOwner(db, { provider: 'peable', ...owner });
-  if (existing) return existing;
+  // An account with a card half is the one to onboard. One opened for FairCoin
+  // alone has no country yet, and gains its card half below, under the same
+  // `external_ref`, as the same `ca_…`.
+  if (existing?.country) return existing;
 
   if (country === undefined) {
     throw validationError('Choose the country your business is based in to start onboarding.');
@@ -256,6 +286,11 @@ async function ensureSellerAccount(
   }
 
   const syncedAt = new Date();
+  if (existing) {
+    // The FairCoin-only seller's row, now with a card half: the create's answer
+    // IS a read, and applying it records the country and the card verdict.
+    return await applyAccount({ row: existing, account, syncedAt, reason: 'synced' });
+  }
   const row = await insertProviderAccount(db, {
     provider: 'peable',
     ownerType: owner.ownerType,
@@ -296,10 +331,141 @@ function onboardingAvailable(): boolean {
 export async function readSellerPaymentSettings(
   owner: SellerAccountOwner,
 ): Promise<SellerPaymentSettings> {
+  const row = await findSellerAccount(owner);
   return {
-    account: await readSellerAccountStatus(owner),
+    account: row ? toProviderAccountStatus(row) : notConnectedStatus(owner),
+    faircoin: await describeSellerFaircoin(row),
     onboardingAvailable: onboardingAvailable(),
   };
+}
+
+/**
+ * The seller's FairCoin standing, with the reason it cannot be paid when it
+ * cannot — ALWAYS reported (ADR 0019 D4), never left out because it is not
+ * ready. The network reason is Peable's deployment gate (Peable ADR 0002) and
+ * is the one a seller can do nothing about; it is read last, so a seller who
+ * still has a step to take is told about THAT first.
+ */
+async function describeSellerFaircoin(
+  row: ProviderAccountRow | undefined,
+): Promise<SellerFaircoinStatus> {
+  const network = row?.faircoinNetwork ?? config.payments.peable.faircoinNetwork;
+  const base = {
+    state: row?.faircoinState ?? 'not_connected',
+    network,
+    ...(row?.faircoinOxyAccountId ? { receivingOxyAccountId: row.faircoinOxyAccountId } : {}),
+    ...(row?.faircoinConfirmedAt ? { confirmedAt: row.faircoinConfirmedAt.toISOString() } : {}),
+  } satisfies Omit<SellerFaircoinStatus, 'payable'>;
+  const reason = await faircoinUnavailableReasonFor(row);
+  return reason
+    ? { ...base, payable: false, unavailableReason: reason }
+    : { ...base, payable: true };
+}
+
+/**
+ * Open (or re-use) the seller's FAIRCOIN half and mint the link on which the
+ * seller confirms it — ADR 0019 D2.
+ *
+ * `receiver` is the Oxy account whose Peable wallet will receive: the store's
+ * owning account or the P2P seller, decided by the CONTROLLER from the loaded
+ * store or the session and never from a request body. It cannot change later
+ * at the gateway (a store that changes hands is a new seller there), so an
+ * account already opened for a different receiver is refused rather than
+ * quietly kept paying the old one.
+ *
+ * Opening the half needs only the gateway; nothing about it makes the seller
+ * payable. Only the seller's own confirmation does, refused by Peable while
+ * that account has no Peable wallet (`faircoin_wallet_missing`), which the
+ * seller sees on Peable's page.
+ */
+export async function createSellerFaircoinLink(input: {
+  owner: SellerAccountOwner;
+  receiver: string;
+}): Promise<ProviderOnboardingLink> {
+  if (!onboardingAvailable() || !isFaircoinRailConfigured()) {
+    throw serviceUnavailable('FairCoin payments are not available on this deployment yet.');
+  }
+  const row = await ensureSellerFaircoinHalf(input.owner, input.receiver);
+  if (row.faircoinState === 'active') {
+    throw conflict('FairCoin payments are already confirmed for this account.');
+  }
+  const url = returnUrlFor(input.owner);
+  try {
+    const link = await peableGateway().connectedAccounts.createAccountLink(row.providerAccountId, {
+      refresh_url: url,
+      return_url: url,
+      rail: 'faircoin',
+    });
+    log.general.info(
+      {
+        accountRowId: row.id,
+        ownerType: row.ownerType,
+        providerAccountId: redactAccountId(row.providerAccountId),
+      },
+      '[Peable] seller FairCoin confirmation link minted',
+    );
+    return { url: link.url, expiresAt: new Date(link.expires_at * 1_000).toISOString() };
+  } catch (error) {
+    throw refusal(error);
+  }
+}
+
+/** The seller's account with its FairCoin half open, opening either as needed. */
+async function ensureSellerFaircoinHalf(
+  owner: SellerAccountOwner,
+  receiver: string,
+): Promise<ProviderAccountRow> {
+  const db = getDb();
+  const existing = await findProviderAccountByOwner(db, { provider: 'peable', ...owner });
+  if (existing && existing.faircoinState !== 'not_connected') {
+    if (existing.faircoinOxyAccountId !== receiver) {
+      throw conflict(
+        "This seller's FairCoin payments were set up for a different Oxy account. Contact " +
+          'Mercaria support to move them.',
+      );
+    }
+    return existing;
+  }
+
+  const network = config.payments.peable.faircoinNetwork;
+  let account: ConnectedAccount;
+  try {
+    // Converges on `external_ref`: a card seller gains the FairCoin half on the
+    // SAME `ca_…`, and a repeated click answers the same account.
+    account = await peableGateway().connectedAccounts.create(
+      { external_ref: sellerKeyFor(owner), faircoin: { network, oxy_user_id: receiver } },
+      { idempotencyKey: `acct-faircoin:${sellerKeyFor(owner)}:${network}` },
+    );
+  } catch (error) {
+    if (error instanceof PeableError && error.statusCode === 409) {
+      throw conflict(
+        "This seller's FairCoin payments were set up differently at Peable. Contact Mercaria " +
+          'support to look into it.',
+      );
+    }
+    throw refusal(error);
+  }
+
+  const syncedAt = new Date();
+  const row =
+    existing ??
+    (await insertProviderAccount(db, {
+      provider: 'peable',
+      ownerType: owner.ownerType,
+      ownerId: owner.ownerId,
+      providerAccountId: account.id,
+      ...(account.country ? { country: account.country.toUpperCase() } : {}),
+    }));
+  log.general.info(
+    {
+      accountRowId: row.id,
+      ownerType: row.ownerType,
+      providerAccountId: redactAccountId(row.providerAccountId),
+      network,
+    },
+    '[Peable] seller FairCoin half opened',
+  );
+  return await applyAccount({ row, account, syncedAt, reason: existing ? 'synced' : 'created' });
 }
 
 /**

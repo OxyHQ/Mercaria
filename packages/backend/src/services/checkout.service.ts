@@ -136,6 +136,7 @@ import {
   assertCheckoutCurrencyEligible,
   openCheckoutPayment,
   resolveCheckoutRail,
+  selectCheckoutRail,
   type CheckoutRail,
 } from './payments/checkout-payment.service.js';
 import { selectFeeSchedule } from './fees/fee-calculation.js';
@@ -825,7 +826,7 @@ export async function checkout(
   // happens, when the buyer named one this deployment cannot serve. It is a
   // property of the REQUEST and the configuration only, so it costs nothing and
   // needs nothing loaded to answer.
-  const rail = resolveCheckoutRail(input.paymentMethod);
+  let rail = resolveCheckoutRail(input.paymentMethod);
 
   // 0b. Whose cart is this? `cartOwnerForActor` is the ONE actor-to-owner
   // translation (#104) and this path reuses it rather than adding a second: a
@@ -939,6 +940,12 @@ export async function checkout(
   ) {
     throw conflict('The basket changed while preparing this purchase.');
   }
+  // 2b. The rail FOLLOWS the currency the buyer is paying in (ADR 0019 D1): a
+  // `FAIR` cart is paid in FairCoin, a USD one by card. Only an unnamed rail
+  // moves; a named one is checked against the currency at 4e. A supervised
+  // purchase stays on the card rail it was approved for.
+  if (!supervisedPurchase) rail = selectCheckoutRail(rail, input.paymentMethod, cart.currency);
+
   if (cart.items.length === 0) {
     throw conflict('Cart is empty');
   }
@@ -1075,7 +1082,7 @@ export async function checkout(
   //
   // A no-op when no card rail is configured, without touching Postgres — see
   // `assertSellerGroupsPaymentReady`.
-  await assertSellerGroupsPaymentReady([...groups.keys()]);
+  await assertSellerGroupsPaymentReady([...groups.keys()], rail === 'none' ? 'card' : rail);
 
   // 4d-bis. Revalidate the DESTINATION against every selected seller (#105),
   // beside the readiness gate and for the identical reason: this is the last

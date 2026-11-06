@@ -36,6 +36,8 @@
  */
 
 import type {
+  CheckoutFaircoinInstruction,
+  FaircoinNetwork,
   FxRateSnapshot,
   Money,
   PaymentProviderId,
@@ -143,6 +145,14 @@ export interface CreatePaymentRequest {
   orderIds: readonly string[];
   idempotencyKey: string;
   metadata: Readonly<Record<string, string>>;
+  /**
+   * The seller this payment is made ON BEHALF OF — the FairCoin rail only (ADR
+   * 0019 D3): their connected account and the chain it is paid on. A card
+   * payment is Mercaria's own platform charge (ADR 0001 D3) and never names one.
+   */
+  onBehalfOf?: { providerAccountId: string; network: FaircoinNetwork };
+  /** When an UNPAID payment stops being payable at the rail. */
+  expiresInSeconds?: number;
 }
 
 /**
@@ -158,6 +168,8 @@ export interface ProviderPaymentResult {
   status: PaymentStatus;
   clientAction?: PaymentClientAction;
   platform?: { amount: Money; rate: FxRateSnapshot };
+  /** A FairCoin payment's instruction, while it can still be paid. */
+  faircoin?: CheckoutFaircoinInstruction;
 }
 
 /** Act on a payment the provider already knows about. */

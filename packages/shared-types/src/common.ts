@@ -3,6 +3,8 @@
  * Mercaria frontend and backend.
  */
 
+import type { FaircoinUnavailableReason } from './payment';
+
 /** ISO-8601 timestamps present on every persisted entity. */
 export interface Timestamps {
   /** ISO-8601 creation time. */
@@ -83,8 +85,25 @@ export interface SellersNotActivatedErrorDetails {
   sellers: RefusedCheckoutSeller[];
 }
 
+/**
+ * A FairCoin checkout refused before anything was reserved (ADR 0019): the
+ * sellers who cannot be paid in FairCoin and why, or — for
+ * `faircoin_one_seller_per_checkout` — the sellers of a FairCoin cart that names
+ * more than one (a FairCoin payment pays ONE seller's wallet, Peable ADR 0021 D6).
+ * The buyer can pay by card in USD instead, or check those sellers out one at a time.
+ */
+export interface FaircoinCheckoutUnavailableErrorDetails {
+  reason: 'faircoin_unavailable' | 'faircoin_one_seller_per_checkout';
+  /** Why, for `faircoin_unavailable`. Shown in words, never hidden. */
+  unavailableReason?: FaircoinUnavailableReason;
+  sellers: RefusedCheckoutSeller[];
+}
+
 /** Every structured error detail the API emits, discriminated by `reason`. */
-export type ApiErrorDetails = SellersNotPaymentReadyErrorDetails | SellersNotActivatedErrorDetails;
+export type ApiErrorDetails =
+  | SellersNotPaymentReadyErrorDetails
+  | SellersNotActivatedErrorDetails
+  | FaircoinCheckoutUnavailableErrorDetails;
 
 /** Paginated list envelope: a page of `T` plus its pagination metadata. */
 export interface PaginatedResponse<T> {

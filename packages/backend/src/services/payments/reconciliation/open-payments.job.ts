@@ -82,7 +82,9 @@ export async function reconcileOpenPaymentsPage(input: {
 }): Promise<OpenPaymentsPageResult> {
   const now = input.now ?? new Date();
   const payments = await findOpenPaymentsForReconciliation(getDb(), {
-    provider: 'peable',
+    // Both of the gateway's rails (ADR 0019): a missed FairCoin event converges
+    // exactly as a missed card one does, by re-reading the intent.
+    provider: ['peable', 'peable_faircoin'],
     createdBefore: new Date(now.getTime() - config.payments.reconciliation.openPaymentMinAgeMs),
     ...(input.cursor ? { afterId: input.cursor } : {}),
     limit: input.limit,

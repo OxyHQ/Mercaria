@@ -58,6 +58,8 @@ import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   DISPUTE_OUTCOMES,
   DISPUTE_STATUSES,
+  FAIRCOIN_NETWORKS,
+  FAIRCOIN_SELLER_STATES,
   PAYMENT_ATTEMPT_STATUSES,
   PAYMENT_OUTBOX_EVENT_TYPES,
   PAYMENT_OUTBOX_STATUSES,
@@ -151,12 +153,17 @@ export const providerAccounts = pgTable(
      */
     providerAccountId: text().notNull(),
     /**
-     * ISO-3166-1 alpha-2, as the account was created and immutable at the
-     * provider afterwards. Validated against `config.payments.stripe.sellerCountries`
+     * ISO-3166-1 alpha-2, as the account's CARD half was created and immutable
+     * at the provider afterwards. Validated against `config.payments.stripe.sellerCountries`
      * before creation (ADR 0001 D8) — the allow-list is configuration because the
      * transfer region is the provider's and changes on their schedule.
+     *
+     * NULL on a seller who opened only the FairCoin half (ADR 0019 D2): a card
+     * half is what a country belongs to, and Peable answers `country: null` for
+     * a FairCoin-only seller. The card onboarding path opens the card half with
+     * one and records it then.
      */
-    country: text().notNull(),
+    country: text(),
     /**
      * The account's own settlement currency, as the provider reports it.
      *
@@ -231,6 +238,29 @@ export const providerAccounts = pgTable(
      * part of the record a marketplace has to be able to produce (D10).
      */
     revokedAt: timestamptz(),
+    /**
+     * The FAIRCOIN half of the same connected account (ADR 0019 D2, Peable ADR
+     * 0012 as amended by ADR 0021 D5) — its own verdict beside the card one,
+     * because a seller can be payable on one rail and not the other.
+     *
+     * `not_connected` until Mercaria opens it, `pending` until the seller
+     * confirms from their own Oxy session, `active` once FairCoin paid to them
+     * goes into the Peable wallet of their Oxy account. Read off the gateway's
+     * account by the same re-read as the card half, never from a payload.
+     */
+    faircoinState: text({ enum: asEnumValues(FAIRCOIN_SELLER_STATES) })
+      .notNull()
+      .default('not_connected'),
+    /** The chain the FairCoin half pays on. Fixed at the gateway when it was opened. */
+    faircoinNetwork: text({ enum: asEnumValues(FAIRCOIN_NETWORKS) }),
+    /**
+     * The Oxy account whose Peable wallet receives — the store's owning account
+     * or the P2P seller, as Mercaria named it when opening the half. An Oxy id,
+     * no foreign key (`AGENTS.md`).
+     */
+    faircoinOxyAccountId: text(),
+    /** When the seller confirmed, as the gateway reports it. */
+    faircoinConfirmedAt: timestamptz(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -246,6 +276,14 @@ export const providerAccounts = pgTable(
       'provider_accounts_transfers_capability_check',
       t.transfersCapability,
       PROVIDER_CAPABILITY_STATUSES,
+    ),
+    checkOneOf('provider_accounts_faircoin_state_check', t.faircoinState, FAIRCOIN_SELLER_STATES),
+    checkOneOf('provider_accounts_faircoin_network_check', t.faircoinNetwork, FAIRCOIN_NETWORKS),
+    // A FairCoin half that exists names its chain and its receiving account; one
+    // that does not names neither. A half with no network could never be paid on.
+    check(
+      'provider_accounts_faircoin_half_check',
+      sql`(${t.faircoinState} = 'not_connected') = (${t.faircoinNetwork} is null and ${t.faircoinOxyAccountId} is null)`,
     ),
     // An empty string is a VALUE, so it satisfies NOT NULL and collides for real
     // in the uniqueness below — the same trap `CONVENTIONS.md` records for a

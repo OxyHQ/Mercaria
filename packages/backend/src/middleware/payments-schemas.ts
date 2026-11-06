@@ -227,7 +227,16 @@ export const onboardingLinkSchema = z
       .trim()
       .regex(/^[A-Za-z]{2}$/, 'Country must be a two-letter ISO-3166-1 code')
       .optional(),
+    // Which half to onboard (ADR 0019 D2): `card` (the default) is the
+    // acquirer's hosted KYC flow; `faircoin` is Peable's own page where the
+    // seller confirms, from their own Oxy session, that FairCoin is paid into
+    // their Peable wallet. No key is ever sent (Peable ADR 0021 D5).
+    rail: z.enum(['card', 'faircoin']).optional(),
   })
-  .strict();
+  .strict()
+  .refine(
+    (body) => !(body.rail === 'faircoin' && body.country !== undefined),
+    'A FairCoin confirmation takes no country.',
+  );
 
 export type OnboardingLinkBody = z.infer<typeof onboardingLinkSchema>;

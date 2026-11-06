@@ -31,7 +31,7 @@
  * seller resolves it in the provider's own hosted flow where it belongs.
  */
 
-import type { PaymentProviderId } from './payment';
+import type { FaircoinNetwork, FaircoinUnavailableReason, PaymentProviderId } from './payment';
 
 /**
  * Who a provider account belongs to — a business store or a P2P seller.
@@ -221,9 +221,54 @@ export interface ProviderAccountStatus {
  * here would refuse a country Peable had started supporting. A country the
  * gateway refuses comes back as a refusal naming it.
  */
+/**
+ * The FAIRCOIN half of a seller's Peable connected account (ADR 0019 D2, Peable
+ * ADR 0012 as amended by ADR 0021 D5).
+ *
+ *  - `not_connected` — Mercaria never opened it.
+ *  - `pending` — opened for the seller's Oxy account; the seller has not
+ *    confirmed from their own Oxy session yet, so a FairCoin payment is refused.
+ *  - `active` — confirmed: FairCoin paid to this seller goes into the Peable
+ *    wallet of their own Oxy account.
+ *
+ * Its own field and not an `onboardingState`: that is the CARD verdict (KYC,
+ * payouts, transfers), and a seller can be ready on one rail and not the other.
+ */
+export type FaircoinSellerState = 'not_connected' | 'pending' | 'active';
+
+/** {@link FaircoinSellerState} as the tuple the CHECK reads. */
+export const FAIRCOIN_SELLER_STATES: readonly FaircoinSellerState[] = [
+  'not_connected',
+  'pending',
+  'active',
+];
+
+/** A seller's FairCoin standing, as their settings screen shows it. */
+export interface SellerFaircoinStatus {
+  state: FaircoinSellerState;
+  /** The chain FairCoin is paid on — fixed when the half was opened; this deployment's otherwise. */
+  network: FaircoinNetwork;
+  /**
+   * Whether buyers can pay this seller in FairCoin NOW. `false` always comes
+   * with {@link unavailableReason}, which the screen shows in words.
+   */
+  payable: boolean;
+  unavailableReason?: FaircoinUnavailableReason;
+  /**
+   * The Oxy account whose Peable wallet receives: the store's owning account
+   * (often an organization), or the P2P seller themself. The account that must
+   * confirm — a person acting as an organization confirms as that organization.
+   */
+  receivingOxyAccountId?: string;
+  /** ISO-8601 instant the seller confirmed. */
+  confirmedAt?: string;
+}
+
 export interface SellerPaymentSettings {
   /** This seller's standing, or the `not_connected` shape when there is none. */
   account: ProviderAccountStatus;
+  /** The FairCoin half (ADR 0019): always reported, payable or not. */
+  faircoin: SellerFaircoinStatus;
   /**
    * Whether hosted onboarding can be started or resumed here at all.
    *

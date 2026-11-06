@@ -185,6 +185,21 @@ const CONTACT_PATHS = [
 const OXYPAY_OR_FAIRCOIN_REFERENCE = /oxy_?[Pp]ay|OxyPay|[Ff]air[Cc]oin/;
 
 /**
+ * The checkout's closed refusal vocabulary, which since ADR 0019 carries the
+ * two FairCoin refusals beside every other checkout reason. It names them; it
+ * decides nothing about a destination or a contact, so the rule above — that
+ * eligibility never depends on a rail — still holds of every module that does.
+ */
+const CHECKOUT_REFUSAL_VOCABULARY = 'services/checkout/refusal.ts';
+
+/**
+ * The two refusal identifiers themselves, which the analytics mapping in the
+ * checkout controller must list (a `Record` over the closed set). An
+ * identifier is not a branch on the rail; any other spelling still fails.
+ */
+const FAIRCOIN_REFUSAL_REASONS = /\bfaircoin_(?:unavailable|one_seller_per_checkout)\b/g;
+
+/**
  * #105 actor rule 9 and privacy rules 9-10: referral attribution is not a buyer
  * identity, is never derived from an email, an address or a phone, and grants a
  * partner no contact access. The way to make that true of this path is for it
@@ -271,9 +286,11 @@ function readContactCode(relative: string): string {
 describe('the checkout contact and destination path cannot reach what it must not', () => {
   it('no module names OxyPay or FairCoin as a payment concept', () => {
     let scanned = 0;
-    for (const relative of CONTACT_PATHS) {
+    for (const relative of CONTACT_PATHS.filter((path) => path !== CHECKOUT_REFUSAL_VOCABULARY)) {
       expect(
-        OXYPAY_OR_FAIRCOIN_REFERENCE.test(readContactSource(relative)),
+        OXYPAY_OR_FAIRCOIN_REFERENCE.test(
+          readContactSource(relative).replace(FAIRCOIN_REFUSAL_REASONS, ''),
+        ),
         `${relative} names OxyPay or FairCoin; #105 excludes both outright`,
       ).toBe(false);
       scanned += 1;
@@ -301,7 +318,8 @@ describe('the checkout contact and destination path cannot reach what it must no
       expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
     }
     expect(CONTACT_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
-    expect(scanned).toBe(CONTACT_PATHS.length);
+    expect(scanned).toBe(CONTACT_PATHS.length - 1);
+    expect(CONTACT_PATHS).toContain(CHECKOUT_REFUSAL_VOCABULARY);
   });
 
   it('no checkout-named module anywhere in src/ sits outside the population or the exclusion', () => {

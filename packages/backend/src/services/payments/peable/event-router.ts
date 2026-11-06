@@ -38,7 +38,7 @@
  * Peable success says so on its event row, where reconciliation can find them.
  */
 
-import type { PaymentStatus } from '@mercaria/shared-types';
+import type { PaymentProviderId, PaymentStatus } from '@mercaria/shared-types';
 import { findPaymentByProviderObjectId } from '../../../db/payments/paymentRepository.js';
 import { getDb } from '../../../db/postgres.js';
 import { log } from '../../../lib/logger.js';
@@ -121,7 +121,12 @@ async function applyIntentEvent(
     };
   }
 
-  const payment = await findPaymentByProviderObjectId(getDb(), 'peable', intentId);
+  // Either of the gateway's rails: a card intent is a `peable` payment and an
+  // on-behalf FairCoin intent a `peable_faircoin` one (ADR 0019), on one
+  // endpoint and one secret. Intent ids are unique across both.
+  const payment =
+    (await findPaymentByProviderObjectId(getDb(), 'peable', intentId)) ??
+    (await findPaymentByProviderObjectId(getDb(), 'peable_faircoin', intentId));
   if (!payment) {
     // Only an intent Mercaria MADE can be one whose row is not visible yet: it
     // carries Mercaria's own payment id (`createPayment`'s metadata), and a
@@ -134,7 +139,8 @@ async function applyIntentEvent(
     return { kind: 'ignored', note: `${intentId} is not a marketplace payment` };
   }
 
-  const next = asserted === 'reread' ? await readPaymentStatus(intentId) : asserted;
+  const next =
+    asserted === 'reread' ? await readPaymentStatus(payment.provider, intentId) : asserted;
 
   if (payment.status === next) {
     // A gateway-confirmed cancellation is what lets a supervised purchase's
@@ -206,7 +212,9 @@ async function applyIntentEvent(
 
   const noted =
     next === 'succeeded'
-      ? 'settled; the gateway supplies no processor-fee detail, so no fee expense was booked'
+      ? payment.provider === 'peable_faircoin'
+        ? "paid in FairCoin into the seller's own wallet; nothing is booked or transferred"
+        : 'settled; the gateway supplies no processor-fee detail, so no fee expense was booked'
       : undefined;
 
   return {
@@ -230,8 +238,11 @@ async function applyIntentEvent(
  * The rail being switched off between storing and processing is a transient
  * condition for the event: the row is retried, and dead-lettered if it lasts.
  */
-async function readPaymentStatus(intentId: string): Promise<PaymentStatus> {
-  const rail = resolvePaymentProvider('peable');
+async function readPaymentStatus(
+  provider: PaymentProviderId,
+  intentId: string,
+): Promise<PaymentStatus> {
+  const rail = resolvePaymentProvider(provider);
   if (!rail) throw unresolved('the Peable rail is not configured; the payment cannot be re-read');
   return (await rail.getStatus(intentId)).status;
 }

@@ -239,7 +239,8 @@ const RECONCILABLE_OPEN_STATUSES: readonly PaymentStatus[] = [
 export async function findOpenPaymentsForReconciliation(
   db: DatabaseOrTransaction,
   input: {
-    provider: PaymentProviderId;
+    /** One rail, or several that one gateway serves (Peable's card and FairCoin rails). */
+    provider: PaymentProviderId | readonly PaymentProviderId[];
     /** Only payments older than this — younger ones are buyers still paying. */
     createdBefore: Date;
     /** The last id of the previous page, for a resumed pass. */
@@ -252,7 +253,9 @@ export async function findOpenPaymentsForReconciliation(
     .from(payments)
     .where(
       and(
-        eq(payments.provider, input.provider),
+        typeof input.provider === 'string'
+          ? eq(payments.provider, input.provider)
+          : inArray(payments.provider, [...input.provider]),
         inArray(payments.status, [...RECONCILABLE_OPEN_STATUSES]),
         lte(payments.createdAt, input.createdBefore),
         ...(input.afterId ? [gt(payments.id, input.afterId)] : []),

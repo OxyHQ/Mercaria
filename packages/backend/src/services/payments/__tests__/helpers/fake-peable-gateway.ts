@@ -96,6 +96,8 @@ export interface FakeIntent {
    * converted. A refund's settled figure is its amount at this rate.
    */
   settlementRate?: number;
+  /** ADR 0019: a FairCoin on-behalf intent — its seller, chain and receive address. */
+  faircoin?: { connectedAccount: string; network: string; address: string };
 }
 
 /** One transfer to a seller's connected account. */
@@ -125,6 +127,15 @@ export interface FakeAccount {
   pastDue: string[];
   pendingVerification: string[];
   disabledReason: string | null;
+  /** Whether a CARD half was opened (a FairCoin-only seller has none). */
+  cardOpened?: boolean;
+  /** The FairCoin half (ADR 0019 D2), when one was opened. */
+  faircoin?: {
+    network: string;
+    oxyUserId: string;
+    status: 'pending' | 'active';
+    registeredAt: number | null;
+  };
 }
 
 /** One refund as the gateway's books hold it — merchant-made or imported from the acquirer. */
@@ -205,20 +216,43 @@ export function renderIntent(
     id: intent.id,
     object: 'payment_intent',
     livemode: false,
-    rail: 'card',
+    rail: intent.faircoin ? 'faircoin' : 'card',
     status: intent.status,
     amount: minor(intent.amount),
     amount_received: minor(intent.status === 'succeeded' ? intent.amount : 0n),
     amount_refunded: minor(intent.refunded),
     currency: intent.currency,
     merchant_id: 'merch_fixture',
-    faircoin: null,
+    faircoin: intent.faircoin
+      ? {
+          network: intent.faircoin.network,
+          address: intent.faircoin.address,
+          txid: null,
+          confirmations: 0,
+          required_confirmations: 6,
+          quote: null,
+        }
+      : null,
+    connected_account: intent.faircoin?.connectedAccount ?? null,
+    next_action:
+      intent.faircoin && intent.status === 'requires_action'
+        ? {
+            type: 'faircoin_payment',
+            faircoin_payment: {
+              address: intent.faircoin.address,
+              network: intent.faircoin.network,
+              amount: minor(intent.amount),
+              currency: 'FAIR',
+              uri: `faircoin:${intent.faircoin.address}?amount=${minor(intent.amount)}`,
+            },
+          }
+        : null,
     client_secret: intent.payerSecret ?? `${intent.id}_payer_secret_fixture`,
     metadata: { ...intent.metadata },
     last_payment_error: intent.declined
       ? { type: 'card_error', code: 'card_declined', message: 'Your card was declined.' }
       : null,
-    ...(options.clientAction && payable
+    ...(options.clientAction && payable && !intent.faircoin
       ? { client_action: { kind: 'client_secret', value: intent.clientSecret } }
       : {}),
     expires_at: now + 3_600,
@@ -341,9 +375,19 @@ export function renderAccount(account: FakeAccount): Record<string, unknown> {
     object: 'connected_account',
     livemode: false,
     external_ref: account.externalRef,
-    rails: ['card'],
-    faircoin: null,
-    country: account.country,
+    rails: [
+      ...(account.cardOpened === false ? [] : ['card']),
+      ...(account.faircoin ? ['faircoin'] : []),
+    ],
+    faircoin: account.faircoin
+      ? {
+          network: account.faircoin.network,
+          status: account.faircoin.status,
+          oxy_user_id: account.faircoin.oxyUserId,
+          registered_at: account.faircoin.registeredAt,
+        }
+      : null,
+    country: account.cardOpened === false ? null : account.country,
     default_currency: account.defaultCurrency,
     payable: account.payable,
     payouts_enabled: account.payoutsEnabled,
@@ -421,6 +465,10 @@ export function createFakePeableGateway() {
      * ambiguous timeout a durable idempotency key exists to recover from.
      */
     acceptThenTimeout: false,
+    /** ADR 0019: the `faircoin` entry's reason on Mercaria's own configuration (the network gate). */
+    faircoinConfigurationReason: null as string | null,
+    /** The next FairCoin intent create is refused with this Peable code (409). */
+    faircoinCreateRefusal: null as string | null,
     nextId: 0,
   };
 
@@ -453,7 +501,14 @@ export function createFakePeableGateway() {
   const client = {
     paymentIntents: {
       create: (
-        params: { amount: string; currency: string; metadata?: Record<string, string> },
+        params: {
+          amount: string;
+          currency: string;
+          metadata?: Record<string, string>;
+          rail?: string;
+          network?: string;
+          connected_account?: string;
+        },
         options?: IdempotencyOptions,
       ) => {
         const idempotencyKey = options?.idempotencyKey;
@@ -462,10 +517,39 @@ export function createFakePeableGateway() {
         if (existing) {
           return Promise.resolve(renderIntent(intentOf(existing), { clientAction: true }));
         }
+        const onBehalf = params.rail === 'faircoin' ? params.connected_account : undefined;
+        if (params.rail === 'faircoin') {
+          if (state.faircoinCreateRefusal) {
+            return Promise.reject(
+              new PeableInvalidRequestError('refused', {
+                statusCode: 409,
+                code: state.faircoinCreateRefusal,
+              }),
+            );
+          }
+          const seller = onBehalf ? accountOf(onBehalf) : undefined;
+          if (seller?.faircoin?.status !== 'active') {
+            return Promise.reject(
+              new PeableInvalidRequestError('seller not ready', {
+                statusCode: 409,
+                code: 'account_not_ready',
+              }),
+            );
+          }
+        }
         const id = nextId('pi');
         const intent: FakeIntent = {
           id,
-          status: 'requires_payment_method',
+          ...(onBehalf && params.network
+            ? {
+                faircoin: {
+                  connectedAccount: onBehalf,
+                  network: params.network,
+                  address: `tFair${id}`,
+                },
+              }
+            : {}),
+          status: params.rail === 'faircoin' ? 'requires_action' : 'requires_payment_method',
           amount: BigInt(params.amount),
           currency: params.currency,
           refunded: 0n,
@@ -477,6 +561,8 @@ export function createFakePeableGateway() {
         if (idempotencyKey) intentsByKey.set(idempotencyKey, id);
         if (state.acceptThenTimeout) {
           state.acceptThenTimeout = false;
+          state.faircoinConfigurationReason = null;
+          state.faircoinCreateRefusal = null;
           return Promise.reject(new Error('gateway response lost after acceptance'));
         }
         return Promise.resolve(renderIntent(intent, { clientAction: true }));
@@ -578,17 +664,89 @@ export function createFakePeableGateway() {
         });
       },
     },
+    paymentMethodConfigurations: {
+      list: () =>
+        Promise.resolve({
+          object: 'list',
+          has_more: false,
+          data: [
+            {
+              id: 'pmc_fixture',
+              is_default: true,
+              faircoin: {
+                available: state.faircoinConfigurationReason === null,
+                unavailable_reason: state.faircoinConfigurationReason,
+              },
+            },
+          ],
+        }),
+    },
     connectedAccounts: {
       create: (
-        params: { external_ref: string; country?: string; business_type?: string },
+        params: {
+          external_ref: string;
+          country?: string;
+          business_type?: string;
+          faircoin?: { network: string; oxy_user_id: string };
+        },
         options?: IdempotencyOptions,
       ) => {
         state.accountCalls.push({ params, idempotencyKey: options?.idempotencyKey });
-        // The gateway converges on `external_ref`, whatever the key says.
+        // The gateway converges on `external_ref`, whatever the key says — and
+        // the same call ADDS a half the account does not have yet (ADR 0019 D2).
         const existing = [...accounts.values()].find(
           (account) => account.externalRef === params.external_ref,
         );
-        if (existing) return Promise.resolve(renderAccount(existing));
+        if (existing) {
+          if (params.faircoin) {
+            if (
+              existing.faircoin &&
+              (existing.faircoin.network !== params.faircoin.network ||
+                existing.faircoin.oxyUserId !== params.faircoin.oxy_user_id)
+            ) {
+              return Promise.reject(
+                new PeableInvalidRequestError('a different FairCoin half', { statusCode: 409 }),
+              );
+            }
+            existing.faircoin ??= {
+              network: params.faircoin.network,
+              oxyUserId: params.faircoin.oxy_user_id,
+              status: 'pending',
+              registeredAt: null,
+            };
+          }
+          if (params.country && existing.cardOpened === false) {
+            existing.cardOpened = true;
+            existing.country = params.country.toUpperCase();
+          }
+          return Promise.resolve(renderAccount(existing));
+        }
+        if (params.faircoin && params.country === undefined) {
+          const account: FakeAccount = {
+            id: nextId('ca'),
+            externalRef: params.external_ref,
+            country: '',
+            defaultCurrency: null,
+            payable: false,
+            payoutsEnabled: false,
+            chargesEnabled: false,
+            transfersCapability: null,
+            currentlyDue: [],
+            eventuallyDue: [],
+            pastDue: [],
+            pendingVerification: [],
+            disabledReason: null,
+            cardOpened: false,
+            faircoin: {
+              network: params.faircoin.network,
+              oxyUserId: params.faircoin.oxy_user_id,
+              status: 'pending',
+              registeredAt: null,
+            },
+          };
+          accounts.set(account.id, account);
+          return Promise.resolve(renderAccount(account));
+        }
         const country = (params.country ?? '').toUpperCase();
         if (state.refusedCountries.has(country)) {
           return Promise.reject(
@@ -918,6 +1076,14 @@ export function createFakePeableGateway() {
      * method the adapter starts calling that is not here fails loudly as
      * `is not a function` rather than reaching a network.
      */
+    /** The SELLER confirming FairCoin on Peable's page (ADR 0019 D2): the half goes active. */
+    confirmFaircoin(accountId: string) {
+      const account = accountOf(accountId);
+      if (!account.faircoin) throw new Error(`${accountId} has no FairCoin half`);
+      account.faircoin.status = 'active';
+      account.faircoin.registeredAt = Math.floor(Date.now() / 1000);
+    },
+
     clientModule() {
       return {
         PEABLE_TRANSPORT: { timeout: 20_000, maxNetworkRetries: 0 } as const,

@@ -23,10 +23,13 @@
  */
 
 import type {
+  CheckoutPaymentRail,
+  FaircoinUnavailableReason,
   ProviderAccountOwnerType,
   ProviderAccountStatus,
   RefusedCheckoutSeller,
 } from '@mercaria/shared-types';
+import { config } from '../../config/index.js';
 import { getDb } from '../../db/postgres.js';
 import { findStoresByIds } from '../../db/stores/storeRepository.js';
 import {
@@ -36,7 +39,12 @@ import {
 } from '../../db/payments/providerAccountRepository.js';
 import { checkoutRefusal } from '../checkout/refusal.js';
 import { getProfiles } from '../oxy-user.service.js';
-import { NATIVE_RAIL, resolveNativeRail } from './native-rail.js';
+import {
+  isFaircoinRailConfigured,
+  NATIVE_RAIL,
+  resolveNativeRail,
+  resolveRailProvider,
+} from './native-rail.js';
 
 /** The rail a native checkout funds through — see `native-rail.ts`. */
 export { resolveNativeRail } from './native-rail.js';
@@ -102,7 +110,7 @@ export function toProviderAccountStatus(row: ProviderAccountRow): ProviderAccoun
     chargesEnabled: row.chargesEnabled,
     payoutsEnabled: row.payoutsEnabled,
     ...(row.transfersCapability ? { transfersCapability: row.transfersCapability } : {}),
-    country: row.country,
+    ...(row.country ? { country: row.country } : {}),
     ...(row.defaultCurrency ? { payoutCurrency: row.defaultCurrency } : {}),
     requirements: {
       currentlyDue: row.requirementsCurrentlyDue,
@@ -140,6 +148,30 @@ export function notConnectedStatus(owner: SellerAccountOwner): ProviderAccountSt
   };
 }
 
+/**
+ * Why buyers cannot pay this seller in FairCoin right now, or `undefined` when
+ * they can (ADR 0019 D4). The ONE answer the checkout gate, the seller's
+ * settings and store activation share, in the order a seller can act on:
+ * their own steps first, then Peable's deployment gate, which nobody on
+ * Mercaria can open.
+ *
+ * The network question is the gateway's, so it is reached through a DYNAMIC
+ * import — the seam `payment.service` uses for the registry — keeping this
+ * module, which the checkout path loads, free of adapter code. It is asked only
+ * of a seller who has done everything themselves.
+ */
+export async function faircoinUnavailableReasonFor(
+  row: Pick<ProviderAccountRow, 'faircoinState' | 'faircoinNetwork'> | undefined,
+): Promise<FaircoinUnavailableReason | undefined> {
+  if (!isFaircoinRailConfigured()) return 'rail_disabled';
+  const state = row?.faircoinState ?? 'not_connected';
+  if (state === 'not_connected') return 'seller_not_connected';
+  if (state === 'pending') return 'seller_not_confirmed';
+  const network = row?.faircoinNetwork ?? config.payments.peable.faircoinNetwork;
+  const { readFaircoinNetworkOpen } = await import('./peable/faircoin-network.js');
+  return (await readFaircoinNetworkOpen(network)) ? undefined : 'faircoin_network_closed';
+}
+
 /** The seller's account status, or the `not_connected` shape when there is none. */
 export async function readSellerAccountStatus(
   owner: SellerAccountOwner,
@@ -156,11 +188,19 @@ export async function readSellerAccountStatus(
  * disabled — is not ready, and the difference between them is the seller's to
  * see, not the checkout's to act on.
  */
-export async function isSellerPaymentReady(sellerKey: string): Promise<boolean> {
+export async function isSellerPaymentReady(
+  sellerKey: string,
+  rail?: CheckoutPaymentRail,
+): Promise<boolean> {
   const owner = parseSellerKey(sellerKey);
   if (!owner) return false;
   const account = await findSellerAccount(owner);
-  return account?.onboardingState === 'ready';
+  const card = account?.onboardingState === 'ready';
+  if (rail === 'card') return card;
+  const faircoin = (await faircoinUnavailableReasonFor(account)) === undefined;
+  // With no rail named, the question is "can this seller be sold through at
+  // all" (store activation, offer pages): either rail will do (ADR 0019 D2).
+  return rail === 'faircoin' ? faircoin : card || faircoin;
 }
 
 /**
@@ -202,11 +242,27 @@ export async function readSellerPaymentReadiness(
     rail,
     owners.map(({ owner }) => owner),
   );
-  const byKey = new Map(rows.map((row) => [sellerKeyFor(row), row.onboardingState]));
+  const byKey = new Map(rows.map((row) => [sellerKeyFor(row), row]));
+
+  // Either rail makes a seller buyable (ADR 0019 D2). The FairCoin answer is
+  // asked once — its only shared input is the deployment's network gate, and a
+  // comparison page of twenty sellers must not ask twenty times.
+  const anyFaircoin = rows.some((row) => row.faircoinState === 'active');
+  const faircoinOpen = anyFaircoin
+    ? (await faircoinUnavailableReasonFor({
+        faircoinState: 'active',
+        faircoinNetwork: config.payments.peable.faircoinNetwork,
+      })) === undefined
+    : false;
 
   for (const { sellerKey } of owners) {
-    const state = byKey.get(sellerKey);
-    if (state !== undefined) readiness.set(sellerKey, state === 'ready');
+    const row = byKey.get(sellerKey);
+    if (row !== undefined) {
+      readiness.set(
+        sellerKey,
+        row.onboardingState === 'ready' || (faircoinOpen && row.faircoinState === 'active'),
+      );
+    }
   }
   return readiness;
 }
@@ -284,12 +340,19 @@ function sellersNotPaymentReadyMessage(sellers: readonly RefusedCheckoutSeller[]
  * makes "checkout behaves exactly as it did" a mechanism rather than a claim,
  * and it is pinned from both sides in the checkout suite.
  */
-export async function assertSellerGroupsPaymentReady(sellerKeys: readonly string[]): Promise<void> {
-  if (!resolveNativeRail()) return;
+export async function assertSellerGroupsPaymentReady(
+  sellerKeys: readonly string[],
+  rail: CheckoutPaymentRail = 'card',
+): Promise<void> {
+  if (!resolveRailProvider(rail)) return;
+  if (rail === 'faircoin') {
+    await assertFaircoinSellersPayable(sellerKeys);
+    return;
+  }
 
   const unready: string[] = [];
   for (const sellerKey of sellerKeys) {
-    if (!(await isSellerPaymentReady(sellerKey))) unready.push(sellerKey);
+    if (!(await isSellerPaymentReady(sellerKey, 'card'))) unready.push(sellerKey);
   }
   if (unready.length === 0) return;
 
@@ -303,3 +366,55 @@ export async function assertSellerGroupsPaymentReady(sellerKeys: readonly string
     sellers,
   });
 }
+
+/**
+ * The FairCoin half of the readiness gate (ADR 0019 D3, D4) — BEFORE anything
+ * is reserved, for the reason the card gate is.
+ *
+ * Two refusals, both naming the sellers by their public names:
+ *
+ *  - `faircoin_one_seller_per_checkout` — a FairCoin payment pays ONE seller's
+ *    wallet (Peable ADR 0012 D5; a multi-output payment does not exist, ADR
+ *    0021 D6), so a FairCoin checkout covers one seller. The buyer checks the
+ *    others out separately, or pays them all by card.
+ *  - `faircoin_unavailable` — the seller cannot be paid in FairCoin yet, with
+ *    the REASON (not connected, not confirmed, Peable's network gate), always
+ *    shown and never turned into a silent card-only checkout.
+ */
+async function assertFaircoinSellersPayable(sellerKeys: readonly string[]): Promise<void> {
+  if (sellerKeys.length > 1) {
+    const sellers = await nameRefusedSellers(sellerKeys);
+    throw checkoutRefusal(
+      'faircoin_one_seller_per_checkout',
+      'A FairCoin payment goes to one seller. Check out each seller separately, or pay by card ' +
+        'in USD.',
+      { reason: 'faircoin_one_seller_per_checkout', sellers },
+    );
+  }
+  const [sellerKey] = sellerKeys;
+  if (sellerKey === undefined) return;
+  const owner = parseSellerKey(sellerKey);
+  const reason = await faircoinUnavailableReasonFor(
+    owner ? await findSellerAccount(owner) : undefined,
+  );
+  if (reason === undefined) return;
+  const sellers = await nameRefusedSellers([sellerKey]);
+  const name = sellers[0]?.name ?? 'This seller';
+  throw checkoutRefusal(
+    'faircoin_unavailable',
+    `${name} cannot be paid in FairCoin yet (${FAIRCOIN_REASON_SENTENCES[reason]}). ` +
+      'Pay by card in USD instead.',
+    { reason: 'faircoin_unavailable', unavailableReason: reason, sellers },
+  );
+}
+
+/** The English fallback for each reason; clients localize from `details`. */
+const FAIRCOIN_REASON_SENTENCES: Readonly<Record<FaircoinUnavailableReason, string>> = {
+  faircoin_wallet_missing: "the seller's Peable wallet is not set up",
+  faircoin_network_closed: 'Peable has not opened FairCoin payments on this network yet',
+  price_unavailable: 'no FairCoin price is available right now',
+  temporarily_unavailable: 'Peable cannot take FairCoin right now',
+  seller_not_connected: 'the seller has not set up FairCoin payments',
+  seller_not_confirmed: 'the seller has not confirmed FairCoin payments',
+  rail_disabled: 'FairCoin payments are not available on this deployment',
+};

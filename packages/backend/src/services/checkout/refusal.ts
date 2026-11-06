@@ -110,6 +110,19 @@ export const CHECKOUT_REFUSAL_REASONS = [
    * indistinguishable in every metric that reads either.
    */
   'seller_not_activated',
+  /**
+   * ADR 0019 D4: the one seller of a FairCoin checkout cannot be paid in
+   * FairCoin yet. Its own reason, not `seller_not_payment_ready`, because the
+   * remedy differs — the buyer can still pay that seller by CARD — and the
+   * cause (not confirmed, Peable's network gate) is carried and shown.
+   */
+  'faircoin_unavailable',
+  /**
+   * ADR 0019 D3: a FairCoin payment pays ONE seller's wallet, so a FairCoin
+   * checkout covers one seller; the buyer deselects the rest through
+   * `sellerKeys`, exactly as for an unpayable seller.
+   */
+  'faircoin_one_seller_per_checkout',
 ] as const;
 
 /** One of {@link CHECKOUT_REFUSAL_REASONS}. */

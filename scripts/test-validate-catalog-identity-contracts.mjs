@@ -439,7 +439,13 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // How a cart line is delivered (`CartLineDelivery`, `CartItemDTO.delivery`)
     // and the plan checkout paid in Peable's sheet (`MerchantPlanCheckoutView`,
     // five fields): +2 types, +6 properties. Measured by the real guard.
-    'walked 148 contract module(s), 2469 exported type(s), 8324 property signature(s)',
+    // FairCoin is always offered (ADR 0019): `CheckoutPaymentRail`,
+    // `FaircoinUnavailableReason`, `FaircoinNetwork`, `CheckoutFaircoinInstruction`,
+    // `FaircoinSellerState`, `SellerFaircoinStatus` and
+    // `FaircoinCheckoutUnavailableErrorDetails`, with the handoff's `rail` and
+    // `faircoin` and `SellerPaymentSettings.faircoin`: +7 types, +16 properties.
+    // Measured by the real guard.
+    'walked 148 contract module(s), 2476 exported type(s), 8340 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });

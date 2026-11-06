@@ -52,10 +52,20 @@ it('opens, fetches and expires one session per price, even when a page fails', a
     customers: { create: async () => ({ id: 'cus_probe' }) },
     checkout: {
       sessions: {
-        create: async (body: { line_items: { price: string }[] }) => {
+        create: async (body: {
+          line_items: { price: string }[];
+          payment_method_types?: unknown;
+        }) => {
           const price = body.line_items[0]?.price ?? '';
           created.push(price);
-          return { id: `cs_${price}`, url: `https://checkout.peable.to/c/${price}` };
+          // Mercaria never narrows a plan session's methods (Peable ADR 0021):
+          // the field is absent and the gateway answers card AND FairCoin.
+          expect(body.payment_method_types).toBeUndefined();
+          return {
+            id: `cs_${price}`,
+            url: `https://checkout.peable.to/c/${price}`,
+            payment_method_types: ['card', 'faircoin'],
+          };
         },
         expire: async (id: string) => {
           expired.push(id);
@@ -80,6 +90,7 @@ it('opens, fetches and expires one session per price, even when a page fails', a
   expect(mine.find((r) => r.providerPriceId === priceIds[0])).toMatchObject({
     pageStatus: 200,
     expired: true,
+    paymentMethodTypes: ['card', 'faircoin'],
   });
   expect(mine.find((r) => r.providerPriceId === priceIds[1])?.error).toMatch(/page down/);
 });

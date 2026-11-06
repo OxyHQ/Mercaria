@@ -26,6 +26,13 @@ export interface CheckoutProbeResult {
   currency: string;
   providerPriceId: string;
   sessionId: string | null;
+  /**
+   * What the session offers the payer. Since Peable ADR 0021 every session
+   * offers FairCoin beside the card (`['card', 'faircoin']` on a fiat plan);
+   * Mercaria never narrows it, and a probe that saw no `faircoin` here would be
+   * looking at a gateway that broke that rule.
+   */
+  paymentMethodTypes: readonly string[];
   pageStatus: number | null;
   expired: boolean;
   error?: string;
@@ -69,6 +76,7 @@ export async function probePlanCheckouts(
       currency: price.unitPriceCurrency,
       providerPriceId: price.providerPriceId,
       sessionId: null,
+      paymentMethodTypes: [],
       pageStatus: null,
       expired: false,
     };
@@ -85,6 +93,7 @@ export async function probePlanCheckouts(
         { idempotencyKey: `mercaria-plan-probe:${options.runId}:${price.providerPriceId}` },
       );
       result.sessionId = session.id;
+      result.paymentMethodTypes = [...session.payment_method_types];
       try {
         if (session.url) result.pageStatus = await fetchPage(session.url);
       } finally {

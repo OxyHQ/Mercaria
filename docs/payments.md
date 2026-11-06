@@ -15,7 +15,22 @@ this file the ADRs win and this file is wrong.
 gateway (`services/payments/peable/`), which holds the acquirer; Mercaria holds
 no acquirer SDK and no acquirer credential. The direct Stripe marketplace rail
 was deleted on 2026-11-05 (ADR 0009 D13 "As built"); it had never carried
-money. FairCoin is not a payment method in this roadmap.
+money.
+
+**FairCoin is always offered** ([ADR 0019](./adr/0019-faircoin-is-always-offered.md)).
+The rail follows the presentment currency: a `FAIR` checkout is ONE on-behalf
+FairCoin PaymentIntent (`peable_faircoin`, `peable/faircoin-provider.ts`)
+paying the seller's own Peable wallet, and a USD checkout is the card rail
+below. A FairCoin payment books NO ledger entries, makes no transfer, carries
+no marketplace fee and cannot be refunded through Peable (the seller sends the
+coins back); a FAIR checkout covers one seller. A seller opens their FairCoin
+half from their payments settings (`rail: 'faircoin'` on the onboarding link,
+receiving into the store's owning Oxy account or the P2P seller's own) and
+confirms it on Peable's page. Every reason FairCoin cannot be paid
+(`seller_not_connected`, `seller_not_confirmed`, `faircoin_network_closed`,
+`faircoin_wallet_missing`, …) is a refusal the buyer sees before anything is
+reserved, and the same answer is on the seller's settings. The reservation
+sweep keeps a group whose payment is `processing`.
 
 What is built: the domain and the ledger (#45), checkout and the per-seller
 settlement (#47), the money coming back — refunds, transfer reversals, disputes,

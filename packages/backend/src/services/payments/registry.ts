@@ -18,11 +18,13 @@
 import type { PaymentProviderId } from '@mercaria/shared-types';
 import { isRailConfigured } from './native-rail.js';
 import type { PaymentProvider } from './provider.js';
+import { PeableFaircoinPaymentProvider } from './peable/faircoin-provider.js';
 import { PeablePaymentProvider } from './peable/peable-provider.js';
 import { SyntheticPaymentProvider } from './synthetic-provider.js';
 
 let instance: SyntheticPaymentProvider | undefined;
 let peableInstance: PeablePaymentProvider | undefined;
+let faircoinInstance: PeableFaircoinPaymentProvider | undefined;
 
 /**
  * The process-wide synthetic rail.
@@ -45,6 +47,7 @@ export function resetMockPaymentProvider(): void {
 /** Drop the rail adapters. Test support, and what a config change in a suite needs. */
 export function resetRailPaymentProviders(): void {
   peableInstance = undefined;
+  faircoinInstance = undefined;
 }
 
 /**
@@ -73,6 +76,11 @@ export function resolvePaymentProvider(provider: PaymentProviderId): PaymentProv
     // own rate limit.
     peableInstance ??= new PeablePaymentProvider();
     return peableInstance;
+  }
+  if (provider === 'peable_faircoin') {
+    if (!isRailConfigured(provider)) return undefined;
+    faircoinInstance ??= new PeableFaircoinPaymentProvider();
+    return faircoinInstance;
   }
   if (provider === 'mock') return isRailConfigured(provider) ? getMockPaymentProvider() : undefined;
   // `external` and `manual_pos`: payments Mercaria records, never makes.

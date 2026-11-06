@@ -17,6 +17,8 @@ import { findPublishedReviewTargets } from '../db/reviews/reviewRepository.js';
 import { SYSTEM_ACTOR, transition } from '../services/order.service.js';
 import { accountWithBuyerAccess, orderBuyerOf } from '../services/orders/order-buyer.js';
 import { releaseCheckoutPayments } from '../services/payments/checkout-payment.service.js';
+import { findNativePaymentByCheckoutGroupId } from '../db/payments/paymentRepository.js';
+import { getDb } from '../db/postgres.js';
 import { sendNotification } from '../lib/notification-service.js';
 import { config } from '../config/index.js';
 import { log } from '../lib/logger.js';
@@ -200,7 +202,23 @@ export async function handleExpireReservations(): Promise<void> {
   // one PaymentIntent (ADR 0001 D4) — cancelling it once per order would be the
   // same call repeated, and its `changed` result would read as a bug.
   const releasedGroups = new Set<string>();
+  // A group whose payment is already `processing` has money ON ITS WAY: a
+  // FairCoin payment the buyer has broadcast and the chain is confirming (ADR
+  // 0019 D3) can take far longer than a reservation, and it never expires at
+  // Peable once broadcast. Releasing its stock would sell the goods twice and
+  // turn the buyer's payment into an operator exception, so it keeps its
+  // reservation until the payment settles either way.
+  const inFlight = new Map<string, boolean>();
   for (const order of stale) {
+    if (order.checkoutGroupId) {
+      let processing = inFlight.get(order.checkoutGroupId);
+      if (processing === undefined) {
+        const payment = await findNativePaymentByCheckoutGroupId(getDb(), order.checkoutGroupId);
+        processing = payment?.status === 'processing';
+        inFlight.set(order.checkoutGroupId, processing);
+      }
+      if (processing) continue;
+    }
     try {
       // The sweep is the SYSTEM, and now says so: before #106 this row was
       // indistinguishable from a guest's own cancellation, because both left
