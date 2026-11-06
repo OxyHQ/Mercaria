@@ -705,6 +705,8 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       "A payment provider's connected-account id. Their key space; `provider_accounts` is " +
       'what maps one to a store or an Oxy user, and it keys rows by that same id.',
   },
+  // The Oxy account whose Peable wallet receives a seller's FairCoin (ADR 0019).
+  { column: 'provider_accounts.faircoin_oxy_account_id', reason: OXY_ACCOUNT },
   {
     column: 'provider_accounts.provider_account_id',
     reason:

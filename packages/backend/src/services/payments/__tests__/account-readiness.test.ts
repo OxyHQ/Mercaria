@@ -21,6 +21,7 @@ import {
 /** A snapshot that satisfies every conjunct — the base each case perturbs by one. */
 function readySnapshot(overrides: Partial<AccountSnapshot> = {}): AccountSnapshot {
   return {
+    cardOpened: true,
     chargesEnabled: true,
     payoutsEnabled: true,
     transfersCapability: 'active',
@@ -33,6 +34,16 @@ function readySnapshot(overrides: Partial<AccountSnapshot> = {}): AccountSnapsho
     ...overrides,
   };
 }
+
+describe('a FairCoin-only account (ADR 0019 D2)', () => {
+  it('has no card half, so its card verdict is not_connected rather than action_required', () => {
+    expect(
+      deriveOnboardingState(
+        readySnapshot({ cardOpened: false, payoutsEnabled: false, payable: false }),
+      ),
+    ).toBe('not_connected');
+  });
+});
 
 describe('isPaymentReady — ADR 0001 D9', () => {
   it('is true when every conjunct holds', () => {
@@ -105,6 +116,7 @@ describe('deriveOnboardingState', () => {
   it('is action required for a freshly opened account with requirements due', () => {
     expect(
       deriveOnboardingState({
+        cardOpened: true,
         chargesEnabled: false,
         payoutsEnabled: false,
         transfersCapability: 'inactive',

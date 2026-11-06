@@ -35,6 +35,17 @@ export interface AccountSnapshot {
   deadlineAt?: Date;
   disabledReasonCodes: readonly string[];
   defaultCurrency?: string;
+  /**
+   * Whether the account has a CARD half at all. A seller who opened FairCoin
+   * alone (ADR 0019 D2) has none, and its card verdict is `not_connected` —
+   * never `action_required`, which would send them to finish a KYC flow they
+   * never started.
+   */
+  cardOpened: boolean;
+  /** The card half's country, when it has one. */
+  country?: string;
+  /** The FairCoin half, as the same read observed it; absent when there is none. */
+  faircoin?: ProviderAccountState['faircoin'];
 }
 
 /**
@@ -117,6 +128,7 @@ export function isPaymentReady(snapshot: AccountSnapshot): boolean {
  *  5. everything else is the seller's move.
  */
 export function deriveOnboardingState(snapshot: AccountSnapshot): ProviderOnboardingState {
+  if (!snapshot.cardOpened) return 'not_connected';
   if (isTerminallyDisabled(snapshot.disabledReasonCodes)) return 'disabled';
   if (snapshot.pastDue > 0) return 'restricted';
   if (isPaymentReady(snapshot)) return 'ready';
@@ -148,6 +160,8 @@ export function toAccountState(snapshot: AccountSnapshot, syncedAt: Date): Provi
     ...(snapshot.deadlineAt ? { requirementsDeadlineAt: snapshot.deadlineAt } : {}),
     disabledReasonCodes: snapshot.disabledReasonCodes,
     ...(snapshot.defaultCurrency ? { defaultCurrency: snapshot.defaultCurrency } : {}),
+    ...(snapshot.faircoin ? { faircoin: snapshot.faircoin } : {}),
+    ...(snapshot.country ? { country: snapshot.country } : {}),
     syncedAt,
   };
 }

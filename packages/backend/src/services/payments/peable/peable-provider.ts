@@ -103,7 +103,7 @@ function refundedStatus(intent: PaymentIntent): PaymentStatus {
  * TOTAL over the contract's status set — a status the gateway adds later is a
  * compile error here rather than a settled payment that stays unpaid.
  */
-function toPaymentStatus(intent: PaymentIntent, stage: PaymentProviderStage): PaymentStatus {
+export function toPaymentStatus(intent: PaymentIntent, stage: PaymentProviderStage): PaymentStatus {
   const status: PaymentIntentStatus = intent.status;
   switch (status) {
     // A card intent waits for its payment method twice: before the buyer has
@@ -116,6 +116,8 @@ function toPaymentStatus(intent: PaymentIntent, stage: PaymentProviderStage): Pa
     case 'requires_confirmation':
       return 'created';
     // The SCA challenge, kept distinct because the checkout has a screen for it.
+    // On the chain rail it is the payer's step too: send the coins, which that
+    // rail's own screen shows (the chain adapter shares this mapping).
     case 'requires_action':
       return 'requires_action';
     case 'processing':

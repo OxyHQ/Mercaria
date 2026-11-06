@@ -16,6 +16,7 @@ import type {
   CurrencyCode,
   EbayEnvironment,
   EbayMarketplaceId,
+  FaircoinNetwork,
   ModerationEnforcementMode,
   SavedItemsReadMode,
   SeoIndexingMode,
@@ -29,6 +30,7 @@ import {
   CHECKOUT_PAYMENT_SURFACE_METHODS,
   EBAY_ENVIRONMENTS,
   EBAY_MARKETPLACE_IDS,
+  FAIRCOIN_NETWORKS,
   MERCHANT_DEMAND_WINDOW_DAYS,
   SAVED_ITEMS_READ_MODES,
   SEO_INDEXING_MODES,
@@ -1062,6 +1064,17 @@ export interface PeableConfig {
    * wrong checkout.
    */
   readonly presentmentCurrencies: readonly CurrencyCode[];
+  /**
+   * The FairCoin chain this deployment's sellers are paid on (ADR 0019 D2):
+   * `PEABLE_FAIRCOIN_NETWORK`, defaulting to `mainnet` in production and
+   * `testnet` everywhere else, the network Peable's own credential mode opens
+   * (a test credential can only open `testnet`). A seller's FairCoin half is
+   * fixed to the network it was opened on.
+   *
+   * There is deliberately no switch that turns FairCoin OFF (ADR 0019 D1,
+   * Peable ADR 0021 D1): wherever the Peable rail is configured, FairCoin is.
+   */
+  readonly faircoinNetwork: FaircoinNetwork;
 }
 
 export interface PaymentsConfig {
@@ -1476,6 +1489,23 @@ export interface GuestPortalConfig {
    * nobody.
    */
   readonly recoveryMaxPerNetwork: number;
+}
+
+/**
+ * `PEABLE_FAIRCOIN_NETWORK` — see `PeableConfig.faircoinNetwork`. An unknown
+ * value fails the boot rather than paying sellers on a chain nobody chose.
+ */
+function resolveFaircoinNetwork(): FaircoinNetwork {
+  const fallback: FaircoinNetwork =
+    strEnv('NODE_ENV', 'development') === 'production' ? 'mainnet' : 'testnet';
+  const raw = strEnv('PEABLE_FAIRCOIN_NETWORK', fallback).trim().toLowerCase();
+  const match = FAIRCOIN_NETWORKS.find((network) => network === raw);
+  if (!match) {
+    throw new Error(
+      `PEABLE_FAIRCOIN_NETWORK must be one of ${FAIRCOIN_NETWORKS.join(', ')}; got '${raw}'.`,
+    );
+  }
+  return match;
 }
 
 /**
@@ -4158,6 +4188,7 @@ export const config: AppConfig = Object.freeze({
       presentmentCurrencies: Object.freeze(
         resolvePresentmentCurrencies('PEABLE_PRESENTMENT_CURRENCIES', 'Peable'),
       ),
+      faircoinNetwork: resolveFaircoinNetwork(),
     }),
     paymentSurfaceMethods: Object.freeze(resolvePaymentSurfaceMethods()),
     highValueHoldThresholds: resolveHighValueHoldThresholds(),

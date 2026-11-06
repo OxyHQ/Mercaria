@@ -494,18 +494,71 @@ describe('checkout with the Peable rail on', () => {
     },
   );
 
-  it('refuses a cart whose currency the rail cannot charge, before reserving', async () => {
+  it('refuses a FAIR cart the buyer asked to pay by CARD, before reserving', async () => {
     findProviderAccountByOwner.mockResolvedValue(accountRow('ready'));
     const cart = (await getCart()) as { currency: string };
     getCart.mockResolvedValue({ ...cart, currency: 'FAIR' });
 
     // The message names the eligible set: switching display currency is the
     // buyer's only remedy, and a client cannot offer it without knowing to what.
-    await expect(checkout(ACTOR, { addressId: ADDRESS_ID })).rejects.toThrow(
-      /not available in FAIR\. Switch your currency to USD and try again/is,
+    // A NAMED rail is never switched (ADR 0019 D1), so asking for a card in FAIR
+    // is refused rather than answered with a FairCoin address.
+    await expect(checkout(ACTOR, { addressId: ADDRESS_ID, paymentMethod: 'card' })).rejects.toThrow(
+      /not available in FAIR\. Switch your currency to USD to pay by card, or pay with FairCoin/is,
     );
     expect(reserve).not.toHaveBeenCalled();
     expect(createPayment).not.toHaveBeenCalled();
+  });
+
+  it('pays a FAIR cart in FairCoin, and refuses it before reserving when the seller has not opened FairCoin (ADR 0019)', async () => {
+    // Card-ready, FairCoin never opened: the rail FOLLOWS the currency, so a
+    // FAIR cart asks the FAIRCOIN question and is told why in words — never
+    // "currency not supported", and never a silent card checkout.
+    findProviderAccountByOwner.mockResolvedValue({
+      ...accountRow('ready'),
+      faircoinState: 'not_connected',
+      faircoinNetwork: null,
+    });
+    const cart = (await getCart()) as { currency: string };
+    getCart.mockResolvedValue({ ...cart, currency: 'FAIR' });
+
+    await expect(checkout(ACTOR, { addressId: ADDRESS_ID })).rejects.toMatchObject({
+      message: expect.stringMatching(/cannot be paid in FairCoin yet/i),
+      details: {
+        reason: 'faircoin_unavailable',
+        unavailableReason: 'seller_not_connected',
+        sellers: [expect.objectContaining({ sellerKey: `store:${STORE}` })],
+      },
+    });
+    expect(reserve).not.toHaveBeenCalled();
+    expect(createPayment).not.toHaveBeenCalled();
+  });
+
+  it('refuses a FAIR cart whose seller has not CONFIRMED FairCoin, naming that reason', async () => {
+    findProviderAccountByOwner.mockResolvedValue({
+      ...accountRow('not_connected'),
+      faircoinState: 'pending',
+      faircoinNetwork: 'testnet',
+    });
+    const cart = (await getCart()) as { currency: string };
+    getCart.mockResolvedValue({ ...cart, currency: 'FAIR' });
+
+    await expect(checkout(ACTOR, { addressId: ADDRESS_ID })).rejects.toMatchObject({
+      details: { reason: 'faircoin_unavailable', unavailableReason: 'seller_not_confirmed' },
+    });
+    expect(reserve).not.toHaveBeenCalled();
+  });
+
+  it('refuses FairCoin named on a USD cart: FairCoin is paid in FAIR', async () => {
+    findProviderAccountByOwner.mockResolvedValue({
+      ...accountRow('ready'),
+      faircoinState: 'active',
+      faircoinNetwork: 'testnet',
+    });
+    await expect(
+      checkout(ACTOR, { addressId: ADDRESS_ID, paymentMethod: 'faircoin' }),
+    ).rejects.toThrow(/FairCoin payments are made in FAIR/);
+    expect(reserve).not.toHaveBeenCalled();
   });
 
   it('refuses a EUR cart by default: marketplace card sales are USD only', async () => {
@@ -518,7 +571,7 @@ describe('checkout with the Peable rail on', () => {
     getCart.mockResolvedValue({ ...cart, currency: 'EUR' });
 
     await expect(checkout(ACTOR, { addressId: ADDRESS_ID })).rejects.toThrow(
-      /not available in EUR\. Switch your currency to USD and try again/is,
+      /not available in EUR\. Switch your currency to USD to pay by card, or to FAIR to pay with FairCoin/is,
     );
     expect(reserve).not.toHaveBeenCalled();
     expect(createPayment).not.toHaveBeenCalled();
@@ -551,6 +604,7 @@ describe('checkout with the Peable rail on', () => {
     expect(result.payment).toEqual({
       paymentId: 'payment-gate',
       provider: 'peable',
+      rail: 'card',
       providerPaymentId: 'pi_gate',
       clientSecret: 'pi_gate_secret_x',
       amount: { amount: 1000, currency: 'USD' },

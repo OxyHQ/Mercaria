@@ -247,6 +247,14 @@ describe('opening a seller account', () => {
         onboardingState: 'not_connected',
         paymentReady: false,
       }),
+      // ADR 0019: the FairCoin half is ALWAYS reported, with why it cannot be
+      // paid — here, because the seller never opened it.
+      faircoin: {
+        state: 'not_connected',
+        network: 'testnet',
+        payable: false,
+        unavailableReason: 'seller_not_connected',
+      },
     });
     expect(settings.account).not.toHaveProperty('providerAccountId');
   });

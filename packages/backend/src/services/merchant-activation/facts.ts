@@ -51,7 +51,11 @@ import { readPlaces } from '../goway/places.js';
 import { placeLinkGaps } from '../goway/place-facts.js';
 import { findApplicableStoreSchedule } from '../fees/order-fees.service.js';
 import { isSellerPaymentReady } from '../payments/provider-account.service.js';
-import { nativeRailPresentmentCurrencies, resolveNativeRail } from '../payments/native-rail.js';
+import {
+  nativeCheckoutCurrencies,
+  nativeRailPresentmentCurrencies,
+  resolveNativeRail,
+} from '../payments/native-rail.js';
 import { hasGuestMessageTransport } from '../guest-portal/transport.js';
 
 /** The store columns activation reads. Named explicitly — a store row is wide. */
@@ -217,7 +221,11 @@ export async function readMerchantActivationFacts(
   // checkout itself uses, so activation can never call a store payable on a rail
   // checkout would refuse — or the reverse.
   const railEnabled = resolveNativeRail() !== undefined;
-  const presentmentCurrencies = nativeRailPresentmentCurrencies();
+  // Every currency a native checkout can be PAID in: the card rail's, plus
+  // `FAIR` on the FairCoin rail (ADR 0019 D1). A FAIR-default store is payable
+  // in FairCoin and never "currency not supported"; whether its seller can be
+  // paid on either rail is `paymentsReady`, asked of both rails.
+  const presentmentCurrencies = nativeCheckoutCurrencies();
   const paymentMethods = railEnabled ? config.payments.paymentSurfaceMethods : [];
   const priceableMethods = Object.entries(config.orders.shippingRates)
     .filter(([, rate]) => typeof rate === 'number' && Number.isFinite(rate) && rate >= 0)

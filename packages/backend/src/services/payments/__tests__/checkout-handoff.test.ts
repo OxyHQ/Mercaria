@@ -184,7 +184,15 @@ describe('the handoff (ADR 0006 G14)', () => {
     expect(handoff?.providerPaymentId).toBe('pi_handoff');
     expect(handoff?.clientSecret).toBe('pi_handoff_secret');
     expect(Object.keys(handoff ?? {}).sort()).toEqual(
-      ['amount', 'clientSecret', 'methods', 'paymentId', 'provider', 'providerPaymentId'].sort(),
+      [
+        'amount',
+        'clientSecret',
+        'methods',
+        'paymentId',
+        'provider',
+        'providerPaymentId',
+        'rail',
+      ].sort(),
     );
   });
 

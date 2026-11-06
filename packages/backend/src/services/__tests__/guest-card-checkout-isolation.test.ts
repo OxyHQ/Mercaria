@@ -110,6 +110,25 @@ const OXYPAY_OR_FAIRCOIN_REFERENCE = /oxy_?[Pp]ay|OxyPay|[Ff]air[Cc]oin/;
  * gateway is legitimate: BUILDING the FairCoin rail. Mercaria creates
  * `rail: 'card'` intents and nothing else; the chain rail is the gateway's.
  */
+/**
+ * ADR 0019: the module that chooses a checkout's rail, which since FairCoin is
+ * always offered names both rails. A GUEST may pay in FairCoin like anyone
+ * else — the payer needs a wallet, not an Oxy session — and the modules NAMED
+ * for the guest path (`guest-correlation.ts`, `guest-rollout.ts`) and the card
+ * adapter still may not name it.
+ */
+const RAIL_CHOOSING_PATHS = new Set(['backend/src/services/payments/checkout-payment.service.ts']);
+
+/**
+ * ADR 0019: the FairCoin adapter, the seller-account module that opens a
+ * seller's FairCoin half, and the opener that hands the buyer its instruction.
+ */
+const FAIRCOIN_RAIL_PATHS = new Set([
+  'backend/src/services/payments/peable/faircoin-provider.ts',
+  'backend/src/services/payments/peable/accounts.ts',
+  'backend/src/services/payments/checkout-payment.service.ts',
+]);
+
 const FAIRCOIN_RAIL_CONSTRUCTION =
   /rail:\s*['"]faircoin['"]|['"]faircoin['"]\s*(?:as const)?\s*,?\s*\/\/\s*provider|PAYMENT_PROVIDER_IDS[^;]*faircoin/;
 
@@ -239,30 +258,33 @@ describe('the guest card checkout path cannot reach what it must not', () => {
 
   it('no GUEST module names OxyPay or FairCoin, in code OR in copy', () => {
     let scanned = 0;
-    for (const relative of GUEST_PAYMENT_PATHS) {
+    for (const relative of GUEST_PAYMENT_PATHS.filter((path) => !RAIL_CHOOSING_PATHS.has(path))) {
       expect(
         OXYPAY_OR_FAIRCOIN_REFERENCE.test(readSource(relative)),
         `${relative} names OxyPay or FairCoin; #107 excludes both from the guest path outright`,
       ).toBe(false);
       scanned += 1;
     }
-    expect(scanned).toBe(GUEST_PAYMENT_PATHS.length);
+    expect(scanned).toBe(GUEST_PAYMENT_PATHS.length - RAIL_CHOOSING_PATHS.size);
   });
 
   /**
-   * The durable half's rule after ADR 0009: Mercaria may TALK to a gateway that
-   * serves FairCoin and may not BUILD that rail itself.
+   * The durable half's rule since ADR 0019: the FairCoin rail is built in
+   * exactly ONE adapter, and the one module that chooses a checkout's rail may
+   * name it. Every other durable payment module — events, the outbox,
+   * settlement, refunds, reconciliation — stays rail-agnostic and reaches
+   * FairCoin only through the `PaymentProvider` seam.
    */
-  it('no durable payment module BUILDS the FairCoin rail', () => {
+  it('no durable payment module BUILDS the FairCoin rail outside its adapter', () => {
     let scanned = 0;
-    for (const relative of DURABLE_PAYMENT_PATHS) {
+    for (const relative of DURABLE_PAYMENT_PATHS.filter((path) => !FAIRCOIN_RAIL_PATHS.has(path))) {
       expect(
         FAIRCOIN_RAIL_CONSTRUCTION.test(readSource(relative)),
         `${relative} constructs a FairCoin rail; Mercaria mints card intents only (ADR 0009)`,
       ).toBe(false);
       scanned += 1;
     }
-    expect(scanned).toBe(DURABLE_PAYMENT_PATHS.length);
+    expect(scanned).toBe(DURABLE_PAYMENT_PATHS.length - FAIRCOIN_RAIL_PATHS.size);
   });
 
   it('creates no provider Customer and offers no payment-method saving', () => {

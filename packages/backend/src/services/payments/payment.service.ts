@@ -149,6 +149,12 @@ export const PROVIDER_BOOKS_LEDGER: Record<PaymentProviderId, boolean> = {
   // each seller their share, and the difference is its commission — which
   // exists nowhere but this ledger.
   peable: true,
+  // The FairCoin rail (ADR 0019 D3). The buyer's wallet pays FAIR straight into
+  // the Peable wallet of the seller's own Oxy account: the coins never reach a
+  // platform balance, Mercaria owes the seller nothing and takes no commission
+  // on them (ADR 0018), so booking `provider_clearing` against it would invent
+  // Mercaria cash — the same reason `external` books nothing.
+  peable_faircoin: false,
 };
 
 /**

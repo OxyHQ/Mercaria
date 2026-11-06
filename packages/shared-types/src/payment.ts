@@ -27,11 +27,8 @@ import type { Money } from './money';
  *
  * A closed set, and deliberately a SHORT one: a provider is added here together
  * with the code that can produce a row for it and its migration widening the
- * CHECK, never in advance. FairCoin is not listed because nothing can write one:
- * it is not a payment method in this roadmap. A future currency or settlement
- * capability must arrive through Peable under its own ADR. A
- * value the database accepts but no code can produce is an invitation to write a
- * row nothing can ever reconcile.
+ * CHECK, never in advance. A value the database accepts but no code can produce
+ * is an invitation to write a row nothing can ever reconcile.
  *
  *  - `external` — the payment happened on a connected platform (Shopify,
  *    WooCommerce). Mercaria records it so the order is explicable, and books NO
@@ -48,13 +45,19 @@ import type { Money } from './money';
  *    with `services/payments/peable/`, which is the whole of this set's rule —
  *    the adapter that can produce a `peable` row ships in the same change as
  *    the id and the migration widening the CHECK.
+ *  - `peable_faircoin` — Peable's FairCoin rail, on behalf of ONE seller (ADR
+ *    0019, Peable ADR 0012 and ADR 0021): the buyer's wallet pays FAIR straight
+ *    into the Peable wallet of the seller's own Oxy account. Mercaria never holds
+ *    the coins, so it books NO ledger entries, makes no transfer and cannot
+ *    refund one — the money is the seller's from the moment it moves. Produced
+ *    by `services/payments/peable/faircoin-provider.ts`.
  *
  * `external` and `manual_pos` have NO adapter, and that is the distinction the
  * set encodes: they are payments Mercaria RECORDS, not payments Mercaria makes.
  * Nothing is authorized, captured or refunded through them, and neither books a
  * ledger entry — no Mercaria money moved.
  */
-export type PaymentProviderId = 'external' | 'manual_pos' | 'mock' | 'peable';
+export type PaymentProviderId = 'external' | 'manual_pos' | 'mock' | 'peable' | 'peable_faircoin';
 
 /** {@link PaymentProviderId} as the tuple the column types and CHECKs read. */
 export const PAYMENT_PROVIDER_IDS: readonly PaymentProviderId[] = [
@@ -62,6 +65,7 @@ export const PAYMENT_PROVIDER_IDS: readonly PaymentProviderId[] = [
   'manual_pos',
   'mock',
   'peable',
+  'peable_faircoin',
 ];
 
 /**
@@ -850,15 +854,80 @@ export const PAYMENT_OUTBOX_STATUSES: readonly PaymentOutboxStatus[] = [
 /**
  * Which rail a client asks a checkout to fund through.
  *
- * `'card'` is the one to send. It names the SURFACE the buyer sees rather than
- * the acquirer behind it, which is what ADR 0009 D19 made necessary: the rail is
- * a deployment fact the server resolves, so a client naming a brand would be
- * asserting something it cannot know.
+ * Optional, and a client normally sends nothing: the rail FOLLOWS THE
+ * PRESENTMENT CURRENCY (ADR 0019 D1) — a `FAIR` checkout is paid in FairCoin,
+ * a checkout in a card currency (USD) by card. Naming one is an assertion the
+ * server checks against that currency and refuses when they disagree, rather
+ * than silently switching rails. Both name the SURFACE the buyer sees, not the
+ * gateway behind it (ADR 0009 D19).
  */
-export type CheckoutPaymentMethod = 'card' | 'mock';
+export type CheckoutPaymentMethod = 'card' | 'faircoin' | 'mock';
 
 /** {@link CheckoutPaymentMethod} as the tuple the request schema reads. */
-export const CHECKOUT_PAYMENT_METHODS: readonly CheckoutPaymentMethod[] = ['card', 'mock'];
+export const CHECKOUT_PAYMENT_METHODS: readonly CheckoutPaymentMethod[] = [
+  'card',
+  'faircoin',
+  'mock',
+];
+
+/**
+ * The two rails a native checkout can be paid on (ADR 0019 D1).
+ *
+ * `faircoin` is always offered wherever the seller can receive it, and nothing
+ * on Mercaria's side turns it off; `card` is the fiat method, in the card
+ * rail's presentment currencies.
+ */
+export type CheckoutPaymentRail = 'card' | 'faircoin';
+
+/** {@link CheckoutPaymentRail} as a tuple. */
+export const CHECKOUT_PAYMENT_RAILS: readonly CheckoutPaymentRail[] = ['card', 'faircoin'];
+
+/**
+ * Why FairCoin cannot be paid right now — Peable's closed set
+ * (`FAIRCOIN_UNAVAILABLE_REASONS`, Peable ADR 0021 D5) plus Mercaria's own
+ * marketplace reasons. Always SHOWN to the buyer or seller, never hidden.
+ *
+ *  - `faircoin_wallet_missing` — the receiving Oxy account has no Peable wallet.
+ *  - `faircoin_network_closed` — Peable has not opened FairCoin receive on this
+ *    network (mainnet) yet. Nothing anyone on Mercaria can do.
+ *  - `price_unavailable` / `temporarily_unavailable` — Peable's transient states.
+ *  - `seller_not_connected` — the seller has not opened FairCoin payments.
+ *  - `seller_not_confirmed` — the seller opened them and has not confirmed from
+ *    their own Oxy session yet (Peable ADR 0012 D3).
+ *  - `rail_disabled` — this deployment has no Peable rail.
+ */
+export const FAIRCOIN_UNAVAILABLE_REASONS = [
+  'faircoin_wallet_missing',
+  'faircoin_network_closed',
+  'price_unavailable',
+  'temporarily_unavailable',
+  'seller_not_connected',
+  'seller_not_confirmed',
+  'rail_disabled',
+] as const;
+
+/** One of {@link FAIRCOIN_UNAVAILABLE_REASONS}. */
+export type FaircoinUnavailableReason = (typeof FAIRCOIN_UNAVAILABLE_REASONS)[number];
+
+/** The FairCoin chain a seller is paid on. Peable's `network`. */
+export type FaircoinNetwork = 'mainnet' | 'testnet';
+
+/** {@link FaircoinNetwork} as a tuple. */
+export const FAIRCOIN_NETWORKS: readonly FaircoinNetwork[] = ['mainnet', 'testnet'];
+
+/**
+ * What the buyer pays a FairCoin checkout with: exactly `amount` (FAIR) to
+ * `address` on `network`, or by scanning `uri`. The address is in the Peable
+ * wallet of the seller's own Oxy account (Peable ADR 0021 D5). Not a secret.
+ */
+export interface CheckoutFaircoinInstruction {
+  address: string;
+  network: FaircoinNetwork;
+  /** In FAIR, the same figure as the handoff's `amount`. */
+  amount: Money;
+  /** The `faircoin:` URI a wallet scans or opens. */
+  uri: string;
+}
 
 /**
  * Which payment SURFACES the server permits for one checkout — ADR 0006 G2/G3
@@ -985,6 +1054,14 @@ export interface CheckoutPaymentHandoff {
   paymentId: string;
   provider: PaymentProviderId;
   /**
+   * Which rail this payment is on (ADR 0019): `card` mounts the card step,
+   * `faircoin` shows {@link faircoin} and Peable's hosted pay page, which takes
+   * the same `providerPaymentId` + `clientSecret`.
+   */
+  rail: CheckoutPaymentRail;
+  /** Present exactly when `rail === 'faircoin'`: what to pay, and where. */
+  faircoin?: CheckoutFaircoinInstruction;
+  /**
    * The rail's own payment object the client confirms (Peable: the gateway
    * PaymentIntent, `pi_…`). Not a credential — `clientSecret` is.
    */
@@ -999,9 +1076,10 @@ export interface CheckoutPaymentHandoff {
    * The payment surfaces this checkout may render — #107's server-authoritative
    * method eligibility.
    *
-   * Always present and never empty on a handoff: a handoff with nothing to
-   * render is a checkout that cannot be paid, and the server refuses it rather
-   * than returning client material for an empty sheet. See
+   * Always present, and never empty on a CARD handoff: a card handoff with
+   * nothing to render is a checkout that cannot be paid, and the server refuses
+   * it rather than returning client material for an empty sheet. A FairCoin
+   * handoff carries `[]` — none of these is a FairCoin surface. See
    * {@link CHECKOUT_PAYMENT_SURFACE_METHODS} for what the set does and does not
    * decide — in particular that the device narrows it further and can never
    * widen it.

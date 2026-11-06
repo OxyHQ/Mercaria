@@ -37,10 +37,34 @@ sellers' items in the order summary. Nothing is charged and nothing is held.
 Before the flag, the same checkout said "order placed" for an order with no
 payment attached.
 
-A buyer whose display currency is not USD (the default display currency is
-FAIR) gets "Card payments are not available in FAIR. Switch your currency to
-USD and try again." once a seller is ready. Prices still convert from the
-listing's native currency.
+A buyer pricing in FAIR (the default display currency) pays in FairCoin
+([ADR 0019](../adr/0019-faircoin-is-always-offered.md)): one on-behalf
+FairCoin payment into the seller's own Peable wallet, one seller per checkout,
+no marketplace fee. Until the seller has opened and confirmed FairCoin, that
+checkout is refused before anything is reserved with the reason in words
+(`faircoin_unavailable`: `seller_not_connected` / `seller_not_confirmed`), and
+while Peable keeps mainnet identity receive closed every FAIR checkout is
+refused `faircoin_network_closed` — that is the state in production today and
+is surfaced, not worked around. A buyer pricing in USD pays by card; any other
+currency is told to switch to USD (card) or FAIR (FairCoin). Prices still
+convert from the listing's native currency.
+
+## 2b. FairCoin for a store (what the store owner does)
+
+1. dashboard.mercaria.co → Settings → Payments & payouts → **Get paid in
+   FairCoin**. Mercaria opens the FairCoin half of the store's Peable account
+   for the store's OWNING Oxy account (usually the organization) and opens
+   Peable's confirmation page. No key is asked for, ever.
+2. On that page, signed in to Oxy as (or acting as) the owning account,
+   confirm. Peable refuses with "your Peable wallet isn't set up yet" until
+   that account has a Peable wallet: open the Peable app as that account
+   (switch to the organization) and create its wallet, then confirm again.
+3. Back on the settings page the FairCoin row reads payable, or names the
+   reason it is not (`faircoin_network_closed` until Peable opens mainnet).
+
+The same flow exists for a P2P seller under mercaria.co → Settings → Payments,
+receiving into their own Oxy account. A store's default currency of FAIR is
+supported (activation no longer reports `currency_not_supported` for it).
 
 The incident lever is removing `PEABLE_ENABLED` from `RELEASE_ENVIRONMENT`
 and releasing. Checkout then answers `none`, as before.
@@ -82,11 +106,10 @@ path has no extension, and the worker only treats an HTML request as a page.
    country → Set up payouts. Finish Peable's hosted flow, then return. The page
    refreshes the account, and it must read "Ready to be paid". For a P2P seller,
    use mercaria.co → Settings → Payments, which has the same steps.
-2. **The store sells in USD.** All three production stores have `FAIR` as their
-   default currency, so merchant activation reports `currency_not_supported`
-   until the store's default currency is USD. Change it in the dashboard under
-   Settings → Store. Listings in other currencies still sell, because the cart
-   converts them.
+2. **Currency.** A FAIR-default store is supported (ADR 0019): FAIR buyers
+   pay it in FairCoin (§2b) and USD buyers by card. No currency change is
+   needed. Listings in other currencies still sell, because the cart converts
+   them.
 3. **Commission.** Decided in ADR 0018 and published through §5. Once it is
    active, the store's owner accepts it under Settings → Marketplace fees
    before its first card order; until they do, checkout refuses that store

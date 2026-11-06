@@ -20,7 +20,7 @@
  * copy of the same gates.
  */
 
-import type { CurrencyCode, PaymentProviderId } from '@mercaria/shared-types';
+import type { CheckoutPaymentRail, CurrencyCode, PaymentProviderId } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
 
 /**
@@ -36,6 +36,10 @@ const RAIL_IS_CONFIGURED: Record<PaymentProviderId, () => boolean> = {
   manual_pos: () => false,
   mock: () => config.orders.mockPayEnabled,
   peable: () => config.payments.peable.enabled,
+  // The same gateway's FairCoin rail (ADR 0019). Configured exactly when the
+  // card rail is, and never separately: FairCoin is always offered and there is
+  // no switch that turns it off (Peable ADR 0021 D1).
+  peable_faircoin: () => config.payments.peable.enabled,
 };
 
 /** Whether this deployment has configured `provider`. */
@@ -74,7 +78,9 @@ export function resolveNativeRail(): PaymentProviderId | undefined {
 }
 
 /**
- * The currencies THIS deployment's native rail can be charged in — ADR 0001 D8.
+ * The currencies THIS deployment's CARD rail can be charged in — ADR 0001 D8.
+ * FairCoin is the other native rail and is paid in `FAIR` alone
+ * ({@link nativeCheckoutCurrencies} is the union).
  *
  * Empty when there is no rail, which is the honest answer and not a hazard:
  * `resolveCheckoutRail` has already returned `none` in that case, so the gate
@@ -84,4 +90,48 @@ export function resolveNativeRail(): PaymentProviderId | undefined {
  */
 export function nativeRailPresentmentCurrencies(): readonly CurrencyCode[] {
   return resolveNativeRail() ? config.payments.peable.presentmentCurrencies : [];
+}
+
+/**
+ * The rail that pays a seller in FairCoin — ADR 0019. Pinned in the type for the
+ * reason {@link NATIVE_RAIL} is.
+ */
+export const FAIRCOIN_RAIL: Extract<PaymentProviderId, 'peable_faircoin'> = 'peable_faircoin';
+
+/** The one currency the FairCoin rail is paid in. */
+export const FAIRCOIN_CURRENCY: CurrencyCode = 'FAIR';
+
+/**
+ * Which rail a checkout in `currency` is paid on — ADR 0019 D1, and the ONE
+ * place the rule is written: `FAIR` is paid in FairCoin (no card can settle
+ * FAIR, Peable ADR 0021 D1), every other currency by card, in which the card
+ * rail's own currency gate then decides.
+ */
+export function railForCurrency(currency: CurrencyCode): CheckoutPaymentRail {
+  return currency === FAIRCOIN_CURRENCY ? 'faircoin' : 'card';
+}
+
+/** The provider behind a checkout rail on this deployment, or `undefined` without one. */
+export function resolveRailProvider(rail: CheckoutPaymentRail): PaymentProviderId | undefined {
+  const provider = rail === 'faircoin' ? FAIRCOIN_RAIL : NATIVE_RAIL;
+  return isRailConfigured(provider) ? provider : undefined;
+}
+
+/** Whether this deployment can take FairCoin for a seller at all. */
+export function isFaircoinRailConfigured(): boolean {
+  return isRailConfigured(FAIRCOIN_RAIL);
+}
+
+/**
+ * Every currency a NATIVE checkout can be paid in on this deployment: the card
+ * rail's presentment set, plus `FAIR` wherever the FairCoin rail is (ADR 0019).
+ * What merchant activation asks of a store's default currency; the card-only
+ * set stays {@link nativeRailPresentmentCurrencies}, which fee selection and the
+ * card gate read.
+ */
+export function nativeCheckoutCurrencies(): readonly CurrencyCode[] {
+  const card = nativeRailPresentmentCurrencies();
+  return isFaircoinRailConfigured() && !card.includes(FAIRCOIN_CURRENCY)
+    ? [...card, FAIRCOIN_CURRENCY]
+    : card;
 }

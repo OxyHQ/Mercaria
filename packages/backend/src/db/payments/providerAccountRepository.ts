@@ -25,6 +25,8 @@
 
 import { and, eq, isNull, lte, or, sql } from 'drizzle-orm';
 import type {
+  FaircoinNetwork,
+  FaircoinSellerState,
   PaymentProviderId,
   ProviderAccountOwnerType,
   ProviderOnboardingState,
@@ -52,8 +54,12 @@ export interface ProviderAccountOwnerKey {
 /** What the create path knows before the provider has ever been read back. */
 export interface CreateProviderAccountInput extends ProviderAccountOwnerKey {
   providerAccountId: string;
-  /** ISO-3166-1 alpha-2, upper-cased — the CHECK refuses anything else. */
-  country: string;
+  /**
+   * ISO-3166-1 alpha-2, upper-cased — the CHECK refuses anything else. Absent
+   * on an account opened for FairCoin alone (ADR 0019 D2), which has no card
+   * half and so no country.
+   */
+  country?: string;
 }
 
 /**
@@ -78,6 +84,18 @@ export interface ProviderAccountState {
   defaultCurrency?: string;
   payoutScheduleInterval?: string;
   payoutScheduleDelayDays?: number;
+  /**
+   * The FairCoin half as the same read observed it (ADR 0019 D2). Absent means
+   * the account has none — `not_connected`, with no network or receiver.
+   */
+  faircoin?: {
+    state: Exclude<FaircoinSellerState, 'not_connected'>;
+    network: FaircoinNetwork;
+    oxyAccountId: string;
+    confirmedAt?: Date;
+  };
+  /** The card half's country, once the account has one (it can gain one later). */
+  country?: string;
   /** When the provider was READ. The ordering key — see this file's docblock. */
   syncedAt: Date;
 }
@@ -185,8 +203,10 @@ export async function insertProviderAccount(
       ownerType: input.ownerType,
       ownerId: input.ownerId,
       providerAccountId: input.providerAccountId,
-      country: input.country,
-      onboardingState: 'action_required',
+      ...(input.country !== undefined ? { country: input.country } : {}),
+      // A card half starts with work to do; an account opened for FairCoin
+      // alone has no card half to be in any state of.
+      onboardingState: input.country !== undefined ? 'action_required' : 'not_connected',
     })
     .onConflictDoNothing({
       target: [providerAccounts.provider, providerAccounts.ownerType, providerAccounts.ownerId],
@@ -232,6 +252,15 @@ export async function applyProviderAccountState(
       defaultCurrency: state.defaultCurrency ?? null,
       payoutScheduleInterval: state.payoutScheduleInterval ?? null,
       payoutScheduleDelayDays: state.payoutScheduleDelayDays ?? null,
+      faircoinState: state.faircoin?.state ?? 'not_connected',
+      faircoinNetwork: state.faircoin?.network ?? null,
+      faircoinOxyAccountId: state.faircoin?.oxyAccountId ?? null,
+      faircoinConfirmedAt: state.faircoin?.confirmedAt ?? null,
+      // The country is the card half's, immutable once set: an account that
+      // gained a card half is recorded with it, and nothing ever clears one.
+      ...(state.country !== undefined
+        ? { country: sql`coalesce(${providerAccounts.country}, ${state.country})` }
+        : {}),
       lastSyncedAt: state.syncedAt,
       // Set on the first sync that reports readiness and never moved again. A
       // seller who loses and regains readiness activated ONCE — the date a

@@ -22,9 +22,9 @@
  *
  * No payment field of any kind. No provider, no token, no amount, no billing
  * address — billing details belong to the Stripe element (ADR 0006 G6) and
- * never reach a Mercaria server. Peable is integrated behind the payment-domain
- * boundary, while FairCoin is not a rail in this roadmap; #105 adds no field,
- * flag or copy that leaks either concern into contact capture
+ * never reach a Mercaria server. Peable, and its FairCoin rail (ADR 0019), are
+ * integrated behind the payment-domain boundary; #105 adds no field, flag or
+ * copy that leaks either concern into contact capture
  * (`checkout-contact-isolation.test.ts` enforces that boundary).
  * No referral field: attribution is #142/#143's own model and can never be
  * derived from an email, a phone or an address.

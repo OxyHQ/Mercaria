@@ -110,6 +110,13 @@ const REFUSAL_REASON_TO_ANALYTICS: Record<CheckoutRefusalReason, AnalyticsReason
   // counting it as a destination failure would tell a merchant-facing metric
   // that addresses are failing validation.
   seller_not_activated: 'seller_not_activated',
+  // ADR 0019. Both are about whether ONE seller can be paid on the chain
+  // rail, so they count as the payment-readiness outcome the analytics set
+  // already has — a new code would be an analytics migration for a refusal
+  // whose remedy (pay by card, or one seller at a time) a metric need not tell
+  // apart from an unpayable seller.
+  faircoin_unavailable: 'seller_not_payment_ready',
+  faircoin_one_seller_per_checkout: 'seller_not_payment_ready',
 };
 
 /**

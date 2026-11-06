@@ -36,6 +36,8 @@ import type {
   CheckoutPaymentStatus,
   CheckoutPaymentSurfaceMethod,
   CurrencyCode,
+  FaircoinNetwork,
+  FaircoinUnavailableReason,
   Money,
 } from '@mercaria/shared-types';
 import {
@@ -58,8 +60,22 @@ import { conflict, notFound } from '../../lib/errors/error-codes.js';
 import { log } from '../../lib/logger.js';
 import { findGuestCheckoutIdForGroup } from './guest-correlation.js';
 import { ensurePayment } from './payment.service.js';
-import { isResumableProvider } from './provider.js';
-import { nativeRailPresentmentCurrencies, resolveNativeRail } from './native-rail.js';
+import {
+  type CreatePaymentRequest,
+  isResumableProvider,
+  type PaymentProvider,
+  type ProviderPaymentResult,
+} from './provider.js';
+import {
+  FAIRCOIN_CURRENCY,
+  nativeRailPresentmentCurrencies,
+  railForCurrency,
+  resolveNativeRail,
+  resolveRailProvider,
+} from './native-rail.js';
+import { findSellerAccount, parseSellerKey } from './provider-account.service.js';
+import { PaymentProviderError } from './provider.js';
+import { checkoutRefusal } from '../checkout/refusal.js';
 import { resolvePaymentProvider } from './registry.js';
 
 /**
@@ -69,7 +85,7 @@ import { resolvePaymentProvider } from './registry.js';
  * places orders exactly as it did before any of this existed, and the dev
  * `mock` seam funds a group from its own endpoint rather than at checkout.
  */
-export type CheckoutRail = 'card' | 'none';
+export type CheckoutRail = 'card' | 'faircoin' | 'none';
 
 /**
  * Decide the rail, or refuse.
@@ -95,6 +111,12 @@ export function resolveCheckoutRail(requested: CheckoutPaymentMethod | undefined
     }
     return 'card';
   }
+  if (requested === 'faircoin') {
+    if (!resolveRailProvider('faircoin')) {
+      throw conflict('FairCoin payments are not available on this deployment.');
+    }
+    return 'faircoin';
+  }
   if (requested === 'mock') {
     if (!config.orders.mockPayEnabled) {
       // Hard-gated off in production. Saying "not available" rather than
@@ -111,6 +133,28 @@ export function resolveCheckoutRail(requested: CheckoutPaymentMethod | undefined
 }
 
 /**
+ * The rail a checkout in `currency` is paid on, once its currency is known —
+ * ADR 0019 D1: the rail FOLLOWS the currency (`railForCurrency`), so a buyer
+ * pricing in `FAIR` pays in FairCoin and one in USD pays by card.
+ *
+ * Only a rail the request did NOT name moves: `resolveCheckoutRail` answers
+ * `card` for an unnamed one (that is "a native rail is engaged"), and this is
+ * where it becomes `faircoin` for a `FAIR` cart. A rail the buyer NAMED is
+ * kept, and {@link assertCheckoutCurrencyEligible} refuses it if the currency
+ * disagrees — a buyer who asked to pay by card is never handed a FairCoin
+ * address, nor the reverse.
+ */
+export function selectCheckoutRail(
+  rail: CheckoutRail,
+  requested: CheckoutPaymentMethod | undefined,
+  currency: CurrencyCode,
+): CheckoutRail {
+  if (rail === 'none' || requested !== undefined) return rail;
+  const followed = railForCurrency(currency);
+  return resolveRailProvider(followed) ? followed : rail;
+}
+
+/**
  * Refuse a cart the rail cannot charge — BEFORE anything is reserved.
  *
  * ADR 0001 D8 (amended 2026-11-05) limits card presentment to USD, and this is
@@ -124,7 +168,17 @@ export function resolveCheckoutRail(requested: CheckoutPaymentMethod | undefined
  * conversion, so a local copy of that rule would be a second, drifting one.
  */
 export function assertCheckoutCurrencyEligible(rail: CheckoutRail, currency: CurrencyCode): void {
-  if (rail !== 'card') return;
+  if (rail === 'none') return;
+  if (rail === 'faircoin') {
+    // ADR 0019 D1: FairCoin is paid in FAIR. A raw PaymentIntent carries no
+    // fiat quote (that is a Peable Checkout Session feature), so a buyer
+    // reading prices in another currency switches to FAIR to pay this way.
+    if (currency === FAIRCOIN_CURRENCY) return;
+    throw conflict(
+      `FairCoin payments are made in ${FAIRCOIN_CURRENCY}. Switch your currency to ` +
+        `${FAIRCOIN_CURRENCY} to pay with FairCoin.`,
+    );
+  }
   const eligible = nativeRailPresentmentCurrencies();
   // An empty set means the deployment configured its rail's currencies away
   // entirely, and refusing every card checkout is the correct reading of that —
@@ -133,9 +187,16 @@ export function assertCheckoutCurrencyEligible(rail: CheckoutRail, currency: Cur
   // the only remedy anyone can act on.
   if (eligible.includes(currency)) return;
 
+  // FairCoin is always offered (ADR 0019 D1), so the remedy names it beside the
+  // card currencies whenever this deployment has it.
+  const faircoin = !resolveRailProvider('faircoin')
+    ? ' and try again'
+    : currency === FAIRCOIN_CURRENCY
+      ? ' to pay by card, or pay with FairCoin'
+      : ` to pay by card, or to ${FAIRCOIN_CURRENCY} to pay with FairCoin`;
   throw conflict(
     `Card payments are not available in ${currency}. Switch your currency to ` +
-      `${eligible.join(' or ')} and try again.`,
+      `${eligible.join(' or ')}${faircoin}.`,
   );
 }
 
@@ -185,23 +246,36 @@ export async function openCheckoutPayment(input: {
   orders: readonly OrderRecord[];
   supervisedPurchase?: SupervisedPurchaseContext;
 }): Promise<CheckoutPaymentHandoff | undefined> {
-  if (input.rail !== 'card') return undefined;
+  if (input.rail === 'none') return undefined;
 
   const amount = groupPresentmentTotal(input.orders);
   const orderIds = input.orders.map((order) => order.id);
+
+  // WHICH native rail is the group's currency's (ADR 0019 D1), read off the
+  // orders and not the request: a converging replay reaches here with the rail
+  // its first step resolved before any cart was loaded, and the orders are the
+  // record of what the buyer is paying in.
+  const paymentRail = railForCurrency(amount.currency);
 
   // Resolved ONCE and reused for the adapter, the payment row and the handoff.
   // Three separate resolutions could disagree if configuration changed between
   // them, and the row would then name a rail the charge was not opened on —
   // which is the correlation every webhook afterwards depends on.
-  const rail = resolveNativeRail();
+  const rail = resolveRailProvider(paymentRail);
   const provider = rail ? resolvePaymentProvider(rail) : undefined;
   if (!rail || !provider) {
     // `resolveCheckoutRail` already refused this case. Reaching here means the
     // configuration changed mid-request, which is worth a loud failure rather
     // than a silent order with no payment.
-    throw conflict('Card payments are not available on this deployment.');
+    throw conflict(
+      paymentRail === 'faircoin'
+        ? 'FairCoin payments are not available on this deployment.'
+        : 'Card payments are not available on this deployment.',
+    );
   }
+  // The seller a FairCoin payment pays — before the payment row exists, so a
+  // group that cannot be paid this way leaves nothing behind.
+  const onBehalfOf = paymentRail === 'faircoin' ? await faircoinPayee(input.orders) : undefined;
 
   const payment = await ensurePayment({
     provider: rail,
@@ -225,7 +299,7 @@ export async function openCheckoutPayment(input: {
   const result =
     payment.providerObjectId && isResumableProvider(provider)
       ? await provider.resumePayment(payment.providerObjectId)
-      : await provider.createPayment({
+      : await createRailPayment(provider, {
           paymentId: payment.id,
           checkoutGroupId: input.checkoutGroupId,
           amount,
@@ -237,6 +311,16 @@ export async function openCheckoutPayment(input: {
             orderIds,
             ...(guestCheckoutId !== undefined ? { guestCheckoutId } : {}),
           }),
+          ...(onBehalfOf
+            ? {
+                onBehalfOf,
+                // An unpaid FairCoin payment stops being payable when the
+                // reservation does, so a buyer cannot pay for goods the sweep has
+                // released. A broadcast one never expires (Peable ADR 0012 D9),
+                // and the sweep keeps its orders (`handleExpireReservations`).
+                expiresInSeconds: Math.max(60, Math.floor(config.orders.reservationTtlMs / 1_000)),
+              }
+            : {}),
         });
 
   if (!payment.providerObjectId) {
@@ -254,14 +338,102 @@ export async function openCheckoutPayment(input: {
   // No key of any kind travels with the handoff: Mercaria reaches Peable with its
   // own Oxy workload identity (ADR 0009 D20), and the rail's payment object and
   // the payer's secret over it are the only material a buyer's client needs.
+  if (paymentRail === 'faircoin') {
+    if (!result.faircoin) {
+      throw conflict('The payment rail did not say where to send the FairCoin for this checkout.');
+    }
+    return {
+      paymentId: payment.id,
+      provider: rail,
+      rail: 'faircoin',
+      faircoin: result.faircoin,
+      providerPaymentId: result.providerObjectId,
+      clientSecret: result.clientAction.value,
+      amount,
+      methods: [],
+    };
+  }
   return {
     paymentId: payment.id,
     provider: rail,
+    rail: 'card',
     providerPaymentId: result.providerObjectId,
     clientSecret: result.clientAction.value,
     amount,
     methods: checkoutPaymentSurfaces(),
   };
+}
+
+/**
+ * Create the payment at its rail, turning Peable's FairCoin refusals into a
+ * classified checkout refusal the buyer is shown in words (ADR 0019 D4).
+ *
+ * The readiness gate already refused every case Mercaria can see ahead of a
+ * payment; what is left is the gateway's own answer at creation — the seller's
+ * wallet gone, or the network gate closing between the probe and this call.
+ * The orders stay `pending_payment` and the sweep releases them, exactly as
+ * for any refusal at this step.
+ */
+async function createRailPayment(
+  provider: PaymentProvider,
+  request: CreatePaymentRequest,
+): Promise<ProviderPaymentResult> {
+  try {
+    return await provider.createPayment(request);
+  } catch (error) {
+    const reason = faircoinRefusalReason(error);
+    if (reason === undefined) throw error;
+    throw checkoutRefusal(
+      'faircoin_unavailable',
+      'This seller cannot be paid in FairCoin right now. Pay by card in USD instead; nothing ' +
+        'has been charged.',
+      { reason: 'faircoin_unavailable', unavailableReason: reason, sellers: [] },
+    );
+  }
+}
+
+/** The FairCoin reason behind a gateway refusal, or `undefined` for any other failure. */
+function faircoinRefusalReason(error: unknown): FaircoinUnavailableReason | undefined {
+  if (!(error instanceof PaymentProviderError) || error.provider !== 'peable_faircoin') {
+    return undefined;
+  }
+  switch (error.code) {
+    case 'faircoin_wallet_missing':
+      return 'faircoin_wallet_missing';
+    case 'faircoin_network_closed':
+      return 'faircoin_network_closed';
+    case 'account_not_ready':
+      return 'seller_not_confirmed';
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * The seller a FairCoin payment pays, and the chain it is paid on: the group's
+ * ONE seller's connected account, whose FairCoin half must be active.
+ *
+ * The readiness gate refused every other shape before reservation; this is the
+ * opener's own check for a converging replay, which never passed through it.
+ */
+async function faircoinPayee(
+  orders: readonly OrderRecord[],
+): Promise<{ providerAccountId: string; network: FaircoinNetwork }> {
+  const owners = new Set(
+    orders.map((order) =>
+      order.sellerType === 'store' ? `store:${order.storeId}` : `user:${order.sellerOxyUserId}`,
+    ),
+  );
+  const [sellerKey] = owners;
+  const owner = owners.size === 1 && sellerKey ? parseSellerKey(sellerKey) : undefined;
+  if (!owner) {
+    throw conflict('A FairCoin payment goes to one seller. Check out each seller separately.');
+  }
+  const account = await findSellerAccount(owner);
+  if (account?.faircoinState !== 'active' || !account.faircoinNetwork) {
+    throw conflict('This seller cannot be paid in FairCoin yet. Pay by card in USD instead.');
+  }
+  return { providerAccountId: account.providerAccountId, network: account.faircoinNetwork };
 }
 
 /**

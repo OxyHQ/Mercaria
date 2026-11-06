@@ -26,6 +26,7 @@ import { log } from '../lib/logger.js';
 import type { OnboardingLinkBody } from '../middleware/payments-schemas.js';
 import type { SellerAccountOwner } from '../services/payments/provider-account.service.js';
 import {
+  createSellerFaircoinLink,
   createSellerOnboardingLink,
   readSellerPaymentSettings,
   refreshSellerAccount,
@@ -43,6 +44,18 @@ const storeOwner: OwnerOf = (req) => {
 
 /** The calling P2P seller. The caller IS the owner on this surface. */
 const sellerOwner: OwnerOf = (req) => ({ ownerType: 'user', ownerId: getRequiredOxyUserId(req) });
+
+/**
+ * The Oxy account whose Peable wallet receives the seller's FairCoin (ADR 0019
+ * D2): the store's OWNING account (ADR 0012 — usually an organization, never
+ * the member who clicked), or the P2P seller themself. Read from the loaded
+ * store or the session, never from a request body: a body able to name it
+ * would decide who receives the money.
+ */
+function receiverOf(req: Request): string {
+  const store = req.store;
+  return store ? store.oxyAccountId : getRequiredOxyUserId(req);
+}
 
 function settingsHandler(ownerOf: OwnerOf) {
   return async (req: Request, res: Response): Promise<void> => {
@@ -67,10 +80,13 @@ function onboardingLinkHandler(ownerOf: OwnerOf) {
   return async (req: Request, res: Response): Promise<void> => {
     try {
       const body = req.body as OnboardingLinkBody;
-      const link = await createSellerOnboardingLink({
-        owner: ownerOf(req),
-        ...(body.country === undefined ? {} : { country: body.country }),
-      });
+      const link =
+        body.rail === 'faircoin'
+          ? await createSellerFaircoinLink({ owner: ownerOf(req), receiver: receiverOf(req) })
+          : await createSellerOnboardingLink({
+              owner: ownerOf(req),
+              ...(body.country === undefined ? {} : { country: body.country }),
+            });
       sendSuccess(res, link, 201);
     } catch (err) {
       log.general.error({ err }, 'Failed to create payment onboarding link');
