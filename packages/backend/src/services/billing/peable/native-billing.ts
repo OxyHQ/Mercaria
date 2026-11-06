@@ -14,6 +14,10 @@
  *   from a verified event or a live read, never from the merchant coming back.
  * - **Portal** is Peable's customer portal (`billingPortal.sessions`).
  * - **Cancellation** is `cancel_at_period_end` on the native subscription.
+ * - **A paid invoice's payment** is read by its id (`retrieveInvoicePayment`):
+ *   its `rail` decides how the invoice is booked, because the invoice's
+ *   `amount_paid` is the order's fiat figure even when FairCoin paid it
+ *   (Peable ADR 0021 D3).
  *
  * A native subscription checkout cannot start a trial (a free period is made
  * through the subscriptions API, which this adapter does not expose to
@@ -37,6 +41,7 @@ import {
   BillingProviderError,
   type BillingEmbeddedCheckout,
   type BillingHostedSession,
+  type BillingInvoicePaymentSnapshot,
   type BillingInvoiceSnapshot,
   type BillingProvider,
   type BillingProviderStage,
@@ -50,6 +55,7 @@ const SUBSCRIPTION_ID = /^sub_[A-Za-z0-9]+$/;
 const PRICE_ID = /^price_[A-Za-z0-9]+$/;
 const SUBSCRIPTION_ITEM_ID = /^si_[A-Za-z0-9]+$/;
 const INVOICE_ID = /^in_[A-Za-z0-9]+$/;
+const PAYMENT_INTENT_ID = /^pi_[A-Za-z0-9]+$/;
 /** The SDK's own bound on an `Idempotency-Key`. */
 const IDEMPOTENCY_KEY = /^[A-Za-z0-9:_-]{8,200}$/;
 
@@ -105,6 +111,37 @@ const invoiceSchema = z.object({
   status: z.string().nullable(),
   amount_paid: z.string().regex(/^(0|[1-9][0-9]{0,15})$/),
   currency: z.string().regex(/^[A-Za-z]{3}$/),
+  payment_intent: reference(PAYMENT_INTENT_ID).nullable(),
+});
+
+/** A base-unit amount string on the wire (ADR 0014), bounded to the safe range. */
+const baseUnits = z.string().regex(/^(0|[1-9][0-9]{0,15})$/);
+
+/**
+ * The fields of the payment that paid an invoice this adapter reads. On the
+ * FairCoin rail `faircoin.quote` is the fiat order it was quoted for (Peable
+ * ADR 0021 D4); its price sources stay at Peable, readable by the payment id.
+ */
+const invoicePaymentSchema = z.object({
+  id: z.string().regex(PAYMENT_INTENT_ID),
+  livemode: z.boolean(),
+  status: z.string(),
+  rail: z.enum(['card', 'faircoin']),
+  amount_received: baseUnits,
+  currency: z.string().regex(/^[A-Za-z]{3,4}$/),
+  faircoin: z
+    .object({
+      quote: z
+        .object({
+          currency: z.string().regex(/^[A-Za-z]{3}$/),
+          amount: baseUnits,
+          quoted_at: z.number().int().nonnegative(),
+        })
+        .passthrough()
+        .nullable(),
+    })
+    .passthrough()
+    .nullable(),
 });
 
 /** A hosted page: Checkout Session or portal session. */
@@ -365,6 +402,50 @@ export class PeableBillingProvider implements BillingProvider {
         status: invoice.status ?? 'draft',
         amountPaidMinor,
         currency: invoice.currency.toUpperCase(),
+        ...(invoice.payment_intent !== null
+          ? { providerPaymentId: idOf(invoice.payment_intent) }
+          : {}),
+      };
+    });
+  }
+
+  async retrieveInvoicePayment(ref: string): Promise<BillingInvoicePaymentSnapshot> {
+    if (!PAYMENT_INTENT_ID.test(ref)) malformed('retrieveInvoicePayment', 'Not a payment id.');
+    return this.call('retrieveInvoicePayment', async () => {
+      const parsed = invoicePaymentSchema.safeParse(await this.client.paymentIntents.retrieve(ref));
+      if (!parsed.success) {
+        malformed('retrieveInvoicePayment', 'The gateway answered a payment Mercaria cannot read.');
+      }
+      const payment = parsed.data;
+      if (payment.id !== ref)
+        malformed('retrieveInvoicePayment', 'The gateway read another payment.');
+      if (payment.livemode !== this.livemode) {
+        malformed('retrieveInvoicePayment', 'The payment belongs to the other mode.');
+      }
+      const quote = payment.faircoin?.quote ?? null;
+      if (payment.rail === 'card' && quote !== null) {
+        malformed('retrieveInvoicePayment', 'A card payment carries no FairCoin quote.');
+      }
+      const amountReceivedMinor = Number(payment.amount_received);
+      const quotedMinor = quote === null ? 0 : Number(quote.amount);
+      if (!Number.isSafeInteger(amountReceivedMinor) || !Number.isSafeInteger(quotedMinor)) {
+        malformed('retrieveInvoicePayment', 'The payment amount is outside the safe range.');
+      }
+      return {
+        providerPaymentId: payment.id,
+        livemode: payment.livemode,
+        status: payment.status,
+        rail: payment.rail,
+        amountReceivedMinor,
+        currency: payment.currency.toUpperCase(),
+        faircoinQuote:
+          quote === null
+            ? null
+            : {
+                currency: quote.currency.toUpperCase(),
+                amountMinor: quotedMinor,
+                quotedAt: fromUnixSeconds(quote.quoted_at),
+              },
       };
     });
   }

@@ -182,6 +182,19 @@ later plan change cannot shorten a grace already running and a redelivered
   and the sheet refuses a session that is not that price. The subscription row
   is written from a provider snapshot, never from the sheet: the sheet shows
   success only once `GET /plan` says the store pays (`active`/`trialing`).
+- **A first payment still confirming is `incomplete`** — Peable creates the
+  subscription when the payer confirms and activates it only when the first
+  invoice is paid, and a FairCoin first payment holds it there while the
+  transaction confirms on chain (Peable ADR 0021 D3). Until 2026-11-06 Mercaria
+  mapped it to `expired`, so the plan screen said "Ended" to a merchant whose
+  coins were confirming and allowed a second checkout beside a payment still
+  in flight. `incomplete` entitles nothing (the store keeps what it had —
+  the free plan — until Peable reports `active`), the screen says it is waiting
+  for the payment, and checkout, plan change and cancellation are refused while
+  it lasts. An unpaid one lapses at the rail (`incomplete_expired`, about a day)
+  and arrives as `expired`. A FairCoin-started subscription is `send_invoice`
+  from then on: each renewal is an invoice the merchant pays on Peable's hosted
+  page, by card or FairCoin.
 - **One subscription per store.** A checkout is REFUSED while the store has a
   live subscription (anything but `expired`): `merchant_subscriptions_store_key`
   holds one row per store, so a second rail subscription could only be recorded
@@ -351,7 +364,7 @@ confused or cross-linked accidentally" — is held four ways:
    the Peable event router's types, the ledger repository and the provider
    error class.
 3. **A shape check at the adapter.** Every id the Peable adapter sends or reads
-   must match its own prefix (`cus_`, `sub_`, `price_`, `in_`), so a connected
+   must match its own prefix (`cus_`, `sub_`, `price_`, `in_`, `pi_`), so a connected
    account's id is refused before any call, with a sentence rather than a
    gateway 404 three frames later.
 4. **A separate provider interface.** `BillingProvider` is not a widened
@@ -404,11 +417,22 @@ lives on `merchant_subscription_events`. The handlers are
   must match under that lock. Different event IDs for the same invoice converge
   on one posting. The append-only event claim follows the ledger insert in the
   same transaction; a duplicate event ID still rolls both back.
-- **The amount is what the invoice says was paid** (`amount_paid`, in the
-  invoice's currency), read live. The gateway's invoice carries no settlement
-  detail, so **no processor-fee leg is booked** — the same stated gap the
-  Peable payment rail has (`payments/peable/event-router.ts`), recorded on every
-  such event row. A currency Mercaria does not model is REFUSED by name.
+- **What is booked is what the PAYMENT received, and its rail is read from
+  Peable.** The invoice's `amount_paid` is the order's fiat figure whichever
+  rail paid it — Peable records a FairCoin payment's quoted fiat there (ADR 0021
+  D3) — so the handler reads the payment the invoice names
+  (`invoice.payment_intent`) and books by its `rail`. A paid invoice that names
+  no payment, or whose FairCoin quote is not for the invoice's amount, is
+  refused by name rather than guessed at; a payment not yet `succeeded` is
+  retried.
+- **Card:** the amount is `amount_paid`, in the invoice's currency. The
+  gateway's invoice carries no settlement detail, so **no processor-fee leg is
+  booked** — the same stated gap the Peable payment rail has
+  (`payments/peable/event-router.ts`), recorded on every such event row. A
+  currency Mercaria does not model is REFUSED by name.
+- **FairCoin:** the amount is the FAIR the payment received, booked in FAIR (see
+  the ledger below), and the event row keeps the payment id and the quote's
+  fiat amount, currency and `quoted_at`.
 
 ### The ledger
 
@@ -424,6 +448,51 @@ subscription_revenue  −gross  (credit — revenue recognised)
 Balanced by construction, since `gross = net + fee`. It is written through the
 same single writer every other posting uses, subject to the same balance refusal
 and the same append-only trigger.
+
+**An invoice paid in FairCoin books FAIR, not fiat** (`faircoin_received`, the
+one account added for it):
+
+```
+faircoin_received     +fair   (debit — the coins arrived in the `oxy` organization's Peable wallet)
+subscription_revenue  −fair   (credit — revenue recognised, in the unit received)
+```
+
+The coins go to the Peable wallet of the Oxy organization that owns Mercaria's
+application (Peable ADR 0021 D5). It is self-custodial: Peable never holds
+them, nothing reaches the platform's fiat balance, and no processor takes a
+fee. Booking the quoted fiat to `provider_clearing` would assert money on a
+balance that never received it, and every reconciliation of that account
+against Peable would carry the difference forever. Why this shape and not the
+others:
+
+- **Not fiat at the quote.** The quote is a price label, not an exchange
+  (Peable ADR 0021 D4; Mercaria ADR 0019 keeps FAIR a payment method and never
+  a currency anybody buys or sells). A fiat-valued receipt would invent a
+  conversion nobody made, and since the coins are never converted, the fiat
+  figure could never clear against anything. `paid` converts nothing in the
+  order domain; this posting converts nothing either. The fiat price is kept
+  where a reader needs it — `quoted_amount`/`quoted_currency`/`quoted_at` on
+  the invoice's `merchant_subscription_events` row, beside the FAIR `amount`,
+  plus `provider_payment_id`, under which Peable keeps the full quote and its
+  price sources.
+- **Not an informational row with no posting.** ADR 0019 books nothing for a
+  marketplace FairCoin sale because those coins are the SELLER's and Mercaria
+  owes and takes nothing. A plan's coins are the platform owner's revenue, so
+  leaving them out of the ledger would make `subscription_revenue` silently
+  incomplete — the one place #89 says plan revenue is reported.
+- **So: a FAIR-denominated pair.** Positive debit, negative credit, zero sum in
+  FAIR, through `ledgerRepository`'s single writer. `faircoin_received` is only
+  ever debited by a receipt: Mercaria holds no key to that wallet and does not
+  see what its owners do with the coins, so its balance reads "FAIR received
+  through plans", never "FAIR held". It mirrors Peable's own informational
+  FAIR balance transaction for the same payment (ADR 0021 D7), which is what a
+  reconciliation compares it with. A correction is a reversing transaction, as
+  everywhere else; a referral posting can never name the account
+  (`REFERRAL_FORBIDDEN_LEDGER_ACCOUNTS`).
+
+`subscription_revenue` therefore carries FAIR beside USD and EUR. That is the
+ledger's ordinary per-currency shape, and a report sums it per currency like
+every other account.
 
 **Acceptance 6 is that account existing.** Marketplace commission is ADR 0001
 D3's residual and exists nowhere but `commission_revenue`; booking a subscription

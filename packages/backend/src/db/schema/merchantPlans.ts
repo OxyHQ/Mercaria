@@ -571,6 +571,20 @@ export const merchantSubscriptionEvents = pgTable(
     providerInvoiceId: text(),
     /** What the invoice settled for, in the currency it settled in. */
     ...optionalMoney('amount'),
+    /**
+     * The Peable payment (`pi_…`) that paid the invoice, on an `invoice_paid`
+     * row — the object whose rail decided how it was booked, and where the full
+     * FairCoin quote (its price sources) stays readable.
+     */
+    providerPaymentId: text(),
+    /**
+     * A FairCoin-paid invoice's fiat price: the quote's order currency and
+     * amount (the invoice's own `amount_paid`) and when Peable quoted it. The
+     * FAIR that arrived is `amount`; this is the label it was priced with
+     * (Peable ADR 0021 D4), stored beside it and never converted into it.
+     */
+    ...optionalMoney('quoted'),
+    quotedAt: timestamptz(),
     /** The balanced posting this event booked, when it booked one. */
     ledgerTransactionId: text().references(() => ledgerTransactions.id, { onDelete: 'restrict' }),
     /** One line for a human reading the trail. Never a payload, never a secret. */
@@ -593,10 +607,27 @@ export const merchantSubscriptionEvents = pgTable(
       t.toStatus,
       MERCHANT_SUBSCRIPTION_STATUSES,
     ),
-    ...currencyChecks('merchant_subscription_events', [t.amountCurrency]),
+    ...currencyChecks('merchant_subscription_events', [t.amountCurrency, t.quotedCurrency]),
     check(
       'merchant_subscription_events_amount_complete_check',
       sql`num_nonnulls(${t.amountAmount}, ${t.amountCurrency}) in (0, 2)`,
+    ),
+    check(
+      'merchant_subscription_events_quote_complete_check',
+      sql`num_nonnulls(${t.quotedAmount}, ${t.quotedCurrency}, ${t.quotedAt}) in (0, 3)`,
+    ),
+    // A quote prices FAIR in fiat: only a settled invoice carries one, its
+    // received amount is FAIR, and the price it names is not.
+    check(
+      'merchant_subscription_events_quote_faircoin_check',
+      sql`${t.quotedAmount} is null
+          or (${t.kind} = 'invoice_paid'
+              and ${t.amountCurrency} = 'FAIR'
+              and ${t.quotedCurrency} <> 'FAIR')`,
+    ),
+    check(
+      'merchant_subscription_events_payment_kind_check',
+      sql`${t.providerPaymentId} is null or ${t.kind} = 'invoice_paid'`,
     ),
     // Only a settled invoice books anything. A ledger pointer on any other kind
     // would make the trail claim a movement its own kind does not describe.

@@ -115,6 +115,9 @@ therefore decided by the method at pricing, never refunded afterwards.
   application) and mainnet identity receive is behind Peable's gate, so plan
   sessions show FairCoin unavailable with Peable's reason. Plans never narrow
   `payment_method_types`; a FairCoin-paid plan's subscription is `send_invoice`.
+  While its first payment confirms it is `incomplete` (shown as waiting, never
+  ended), and its paid invoice books the FAIR received to `faircoin_received`,
+  never fiat through `provider_clearing` (`docs/merchant-plans.md`).
 - In production today FairCoin is unavailable for sellers too until Peable
   opens mainnet identity receive (`faircoin_network_closed`), and each seller
   must open and confirm their half.

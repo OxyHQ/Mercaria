@@ -1,0 +1,22 @@
+-- oxy:deploy-phase=pre
+-- oxy:rollback=restore: `ledger_entries_account_check`, `merchant_subscriptions_status_check`, `merchant_subscription_events_from_status_check` and `merchant_subscription_events_to_status_check` widen (the `faircoin_received` account, the `incomplete` status); their previous forms are in 0082 (the account) and 0066 (the three status CHECKs), and re-adding them fails once a FairCoin plan payment is booked or a first payment is pending. The four merchant_subscription_events columns are additive and dropping them loses each FairCoin-paid invoice's quote and payment id, which a re-read of the payment at Peable restores
+-- Peable ADR 0021 / Mercaria ADR 0019: a plan's first payment pending is `incomplete`, not ended; a FairCoin-paid plan invoice books FAIR to `faircoin_received`, never fiat through `provider_clearing`.
+ALTER TABLE "ledger_entries" DROP CONSTRAINT "ledger_entries_account_check";--> statement-breakpoint
+ALTER TABLE "merchant_subscription_events" DROP CONSTRAINT "merchant_subscription_events_from_status_check";--> statement-breakpoint
+ALTER TABLE "merchant_subscription_events" DROP CONSTRAINT "merchant_subscription_events_to_status_check";--> statement-breakpoint
+ALTER TABLE "merchant_subscriptions" DROP CONSTRAINT "merchant_subscriptions_status_check";--> statement-breakpoint
+ALTER TABLE "merchant_subscription_events" ADD COLUMN "provider_payment_id" text;--> statement-breakpoint
+ALTER TABLE "merchant_subscription_events" ADD COLUMN "quoted_amount" bigint;--> statement-breakpoint
+ALTER TABLE "merchant_subscription_events" ADD COLUMN "quoted_currency" text;--> statement-breakpoint
+ALTER TABLE "merchant_subscription_events" ADD COLUMN "quoted_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "ledger_entries" ADD CONSTRAINT "ledger_entries_account_check" CHECK ("ledger_entries"."account" in ('provider_clearing', 'merchant_payable', 'commission_revenue', 'processor_expense', 'refunds', 'disputes', 'reserves', 'retail_cost_recovery', 'supplier_prepaid', 'platform_funds', 'procurement_expense', 'customer_adjustment', 'subscription_revenue', 'referral_expense', 'referral_payable', 'affiliate_receivable', 'affiliate_commission_revenue', 'faircoin_received'));--> statement-breakpoint
+ALTER TABLE "merchant_subscription_events" ADD CONSTRAINT "merchant_subscription_events_quoted_currency_check" CHECK ("merchant_subscription_events"."quoted_currency" in ('FAIR', 'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'CHF', 'CNY', 'SEK', 'NOK', 'DKK', 'PLN', 'MXN', 'BRL', 'INR', 'NZD', 'ZAR', 'SGD', 'HKD', 'AED'));--> statement-breakpoint
+ALTER TABLE "merchant_subscription_events" ADD CONSTRAINT "merchant_subscription_events_quote_complete_check" CHECK (num_nonnulls("merchant_subscription_events"."quoted_amount", "merchant_subscription_events"."quoted_currency", "merchant_subscription_events"."quoted_at") in (0, 3));--> statement-breakpoint
+ALTER TABLE "merchant_subscription_events" ADD CONSTRAINT "merchant_subscription_events_quote_faircoin_check" CHECK ("merchant_subscription_events"."quoted_amount" is null
+          or ("merchant_subscription_events"."kind" = 'invoice_paid'
+              and "merchant_subscription_events"."amount_currency" = 'FAIR'
+              and "merchant_subscription_events"."quoted_currency" <> 'FAIR'));--> statement-breakpoint
+ALTER TABLE "merchant_subscription_events" ADD CONSTRAINT "merchant_subscription_events_payment_kind_check" CHECK ("merchant_subscription_events"."provider_payment_id" is null or "merchant_subscription_events"."kind" = 'invoice_paid');--> statement-breakpoint
+ALTER TABLE "merchant_subscription_events" ADD CONSTRAINT "merchant_subscription_events_from_status_check" CHECK ("merchant_subscription_events"."from_status" in ('incomplete', 'trialing', 'active', 'past_due', 'paused', 'cancelled', 'expired'));--> statement-breakpoint
+ALTER TABLE "merchant_subscription_events" ADD CONSTRAINT "merchant_subscription_events_to_status_check" CHECK ("merchant_subscription_events"."to_status" in ('incomplete', 'trialing', 'active', 'past_due', 'paused', 'cancelled', 'expired'));--> statement-breakpoint
+ALTER TABLE "merchant_subscriptions" ADD CONSTRAINT "merchant_subscriptions_status_check" CHECK ("merchant_subscriptions"."status" in ('incomplete', 'trialing', 'active', 'past_due', 'paused', 'cancelled', 'expired'));

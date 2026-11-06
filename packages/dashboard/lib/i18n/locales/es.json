@@ -2121,6 +2121,10 @@
       "pricePerYear": "%{price} · al año",
       "renewsOn": "Se renueva el %{date}.",
       "statuses": {
+        "incomplete": {
+          "body": "Tu plan empieza en cuanto se confirme tu primer pago. Un pago en FairCoin se confirma cuando la red ha confirmado tu transacción, lo que puede tardar un poco. Hasta entonces tu tienda conserva todo lo que tiene ahora. Un pago que no terminaste caduca solo en menos de un día.",
+          "heading": "Esperando a que se confirme tu pago"
+        },
         "active": {
           "body": "Tu plan se renueva automáticamente. Puedes cancelarlo cuando quieras y conservarlo hasta el final del periodo que hayas pagado.",
           "heading": "Activo"
@@ -2180,6 +2184,7 @@
       "termsNotice": "Al elegir un plan aceptas las Condiciones de los planes para comerciantes de Mercaria.",
       "termsLink": "Leer las condiciones",
       "currentPlan": "Tu plan actual",
+      "awaitingPayment": "Esperando tu pago",
       "switchTo": "Cambiar a %{plan}",
       "changeConfirmTitle": "¿Cambiar a %{plan}?",
       "changeConfirmBody": "El cambio empieza ahora. La parte no usada de tu periodo actual se abona y el resto del nuevo periodo se cobra hoy, en una sola factura. Si el abono supera el cargo, se usará en tus próximas facturas.",

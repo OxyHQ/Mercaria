@@ -1352,6 +1352,13 @@
       "when": 1793933186655,
       "tag": "0192_huge_ronan",
       "breakpoints": true
+    },
+    {
+      "idx": 193,
+      "version": "7",
+      "when": 1793936951560,
+      "tag": "0193_familiar_deathstrike",
+      "breakpoints": true
     }
   ]
 }

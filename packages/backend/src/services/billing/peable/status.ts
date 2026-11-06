@@ -8,6 +8,13 @@
  * A subscription set to cancel at period end is `cancelled` while it still
  * runs — "cancel now, keep what you paid for until the period ends" — and
  * `expired` once the gateway ends it.
+ *
+ * `incomplete` is its own state, never `expired`: Peable creates a
+ * subscription at checkout and activates it only when its FIRST invoice is
+ * paid, and a FairCoin first payment keeps it `incomplete` for as long as the
+ * payer's transaction takes to confirm (Peable ADR 0021 D3). It does not
+ * entitle; an unpaid one lapses at the rail as `incomplete_expired`, which is
+ * `expired` here.
  */
 
 import type { MerchantSubscriptionStatus } from '@mercaria/shared-types';
@@ -17,6 +24,8 @@ export function mapPeableSubscriptionStatus(
   cancelAtPeriodEnd: boolean,
 ): MerchantSubscriptionStatus {
   switch (status) {
+    case 'incomplete':
+      return 'incomplete';
     case 'trialing':
       return cancelAtPeriodEnd ? 'cancelled' : 'trialing';
     case 'active':
@@ -27,7 +36,6 @@ export function mapPeableSubscriptionStatus(
     case 'paused':
       return 'paused';
     case 'canceled':
-    case 'incomplete':
     case 'incomplete_expired':
       return 'expired';
     default:

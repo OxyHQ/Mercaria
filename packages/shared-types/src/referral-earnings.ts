@@ -98,6 +98,9 @@ export const REFERRAL_FORBIDDEN_LEDGER_ACCOUNTS: readonly LedgerAccount[] = [
   // parameter that could name either.
   'affiliate_receivable',
   'affiliate_commission_revenue',
+  // A FairCoin-paid merchant plan's coins are in the `oxy` organization's own
+  // wallet, which no Mercaria posting can draw on.
+  'faircoin_received',
 ];
 
 /**
@@ -136,6 +139,9 @@ export const REFERRAL_FORBIDDEN_LEDGER_ACCOUNT_LABELS: Record<string, string> = 
   affiliate_commission_revenue:
     'reconciled affiliate commission, which — like commission and subscription revenue — funds ' +
     'a reward through #144’s `affiliate` source and is never reduced by one',
+  faircoin_received:
+    'FairCoin a merchant paid for a plan, received into the `oxy` organization’s self-custodial ' +
+    'Peable wallet — Mercaria holds no key to it, so no posting can pay anything out of it',
 };
 
 /**

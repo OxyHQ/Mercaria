@@ -5363,6 +5363,23 @@ worth reading first.
   ORDER**: the row cannot be written and then stamped with the ledger transaction
   it booked, so the posting comes FIRST and a claim that finds the event already
   applied THROWS, rolling the posting back inside the same transaction.
+- **`incomplete` is a status, and it is NOT `expired`** (Peable ADR 0021 D3): a
+  subscription whose first payment has not succeeded — a FairCoin transaction
+  confirming on chain. It sits outside `ENTITLING_SUBSCRIPTION_STATUSES`, so the
+  resolver keeps the store on what it had, and the "one live subscription per
+  store" refusal counts it as live, so no second checkout can race a payment
+  still in flight.
+- **A FairCoin-paid `invoice_paid` row carries its quote as THREE real columns,
+  not `jsonb`** — `quoted_amount`/`quoted_currency` (an `optionalMoney`) and
+  `quoted_at` — beside `amount`, which is the FAIR received. Peable's quote has a
+  known shape, so it does not qualify for the jsonb register; its price sources
+  stay at Peable, readable by `provider_payment_id` (`pi_…`, an external id, no
+  foreign key). `…_quote_complete_check` makes the three all-or-none and
+  `…_quote_faircoin_check` allows a quote only on an `invoice_paid` row whose
+  `amount` is FAIR and whose quoted currency is not: a quote on a fiat amount
+  would read as a conversion that happened. The posting itself is FAIR-only
+  (`faircoin_received` / `subscription_revenue`); see `docs/merchant-plans.md`
+  "The ledger".
 - **`entitlement_usage_counters` stores no LIMIT.** It lives on the immutable
   plan version or on the grant; a copy here would be a second representation of
   one fact and would be the stale one every time a merchant changed plan. `used`

@@ -67,6 +67,7 @@ const refs = [`sub_first${nonce}`, `sub_later${nonce}`, `sub_live${nonce}`] as c
 const customers = [`cus_a${nonce}`, `cus_b${nonce}`, `cus_c${nonce}`] as const;
 const testPrice = `price_test${nonce}`;
 const invoiceRef = `in_paid${nonce}`;
+const paymentRef = `pi_paid${nonce}`;
 
 /** What the loopback gateway answers, by subscription. */
 const subscriptions = new Map<string, Record<string, unknown>>();
@@ -224,6 +225,22 @@ beforeAll(async () => {
         status: 'paid',
         amount_paid: '1299',
         currency: 'usd',
+        payment_intent: paymentRef,
+      });
+      return;
+    }
+    if (path === `/v1/payment_intents/${paymentRef}`) {
+      // A card payment: what makes this invoice fiat on the platform balance.
+      json(200, {
+        id: paymentRef,
+        object: 'payment_intent',
+        livemode: false,
+        status: 'succeeded',
+        rail: 'card',
+        amount: '1299',
+        amount_received: '1299',
+        currency: 'usd',
+        faircoin: null,
       });
       return;
     }

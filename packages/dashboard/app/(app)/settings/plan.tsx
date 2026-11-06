@@ -165,6 +165,12 @@ function AlwaysIncluded() {
  * language loaded first. `CurrentPlan` resolves them per render.
  */
 const STATUS_COPY: Record<MerchantSubscriptionStatus, { headingKey: string; bodyKey: string }> = {
+  // The first payment has not succeeded yet — a FairCoin one is confirming on
+  // chain. Not "Ended": nothing has started, and nothing is lost meanwhile.
+  incomplete: {
+    headingKey: 'settings.plan.statuses.incomplete.heading',
+    bodyKey: 'settings.plan.statuses.incomplete.body',
+  },
   trialing: {
     headingKey: 'settings.plan.statuses.trialing.heading',
     bodyKey: 'settings.plan.statuses.trialing.body',
@@ -199,6 +205,9 @@ function CurrentPlan({ storeId, status }: { storeId: string; status: MerchantPla
   const refresh = useRefreshPlan(storeId);
   const subscription = status.subscription;
   const copy = subscription ? STATUS_COPY[subscription.status] : undefined;
+  // Until the first payment succeeds nothing renews and there is nothing to
+  // cancel: the rail activates the plan or lets the checkout lapse.
+  const pending = subscription?.status === 'incomplete';
   // Three plain dates, never a countdown. Each is bound here rather than
   // formatted inline so the null a bad instant produces guards its own
   // sentence: every one of them NAMES its date, and i18n-js renders a
@@ -208,7 +217,7 @@ function CurrentPlan({ storeId, status }: { storeId: string; status: MerchantPla
     : null;
   const endsOn = subscription?.cancelAt ? formatDate(subscription.cancelAt, locale) : null;
   const renewsOn =
-    subscription?.currentPeriodEnd && !subscription.cancelAt
+    subscription?.currentPeriodEnd && !subscription.cancelAt && !pending
       ? formatDate(subscription.currentPeriodEnd, locale)
       : null;
 
@@ -267,7 +276,7 @@ function CurrentPlan({ storeId, status }: { storeId: string; status: MerchantPla
           <Button tone="accent" onPress={openPortal} disabled={portal.isPending || opening}>
             {t('settings.plan.manageBilling')}
           </Button>
-          {subscription && !subscription.cancelAt ? (
+          {subscription && !subscription.cancelAt && !pending ? (
             <Button
               appearance="outline"
               tone="neutral"
@@ -361,6 +370,7 @@ function PlanComparison({
   const { store } = useActiveStoreContext();
   const subscription = status.subscription;
   const live = subscription !== null && LIVE.includes(subscription.status);
+  const pending = subscription?.status === 'incomplete';
   const [interval, setBillingInterval] = useState<BillingInterval>(
     subscription?.interval ?? 'monthly',
   );
@@ -436,6 +446,7 @@ function PlanComparison({
             currency={currency}
             status={status}
             live={live}
+            pending={pending}
           />
         ))}
       </View>
@@ -474,6 +485,7 @@ function PlanCard({
   currency,
   status,
   live,
+  pending,
 }: {
   storeId: string;
   plan: MerchantPlanCatalogEntry;
@@ -481,6 +493,8 @@ function PlanCard({
   currency: string;
   status: MerchantPlanStatusView;
   live: boolean;
+  /** The store's first payment is confirming: no plan can be chosen or changed meanwhile. */
+  pending: boolean;
 }) {
   const { t } = useTranslation();
   const { formatMoney } = useFormatters();
@@ -491,6 +505,8 @@ function PlanCard({
   const subscription = status.subscription;
   const onThisPlan = live && subscription?.planKey === plan.planKey;
   const current = onThisPlan && subscription?.interval === interval;
+  const awaiting =
+    pending && subscription?.planKey === plan.planKey && subscription.interval === interval;
 
   return (
     <View
@@ -538,7 +554,11 @@ function PlanCard({
         <Text className="text-sm font-medium text-foreground">
           {t('settings.plan.currentPlan')}
         </Text>
-      ) : status.billingAvailable && price ? (
+      ) : awaiting ? (
+        <Text className="text-sm font-medium text-foreground">
+          {t('settings.plan.awaitingPayment')}
+        </Text>
+      ) : pending ? null : status.billingAvailable && price ? (
         live ? (
           <ChangeAction storeId={storeId} plan={plan} interval={interval} currency={currency} />
         ) : (

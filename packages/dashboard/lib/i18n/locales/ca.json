@@ -2121,6 +2121,10 @@
       "pricePerYear": "%{price} · a l'any",
       "renewsOn": "Es renova el %{date}.",
       "statuses": {
+        "incomplete": {
+          "body": "El teu pla comença tan bon punt es confirmi el teu primer pagament. Un pagament en FairCoin es confirma quan la xarxa ha confirmat la teva transacció, cosa que pot trigar una mica. Fins aleshores la teva botiga conserva tot el que té ara. Un pagament que no vas acabar caduca sol en menys d'un dia.",
+          "heading": "Esperant que es confirmi el teu pagament"
+        },
         "active": {
           "body": "El teu pla es renova automàticament. El pots cancel·lar quan vulguis i el conserves fins al final del període que has pagat.",
           "heading": "Actiu"
@@ -2180,6 +2184,7 @@
       "termsNotice": "Si tries un pla, acceptes les Condicions dels plans per a comerciants de Mercaria.",
       "termsLink": "Llegir les condicions",
       "currentPlan": "El teu pla actual",
+      "awaitingPayment": "Esperant el teu pagament",
       "switchTo": "Canviar a %{plan}",
       "changeConfirmTitle": "Vols canviar a %{plan}?",
       "changeConfirmBody": "El canvi comença ara. La part no utilitzada del període actual s'abona i la resta del nou període es cobra avui, en una sola factura. Si l'abonament supera el càrrec, s'utilitzarà a les properes factures.",

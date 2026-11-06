@@ -11,9 +11,21 @@
  * re-reads the object through the registered billing provider and applies what
  * the gateway says NOW.
  *
+ * ## What a paid invoice books depends on the payment, read from Peable
+ *
+ * The invoice's `amount_paid` is the ORDER's fiat figure whichever rail paid it
+ * — Peable records a FairCoin payment's quoted fiat there (ADR 0021 D3) — so
+ * the handler reads the payment the invoice names and books what IT received:
+ *
+ * - a CARD payment: fiat on the platform's Peable balance, booked as below;
+ * - a FAIRCOIN payment: FAIR in the Peable wallet of the `oxy` organization
+ *   that owns Mercaria's application — self-custodial, so nothing reaches
+ *   `provider_clearing`. It books `faircoin_received` / `subscription_revenue`
+ *   in FAIR, and keeps the fiat quote and the payment id on the audit row.
+ *
  * ## The fee gap, stated rather than defaulted
  *
- * A paid invoice books what the payer paid, in the invoice's currency, to
+ * A card-paid invoice books what the payer paid, in the invoice's currency, to
  * `provider_clearing` and `subscription_revenue`, with no processor-fee leg:
  * the gateway's invoice carries no settlement detail, and which settlement
  * figure Mercaria books, at what rate, is the same ledger decision the Peable
@@ -31,12 +43,17 @@ import type {
   PeableEventHandler,
   PeableEventOutcome,
 } from '../../payments/peable/event-router.js';
-import { getBillingProvider, type BillingProvider } from '../provider.js';
+import {
+  getBillingProvider,
+  type BillingInvoiceSnapshot,
+  type BillingProvider,
+} from '../provider.js';
 import {
   applyProviderSubscriptionState,
   recordSubscriptionInvoicePaid,
   type ProviderSubscriptionEventKind,
   type SubscriptionApplyOutcome,
+  type SubscriptionInvoiceReceipt,
 } from '../subscription.service.js';
 
 /** An event naming an object this handler cannot work from — never retryable. */
@@ -152,8 +169,68 @@ async function handleSubscription(context: PeableEventContext): Promise<PeableEv
 }
 
 /**
- * `invoice.paid` — the one event that books to the ledger, from the invoice as
- * the gateway reads it now (see the file docblock for the fee gap).
+ * What the payment behind a paid invoice brought in, read from Peable — never
+ * inferred from the invoice, whose `amount_paid` is the ORDER's fiat figure
+ * whichever rail paid it (Peable ADR 0021 D3).
+ */
+async function receiptOf(
+  provider: BillingProvider,
+  invoice: BillingInvoiceSnapshot,
+): Promise<SubscriptionInvoiceReceipt> {
+  const context = `Invoice ${invoice.providerInvoiceId}`;
+  if (!invoice.providerPaymentId) {
+    // A paid invoice that moved money names the payment that moved it; without
+    // one Mercaria cannot tell a card from FairCoin, and guessing would book
+    // coins as fiat (or fiat as coins).
+    throw malformed(`${context} was paid ${invoice.amountPaidMinor} but names no payment.`);
+  }
+  const payment = await provider.retrieveInvoicePayment(invoice.providerPaymentId);
+  if (payment.status !== 'succeeded') {
+    // The invoice says paid and its payment does not, yet — a read between the
+    // two writes, or a reorg. Whatever settles it arrives again.
+    throw unresolved(`${context}'s payment is '${payment.status}', not succeeded.`);
+  }
+  const invoiceCurrency = currencyOf(invoice.currency, context);
+
+  if (payment.rail === 'card') {
+    if (payment.currency !== invoice.currency) {
+      throw malformed(`${context} is in ${invoice.currency} and its card payment is not.`);
+    }
+    return {
+      rail: 'card',
+      settlement: { netMinor: invoice.amountPaidMinor, feeMinor: 0, currency: invoiceCurrency },
+    };
+  }
+
+  // FairCoin: the FAIR the payment received is what arrived, in the `oxy`
+  // organization's own wallet; the quote is the fiat it was priced at.
+  if (payment.currency !== 'FAIR' || payment.amountReceivedMinor <= 0) {
+    throw malformed(`${context}'s FairCoin payment received no FAIR.`);
+  }
+  const quote = payment.faircoinQuote;
+  if (quote === null) {
+    // A FAIR-priced invoice: no quote, and the invoice's amount is the FAIR.
+    if (invoice.currency !== 'FAIR' || invoice.amountPaidMinor !== payment.amountReceivedMinor) {
+      throw malformed(`${context} was paid in FairCoin with no quote for its ${invoice.currency}.`);
+    }
+    return { rail: 'faircoin', fairMinor: payment.amountReceivedMinor, quote: null };
+  }
+  if (quote.currency !== invoice.currency || quote.amountMinor !== invoice.amountPaidMinor) {
+    throw malformed(`${context}'s FairCoin quote is not for the amount the invoice says it paid.`);
+  }
+  return {
+    rail: 'faircoin',
+    fairMinor: payment.amountReceivedMinor,
+    quote: { amountMinor: quote.amountMinor, currency: invoiceCurrency, quotedAt: quote.quotedAt },
+  };
+}
+
+/**
+ * `invoice.paid` — the one event that books to the ledger, from the invoice and
+ * the payment that paid it as the gateway reads them now. A card payment books
+ * fiat through `provider_clearing` (see the file docblock for the fee gap); a
+ * FairCoin payment books the FAIR received to `faircoin_received`, because the
+ * coins are in the `oxy` organization's Peable wallet and no fiat moved.
  */
 async function handleInvoicePaid(context: PeableEventContext): Promise<PeableEventOutcome> {
   const provider = getBillingProvider('peable');
@@ -182,29 +259,32 @@ async function handleInvoicePaid(context: PeableEventContext): Promise<PeableEve
     throw unresolved(`Invoice ${invoiceId} names a subscription Mercaria has not recorded.`);
   }
 
-  const settlement =
-    invoice.amountPaidMinor > 0
-      ? {
-          netMinor: invoice.amountPaidMinor,
-          feeMinor: 0,
-          currency: currencyOf(invoice.currency, `Invoice ${invoiceId}`),
-        }
-      : undefined;
+  const receipt = invoice.amountPaidMinor > 0 ? await receiptOf(provider, invoice) : undefined;
+  const booked =
+    receipt?.rail === 'faircoin'
+      ? `booked ${receipt.fairMinor} FAIR minor units to faircoin_received and subscription_revenue` +
+        (receipt.quote
+          ? ` (quoted at ${receipt.quote.amountMinor} ${receipt.quote.currency} minor units); no fiat moved`
+          : '')
+      : 'booked to subscription_revenue; no processor-fee detail, so no fee expense was booked';
   const outcome = await recordSubscriptionInvoicePaid({
     subscriptionId: subscription.id,
     expectedSubscription: subscription,
     providerEventId: context.providerEventId,
     providerInvoiceId: invoiceId,
-    ...(settlement ? { settlement } : {}),
-    note: settlement
-      ? `paid invoice ${invoiceId}; the gateway supplies no processor-fee detail, so no fee expense was booked`
+    ...(invoice.providerPaymentId ? { providerPaymentId: invoice.providerPaymentId } : {}),
+    ...(receipt ? { receipt } : {}),
+    note: receipt
+      ? receipt.rail === 'faircoin'
+        ? `paid invoice ${invoiceId} in FairCoin into the oxy organization's Peable wallet; ${booked}`
+        : `paid invoice ${invoiceId}; the gateway supplies no processor-fee detail, so no fee expense was booked`
       : 'the invoice settled no money, so nothing was booked',
   });
   return {
     kind: 'applied',
     note: outcome.booked
-      ? 'booked to subscription_revenue; no processor-fee detail, so no fee expense was booked'
-      : settlement
+      ? booked
+      : receipt
         ? 'already booked'
         : 'no money moved, so nothing was booked',
   };

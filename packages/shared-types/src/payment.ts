@@ -304,7 +304,7 @@ export type DisputeOutcome = 'won' | 'lost';
 export const DISPUTE_OUTCOMES: readonly DisputeOutcome[] = ['won', 'lost'];
 
 /**
- * Mercaria's chart of accounts. Twelve accounts, and no more without a decision.
+ * Mercaria's chart of accounts. Eighteen accounts, and no more without a decision.
  *
  * ## The sign convention, stated once
  *
@@ -357,6 +357,7 @@ export const DISPUTE_OUTCOMES: readonly DisputeOutcome[] = ['won', 'lost'];
  *
  * | `affiliate_receivable` | debit | an affiliate network owes Mercaria more (an approved commission) or less (a reversal, a payout) |
  * | `affiliate_commission_revenue` | credit | Mercaria's affiliate commission was reduced (a network reversal) |
+ * | `faircoin_received` | debit | FAIR was paid into the `oxy` organization's Peable wallet for a merchant plan |
  *
  * ## `affiliate_commission_revenue` is its own account for #89's reason
  *
@@ -398,6 +399,26 @@ export const DISPUTE_OUTCOMES: readonly DisputeOutcome[] = ['won', 'lost'];
  *
  * A subscription is deliberately NOT a `payments` row: that table is the
  * marketplace charge aggregate, one per checkout group, correlated to orders.
+ *
+ * ## `faircoin_received` is where a FairCoin-paid plan's coins are, and nothing more
+ *
+ * A merchant may pay a plan invoice in FairCoin (Peable ADR 0021 D3). The coins
+ * go to the Peable wallet of the Oxy organization that owns Mercaria's
+ * application — self-custodial, so no fiat reaches the platform balance and
+ * booking that invoice to `provider_clearing` would claim money Peable never
+ * held. Its posting is in FAIR, the unit that arrived: this account debited,
+ * `subscription_revenue` credited, the same amount, summing to zero in FAIR. The
+ * fiat price it was quoted at is a snapshot on the invoice's
+ * `merchant_subscription_events` row, never a second, converted amount here
+ * (`paid` converts nothing; neither does this).
+ *
+ * Debit-normal, and only ever debited by a receipt: Mercaria holds no key to
+ * that wallet, so whatever its owners later do with the coins is an act this
+ * ledger does not see. Its balance therefore reads "FAIR received through
+ * Mercaria's plans", never "FAIR held". It mirrors Peable's own informational
+ * FAIR balance transaction for the same payment (ADR 0021 D7), which is what a
+ * reconciliation compares it with. A correction is a reversing transaction, as
+ * everywhere else.
  * The subscription domain records its own invoices on
  * `merchant_subscription_events`, which names the ledger transaction it booked.
  *
@@ -463,7 +484,8 @@ export type LedgerAccount =
   | 'referral_expense'
   | 'referral_payable'
   | 'affiliate_receivable'
-  | 'affiliate_commission_revenue';
+  | 'affiliate_commission_revenue'
+  | 'faircoin_received';
 
 /** {@link LedgerAccount} as the tuple the column types and CHECKs read. */
 export const LEDGER_ACCOUNTS: readonly LedgerAccount[] = [
@@ -490,6 +512,8 @@ export const LEDGER_ACCOUNTS: readonly LedgerAccount[] = [
   // #67's two — see the note above.
   'affiliate_receivable',
   'affiliate_commission_revenue',
+  // A FairCoin-paid merchant plan's coins — see the note above.
+  'faircoin_received',
 ];
 
 /**
