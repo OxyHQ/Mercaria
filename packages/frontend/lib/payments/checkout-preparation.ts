@@ -1,3 +1,8 @@
+import {
+  validateCheckoutAddress,
+  validateCheckoutContact,
+  isIsoAlpha2Country,
+} from '@mercaria/shared-types';
 import type { Address, CartGroup, CheckoutInput, CurrencyCode } from '@mercaria/shared-types';
 import type { SheetCheckoutDetails, SheetSavedAddress } from '@peable.to/sdk/checkout/ui';
 
@@ -49,31 +54,32 @@ export function checkoutInput(
     group.items.some((item) => item.delivery === 'digital'),
   );
   return {
-    destination: selection.pickupLocationId
-      ? {
-          type: 'pickup',
-          locationId: selection.pickupLocationId,
-          pickupContact: {
-            email: extra.pickupEmail.trim(),
-            ...(extra.pickupPhone.trim() ? { phone: extra.pickupPhone.trim() } : {}),
-          },
-        }
-      : !ships
-        ? { type: 'digital_delivery' }
-        : {
-            type: 'inline_shipping_address',
-            // Freeze the full reviewed address, including saved addresses. No second lookup can change it.
-            address: {
-              recipientName: shipping.name.trim(),
-              line1: shipping.line1.trim(),
-              ...(shipping.line2.trim() ? { line2: shipping.line2.trim() } : {}),
-              city: shipping.city.trim(),
-              ...(shipping.state.trim() ? { region: shipping.state.trim() } : {}),
-              postalCode: shipping.postalCode.trim(),
-              country: shipping.country.toUpperCase(),
-              ...(shipping.phone.trim() ? { phone: shipping.phone.trim() } : {}),
+    destination:
+      ships && selection.pickupLocationId
+        ? {
+            type: 'pickup',
+            locationId: selection.pickupLocationId,
+            pickupContact: {
+              email: extra.pickupEmail.trim(),
+              ...(extra.pickupPhone.trim() ? { phone: extra.pickupPhone.trim() } : {}),
             },
-          },
+          }
+        : !ships
+          ? { type: 'digital_delivery' }
+          : {
+              type: 'inline_shipping_address',
+              // Freeze the full reviewed address, including saved addresses. No second lookup can change it.
+              address: {
+                recipientName: shipping.name.trim(),
+                line1: shipping.line1.trim(),
+                ...(shipping.line2.trim() ? { line2: shipping.line2.trim() } : {}),
+                city: shipping.city.trim(),
+                ...(shipping.state.trim() ? { region: shipping.state.trim() } : {}),
+                postalCode: shipping.postalCode.trim(),
+                country: shipping.country.toUpperCase(),
+                ...(shipping.phone.trim() ? { phone: shipping.phone.trim() } : {}),
+              },
+            },
     ...(details.email.trim() ? { contact: { email: details.email.trim() } } : {}),
     ...(selection.sellerKeys.length ? { sellerKeys: [...selection.sellerKeys] } : {}),
     ...(extra.discount.trim() ? { discountCodes: [extra.discount.trim()] } : {}),
@@ -121,4 +127,27 @@ export function profileAddressCandidates(user: unknown): SheetSavedAddress[] {
       },
     ];
   });
+}
+
+/** Run the server's exact pure policy before the first request, when no order can exist yet. */
+export function checkoutPreflight(input: CheckoutInput): string | null {
+  if (input.destination?.type === 'inline_shipping_address') {
+    const address = validateCheckoutAddress(input.destination.address);
+    if (address.ok === false) return address.message;
+  }
+  if (
+    input.destination?.type === 'digital_delivery' &&
+    !isIsoAlpha2Country(input.digitalSupplyCountry ?? '')
+  )
+    return 'Choose a valid supply country.';
+  const contacts = [
+    input.contact,
+    input.destination?.type === 'pickup' ? input.destination.pickupContact : undefined,
+  ];
+  for (const contact of contacts) {
+    if (!contact) continue;
+    const result = validateCheckoutContact(contact);
+    if (result.ok === false) return result.message;
+  }
+  return null;
 }

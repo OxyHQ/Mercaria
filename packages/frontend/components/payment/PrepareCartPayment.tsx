@@ -11,7 +11,11 @@ import {
   sessionSource,
   type SheetCheckoutPreparation,
 } from '@peable.to/sdk/checkout/ui';
-import type { CheckoutResult, PaymentStatus } from '@mercaria/shared-types';
+import {
+  isIsoAlpha2Country,
+  type CheckoutResult,
+  type PaymentStatus,
+} from '@mercaria/shared-types';
 import { Text } from '@mercaria/ui';
 import { DigitalSupplyConsent } from '@/components/checkout/CheckoutDestinationForm';
 import { fetchAddresses } from '@/lib/api/addresses';
@@ -21,6 +25,7 @@ import { useTranslation } from '@/lib/i18n';
 import {
   checkoutAddress,
   checkoutInput,
+  checkoutPreflight,
   profileAddressCandidates,
   type CheckoutSelection,
 } from '@/lib/payments/checkout-preparation';
@@ -37,6 +42,7 @@ export function PrepareCartPayment({
   onSettled,
   onClose,
   onRefused,
+  onSubmitting,
 }: {
   selection: CheckoutSelection;
   attemptId: string;
@@ -46,6 +52,7 @@ export function PrepareCartPayment({
   onSettled: () => void;
   onClose: () => void;
   onRefused: (error: unknown) => string;
+  onSubmitting: () => void;
 }) {
   const { t, locale } = useTranslation();
   const { user, isAuthenticated, canUsePrivateApi, oxyServices } = useOxy();
@@ -90,6 +97,7 @@ export function PrepareCartPayment({
   const [discount, setDiscount] = useState('');
   const [supplyCountry, setSupplyCountry] = useState('');
   const [digitalConsent, setDigitalConsent] = useState(false);
+  const [usePickup, setUsePickup] = useState(true);
   const [pickupEmail, setPickupEmail] = useState('');
   const [pickupPhone, setPickupPhone] = useState('');
   const [savedIds, setSavedIds] = useState<ReadonlySet<string>>(new Set());
@@ -102,7 +110,7 @@ export function PrepareCartPayment({
   const lines = selection.groups.flatMap((group) => group.items);
   const ships = lines.some((line) => line.delivery !== 'digital');
   const digital = lines.some((line) => line.delivery === 'digital');
-  const pickup = Boolean(selection.pickupLocationId);
+  const pickup = ships && usePickup && Boolean(selection.pickupLocationId);
   const email = actor ? user?.email : undefined;
   const preparation: SheetCheckoutPreparation = {
     key: `${actor ?? 'guest'}:${attemptId}`,
@@ -132,10 +140,28 @@ export function PrepareCartPayment({
       : {}),
     canContinue:
       (!digital || digitalConsent) &&
-      (ships || /^[a-z]{2}$/i.test(supplyCountry.trim())) &&
+      (ships || isIsoAlpha2Country(supplyCountry.trim().toUpperCase())) &&
       (!pickup || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pickupEmail.trim())),
     renderAdditionalDetails: ({ disabled, details }) => (
       <View className="gap-4">
+        {ships && selection.pickupLocationId ? (
+          <View className="gap-2">
+            <Button
+              disabled={disabled}
+              appearance={pickup ? 'outline' : 'solid'}
+              onPress={() => setUsePickup(false)}
+            >
+              {t('checkout.form.deliverToAddress')}
+            </Button>
+            <Button
+              disabled={disabled}
+              appearance={pickup ? 'solid' : 'outline'}
+              onPress={() => setUsePickup(true)}
+            >
+              {t('checkout.form.deliveryMethodTitle')}
+            </Button>
+          </View>
+        ) : null}
         {pickup ? (
           <>
             <Field
@@ -237,13 +263,23 @@ export function PrepareCartPayment({
     ),
     createSession: async (details, { signal }) => {
       // Retain ALL submitted fields and the key across uncertain failures. No retry changes consent or prices.
-      attempt.current ??= checkoutInput(details, selection, {
-        discount,
-        supplyCountry,
-        digitalConsent,
-        pickupEmail,
-        pickupPhone,
-      });
+      if (!attempt.current) {
+        const input = checkoutInput(
+          details,
+          { ...selection, pickupLocationId: pickup ? selection.pickupLocationId : undefined },
+          {
+            discount,
+            supplyCountry,
+            digitalConsent,
+            pickupEmail,
+            pickupPhone,
+          },
+        );
+        const failure = checkoutPreflight(input);
+        if (failure) throw new SheetPreparationError(failure, 'not_created');
+        attempt.current = input;
+      }
+      onSubmitting();
       let result: CheckoutResult;
       try {
         result =
@@ -254,7 +290,11 @@ export function PrepareCartPayment({
       }
       resultRef.current = result;
       if (signal.aborted) throw new Error(t('payment.sheet.unreadable'));
-      const source = sessionSource(result.payment?.clientSecret ?? '');
+      if (!result.payment) {
+        onCreated(result);
+        throw new SheetPreparationError(t('payment.sheet.unreadable'), 'unknown');
+      }
+      const source = sessionSource(result.payment.clientSecret);
       if (!source || !result.payment) throw new Error(t('payment.sheet.unreadable'));
       setGroupId(result.checkoutGroupId);
       onCreated(result);

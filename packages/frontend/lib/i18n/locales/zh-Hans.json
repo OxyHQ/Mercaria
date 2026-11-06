@@ -566,30 +566,19 @@
     "skipLabel": "仍然搜索"
   },
   "checkout": {
-    "address": {
-      "shipTo": "寄给 %{name}"
-    },
+    "address": {},
     "backToOrders": "返回你的订单",
     "checkLaterFromOrders": "稍后到订单里查看",
     "claim": {
       "optional": "可选。无论如何你的订单都已确认。",
       "saveToOxy": "把这些订单保存到 Oxy"
     },
-    "deliverElsewhere": "寄到其他地址",
     "destination": {
-      "collectInPerson": "到店自取",
-      "continueAsGuest": "以访客身份继续",
-      "deliverTo": "寄送至",
-      "digitalHint": "此订单不发货：付款后下载内容会立即出现在你的资料库中。我们只需要你所在的国家/地区，用于计税。",
-      "digitalTitle": "你的信息",
-      "guestDeliveryHint": "无需账号。告诉我们寄到哪里，以及这笔订单怎么联系你。",
-      "guestPickupHint": "无需账号。告诉我们这次自取怎么联系你——用不上的地址我们不会问。",
-      "pickupFallbackName": "你选择的店铺"
+      "guestPickupHint": "无需账号。告诉我们这次自取怎么联系你——用不上的地址我们不会问。"
     },
     "discount": {
       "accessibilityLabel": "优惠码",
-      "label": "优惠码（可选）",
-      "placeholder": "SAVE10"
+      "label": "优惠码（可选）"
     },
     "emailMeLink": "把这笔订单的链接发到我的邮箱",
     "empty": {
@@ -598,15 +587,10 @@
       "title": "没有可结算的商品"
     },
     "error": {
-      "collectionEmailRequired": "请填写接收自取信息的邮箱地址。",
-      "digitalSupplyConsentRequired": "此订单包含下载内容。开启立即提供才能购买，或单独结算其他商品。",
-      "emailAndAddressRequired": "请填写邮箱地址和收货地址后继续。",
-      "receiptEmailRequired": "请填写接收收据的邮箱地址。",
       "sellerNotActivated": "%{seller}目前不接受订单。请从订单中移除该卖家的商品，以便结算其余商品。",
       "sellerNotPaymentReady": "%{seller}目前无法接受付款。请从订单中移除该卖家的商品，以结算其余商品。",
       "sellersNotActivated": "以下卖家目前不接受订单：%{sellers}。请从订单中移除他们的商品，以便结算其余商品。",
       "sellersNotPaymentReady": "以下卖家目前无法接受付款：%{sellers}。请从订单中移除他们的商品，以结算其余商品。",
-      "supplyCountryRequired": "请用两个字母填写你所在的国家/地区。",
       "unnamedSellersNotActivated": "你订单中的部分卖家目前不接受订单。请移除高亮显示的商品，以便结算其余商品。",
       "unnamedSellersNotPaymentReady": "您订单中的部分卖家目前无法接受付款。请移除突出显示的商品，以结算其余商品。"
     },
@@ -657,8 +641,6 @@
       "keepToHand": "请保存好——需要联系我们时，它能对应到你的这笔购买。"
     },
     "pageTitle": "结算 — Mercaria",
-    "placeOrder": "提交订单",
-    "shippingAddress": "收货地址",
     "signIn": {
       "action": "登录",
       "body": "登录后可以使用已保存的地址，这个购物车会同步到你的其他设备，这笔订单也会留在账号的订单记录里。你也可以以访客身份结算——要填的内容一样多。",
@@ -673,19 +655,12 @@
     },
     "title": "结算",
     "toast": {
-      "orderPlaced": "订单已提交",
       "reservedGuest": "你的订单会保留一小段时间。再次结算即可付款。",
       "reservedSignedIn": "你的订单已保留。可以在订单里完成付款。"
     },
-    "useSavedAddress": "使用已保存的地址",
     "viewOrder": "查看订单",
     "viewOrders": "查看你的订单",
-    "payWith": {
-      "label": "付款方式",
-      "card": "银行卡",
-      "faircoin": "FairCoin",
-      "faircoinHint": "您将以 FairCoin 支付全部金额，直接付入卖家本人的 Peable 钱包。Peable 会在您付款时以 FairCoin 计价，该价格保留 10 分钟。一笔 FairCoin 付款只对应一位卖家。"
-    },
+    "payWith": {},
     "account": {
       "saveToOxy": "将%{name}保存到Oxy",
       "saveFailed": "无法保存。请先检查Oxy地址再重试。",
@@ -699,7 +674,6 @@
       "title": "付款已取消"
     },
     "card": {
-      "notCompleted": "付款未能完成。",
       "payNow": "立即付款"
     },
     "cardDetailsNotice": "你的银行卡信息直接发送给我们的支付服务商，不会经过 Mercaria。",

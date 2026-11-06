@@ -567,30 +567,19 @@
     "skipLabel": "Search anyway"
   },
   "checkout": {
-    "address": {
-      "shipTo": "Ship to %{name}"
-    },
+    "address": {},
     "backToOrders": "Back to your orders",
     "checkLaterFromOrders": "Check later from your orders",
     "claim": {
       "optional": "Optional. Your order is confirmed either way.",
       "saveToOxy": "Save these orders to Oxy"
     },
-    "deliverElsewhere": "Deliver somewhere else",
     "destination": {
-      "collectInPerson": "Collect in person",
-      "continueAsGuest": "Continue as guest",
-      "deliverTo": "Deliver to",
-      "digitalHint": "Nothing in this order is shipped: your downloads are in your library as soon as you pay. We only need the country you are in, for tax.",
-      "digitalTitle": "Your details",
-      "guestDeliveryHint": "No account needed. Tell us where it goes and how to reach you about this order.",
-      "guestPickupHint": "No account needed. Tell us how to reach you about this collection — we will not ask for an address you do not need.",
-      "pickupFallbackName": "the shop you chose"
+      "guestPickupHint": "No account needed. Tell us how to reach you about this collection — we will not ask for an address you do not need."
     },
     "discount": {
       "accessibilityLabel": "Discount code",
-      "label": "Discount code (optional)",
-      "placeholder": "SAVE10"
+      "label": "Discount code (optional)"
     },
     "emailMeLink": "Email me a link to this order",
     "empty": {
@@ -599,15 +588,10 @@
       "title": "Nothing to check out"
     },
     "error": {
-      "collectionEmailRequired": "Enter the email address your collection details should go to.",
-      "digitalSupplyConsentRequired": "This order includes downloads. Turn on immediate supply to buy them, or check out the other items on their own.",
-      "emailAndAddressRequired": "Fill in your email and delivery address to continue.",
-      "receiptEmailRequired": "Enter the email address your receipt should go to.",
       "sellerNotActivated": "%{seller} isn't accepting orders right now. Remove their items from your order to check out with the rest.",
       "sellerNotPaymentReady": "%{seller} can't accept payment right now. Remove their items from your order to check out with the rest.",
       "sellersNotActivated": "These sellers aren't accepting orders right now: %{sellers}. Remove their items from your order to check out with the rest.",
       "sellersNotPaymentReady": "These sellers can't accept payment right now: %{sellers}. Remove their items from your order to check out with the rest.",
-      "supplyCountryRequired": "Enter the country you are in, as two letters.",
       "unnamedSellersNotActivated": "Some sellers in your order aren't accepting orders right now. Remove the highlighted items to check out with the rest.",
       "unnamedSellersNotPaymentReady": "Some sellers in your order can't accept payment right now. Remove the highlighted items to check out with the rest."
     },
@@ -658,8 +642,6 @@
       "keepToHand": "Keep this to hand — it identifies your purchase if you need to get in touch."
     },
     "pageTitle": "Checkout — Mercaria",
-    "placeOrder": "Place order",
-    "shippingAddress": "Shipping address",
     "signIn": {
       "action": "Sign in",
       "body": "Signing in brings your saved addresses, keeps this cart on your other devices, and keeps this order in your account's order history. You can also check out as a guest — it takes the same amount of typing.",
@@ -674,19 +656,12 @@
     },
     "title": "Checkout",
     "toast": {
-      "orderPlaced": "Order placed",
       "reservedGuest": "Your order is reserved for a short while. Check out again to pay for it.",
       "reservedSignedIn": "Your order is reserved. You can pay for it from your orders."
     },
-    "useSavedAddress": "Use a saved address",
     "viewOrder": "View your order",
     "viewOrders": "View your orders",
-    "payWith": {
-      "label": "How you'll pay",
-      "card": "Card",
-      "faircoin": "FairCoin",
-      "faircoinHint": "You pay the total in FairCoin, straight into the seller's own Peable wallet. Peable prices it in FairCoin when you pay, and the price holds for 10 minutes. A FairCoin payment covers one seller."
-    },
+    "payWith": {},
     "account": {
       "saveToOxy": "Save %{name} to Oxy",
       "saveFailed": "Could not save this address. Check your Oxy addresses before trying again.",
@@ -700,7 +675,6 @@
       "title": "Payment cancelled"
     },
     "card": {
-      "notCompleted": "Your payment could not be completed.",
       "payNow": "Pay now"
     },
     "cardDetailsNotice": "Your card details go straight to our payment provider and never reach Mercaria.",

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@oxy.so/bloom/button';
 import { View } from 'react-native';
 import Head from 'expo-router/head';
@@ -459,6 +459,7 @@ function CheckoutBody() {
   const { data: cart, isLoading } = useCart();
   const portalConfirmation = usePortalConfirmation();
   const [active, setActive] = useState<{ id: string; selection: CheckoutSelection } | null>(null);
+  const submitted = useRef(false);
   const [open, setOpen] = useState(false);
   const [placed, setPlaced] = useState<CheckoutResult | null>(null);
   const [refusedKeys, setRefusedKeys] = useState<ReadonlySet<string>>(NO_UNPAYABLE_SELLERS);
@@ -478,25 +479,25 @@ function CheckoutBody() {
   // A refreshed cart is a different checkout; discard the old private draft and abort its callback.
   // Our own successful placement sets `placed` before invalidating the cart.
   useEffect(() => {
-    if (!active || placed || !cart) return;
+    if (!active || placed || submitted.current || !cart) return;
     const previous = JSON.stringify(active.selection.groups);
     if (previous !== JSON.stringify(groups) || active.selection.currency !== cart.currency) {
       setOpen(false);
       setActive(null);
     }
   }, [active, placed, cart, groups]);
-  const leave = () => {
-    if (!placed) return;
+  const leave = (result = placed) => {
+    if (!result) return;
     if (!isAuthenticated) {
-      portalConfirmation.mutate(placed.checkoutGroupId, {
+      portalConfirmation.mutate(result.checkoutGroupId, {
         onSettled: () =>
           router.replace({
             pathname: '/guest-orders/portal',
-            params: { group: placed.checkoutGroupId },
+            params: { group: result.checkoutGroupId },
           }),
       });
     } else {
-      const first = placed.orders[0];
+      const first = result.orders[0];
       router.replace(first ? { pathname: '/orders/[id]', params: { id: first.id } } : '/orders');
     }
   };
@@ -512,8 +513,8 @@ function CheckoutBody() {
           isGuest={!isAuthenticated}
           orderNumbers={placed.orders.map((order) => order.orderNumber)}
           onPay={() => setOpen(true)}
-          onLeave={leave}
-          onDone={leave}
+          onLeave={() => leave()}
+          onDone={() => leave()}
         />
       ) : isLoading && !cart ? (
         <View className="h-40 bg-muted" />
@@ -574,7 +575,13 @@ function CheckoutBody() {
             }
             return apiErrorMessage(error, t('payment.sheet.unreadable'));
           }}
-          onCreated={setPlaced}
+          onSubmitting={() => {
+            submitted.current = true;
+          }}
+          onCreated={(result) => {
+            setPlaced(result);
+            if (!result.payment) leave(result);
+          }}
           onSettled={() => setAwaiting(true)}
           onClose={() => setOpen(false)}
         />

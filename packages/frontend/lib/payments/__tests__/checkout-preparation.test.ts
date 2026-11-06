@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { CartGroup } from '@mercaria/shared-types';
-import { checkoutAddress, checkoutInput, profileAddressCandidates } from '../checkout-preparation';
+import {
+  checkoutAddress,
+  checkoutInput,
+  checkoutPreflight,
+  profileAddressCandidates,
+} from '../checkout-preparation';
 const address = {
   id: 'same-id',
   recipientName: 'Recipient',
@@ -130,5 +135,35 @@ describe('account checkout composition', () => {
         locations: [{ address: { city: 'Madrid', country: 'Spain' } }],
       })[0]?.address.country,
     ).toBe('');
+  });
+  it('uses the shared server postcode and contact policy before starting an order', () => {
+    const input = checkoutInput(
+      details,
+      { groups: [group], currency: 'USD', sellerKeys: [] },
+      extra,
+    );
+    expect(checkoutPreflight(input)).toBeNull();
+    if (input.destination?.type !== 'inline_shipping_address')
+      throw new Error('fixture destination');
+    input.destination.address.country = 'ES';
+    expect(checkoutPreflight(input)).toBeTruthy();
+    input.destination.address.postalCode = '28001';
+    input.contact = { email: 'x@y.c' };
+    expect(checkoutPreflight(input)).toBeTruthy();
+    input.contact = { email: 'buyer@example.test' };
+    expect(checkoutPreflight(input)).toBeNull();
+  });
+  it('ignores a stale pickup route for a digital-only cart', () => {
+    const digital = {
+      ...group,
+      items: group.items.map((item) => ({ ...item, delivery: 'digital' as const })),
+    };
+    expect(
+      checkoutInput(
+        details,
+        { groups: [digital], currency: 'USD', sellerKeys: [], pickupLocationId: 'stale' },
+        { ...extra, digitalConsent: true, supplyCountry: 'HK' },
+      ).destination,
+    ).toEqual({ type: 'digital_delivery' });
   });
 });

@@ -1,5 +1,79 @@
 import { test, expect, type Page } from '@playwright/test';
 
+const SESSION_ID = 'cs_0123456789abcdef01234567';
+const session = {
+  id: SESSION_ID,
+  object: 'checkout_session',
+  livemode: false,
+  mode: 'payment',
+  status: 'open',
+  payment_status: 'unpaid',
+  ui_mode: 'embedded',
+  locale: null,
+  submit_type: 'auto',
+  currency: 'USD',
+  rail: 'card',
+  network: null,
+  line_items: [
+    {
+      id: 'li_fixture',
+      object: 'item',
+      description: 'Fixture sweater + delivery',
+      price: null,
+      product: null,
+      images: [],
+      quantity: 1,
+      adjustable_quantity: { enabled: false },
+      currency: 'USD',
+      unit_amount: '3500',
+      amount_subtotal: '3500',
+      amount_discount: '0',
+      amount_tax: '0',
+      amount_total: '3500',
+    },
+  ],
+  amount_subtotal: '3500',
+  amount_total: '3500',
+  total_details: { amount_discount: '0', amount_tax: '0', amount_shipping: '0' },
+  discount: null,
+  allow_promotion_codes: false,
+  automatic_tax: { enabled: false, status: null },
+  customer_details: {
+    email: 'alex@example.test',
+    name: null,
+    phone: null,
+    address: null,
+    tax_ids: [],
+  },
+  customer_email_locked: false,
+  billing_address_collection: 'auto',
+  shipping_address_collection: null,
+  shipping_details: null,
+  phone_number_collection: { enabled: false },
+  tax_id_collection: { enabled: false },
+  custom_fields: [],
+  consent_collection: null,
+  consent: null,
+  terms_of_service_url: null,
+  payment_intent: null,
+  setup_intent: null,
+  success_url: null,
+  cancel_url: null,
+  confirmation_message: null,
+  merchant: { name: 'Mercaria', avatar_url: null, logo_url: null, description: null },
+  branding: {
+    icon_url: null,
+    logo_url: null,
+    primary_color: '#1f6feb',
+    accent_color: '#0b1f33',
+    font: 'system',
+    border_style: 'rounded',
+  },
+  publishable_key: null,
+  payment_method_types: ['card', 'faircoin'],
+  faircoin: { available: false, unavailable_reason: 'faircoin_wallet_missing' },
+  expires_at: 2000000000,
+};
 const address = {
   id: 'oxy-address',
   recipientName: 'Alex Example',
@@ -35,7 +109,8 @@ const group = {
   ],
   subtotal: { amount: 3000, currency: 'USD' },
 };
-async function fixture(page: Page, signedIn: boolean) {
+async function fixture(page: Page, signedIn: boolean, success = false) {
+  let placed = false;
   const requests: { key: string | undefined; body: unknown }[] = [];
   await page.addInitScript(
     ({ signedIn }) => {
@@ -100,7 +175,7 @@ async function fixture(page: Page, signedIn: boolean) {
             id: 'cart',
             currency: 'USD',
             items: group.items,
-            groups: [group],
+            groups: placed ? [] : [group],
             subtotal: group.subtotal,
           },
         },
@@ -111,6 +186,26 @@ async function fixture(page: Page, signedIn: boolean) {
         key: route.request().headers()['idempotency-key'],
         body: route.request().postDataJSON(),
       });
+      if (success) {
+        placed = true;
+        return route.fulfill({
+          json: {
+            success: true,
+            data: {
+              checkoutGroupId: 'group',
+              orders: [{ id: 'order', orderNumber: 'FIX-1' }],
+              payment: {
+                paymentId: 'payment',
+                provider: 'peable',
+                checkoutSessionId: SESSION_ID,
+                clientSecret: `${SESSION_ID}_secret_0123456789abcdef`,
+                amount: { amount: 3500, currency: 'USD' },
+                availableMethods: ['card'],
+              },
+            },
+          },
+        });
+      }
       return route.fulfill({
         status: 503,
         json: { success: false, message: 'Please retry this same payment.' },
@@ -119,7 +214,15 @@ async function fixture(page: Page, signedIn: boolean) {
     return route.fulfill({ status: 404, json: { success: false, error: 'Unused fixture' } });
   });
   // No request in this test may reach a payment provider or a live gateway.
-  await page.route('https://api.peable.to/**', (route) => route.abort());
+  await page.route('https://api.peable.to/**', (route) => {
+    if (
+      success &&
+      route.request().method() === 'GET' &&
+      new URL(route.request().url()).pathname === `/v1/checkout_sessions/${SESSION_ID}/public`
+    )
+      return route.fulfill({ json: session });
+    return route.abort();
+  });
   return requests;
 }
 for (const viewport of [
@@ -155,3 +258,22 @@ for (const viewport of [
     await page.screenshot({ path: `/tmp/mercaria-peable-${viewport.width}.png` });
   });
 }
+
+test('authoritative repricing and cart invalidation retain the same sheet before Pay', async ({
+  page,
+}) => {
+  const requests = await fixture(page, true, true);
+  await page.goto('/checkout');
+  await page.getByRole('button', { name: 'Pay now', exact: true }).click();
+  const frame = page.getByTestId('bloom-checkout-step');
+  const sheet = page.locator('[role="dialog"]:visible').last();
+  await sheet.evaluate((element) => element.setAttribute('data-mount-probe', 'same'));
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
+  await expect(page.getByText('10 Example Street', { exact: false })).toBeVisible();
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
+  await expect(frame.getByText('$35.00', { exact: true }).first()).toBeVisible();
+  await expect(sheet).toHaveAttribute('data-mount-probe', 'same');
+  await expect(page.getByText('Your cart is empty', { exact: true })).toHaveCount(0);
+  expect(requests).toHaveLength(1);
+  await expect(page.getByRole('textbox', { name: 'Email', exact: true })).toHaveCount(0);
+});
