@@ -571,30 +571,20 @@
     "skipLabel": "Buscar mesmo assim"
   },
   "checkout": {
-    "address": {
-      "shipTo": "Enviar para %{name}"
-    },
+    "address": {},
     "backToOrders": "Voltar para seus pedidos",
     "checkLaterFromOrders": "Conferir depois nos seus pedidos",
     "claim": {
       "optional": "Opcional. Seu pedido está confirmado de qualquer forma.",
       "saveToOxy": "Salvar estes pedidos no Oxy"
     },
-    "deliverElsewhere": "Entregar em outro endereço",
     "destination": {
-      "collectInPerson": "Retirar pessoalmente",
-      "continueAsGuest": "Continuar como visitante",
-      "deliverTo": "Entregar para",
-      "digitalHint": "Nada neste pedido é enviado: seus downloads ficam na sua biblioteca assim que você pagar. Só precisamos do país em que você está, para os impostos.",
-      "digitalTitle": "Seus dados",
-      "guestDeliveryHint": "Não precisa de conta. Diga para onde vai e como falar com você sobre este pedido.",
       "guestPickupHint": "Não precisa de conta. Diga como falar com você sobre esta retirada — não vamos pedir um endereço de que você não precisa.",
-      "pickupFallbackName": "a loja que você escolheu"
+      "collectInPerson": "Retirar pessoalmente"
     },
     "discount": {
       "accessibilityLabel": "Código de desconto",
-      "label": "Código de desconto (opcional)",
-      "placeholder": "SAVE10"
+      "label": "Código de desconto (opcional)"
     },
     "emailMeLink": "Me enviar por e-mail um link para este pedido",
     "empty": {
@@ -603,15 +593,10 @@
       "title": "Nada para finalizar"
     },
     "error": {
-      "collectionEmailRequired": "Informe o e-mail para onde os dados da retirada devem ir.",
-      "digitalSupplyConsentRequired": "Este pedido inclui downloads. Ative a entrega imediata para comprá-los ou compre os outros itens separadamente.",
-      "emailAndAddressRequired": "Preencha seu e-mail e o endereço de entrega para continuar.",
-      "receiptEmailRequired": "Informe o e-mail para onde seu recibo deve ir.",
       "sellerNotActivated": "%{seller} não está aceitando pedidos no momento. Remova os itens desse vendedor do pedido para finalizar o restante.",
       "sellerNotPaymentReady": "%{seller} não pode aceitar pagamentos no momento. Remova os itens desse vendedor do pedido para finalizar a compra do restante.",
       "sellersNotActivated": "Estes vendedores não estão aceitando pedidos no momento: %{sellers}. Remova os itens deles do pedido para finalizar o restante.",
       "sellersNotPaymentReady": "Estes vendedores não podem aceitar pagamentos no momento: %{sellers}. Remova os itens deles do pedido para finalizar a compra do restante.",
-      "supplyCountryRequired": "Informe o país em que você está, com duas letras.",
       "unnamedSellersNotActivated": "Alguns vendedores do seu pedido não estão aceitando pedidos no momento. Remova os itens destacados para finalizar o restante.",
       "unnamedSellersNotPaymentReady": "Alguns vendedores do seu pedido não podem aceitar pagamentos no momento. Remova os itens destacados para finalizar a compra do restante."
     },
@@ -662,8 +647,6 @@
       "keepToHand": "Guarde à mão: ele identifica sua compra se você precisar entrar em contato."
     },
     "pageTitle": "Finalizar compra — Mercaria",
-    "placeOrder": "Fazer pedido",
-    "shippingAddress": "Endereço de entrega",
     "signIn": {
       "action": "Entrar",
       "body": "Ao entrar, você tem seus endereços salvos, mantém este carrinho nos seus outros dispositivos e o pedido fica no histórico da sua conta. Você também pode comprar como visitante — dá o mesmo tanto de digitação.",
@@ -678,18 +661,17 @@
     },
     "title": "Finalizar compra",
     "toast": {
-      "orderPlaced": "Pedido feito",
       "reservedGuest": "Seu pedido está reservado por um tempo. Finalize a compra de novo para pagar.",
       "reservedSignedIn": "Seu pedido está reservado. Você pode pagar nos seus pedidos."
     },
-    "useSavedAddress": "Usar um endereço salvo",
     "viewOrder": "Ver seu pedido",
     "viewOrders": "Ver seus pedidos",
-    "payWith": {
-      "label": "Como você vai pagar",
-      "card": "Cartão",
-      "faircoin": "FairCoin",
-      "faircoinHint": "Você paga o total em FairCoin, direto na carteira Peable do vendedor. A Peable calcula o valor em FairCoin no momento do pagamento, e o preço vale por 10 minutos. Um pagamento em FairCoin cobre um único vendedor."
+    "payWith": {},
+    "account": {
+      "saveToOxy": "Salvar %{name} no Oxy",
+      "saveFailed": "Não foi possível salvar. Confira seus endereços Oxy antes de tentar novamente.",
+      "quoteLabel": "Subtotal · frete e impostos na próxima etapa",
+      "loadFailed": "Não foi possível carregar seus endereços. Tente novamente ou informe um endereço."
     }
   },
   "payment": {
@@ -699,7 +681,6 @@
       "title": "Pagamento cancelado"
     },
     "card": {
-      "notCompleted": "Não foi possível concluir seu pagamento.",
       "payNow": "Pagar agora"
     },
     "cardDetailsNotice": "Os dados do seu cartão vão direto para o nosso provedor de pagamentos e nunca chegam à Mercaria.",

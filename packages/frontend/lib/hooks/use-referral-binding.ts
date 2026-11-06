@@ -1,4 +1,10 @@
-import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  skipToken,
+  type QueryClient,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { useOxy } from '@oxy.so/services/ui/client';
 import { Platform } from 'react-native';
 import { useStore } from 'zustand';
@@ -46,13 +52,16 @@ interface ReferralDisclosureState {
 }
 
 const disclosureKey = ['referral-disclosure'] as const;
+const emptyDisclosure: ReferralDisclosureState = { required: false };
 export function useReferralDisclosureStore<T>(selector: (state: ReferralDisclosureState) => T): T {
   const { data } = useQuery<ReferralDisclosureState>({
     queryKey: disclosureKey,
-    initialData: { required: false },
+    // This observes client-owned cache state; it has no network reader.
+    queryFn: skipToken,
+    initialData: emptyDisclosure,
     enabled: false,
   });
-  return selector(data);
+  return selector(data ?? emptyDisclosure);
 }
 function recordDisclosure(
   client: QueryClient,

@@ -571,30 +571,20 @@
     "skipLabel": "Cerca igualment"
   },
   "checkout": {
-    "address": {
-      "shipTo": "Enviar a %{name}"
-    },
+    "address": {},
     "backToOrders": "Torna a les teves comandes",
     "checkLaterFromOrders": "Consulta-ho més tard des de les teves comandes",
     "claim": {
       "optional": "Opcional. La teva comanda està confirmada igualment.",
       "saveToOxy": "Desa aquestes comandes a Oxy"
     },
-    "deliverElsewhere": "Envia-ho a una altra adreça",
     "destination": {
-      "collectInPerson": "Recollir en persona",
-      "continueAsGuest": "Continua com a convidat",
-      "deliverTo": "Enviar a",
-      "digitalHint": "No s'envia res d'aquesta comanda: les teves descàrregues seran a la teva biblioteca tan bon punt paguis. Només necessitem el país on ets, pels impostos.",
-      "digitalTitle": "Les teves dades",
-      "guestDeliveryHint": "No cal cap compte. Digues-nos on va i com localitzar-te per a aquesta comanda.",
       "guestPickupHint": "No cal cap compte. Digues-nos com localitzar-te per a aquesta recollida: no et demanarem una adreça que no necessites.",
-      "pickupFallbackName": "la botiga que has triat"
+      "collectInPerson": "Recollir en persona"
     },
     "discount": {
       "accessibilityLabel": "Codi de descompte",
-      "label": "Codi de descompte (opcional)",
-      "placeholder": "SAVE10"
+      "label": "Codi de descompte (opcional)"
     },
     "emailMeLink": "Envia'm per correu un enllaç a aquesta comanda",
     "empty": {
@@ -603,15 +593,10 @@
       "title": "No hi ha res per comprar"
     },
     "error": {
-      "collectionEmailRequired": "Escriu l'adreça electrònica on han d'arribar les dades de la recollida.",
-      "digitalSupplyConsentRequired": "Aquesta comanda inclou descàrregues. Activa el lliurament immediat per comprar-les, o compra els altres articles per separat.",
-      "emailAndAddressRequired": "Omple el teu correu electrònic i l'adreça de lliurament per continuar.",
-      "receiptEmailRequired": "Escriu l'adreça electrònica on ha d'arribar el teu rebut.",
       "sellerNotActivated": "%{seller} no accepta comandes ara mateix. Treu-ne els articles de la comanda per pagar la resta.",
       "sellerNotPaymentReady": "%{seller} no pot acceptar pagaments ara mateix. Treu els seus articles de la comanda per pagar la resta.",
       "sellersNotActivated": "Aquests venedors no accepten comandes ara mateix: %{sellers}. Treu-ne els articles de la comanda per pagar la resta.",
       "sellersNotPaymentReady": "Aquests venedors no poden acceptar pagaments ara mateix: %{sellers}. Treu els seus articles de la comanda per pagar la resta.",
-      "supplyCountryRequired": "Indica el país on ets, amb dues lletres.",
       "unnamedSellersNotActivated": "Alguns venedors de la teva comanda no accepten comandes ara mateix. Treu els articles destacats per pagar la resta.",
       "unnamedSellersNotPaymentReady": "Alguns venedors de la teva comanda no poden acceptar pagaments ara mateix. Treu els articles destacats per pagar la resta."
     },
@@ -662,8 +647,6 @@
       "keepToHand": "Tingues-lo a mà: identifica la teva compra si necessites posar-te en contacte."
     },
     "pageTitle": "Finalitza la compra — Mercaria",
-    "placeOrder": "Fes la comanda",
-    "shippingAddress": "Adreça d'enviament",
     "signIn": {
       "action": "Inicia la sessió",
       "body": "En iniciar la sessió tindràs les adreces desades, aquest carretó als teus altres dispositius i la comanda a l'historial del teu compte. També pots comprar com a convidat: s'escriu el mateix.",
@@ -678,18 +661,17 @@
     },
     "title": "Finalitza la compra",
     "toast": {
-      "orderPlaced": "Comanda feta",
       "reservedGuest": "La teva comanda queda reservada una estona. Torna a finalitzar la compra per pagar-la.",
       "reservedSignedIn": "La teva comanda queda reservada. La pots pagar des de les teves comandes."
     },
-    "useSavedAddress": "Fes servir una adreça desada",
     "viewOrder": "Mostra la comanda",
     "viewOrders": "Mostra les teves comandes",
-    "payWith": {
-      "label": "Com pagaràs",
-      "card": "Targeta",
-      "faircoin": "FairCoin",
-      "faircoinHint": "Pagues el total en FairCoin, directament al moneder de Peable del venedor. Peable calcula l'import en FairCoin quan pagues i el preu es manté 10 minuts. Un pagament en FairCoin cobreix un sol venedor."
+    "payWith": {},
+    "account": {
+      "saveToOxy": "Desa %{name} a Oxy",
+      "saveFailed": "No s’ha pogut desar. Revisa les adreces d’Oxy abans de tornar-ho a provar.",
+      "quoteLabel": "Subtotal · enviament i impostos al pas següent",
+      "loadFailed": "No s’han pogut carregar les adreces. Pots tornar-ho a provar o introduir-ne una."
     }
   },
   "payment": {
@@ -699,7 +681,6 @@
       "title": "Pagament cancel·lat"
     },
     "card": {
-      "notCompleted": "No s'ha pogut completar el teu pagament.",
       "payNow": "Paga ara"
     },
     "cardDetailsNotice": "Les dades de la teva targeta van directament al nostre proveïdor de pagaments i no arriben mai a Mercaria.",

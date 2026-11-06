@@ -32,7 +32,7 @@ import { useTranslation } from '@/lib/i18n';
 import { checkoutReturnUrl, sheetOutcome } from '@/lib/payments/peable-payer';
 
 /** Open what the buyer pressed for: Peable's page in the in-app browser, the wallet by its link. */
-async function openInApp(url: string, kind: 'wallet' | 'hosted'): Promise<void> {
+export async function openInApp(url: string, kind: 'wallet' | 'hosted'): Promise<void> {
   if (Platform.OS === 'web') {
     if (kind === 'wallet') window.location.href = url;
     else window.open(url, '_blank', 'noopener');

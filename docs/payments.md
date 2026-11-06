@@ -58,6 +58,35 @@ settlement (#47), the money coming back — refunds, transfer reversals, dispute
 payouts (#49) — reconciliation and operator recovery (#50), and the Peable
 adapter and event ingress (ADR 0009).
 
+### The storefront opens Peable before creating orders
+
+Pay opens `PeableSheetCheckout` immediately. Its preparation step contains the
+private Oxy address book, guest receipt contact, and Mercaria's pickup and
+digital-supply fields. Existing Mercaria destinations remain selectable; saving
+a reviewed destination to Oxy is a separate explicit action. Structured places
+from the account's own profile are optional import candidates, never defaults:
+the recipient must be reviewed and free-text profile locations are not parsed.
+
+The first amount is a labelled subtotal. Continue validates destinations with
+the same pure policy as the backend, then creates the checkout once. The backend
+prices delivery and returns the session's authoritative amount; Peable reads
+that session before showing the final review and Pay. Selecting an address,
+opening the panel and completing preparation never authorize a charge.
+
+The same Bloom sheet remains mounted while the session is created, while the
+cart refreshes after placement, and across dismissal/reopening. After a request
+starts, its address, collector, consent, discount and idempotency key stay frozen
+for retries, including uncertain server failures. Only a local preflight refusal
+before the first request allows editing. Account changes discard the private
+controller and suppress stale callbacks. A failed session read recovers using
+the existing order's capability; it does not create another checkout.
+
+The buyer chooses the payment method inside Peable. Only Mercaria's verified
+backend payment status can show payment complete. Synthetic browser regressions
+cover desktop/mobile account checkout, guest contact, retry identity, and the
+same outer dialog through authoritative repricing and cart invalidation; they
+never submit a charge to a live provider.
+
 ### What the Peable rail does not do yet
 
 None of these is papered over below; each is a gap before `PEABLE_ENABLED` can

@@ -164,7 +164,9 @@ export function cleanContact(contact: CheckoutContactInput): CheckoutContactInpu
 export function DigitalSupplyConsent({
   consent,
   onChange,
+  disabled = false,
 }: {
+  disabled?: boolean;
   consent: boolean;
   onChange: (consent: boolean) => void;
 }) {
@@ -175,6 +177,7 @@ export function DigitalSupplyConsent({
         {t('checkout.form.digitalSupplyConsent')}
       </Text>
       <Switch
+        disabled={disabled}
         checked={consent}
         onCheckedChange={onChange}
         accessibilityLabel={t('checkout.form.digitalSupplyConsentA11y')}
