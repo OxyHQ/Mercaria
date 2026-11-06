@@ -87,13 +87,12 @@ export interface SellersNotActivatedErrorDetails {
 
 /**
  * A FairCoin checkout refused before anything was reserved (ADR 0019): the
- * sellers who cannot be paid in FairCoin and why, or — for
- * `faircoin_one_seller_per_checkout` — the sellers of a FairCoin cart that names
- * more than one (a FairCoin payment pays ONE seller's wallet, Peable ADR 0021 D6).
- * The buyer can pay by card in USD instead, or check those sellers out one at a time.
+ * sellers who cannot be paid in FairCoin and why. A cart of several sellers is
+ * ONE FairCoin payment with one output per seller (ADR 0021, Peable ADR 0021
+ * D6). The buyer can pay by card in USD instead.
  */
 export interface FaircoinCheckoutUnavailableErrorDetails {
-  reason: 'faircoin_unavailable' | 'faircoin_one_seller_per_checkout';
+  reason: 'faircoin_unavailable';
   /** Why, for `faircoin_unavailable`. Shown in words, never hidden. */
   unavailableReason?: FaircoinUnavailableReason;
   sellers: RefusedCheckoutSeller[];

@@ -692,6 +692,7 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
 
   // ── Provider key spaces: ids a payment rail mints, never Mercaria ─────────
   { column: 'payments.provider_object_id', reason: PROVIDER_OBJECT },
+  { column: 'payments.provider_checkout_session_id', reason: PROVIDER_OBJECT },
   { column: 'payment_attempts.provider_object_id', reason: PROVIDER_OBJECT },
   { column: 'transfers.provider_object_id', reason: PROVIDER_OBJECT },
   { column: 'payouts.provider_object_id', reason: PROVIDER_OBJECT },

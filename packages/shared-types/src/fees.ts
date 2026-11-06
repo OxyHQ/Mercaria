@@ -302,4 +302,15 @@ export interface OrderFeeSummary {
   /** ISO-8601 — when the fee was calculated (the snapshot's creation time). */
   calculatedAt: string;
   explanation: string;
+  /**
+   * How the order was actually paid, once it was (ADR 0021): the fee follows
+   * the method USED. `card` keeps the snapshot's marketplace-card fee;
+   * `faircoin` takes none, and `fee` then reads zero. Absent until the payment
+   * succeeded.
+   */
+  paidWith?: OrderFeeOutcomeMethod;
 }
+
+/** How a paid order's fee was decided (ADR 0021). */
+export const ORDER_FEE_OUTCOME_METHODS = ['card', 'faircoin'] as const;
+export type OrderFeeOutcomeMethod = (typeof ORDER_FEE_OUTCOME_METHODS)[number];

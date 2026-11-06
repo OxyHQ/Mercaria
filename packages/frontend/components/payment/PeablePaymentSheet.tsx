@@ -5,9 +5,9 @@
  *
  * ## What Mercaria supplies, and what it does not
  *
- * The handoff's Peable PaymentIntent — or, for a USD order paid in FairCoin,
- * its FairCoin-only Checkout Session — and ITS `client_secret` (the payer's
- * capability, nothing of the acquirer's), the order's total and numbers, and
+ * The handoff's Peable Checkout Session — the whole cart's, one line per seller
+ * order — and ITS `client_secret` (the payer's capability, nothing of the
+ * acquirer's), the order's total and numbers, and
  * how to open a page in this app. Everything else — the card in Peable's secure
  * fields (or Peable's secure page where a native app cannot host them),
  * FairCoin, the payment's own states — is the SDK's. There is no card form, no
@@ -25,7 +25,7 @@ import { useEffect, useRef } from 'react';
 import { Linking, Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import type { CheckoutPaymentHandoff, PaymentStatus } from '@mercaria/shared-types';
-import { intentSource, PeableSheetCheckout, sessionSource } from '@peable.to/sdk/checkout/ui';
+import { PeableSheetCheckout, sessionSource } from '@peable.to/sdk/checkout/ui';
 import { track } from '@/lib/analytics';
 import { PEABLE_CHECKOUT_URL, PEABLE_GATEWAY_URL } from '@/lib/config';
 import { useTranslation } from '@/lib/i18n';
@@ -63,15 +63,9 @@ export function PeablePaymentSheet({
   onClose: () => void;
 }) {
   const { t, locale } = useTranslation();
-  // A USD order the buyer chose to pay in FairCoin is a FairCoin-only Peable
-  // Checkout Session (ADR 0020): the sheet quotes the total in FAIR when the
-  // buyer confirms. Its one line IS the order's total, so the session's
-  // subtotal — what the sheet compares — is the same figure as a payment's.
-  const candidate =
-    payment.payerObject === 'checkout_session'
-      ? sessionSource(payment.clientSecret)
-      : intentSource(payment.providerPaymentId, payment.clientSecret);
-  const source = candidate?.id === payment.providerPaymentId ? candidate : null;
+  // The cart's ONE Peable Checkout Session (ADR 0021): the payer chooses the
+  // card or FairCoin in the sheet; every seller is paid from it.
+  const source = sessionSource(payment.clientSecret);
 
   const reported = useRef(false);
   useEffect(() => {

@@ -378,6 +378,15 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
       "#88's immutable fee snapshot, the only fee input the money path reads, append-only by trigger.",
   },
   {
+    table: 'order_fee_outcomes',
+    rowUpdate: 'refused',
+    rowDelete: 'refused',
+    frozenColumns: [],
+    reason:
+      'ADR 0021: how a paid order was paid and the marketplace fee that follows (card keeps the ' +
+      "snapshot's terms, FairCoin none), written once at the payment's outcome and append-only by trigger.",
+  },
+  {
     table: 'order_item_option_values',
     rowUpdate: 'refused',
     rowDelete: 'allowed',
@@ -601,6 +610,8 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
       'platform_rate_as_of',
     ],
     reason:
+      '`provider` and `provider_object_id` are frozen by `payments_rail_immutable` instead, which leaves ' +
+      'them open only on a checkout-session payment the payer has not started paying (ADR 0021). ' +
       'The lifecycle `status` legitimately moves and is the whole reason the row is not frozen; what the ' +
       'buyer was CHARGED, what actually LANDED and the FX snapshot that relates them do not. The platform ' +
       'columns are NULL until the charge settles, so write-once admits the one stamp and refuses a later ' +

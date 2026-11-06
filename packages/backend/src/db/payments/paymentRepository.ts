@@ -148,6 +148,69 @@ export async function attachPaymentProviderObject(
   return await findPaymentById(db, paymentId);
 }
 
+/**
+ * Record the ONE checkout session a cart is paid through (ADR 0021). Set once:
+ * a replay that opened the same session (the idempotency key is the payment's)
+ * finds it already there.
+ */
+export async function attachPaymentCheckoutSession(
+  db: DatabaseOrTransaction,
+  paymentId: string,
+  providerCheckoutSessionId: string,
+): Promise<PaymentRow | undefined> {
+  await db
+    .update(payments)
+    .set({ providerCheckoutSessionId, updatedAt: new Date() })
+    .where(and(eq(payments.id, paymentId), isNull(payments.providerCheckoutSessionId)));
+  return await findPaymentById(db, paymentId);
+}
+
+/** The payment a checkout session pays, if Mercaria opened it. */
+export async function findPaymentByCheckoutSessionId(
+  db: DatabaseOrTransaction,
+  providerCheckoutSessionId: string,
+): Promise<PaymentRow | undefined> {
+  const [row] = await db
+    .select()
+    .from(payments)
+    .where(eq(payments.providerCheckoutSessionId, providerCheckoutSessionId))
+    .limit(1);
+  return row;
+}
+
+/**
+ * Statuses in which the payer may still choose (or switch) how to pay — the
+ * same set `payments_rail_immutable` (migration 0194) leaves `provider` and
+ * `provider_object_id` open in. Once money moves (`processing`) they are frozen.
+ */
+const SESSION_PAYMENT_OPEN_STATUSES = ['created', 'requires_action', 'failed'] as const;
+
+/**
+ * Point a session-paid payment at the session's CURRENT payment and the rail it
+ * is on (ADR 0021): `peable` for the card, `peable_faircoin` for FairCoin. A
+ * compare-and-swap on the payment still being open — a settled, cancelled or
+ * refunded payment never moves to another intent. `undefined` when it did not.
+ */
+export async function attachSessionPayment(
+  db: DatabaseOrTransaction,
+  paymentId: string,
+  providerObjectId: string,
+  provider: Extract<PaymentProviderId, 'peable' | 'peable_faircoin'>,
+): Promise<PaymentRow | undefined> {
+  const [row] = await db
+    .update(payments)
+    .set({ providerObjectId, provider, updatedAt: new Date() })
+    .where(
+      and(
+        eq(payments.id, paymentId),
+        isNotNull(payments.providerCheckoutSessionId),
+        inArray(payments.status, [...SESSION_PAYMENT_OPEN_STATUSES]),
+      ),
+    )
+    .returning();
+  return row;
+}
+
 /** The native payment funding a checkout group, if one has been opened. */
 export async function findNativePaymentByCheckoutGroupId(
   db: DatabaseOrTransaction,

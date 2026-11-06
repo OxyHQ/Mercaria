@@ -51,6 +51,7 @@ let catalogSchema: typeof import('../../db/schema/catalog.js');
 let paymentSchema: typeof import('../../db/schema/payments.js');
 let ledgerSchema: typeof import('../../db/schema/ledger.js');
 let feeSchema: typeof import('../../db/schema/fees.js');
+let feeOutcomeSchema: typeof import('../../db/schema/feeOutcomes.js');
 
 beforeAll(async () => {
   process.env.PEABLE_ENABLED = 'true';
@@ -80,6 +81,7 @@ beforeAll(async () => {
   paymentSchema = await import('../../db/schema/payments.js');
   ledgerSchema = await import('../../db/schema/ledger.js');
   feeSchema = await import('../../db/schema/fees.js');
+  feeOutcomeSchema = await import('../../db/schema/feeOutcomes.js');
 }, 120_000);
 
 afterAll(async () => {
@@ -220,19 +222,22 @@ describe('a FAIR checkout is paid in FairCoin, to the seller (ADR 0019 D1, D3)',
 
     const result = await checkout(buyer.actor, { addressId: buyer.addressId });
 
-    expect(result.payment?.rail).toBe('faircoin');
+    // ONE checkout session for the cart (ADR 0020), FairCoin-only in FAIR, its
+    // line naming the seller whose wallet the payment pays.
     expect(result.payment?.provider).toBe('peable_faircoin');
     expect(result.payment?.methods).toEqual([]);
-    expect(result.payment?.faircoin).toMatchObject({
-      network: 'testnet',
-      amount: { currency: 'FAIR' },
-    });
-    const [call] = gateway.state.intentCalls;
+    expect(result.payment?.checkoutSessionId).toMatch(/^cs_/);
+    const [call] = gateway.state.sessionCalls;
     expect(call?.params).toMatchObject({
-      rail: 'faircoin',
-      currency: 'FAIR',
-      network: 'testnet',
-      connected_account: seller.providerAccountId,
+      mode: 'payment',
+      ui_mode: 'embedded',
+      line_items: [
+        {
+          price_data: { currency: 'FAIR' },
+          quantity: 1,
+          connected_account: seller.providerAccountId,
+        },
+      ],
     });
     expect(call?.params).not.toHaveProperty('payment_method_types');
 
@@ -250,17 +255,27 @@ describe('a FAIR checkout is paid in FairCoin, to the seller (ADR 0019 D1, D3)',
     // The payment succeeds: the order is paid, and nothing is booked or
     // transferred — the coins are already in the seller's own wallet.
     const payment = await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId);
-    if (!payment?.providerObjectId) throw new Error('no FairCoin payment opened');
+    if (!payment?.providerCheckoutSessionId) throw new Error('no checkout session opened');
     expect(payment.provider).toBe('peable_faircoin');
-    gateway.succeed(payment.providerObjectId);
+    const intent = gateway.confirmSession(payment.providerCheckoutSessionId, 'faircoin');
+    gateway.succeed(intent.id);
     await ingestPeableDelivery(
       gateway.intentDelivery({
         eventId: `evt_fair_paid_${RUN}`,
         type: 'payment_intent.succeeded',
-        intentId: payment.providerObjectId,
+        intentId: intent.id,
         secret: WEBHOOK_SECRET,
       }),
     );
+    expect(
+      (await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId))?.providerObjectId,
+    ).toBe(intent.id);
+    // The fee followed the method used, at the outcome (ADR 0020): FairCoin, none.
+    const outcomes = await db
+      .select()
+      .from(feeOutcomeSchema.orderFeeOutcomes)
+      .where(eq(feeOutcomeSchema.orderFeeOutcomes.paymentId, payment.id));
+    expect(outcomes.map((row) => [row.method, row.feeAmount])).toEqual([['faircoin', 0]]);
 
     const paid = await findOrdersInCheckoutGroup(result.checkoutGroupId);
     expect(paid.map((order) => order.status)).toEqual(['paid']);
@@ -286,7 +301,7 @@ describe('a FAIR checkout is paid in FairCoin, to the seller (ADR 0019 D1, D3)',
     await expect(checkout(buyer.actor, { addressId: buyer.addressId })).rejects.toMatchObject({
       details: { reason: 'faircoin_unavailable', unavailableReason: 'seller_not_connected' },
     });
-    expect(gateway.state.intentCalls).toEqual([]);
+    expect(gateway.state.sessionCalls).toEqual([]);
     const [variant] = await db
       .select()
       .from(catalogSchema.productVariants)
@@ -304,14 +319,16 @@ describe('a FAIR checkout is paid in FairCoin, to the seller (ADR 0019 D1, D3)',
     await expect(checkout(buyer.actor, { addressId: buyer.addressId })).rejects.toMatchObject({
       details: { reason: 'faircoin_unavailable', unavailableReason: 'faircoin_network_closed' },
     });
-    expect(gateway.state.intentCalls).toEqual([]);
+    expect(gateway.state.sessionCalls).toEqual([]);
     expect((await accounts.readSellerPaymentSettings(seller.owner)).faircoin).toMatchObject({
       payable: false,
       unavailableReason: 'faircoin_network_closed',
     });
   });
 
-  it('refuses a FAIR cart of two sellers: one FairCoin payment pays one wallet', async () => {
+  it('pays a FAIR cart of two sellers in ONE FairCoin payment, one output per seller (ADR 0020)', async () => {
+    gateway.state.faircoinConfigurationReason = null;
+    resetFaircoinNetworkCache();
     const first = await confirmedFaircoinSeller('two-a');
     const second = await confirmedFaircoinSeller('two-b');
     const buyer = await seedBuyer('two', [
@@ -319,17 +336,64 @@ describe('a FAIR checkout is paid in FairCoin, to the seller (ADR 0019 D1, D3)',
       { listingId: second.listing.id, variantId: second.variant.id, quantity: 1 },
     ]);
 
-    await expect(checkout(buyer.actor, { addressId: buyer.addressId })).rejects.toMatchObject({
-      details: { reason: 'faircoin_one_seller_per_checkout' },
-    });
-    expect(gateway.state.intentCalls).toEqual([]);
+    const result = await checkout(buyer.actor, { addressId: buyer.addressId });
+    expect(result.orders).toHaveLength(2);
+    const sessionId = result.payment?.checkoutSessionId ?? '';
+    // A line per seller order, each naming its seller.
+    expect(
+      gateway
+        .session(sessionId)
+        .lines.map((line) => line.connectedAccount)
+        .sort(),
+    ).toEqual([first.providerAccountId, second.providerAccountId].sort());
+    const intent = gateway.confirmSession(sessionId, 'faircoin');
+    expect(intent.faircoin?.outputs).toHaveLength(2);
+    gateway.succeed(intent.id);
+    await ingestPeableDelivery(
+      gateway.intentDelivery({
+        eventId: `evt_fair_two_paid_${RUN}`,
+        type: 'payment_intent.succeeded',
+        intentId: intent.id,
+        secret: WEBHOOK_SECRET,
+      }),
+    );
+
+    const paid = await findOrdersInCheckoutGroup(result.checkoutGroupId);
+    expect(paid.map((order) => order.status)).toEqual(['paid', 'paid']);
+    // Each seller's coins are in its own wallet: nothing transferred, nothing held.
+    expect(gateway.state.transferCalls).toEqual([]);
+    const payment = await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId);
+    const outcomes = await db
+      .select()
+      .from(feeOutcomeSchema.orderFeeOutcomes)
+      .where(eq(feeOutcomeSchema.orderFeeOutcomes.paymentId, payment?.id ?? ''));
+    expect(outcomes.map((row) => [row.method, row.feeAmount])).toEqual([
+      ['faircoin', 0],
+      ['faircoin', 0],
+    ]);
   });
 });
 
-describe('a USD order paid in FairCoin (ADR 0020)', () => {
+describe('a USD order the buyer pays in FairCoin (ADR 0020, ADR 0021)', () => {
   const USD_PRICE = { amount: 2_500, currency: 'USD' as const }; // $25.00
 
-  it("opens a FairCoin-only session for the seller, takes no fee, and completes on Peable's outcome", async () => {
+  async function paidInFaircoin(sessionId: string, label: string) {
+    const intent = gateway.confirmSession(sessionId, 'faircoin');
+    gateway.succeed(intent.id);
+    await ingestPeableDelivery(
+      gateway.intentDelivery({
+        eventId: `evt_usd_fair_${label}_${RUN}`,
+        type: 'payment_intent.succeeded',
+        intentId: intent.id,
+        secret: WEBHOOK_SECRET,
+      }),
+    );
+    return intent;
+  }
+
+  it('opens ONE FairCoin-only session, takes no fee, and completes on the payment', async () => {
+    gateway.state.faircoinConfigurationReason = null;
+    resetFaircoinNetworkCache();
     const seller = await confirmedFaircoinSeller('usd-pay', USD_PRICE);
     const buyer = await seedBuyer(
       'usd-pay',
@@ -341,113 +405,41 @@ describe('a USD order paid in FairCoin (ADR 0020)', () => {
       addressId: buyer.addressId,
       paymentMethod: 'faircoin',
     });
-
-    // The handoff is the SESSION: the buyer's client opens Peable's sheet over
-    // it, and Peable quotes the USD total in FAIR when they confirm.
     expect(result.payment).toMatchObject({
-      rail: 'faircoin',
       provider: 'peable_faircoin',
-      payerObject: 'checkout_session',
       amount: { currency: 'USD' },
       methods: [],
     });
-    expect(result.payment?.faircoin).toBeUndefined();
-    expect(result.payment?.providerPaymentId).toMatch(/^cs_/);
-    expect(result.payment?.clientSecret).toBe(
-      `${result.payment?.providerPaymentId}_secret_fixture`,
-    );
-    expect(gateway.state.intentCalls).toEqual([]);
-
     const payment = await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId);
-    if (!payment?.providerObjectId) throw new Error('no FairCoin payment opened');
-    expect(payment.provider).toBe('peable_faircoin');
-    expect(payment.providerObjectId).toBe(result.payment?.providerPaymentId);
-
+    if (!payment?.providerCheckoutSessionId) throw new Error('no checkout session opened');
+    expect(result.payment?.checkoutSessionId).toBe(payment.providerCheckoutSessionId);
     const [call] = gateway.state.sessionCalls;
-    const orders = await findOrdersInCheckoutGroup(result.checkoutGroupId);
-    expect(orders).toHaveLength(1);
-    const [order] = orders;
-    if (!order) throw new Error('no order');
+    expect(call?.idempotencyKey).toBe(`cs:${payment.id}`);
     expect(call?.params).toMatchObject({
-      mode: 'payment',
-      ui_mode: 'embedded',
       payment_method_types: ['faircoin'],
-      // Never without the seller: a marketplace sale must not pay the wallet
-      // of the account that owns Mercaria's own application.
-      connected_account: seller.providerAccountId,
-      client_reference_id: payment.id,
       line_items: [
-        {
-          price_data: {
-            currency: 'USD',
-            unit_amount: String(order.totalsGrandTotalPresentmentAmount),
-          },
-          quantity: 1,
-        },
+        { price_data: { currency: 'USD' }, connected_account: seller.providerAccountId },
       ],
-      metadata: { mercaria_payment_id: payment.id, paymentId: payment.id },
     });
-    expect(call?.idempotencyKey).toBe(`pi:${payment.id}`);
-
-    // The fee follows the METHOD, decided once at pricing: FairCoin is exempt
-    // in USD too — a real zero, never a card fee refunded afterwards.
+    // Priced for FairCoin (ADR 0020 D4): a real zero, no card terms asked.
+    const [order] = await findOrdersInCheckoutGroup(result.checkoutGroupId);
     const [snapshot] = await db
       .select()
       .from(feeSchema.orderFeeSnapshots)
-      .where(eq(feeSchema.orderFeeSnapshots.orderId, order.id));
-    expect(snapshot).toMatchObject({
-      result: 'faircoin_exempt',
-      feeAmount: 0,
-      feeCurrency: 'USD',
-      scheduleKey: null,
+      .where(eq(feeSchema.orderFeeSnapshots.orderId, order?.id ?? ''));
+    expect(snapshot?.result).toBe('faircoin_exempt');
+
+    const intent = await paidInFaircoin(payment.providerCheckoutSessionId, 'pay');
+    expect(await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId)).toMatchObject({
+      status: 'succeeded',
+      provider: 'peable_faircoin',
+      providerObjectId: intent.id,
     });
-
-    // The payer confirms FairCoin on the session: Peable's own intent, with no
-    // Mercaria metadata. Its events are not the marketplace's to correlate.
-    const intentId = gateway.confirmSessionFaircoin(payment.providerObjectId);
-    await ingestPeableDelivery(
-      gateway.intentDelivery({
-        eventId: `evt_usd_intent_${RUN}`,
-        type: 'payment_intent.requires_action',
-        intentId,
-        secret: WEBHOOK_SECRET,
-      }),
-    );
-    expect((await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId))?.status).toBe(
-      'created',
-    );
-
-    // Broadcast: `checkout.session.completed`, unpaid — money on its way.
-    gateway.broadcastSession(payment.providerObjectId);
-    await ingestPeableDelivery(
-      gateway.sessionDelivery({
-        eventId: `evt_usd_completed_${RUN}`,
-        type: 'checkout.session.completed',
-        sessionId: payment.providerObjectId,
-        secret: WEBHOOK_SECRET,
-      }),
-    );
-    expect((await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId))?.status).toBe(
-      'processing',
-    );
-    expect((await findOrdersInCheckoutGroup(result.checkoutGroupId)).map((o) => o.status)).toEqual([
-      'pending_payment',
-    ]);
-
-    // Confirmed: `async_payment_succeeded`, paid — money received.
-    gateway.settleSession(payment.providerObjectId);
-    await ingestPeableDelivery(
-      gateway.sessionDelivery({
-        eventId: `evt_usd_paid_${RUN}`,
-        type: 'checkout.session.async_payment_succeeded',
-        sessionId: payment.providerObjectId,
-        secret: WEBHOOK_SECRET,
-      }),
-    );
-    expect((await findOrdersInCheckoutGroup(result.checkoutGroupId)).map((o) => o.status)).toEqual([
-      'paid',
-    ]);
-    // The coins are in the seller's own wallet: nothing booked, nothing moved.
+    const outcomes = await db
+      .select()
+      .from(feeOutcomeSchema.orderFeeOutcomes)
+      .where(eq(feeOutcomeSchema.orderFeeOutcomes.paymentId, payment.id));
+    expect(outcomes.map((row) => [row.method, row.feeAmount])).toEqual([['faircoin', 0]]);
     const ledger = await db
       .select()
       .from(ledgerSchema.ledgerTransactions)
@@ -456,7 +448,36 @@ describe('a USD order paid in FairCoin (ADR 0020)', () => {
     expect(gateway.state.transferCalls).toEqual([]);
   });
 
+  it('pays a USD cart of two sellers in ONE FairCoin payment, a line each', async () => {
+    gateway.state.faircoinConfigurationReason = null;
+    resetFaircoinNetworkCache();
+    const first = await confirmedFaircoinSeller('usd-two-a', USD_PRICE);
+    const second = await confirmedFaircoinSeller('usd-two-b', USD_PRICE);
+    const buyer = await seedBuyer(
+      'usd-two',
+      [
+        { listingId: first.listing.id, variantId: first.variant.id, quantity: 1 },
+        { listingId: second.listing.id, variantId: second.variant.id, quantity: 1 },
+      ],
+      'USD',
+    );
+    const result = await checkout(buyer.actor, {
+      addressId: buyer.addressId,
+      paymentMethod: 'faircoin',
+    });
+    const sessionId = result.payment?.checkoutSessionId ?? '';
+    expect(gateway.session(sessionId).lines).toHaveLength(2);
+    await paidInFaircoin(sessionId, 'two');
+    expect((await findOrdersInCheckoutGroup(result.checkoutGroupId)).map((o) => o.status)).toEqual([
+      'paid',
+      'paid',
+    ]);
+    expect(gateway.state.transferCalls).toEqual([]);
+  });
+
   it('expires the session when the reservation sweep releases an unpaid order', async () => {
+    gateway.state.faircoinConfigurationReason = null;
+    resetFaircoinNetworkCache();
     const seller = await confirmedFaircoinSeller('usd-expire', USD_PRICE);
     const buyer = await seedBuyer(
       'usd-expire',
@@ -470,28 +491,10 @@ describe('a USD order paid in FairCoin (ADR 0020)', () => {
     const { cancelPaymentForCheckoutGroup } = await import('../payments/payment.service.js');
     await cancelPaymentForCheckoutGroup(result.checkoutGroupId);
 
-    expect(gateway.state.sessionExpires).toEqual([result.payment?.providerPaymentId]);
+    expect(gateway.state.expireCalls).toEqual([result.payment?.checkoutSessionId]);
     expect((await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId))?.status).toBe(
       'canceled',
     );
-  });
-
-  it('refuses FairCoin for a USD cart of two sellers, before reserving', async () => {
-    const first = await confirmedFaircoinSeller('usd-two-a', USD_PRICE);
-    const second = await confirmedFaircoinSeller('usd-two-b', USD_PRICE);
-    const buyer = await seedBuyer(
-      'usd-two',
-      [
-        { listingId: first.listing.id, variantId: first.variant.id, quantity: 1 },
-        { listingId: second.listing.id, variantId: second.variant.id, quantity: 1 },
-      ],
-      'USD',
-    );
-
-    await expect(
-      checkout(buyer.actor, { addressId: buyer.addressId, paymentMethod: 'faircoin' }),
-    ).rejects.toMatchObject({ details: { reason: 'faircoin_one_seller_per_checkout' } });
-    expect(gateway.state.sessionCalls).toEqual([]);
   });
 
   it('refuses FairCoin for a USD order whose seller never opened it, naming why', async () => {

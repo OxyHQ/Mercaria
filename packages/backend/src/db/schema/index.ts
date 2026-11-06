@@ -48,6 +48,9 @@ export * from './merchandisingRules';
 export * from './orders';
 export * from './fees';
 export * from './payments';
+// A paid order's fee OUTCOME (ADR 0020) references both an order and the
+// payment that decided it, so it follows `payments`.
+export * from './feeOutcomes';
 export * from './ledger';
 export * from './reconciliation';
 export * from './pos';

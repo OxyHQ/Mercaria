@@ -38,16 +38,19 @@ sellers' items in the order summary. Nothing is charged and nothing is held.
 Before the flag, the same checkout said "order placed" for an order with no
 payment attached.
 
-A buyer pricing in FAIR (the default display currency) pays in FairCoin
-([ADR 0019](../adr/0019-faircoin-is-always-offered.md)): one on-behalf
-FairCoin payment into the seller's own Peable wallet, one seller per checkout,
-no marketplace fee. Until the seller has opened and confirmed FairCoin, that
+Every cart is ONE Peable Checkout Session ([ADR 0021](../adr/0021-one-peable-checkout-per-cart.md)):
+a USD cart offers the card (this runbook's platform charge and transfers) AND
+FairCoin; a FAIR cart (the default display currency) offers FairCoin
+([ADR 0019](../adr/0019-faircoin-is-always-offered.md)). FairCoin is one
+payment paying every seller's own Peable wallet its share, with no marketplace
+fee; the fee follows the method used (`order_fee_outcomes`). Until the seller has opened and confirmed FairCoin, that
 checkout is refused before anything is reserved with the reason in words
 (`faircoin_unavailable`: `seller_not_connected` / `seller_not_confirmed`), and
 while Peable keeps mainnet identity receive closed every FAIR checkout is
 refused `faircoin_network_closed` — that is the state in production today and
-is surfaced, not worked around. A buyer pricing in USD pays by card; any other
-currency is told to switch to USD (card) or FAIR (FairCoin). Prices still
+is surfaced, not worked around; on a USD cart the same reason shows FairCoin as
+unavailable in Peable's sheet while the card keeps working. Any other currency
+is told to switch to USD (card or FairCoin) or FAIR (FairCoin). Prices still
 convert from the listing's native currency.
 
 ## 2b. FairCoin for a store (what the store owner does)

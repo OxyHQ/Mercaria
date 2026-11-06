@@ -28,23 +28,41 @@ const ORDER_B = uuidv7();
 
 /** What `findGuestCheckoutIdForGroup` answers for this case. */
 const guestCheckoutId = vi.fn<() => Promise<string | undefined>>();
-const createPayment = vi.fn();
+const openCheckoutSession = vi.fn();
 
 vi.mock('../guest-correlation.js', () => ({
   findGuestCheckoutIdForGroup: () => guestCheckoutId(),
 }));
 vi.mock('../payment.service.js', () => ({
   ensurePayment: () =>
-    Promise.resolve({ id: PAYMENT_ID, checkoutGroupId: GROUP, providerObjectId: null }),
+    Promise.resolve({
+      id: PAYMENT_ID,
+      checkoutGroupId: GROUP,
+      providerObjectId: null,
+      providerCheckoutSessionId: null,
+      createdAt: new Date(),
+    }),
 }));
+// ONE checkout session per cart (ADR 0021): the adapter's session opener.
 vi.mock('../registry.js', () => ({
   resolvePaymentProvider: () => ({
     id: 'peable',
-    createPayment: (...args: unknown[]) => createPayment(...args),
+    createPayment: () => Promise.reject(new Error('a checkout opens a session, not an intent')),
+    openCheckoutSession: (...args: unknown[]) => openCheckoutSession(...args),
+    readCheckoutSession: () => Promise.reject(new Error('nothing to resume')),
+    expireCheckoutSession: () => Promise.resolve(),
   }),
 }));
+vi.mock('../provider-account.service.js', () => ({
+  parseSellerKey: (key: string) => {
+    const [ownerType, ownerId] = key.split(':');
+    return { ownerType, ownerId };
+  },
+  findSellerAccount: (owner: { ownerId: string }) =>
+    Promise.resolve({ providerAccountId: `ca_${owner.ownerId}` }),
+}));
 vi.mock('../../../db/payments/paymentRepository.js', () => ({
-  attachPaymentProviderObject: () => Promise.resolve(undefined),
+  attachPaymentCheckoutSession: () => Promise.resolve(undefined),
   findNativePaymentByCheckoutGroupId: () => Promise.resolve(undefined),
 }));
 vi.mock('../../../db/fees/orderFeeSnapshotRepository.js', () => ({
@@ -63,6 +81,9 @@ function orders(): OrderRecord[] {
   const of = (id: string, amount: number) =>
     ({
       id,
+      orderNumber: `MRC-${id.slice(0, 4)}`,
+      sellerType: 'store',
+      storeId: `store-${id}`,
       totalsGrandTotalPresentmentAmount: amount,
       totalsGrandTotalPresentmentCurrency: 'EUR',
     }) as unknown as OrderRecord;
@@ -71,7 +92,7 @@ function orders(): OrderRecord[] {
 
 /** The metadata the one `createPayment` call carried. */
 function capturedMetadata(): Record<string, string> {
-  const [call] = createPayment.mock.calls;
+  const [call] = openCheckoutSession.mock.calls;
   // biome-ignore lint/correctness/noUnsafeOptionalChaining: in a test, an absent call throwing here is the failure we want
   return (call?.[0] as { metadata: Record<string, string> }).metadata;
 }
@@ -88,11 +109,12 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-  createPayment.mockReset();
-  createPayment.mockResolvedValue({
-    providerObjectId: 'pi_handoff',
-    status: 'created',
-    clientAction: { kind: 'client_secret', value: 'pi_handoff_secret' },
+  openCheckoutSession.mockReset();
+  openCheckoutSession.mockResolvedValue({
+    sessionId: 'cs_handoff',
+    clientSecret: 'cs_handoff_secret',
+    status: 'open',
+    payment: null,
   });
   guestCheckoutId.mockReset();
 });
@@ -181,23 +203,30 @@ describe('the handoff (ADR 0006 G14)', () => {
 
     expect(handoff?.methods).toEqual(['card', 'apple_pay', 'google_pay', 'link']);
     expect(handoff?.provider).toBe('peable');
-    // The rail's payment and the payer's secret over it are the ONLY client
-    // material: no publishable key, no Mercaria credential, no return url
-    // (ADR 0009 D20).
-    expect(handoff?.providerPaymentId).toBe('pi_handoff');
-    expect(handoff?.clientSecret).toBe('pi_handoff_secret');
+    // The cart's checkout session and the payer's secret over it are the ONLY
+    // client material: no publishable key, no Mercaria credential, no return url
+    // (ADR 0009 D20, ADR 0021).
+    expect(handoff?.checkoutSessionId).toBe('cs_handoff');
+    expect(handoff?.clientSecret).toBe('cs_handoff_secret');
     expect(Object.keys(handoff ?? {}).sort()).toEqual(
-      [
-        'amount',
-        'clientSecret',
-        'methods',
-        'payerObject',
-        'paymentId',
-        'provider',
-        'providerPaymentId',
-        'rail',
-      ].sort(),
+      ['amount', 'checkoutSessionId', 'clientSecret', 'methods', 'paymentId', 'provider'].sort(),
     );
+    // One line per seller order, each naming its seller, summing to the payment.
+    const [call] = openCheckoutSession.mock.calls;
+    expect(((call?.[0] ?? { lines: [] }) as { lines: unknown[] }).lines).toEqual([
+      {
+        orderId: ORDER_A,
+        name: expect.any(String),
+        amountMinor: 4_000,
+        providerAccountId: `ca_store-${ORDER_A}`,
+      },
+      {
+        orderId: ORDER_B,
+        name: expect.any(String),
+        amountMinor: 1_000,
+        providerAccountId: `ca_store-${ORDER_B}`,
+      },
+    ]);
   });
 
   it('gives a guest and an Oxy buyer the SAME surfaces (ADR 0006 B11)', async () => {

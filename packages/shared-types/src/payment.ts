@@ -878,13 +878,12 @@ export const PAYMENT_OUTBOX_STATUSES: readonly PaymentOutboxStatus[] = [
 /**
  * Which rail a client asks a checkout to fund through.
  *
- * Optional: unnamed, the rail FOLLOWS THE PRESENTMENT CURRENCY (ADR 0019 D1) —
- * a `FAIR` checkout is paid in FairCoin, a checkout in a card currency (USD) by
- * card. A buyer of a card-currency order may name `faircoin` (ADR 0020): the
- * order stays priced in its currency and is paid in FairCoin at Peable's quote,
- * with no marketplace fee. `card` on a `FAIR` order is refused, never switched.
- * Both name the SURFACE the buyer sees, not the gateway behind it (ADR 0009
- * D19).
+ * Optional, and a client normally sends nothing: the rail FOLLOWS THE
+ * PRESENTMENT CURRENCY (ADR 0019 D1) — a `FAIR` checkout is paid in FairCoin,
+ * a checkout in a card currency (USD) by card. Naming one is an assertion the
+ * server checks against that currency and refuses when they disagree, rather
+ * than silently switching rails. Both name the SURFACE the buyer sees, not the
+ * gateway behind it (ADR 0009 D19).
  */
 export type CheckoutPaymentMethod = 'card' | 'faircoin' | 'mock';
 
@@ -1074,47 +1073,20 @@ export const FORBIDDEN_PAYMENT_METADATA_SUBSTRINGS = [
  * payment was created for rather than re-adding the orders itself and rounding
  * differently.
  */
-/** What a buyer's client confirms a checkout's payment through — {@link CheckoutPaymentHandoff.payerObject}. */
-export type CheckoutPayerObject = 'payment_intent' | 'checkout_session';
-
-/** {@link CheckoutPayerObject} as a tuple. */
-export const CHECKOUT_PAYER_OBJECTS: readonly CheckoutPayerObject[] = [
-  'payment_intent',
-  'checkout_session',
-];
-
 export interface CheckoutPaymentHandoff {
   /** Mercaria's payment id. The handle for the status endpoint below. */
   paymentId: string;
   provider: PaymentProviderId;
   /**
-   * Which rail this payment is on (ADR 0019): `card` mounts the card step,
-   * `faircoin` shows {@link faircoin} and Peable's hosted pay page, which takes
-   * the same `providerPaymentId` + `clientSecret`.
+   * The ONE Peable Checkout Session the whole cart is paid through (ADR 0021):
+   * the `cs_…` of an embedded session offering the card AND FairCoin on a fiat
+   * cart (FairCoin only on a `FAIR` one). The payer chooses in Peable's sheet;
+   * which method paid is known only from the gateway's outcome.
    */
-  rail: CheckoutPaymentRail;
+  checkoutSessionId: string;
   /**
-   * WHAT the payer confirms (Mercaria ADR 0020):
-   *
-   *  - `payment_intent` — one payment on one rail: a card PaymentIntent, or a
-   *    FAIR-priced FairCoin one carrying {@link faircoin}.
-   *  - `checkout_session` — a fiat-priced order the buyer chose to pay in
-   *    FairCoin: Peable's FairCoin-only Checkout Session (`cs_…`), which quotes
-   *    the total in FAIR when the payer confirms. Its client opens Peable's
-   *    sheet over the session's secret; there is no address until then.
-   */
-  payerObject: CheckoutPayerObject;
-  /** Present on a FAIR-priced FairCoin payment: what to pay, and where. */
-  faircoin?: CheckoutFaircoinInstruction;
-  /**
-   * The rail's own payment object the client confirms (Peable: the gateway
-   * PaymentIntent, `pi_…`, or the Checkout Session, `cs_…`). Not a
-   * credential — `clientSecret` is.
-   */
-  providerPaymentId: string;
-  /**
-   * The payer's secret over {@link providerPaymentId} (Peable: that
-   * object's `client_secret`), opaque and never persisted.
+   * The session's `client_secret` — what `sessionSource` / the sheet mounts on.
+   * Opaque, the payer's capability only, never persisted.
    */
   clientSecret: string;
   amount: Money;
@@ -1122,10 +1094,9 @@ export interface CheckoutPaymentHandoff {
    * The payment surfaces this checkout may render — #107's server-authoritative
    * method eligibility.
    *
-   * Always present, and never empty on a CARD handoff: a card handoff with
-   * nothing to render is a checkout that cannot be paid, and the server refuses
-   * it rather than returning client material for an empty sheet. A FairCoin
-   * handoff carries `[]` — none of these is a FairCoin surface. See
+   * Always present: the card surfaces a fiat cart's session may render. A
+   * `FAIR` cart's handoff carries `[]` — none of these is a FairCoin surface,
+   * and FairCoin is always offered by the session itself. See
    * {@link CHECKOUT_PAYMENT_SURFACE_METHODS} for what the set does and does not
    * decide — in particular that the device narrows it further and can never
    * widen it.

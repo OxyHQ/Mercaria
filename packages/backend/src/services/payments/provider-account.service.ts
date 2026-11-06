@@ -371,41 +371,32 @@ export async function assertSellerGroupsPaymentReady(
  * The FairCoin half of the readiness gate (ADR 0019 D3, D4) — BEFORE anything
  * is reserved, for the reason the card gate is.
  *
- * Two refusals, both naming the sellers by their public names:
+ * One refusal, naming the seller by its public name (a cart of several sellers
+ * is ONE multi-output FairCoin payment, ADR 0021 / Peable ADR 0021 D6):
  *
- *  - `faircoin_one_seller_per_checkout` — a FairCoin payment pays ONE seller's
- *    wallet (Peable ADR 0012 D5; a multi-output payment does not exist, ADR
- *    0021 D6), so a FairCoin checkout covers one seller. The buyer checks the
- *    others out separately, or pays them all by card.
  *  - `faircoin_unavailable` — the seller cannot be paid in FairCoin yet, with
  *    the REASON (not connected, not confirmed, Peable's network gate), always
  *    shown and never turned into a silent card-only checkout.
  */
 async function assertFaircoinSellersPayable(sellerKeys: readonly string[]): Promise<void> {
-  if (sellerKeys.length > 1) {
-    const sellers = await nameRefusedSellers(sellerKeys);
+  // Every seller of the cart is paid its own share in ONE FairCoin transaction
+  // (Mercaria ADR 0021, Peable ADR 0021 D6), so each one must be payable; the
+  // first seller that is not names the refusal.
+  for (const sellerKey of sellerKeys) {
+    const owner = parseSellerKey(sellerKey);
+    const reason = await faircoinUnavailableReasonFor(
+      owner ? await findSellerAccount(owner) : undefined,
+    );
+    if (reason === undefined) continue;
+    const sellers = await nameRefusedSellers([sellerKey]);
+    const name = sellers[0]?.name ?? 'This seller';
     throw checkoutRefusal(
-      'faircoin_one_seller_per_checkout',
-      'A FairCoin payment goes to one seller. Check out each seller separately, or pay by card ' +
-        'in USD.',
-      { reason: 'faircoin_one_seller_per_checkout', sellers },
+      'faircoin_unavailable',
+      `${name} cannot be paid in FairCoin yet (${FAIRCOIN_REASON_SENTENCES[reason]}). ` +
+        'Pay by card in USD instead.',
+      { reason: 'faircoin_unavailable', unavailableReason: reason, sellers },
     );
   }
-  const [sellerKey] = sellerKeys;
-  if (sellerKey === undefined) return;
-  const owner = parseSellerKey(sellerKey);
-  const reason = await faircoinUnavailableReasonFor(
-    owner ? await findSellerAccount(owner) : undefined,
-  );
-  if (reason === undefined) return;
-  const sellers = await nameRefusedSellers([sellerKey]);
-  const name = sellers[0]?.name ?? 'This seller';
-  throw checkoutRefusal(
-    'faircoin_unavailable',
-    `${name} cannot be paid in FairCoin yet (${FAIRCOIN_REASON_SENTENCES[reason]}). ` +
-      'Pay by card in USD instead.',
-    { reason: 'faircoin_unavailable', unavailableReason: reason, sellers },
-  );
 }
 
 /** The English fallback for each reason; clients localize from `details`. */

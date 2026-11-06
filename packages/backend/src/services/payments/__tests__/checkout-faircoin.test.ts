@@ -9,14 +9,13 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { uuidv7 } from '@oxy.so/db';
 import type { OrderRecord } from '../../../db/orders/orderRepository.js';
-import { PaymentProviderError } from '../provider.js';
 
 const GROUP = uuidv7();
 const PAYMENT_ID = uuidv7();
 const STORE_A = uuidv7();
 const STORE_B = uuidv7();
 
-const createPayment = vi.fn();
+const openCheckoutSession = vi.fn();
 const findSellerAccount = vi.fn();
 
 vi.mock('../guest-correlation.js', () => ({
@@ -24,12 +23,21 @@ vi.mock('../guest-correlation.js', () => ({
 }));
 vi.mock('../payment.service.js', () => ({
   ensurePayment: () =>
-    Promise.resolve({ id: PAYMENT_ID, checkoutGroupId: GROUP, providerObjectId: null }),
+    Promise.resolve({
+      id: PAYMENT_ID,
+      checkoutGroupId: GROUP,
+      providerObjectId: null,
+      providerCheckoutSessionId: null,
+      createdAt: new Date(),
+    }),
 }));
 vi.mock('../registry.js', () => ({
   resolvePaymentProvider: (provider: string) => ({
     id: provider,
-    createPayment: (...args: unknown[]) => createPayment(...args),
+    createPayment: () => Promise.reject(new Error('a checkout opens a session, not an intent')),
+    openCheckoutSession: (...args: unknown[]) => openCheckoutSession(...args),
+    readCheckoutSession: () => Promise.reject(new Error('nothing to resume')),
+    expireCheckoutSession: () => Promise.resolve(),
   }),
 }));
 // Both exports the opener reads. Written out rather than spread from the
@@ -42,7 +50,7 @@ vi.mock('../provider-account.service.js', () => ({
   },
 }));
 vi.mock('../../../db/payments/paymentRepository.js', () => ({
-  attachPaymentProviderObject: () => Promise.resolve(undefined),
+  attachPaymentCheckoutSession: () => Promise.resolve(undefined),
   findNativePaymentByCheckoutGroupId: () => Promise.resolve(undefined),
 }));
 vi.mock('../../../db/fees/orderFeeSnapshotRepository.js', () => ({
@@ -64,6 +72,7 @@ function fairOrders(...stores: string[]): OrderRecord[] {
         sellerType: 'store',
         storeId,
         sellerOxyUserId: null,
+        orderNumber: `MRC-${storeId.slice(0, 4)}`,
         totalsGrandTotalPresentmentAmount: 250_000_000,
         totalsGrandTotalPresentmentCurrency: 'FAIR',
       }) as unknown as OrderRecord,
@@ -76,13 +85,6 @@ const ACTIVE_SELLER = {
   faircoinNetwork: 'testnet',
 };
 
-const INSTRUCTION = {
-  address: 'tFairSellerAddress',
-  network: 'testnet',
-  amount: { amount: 250_000_000, currency: 'FAIR' },
-  uri: 'faircoin:tFairSellerAddress?amount=2.5',
-} as const;
-
 beforeAll(async () => {
   process.env.PEABLE_ENABLED = 'true';
   process.env.PEABLE_BASE_URL = 'https://api.peable.test';
@@ -91,60 +93,66 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-  createPayment.mockReset().mockResolvedValue({
-    providerObjectId: 'pi_fair',
-    status: 'requires_action',
-    clientAction: { kind: 'client_secret', value: 'pi_fair_secret' },
-    faircoin: INSTRUCTION,
+  openCheckoutSession.mockReset().mockResolvedValue({
+    sessionId: 'cs_fair',
+    clientSecret: 'cs_fair_secret',
+    status: 'open',
+    payment: null,
   });
   findSellerAccount.mockReset().mockResolvedValue(ACTIVE_SELLER);
 });
 
-describe('a FAIR checkout pays the seller in FairCoin (ADR 0019 D3)', () => {
-  it("creates an on-behalf payment for the ONE seller's account, in FAIR, expiring with the reservation", async () => {
+describe('a FAIR checkout is ONE FairCoin-only session paying each seller (ADR 0021)', () => {
+  it("opens one session whose line names the seller's account, in FAIR", async () => {
     const handoff = await service.openCheckoutPayment({
       rail: 'card', // what an unnamed rail resolves to before the cart; the orders decide
       checkoutGroupId: GROUP,
       orders: fairOrders(STORE_A),
     });
 
-    expect(createPayment).toHaveBeenCalledTimes(1);
-    expect(createPayment).toHaveBeenCalledWith(
+    expect(openCheckoutSession).toHaveBeenCalledTimes(1);
+    expect(openCheckoutSession).toHaveBeenCalledWith(
       expect.objectContaining({
         paymentId: PAYMENT_ID,
-        amount: { amount: 250_000_000, currency: 'FAIR' },
-        idempotencyKey: `pi:${PAYMENT_ID}`,
-        onBehalfOf: { providerAccountId: 'ca_seller_a', network: 'testnet' },
-        expiresInSeconds: 900,
+        currency: 'FAIR',
+        idempotencyKey: `cs:${PAYMENT_ID}`,
+        lines: [
+          expect.objectContaining({ amountMinor: 250_000_000, providerAccountId: 'ca_seller_a' }),
+        ],
       }),
     );
     expect(findSellerAccount).toHaveBeenCalledWith({ ownerType: 'store', ownerId: STORE_A });
-    // The payer's instruction and capability; no card surfaces, no key.
+    // The payer's capability over the session; no card surfaces, no key.
     expect(handoff).toEqual({
       paymentId: PAYMENT_ID,
       provider: 'peable_faircoin',
-      rail: 'faircoin',
-      payerObject: 'payment_intent',
-      faircoin: INSTRUCTION,
-      providerPaymentId: 'pi_fair',
-      clientSecret: 'pi_fair_secret',
+      checkoutSessionId: 'cs_fair',
+      clientSecret: 'cs_fair_secret',
       amount: { amount: 250_000_000, currency: 'FAIR' },
       methods: [],
     });
   });
 
-  it('refuses a group of two sellers: one FairCoin payment pays one wallet', async () => {
-    await expect(
-      service.openCheckoutPayment({
-        rail: 'faircoin',
-        checkoutGroupId: GROUP,
-        orders: fairOrders(STORE_A, STORE_B),
-      }),
-    ).rejects.toThrow(/one seller/);
-    expect(createPayment).not.toHaveBeenCalled();
+  it('opens ONE session for a group of two sellers, a line each — one multi-output payment', async () => {
+    findSellerAccount.mockImplementation(async (owner: { ownerId: string }) => ({
+      ...ACTIVE_SELLER,
+      providerAccountId: `ca_${owner.ownerId}`,
+    }));
+    await service.openCheckoutPayment({
+      rail: 'faircoin',
+      checkoutGroupId: GROUP,
+      orders: fairOrders(STORE_A, STORE_B),
+    });
+    expect(openCheckoutSession).toHaveBeenCalledTimes(1);
+    const [call] = openCheckoutSession.mock.calls;
+    expect(
+      ((call?.[0] ?? { lines: [] }) as { lines: { providerAccountId: string }[] }).lines.map(
+        (l) => l.providerAccountId,
+      ),
+    ).toEqual([`ca_${STORE_A}`, `ca_${STORE_B}`]);
   });
 
-  it('refuses a seller who has not confirmed, before any payment exists at the rail', async () => {
+  it('refuses a seller who has not confirmed, before any session exists at the rail', async () => {
     findSellerAccount.mockResolvedValue({ ...ACTIVE_SELLER, faircoinState: 'pending' });
     await expect(
       service.openCheckoutPayment({
@@ -153,33 +161,7 @@ describe('a FAIR checkout pays the seller in FairCoin (ADR 0019 D3)', () => {
         orders: fairOrders(STORE_A),
       }),
     ).rejects.toThrow(/cannot be paid in FairCoin yet/);
-    expect(createPayment).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    ['faircoin_network_closed', 'faircoin_network_closed'],
-    ['faircoin_wallet_missing', 'faircoin_wallet_missing'],
-    ['account_not_ready', 'seller_not_confirmed'],
-  ])("turns Peable's %s into a classified refusal naming %s", async (code, reason) => {
-    createPayment.mockRejectedValue(
-      new PaymentProviderError({
-        provider: 'peable_faircoin',
-        stage: 'createPayment',
-        message: 'refused',
-        retryable: false,
-        code,
-      }),
-    );
-    await expect(
-      service.openCheckoutPayment({
-        rail: 'faircoin',
-        checkoutGroupId: GROUP,
-        orders: fairOrders(STORE_A),
-      }),
-    ).rejects.toMatchObject({
-      reason: 'faircoin_unavailable',
-      details: { reason: 'faircoin_unavailable', unavailableReason: reason },
-    });
+    expect(openCheckoutSession).not.toHaveBeenCalled();
   });
 });
 

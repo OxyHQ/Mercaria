@@ -65,8 +65,9 @@ commission from and no on-chain fee mechanism exists.
 
 A future rail that settles a USD-priced order in FairCoin would select this
 schedule. Such a rail must decide its fee treatment before it ships; this ADR
-does not. *Decided by ADR 0020:* the fee follows the method — a FairCoin
-payment selects no schedule in any currency and records `faircoin_exempt`.
+does not. *Decided by ADR 0020, amended by ADR 0021:* the fee follows the
+method USED — recorded at the payment's outcome (`order_fee_outcomes`): a sale
+paid in FairCoin takes none in any currency, a card sale the card schedule.
 
 ### D3. Private sellers pay the same fee, accepted where they manage payments
 

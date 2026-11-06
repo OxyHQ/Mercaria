@@ -46,7 +46,10 @@ import {
 } from '@peable.to/sdk';
 import { PaymentProviderError } from '../provider.js';
 import type {
+  CheckoutSessionProvider,
   CreatePaymentRequest,
+  OpenCheckoutSessionRequest,
+  ProviderCheckoutSession,
   PaymentProviderStage,
   CreateTransferRequest,
   PaymentOperationRequest,
@@ -202,7 +205,11 @@ function unsupported(stage: PaymentProviderStage, reason: string): PaymentProvid
 }
 
 export class PeablePaymentProvider
-  implements PaymentProvider, SettlingPaymentProvider, ResumablePaymentProvider
+  implements
+    PaymentProvider,
+    SettlingPaymentProvider,
+    ResumablePaymentProvider,
+    CheckoutSessionProvider
 {
   readonly id = 'peable' as const;
   private readonly client: Peable;
@@ -234,6 +241,103 @@ export class PeablePaymentProvider
       ),
     );
     return toResult(intent, 'createPayment');
+  }
+
+  /**
+   * ONE checkout session for a whole cart (ADR 0021): a line per seller order,
+   * each naming its seller, embedded in Peable's sheet. Which methods the order
+   * offers is Peable's (ADR 0021 says which); the card is Mercaria's own platform
+   * charge, settled to the sellers by transfers. The payer chooses; Mercaria
+   * learns which from the gateway's events.
+   */
+  async openCheckoutSession(request: OpenCheckoutSessionRequest): Promise<ProviderCheckoutSession> {
+    const requested = request.currency;
+    const currency =
+      requested === 'FAIR' ? requested : isCardCurrency(requested) ? requested : null;
+    if (currency === null) {
+      throw unsupported('createPayment', 'Currency is not supported by the Peable checkout.');
+    }
+    const session = await callPeable('createPayment', () =>
+      this.client.checkout.sessions.create(
+        {
+          mode: 'payment',
+          ui_mode: 'embedded',
+          line_items: request.lines.map((line) => ({
+            price_data: {
+              currency,
+              unit_amount: toGatewayAmount(
+                { amount: line.amountMinor, currency: request.currency },
+                'createPayment',
+              ),
+              product_data: { name: line.name },
+            },
+            quantity: 1,
+            connected_account: line.providerAccountId,
+          })),
+          client_reference_id: request.paymentId,
+          metadata: {
+            mercaria_payment_id: request.paymentId,
+            mercaria_checkout_group_id: request.checkoutGroupId,
+          },
+          payment_intent_data: {
+            metadata: {
+              ...request.metadata,
+              mercaria_payment_id: request.paymentId,
+              mercaria_checkout_group_id: request.checkoutGroupId,
+            },
+          },
+          expires_at: request.expiresAt,
+          ...(request.paymentMethodTypes
+            ? { payment_method_types: [...request.paymentMethodTypes] }
+            : {}),
+          ...(request.customerEmail ? { customer_email: request.customerEmail } : {}),
+        },
+        { idempotencyKey: request.idempotencyKey },
+      ),
+    );
+    return await this.toCheckoutSession(session);
+  }
+
+  async readCheckoutSession(sessionId: string): Promise<ProviderCheckoutSession> {
+    const session = await callPeable('getStatus', () =>
+      this.client.checkout.sessions.retrieve(sessionId),
+    );
+    return await this.toCheckoutSession(session);
+  }
+
+  async expireCheckoutSession(sessionId: string, idempotencyKey: string): Promise<void> {
+    await callPeable('cancel', () =>
+      this.client.checkout.sessions.expire(sessionId, {}, { idempotencyKey }),
+    );
+  }
+
+  /** The session, with its CURRENT payment's rail read from the payment itself. */
+  private async toCheckoutSession(
+    session: Awaited<ReturnType<Peable['checkout']['sessions']['retrieve']>>,
+  ): Promise<ProviderCheckoutSession> {
+    if (!session.client_secret) {
+      throw new PaymentProviderError({
+        provider: 'peable',
+        stage: 'getStatus',
+        message: 'The gateway answered a checkout session with no client secret.',
+        retryable: false,
+      });
+    }
+    const reference = session.payment_intent;
+    const intentId =
+      reference === null ? null : typeof reference === 'string' ? reference : reference.id;
+    const intent =
+      intentId === null
+        ? null
+        : typeof reference === 'object' && reference !== null
+          ? reference
+          : await callPeable('getStatus', () => this.client.paymentIntents.retrieve(intentId));
+    return {
+      sessionId: session.id,
+      clientSecret: session.client_secret,
+      status: session.status,
+      payment: intent ? { providerObjectId: intent.id, rail: intent.rail } : null,
+    };
   }
 
   /** Not a step this rail has — see this file's docblock. */

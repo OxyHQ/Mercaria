@@ -396,6 +396,13 @@ export function toOrderFeeSummary(row: OrderFeeSnapshotRecord): OrderFeeSummary 
       : {}),
     calculatedAt: row.createdAt.toISOString(),
     explanation: explainSnapshot(row),
+    // The fee follows the method USED (ADR 0021): once paid, the outcome's.
+    ...(row.outcome
+      ? {
+          paidWith: row.outcome.method,
+          fee: { amount: row.outcome.feeAmount, currency: row.outcome.feeCurrency as CurrencyCode },
+        }
+      : {}),
   };
 }
 

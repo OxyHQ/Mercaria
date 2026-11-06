@@ -106,6 +106,7 @@ let applyProviderAccountState: typeof import('../../db/payments/providerAccountR
 let findNativePaymentByCheckoutGroupId: typeof import('../../db/payments/paymentRepository.js').findNativePaymentByCheckoutGroupId;
 let findOrdersInCheckoutGroup: typeof import('../../db/orders/orderRepository.js').findOrdersInCheckoutGroup;
 let paymentSchema: typeof import('../../db/schema/payments.js');
+let feeOutcomeSchema: typeof import('../../db/schema/feeOutcomes.js');
 let ledgerSchema: typeof import('../../db/schema/ledger.js');
 let ledgerOrder: Pick<
   typeof import('../../db/payments/ledgerRepository.js'),
@@ -167,6 +168,7 @@ beforeAll(async () => {
   ({ findNativePaymentByCheckoutGroupId } = await import('../../db/payments/paymentRepository.js'));
   ({ findOrdersInCheckoutGroup } = await import('../../db/orders/orderRepository.js'));
   paymentSchema = await import('../../db/schema/payments.js');
+  feeOutcomeSchema = await import('../../db/schema/feeOutcomes.js');
   ledgerSchema = await import('../../db/schema/ledger.js');
   ledgerOrder = await import('../../db/payments/ledgerRepository.js');
   orderSchema = await import('../../db/schema/orders.js');
@@ -357,13 +359,23 @@ async function deliverIntentEvent(input: {
   );
 }
 
-/** The payment opened for a checkout group, which every case below needs. */
-async function paymentFor(checkoutGroupId: string) {
+/**
+ * The payment opened for a checkout group, which every case below needs — the
+ * cart's ONE checkout session (ADR 0021), confirmed BY CARD as the payer would
+ * in Peable's sheet. `providerObjectId` is that card payment: Mercaria links it
+ * from the gateway's first event about it, through its own metadata marker.
+ */
+async function paymentFor(checkoutGroupId: string, method: 'card' | 'faircoin' = 'card') {
   const payment = await findNativePaymentByCheckoutGroupId(db, checkoutGroupId);
-  if (!payment?.providerObjectId) {
-    throw new Error(`Checkout group ${checkoutGroupId} opened no payment at the rail`);
+  if (!payment?.providerCheckoutSessionId) {
+    throw new Error(`Checkout group ${checkoutGroupId} opened no checkout session at the rail`);
   }
-  return { ...payment, providerObjectId: payment.providerObjectId };
+  const intent = gateway.confirmSession(payment.providerCheckoutSessionId, method);
+  return {
+    ...payment,
+    providerCheckoutSessionId: payment.providerCheckoutSessionId,
+    providerObjectId: intent.id,
+  };
 }
 
 /**
@@ -480,45 +492,53 @@ describe('card checkout on the Peable rail — single seller', () => {
     // cart subtotal: the buyer must be charged the figure their order states.
     // It crosses the boundary as the gateway's canonical integer STRING.
     const [order] = await findOrdersInCheckoutGroup(result.checkoutGroupId);
-    expect(gateway.state.intentCalls).toHaveLength(1);
-    const [call] = gateway.state.intentCalls;
+    // ONE checkout session for the cart (ADR 0021): a line per seller order —
+    // its grand total, shipping included — naming the seller, and ADR 0001
+    // D11's metadata copied onto every payment the session creates.
+    expect(gateway.state.sessionCalls).toHaveLength(1);
+    const [call] = gateway.state.sessionCalls;
+    const metadata = {
+      paymentId: payment.id,
+      checkoutGroupId: result.checkoutGroupId,
+      orderCount: '1',
+      orderIds: order.id,
+      mercaria_payment_id: payment.id,
+      mercaria_checkout_group_id: result.checkoutGroupId,
+    };
     expect(call.params).toEqual({
-      rail: 'card',
-      amount: String(order.totalsGrandTotalPresentmentAmount),
-      currency: 'USD',
-      // Card (and card wallets) only: ADR 0001 D3 excludes the asynchronous
-      // methods the merchant configuration might otherwise offer the payer.
-      payment_method_types: ['card'],
-      // ADR 0001 D11's metadata, plus the adapter's own two correlation keys —
-      // server-issued ids only, nothing about the buyer or the seller.
+      mode: 'payment',
+      ui_mode: 'embedded',
+      line_items: [
+        {
+          price_data: {
+            currency: 'USD',
+            unit_amount: String(order.totalsGrandTotalPresentmentAmount),
+            product_data: { name: `Order ${order.orderNumber}` },
+          },
+          quantity: 1,
+          connected_account: seller.accountId,
+        },
+      ],
+      client_reference_id: payment.id,
       metadata: {
-        paymentId: payment.id,
-        checkoutGroupId: result.checkoutGroupId,
-        orderCount: '1',
-        orderIds: order.id,
         mercaria_payment_id: payment.id,
         mercaria_checkout_group_id: result.checkoutGroupId,
       },
+      payment_intent_data: { metadata },
+      expires_at: expect.any(Number),
     });
-    expect(call.idempotencyKey).toBe(`pi:${payment.id}`);
+    expect(call.idempotencyKey).toBe(`cs:${payment.id}`);
+    // The payer's card payment carries Mercaria's marker, so its events link.
+    expect(gateway.intent(payment.providerObjectId).metadata).toEqual(metadata);
 
-    // The handoff carries the client material and NOTHING else (issue #47,
-    // backend 7): no charge id, no connected account, no seller identity, and
-    // — since ADR 0009 D20 — no key of any kind.
-    //
-    // Exhaustive on purpose: a field appearing in the buyer's handoff has to be
-    // a decision somebody made, not a spread that grew. `methods` is the
-    // server-authoritative payment-surface set (ADR 0006 G2/G14).
+    // The handoff carries the session's client material and NOTHING else (issue
+    // #47, backend 7): no charge id, no connected account, no seller identity,
+    // and — since ADR 0009 D20 — no key of any kind.
     expect(result.payment).toEqual({
       paymentId: payment.id,
       provider: 'peable',
-      rail: 'card',
-      payerObject: 'payment_intent',
-      // The gateway PaymentIntent and the PAYER's secret over it — exactly what
-      // `createPeableElements({ paymentIntent })` mounts on — and never the
-      // acquirer's confirmation secret in `client_action.value`.
-      providerPaymentId: payment.providerObjectId,
-      clientSecret: `${payment.providerObjectId}_payer_secret_fixture`,
+      checkoutSessionId: payment.providerCheckoutSessionId,
+      clientSecret: `${payment.providerCheckoutSessionId}_secret_fixture`,
       amount: {
         amount: order.totalsGrandTotalPresentmentAmount,
         currency: 'USD',
@@ -674,7 +694,9 @@ describe('card checkout on the Peable rail — single seller', () => {
     const gross = order.totalsGrandTotalPresentmentAmount;
 
     // The buyer is charged in USD — their presentment currency.
-    expect(gateway.state.intentCalls[0].params.currency).toBe('USD');
+    expect(gateway.state.sessionCalls[0]?.params).toMatchObject({
+      line_items: [{ price_data: { currency: 'USD' } }],
+    });
     expect(order.totalsGrandTotalPresentmentCurrency).toBe('USD');
 
     gateway.succeed(payment.providerObjectId);
@@ -732,15 +754,17 @@ describe('card checkout on the Peable rail — multi-seller', () => {
 
     // ONE intent for the whole group (ADR 0001 D4): one statement line, one SCA
     // challenge, one charge every later refund draws from.
-    expect(gateway.state.intentCalls).toHaveLength(1);
+    expect(gateway.state.sessionCalls).toHaveLength(1);
     const payment = await paymentFor(result.checkoutGroupId);
     const orders = await findOrdersInCheckoutGroup(result.checkoutGroupId);
     const gross = orders.reduce(
       (total, order) => total + order.totalsGrandTotalPresentmentAmount,
       0,
     );
-    expect(gateway.state.intentCalls[0].params.amount).toBe(String(gross));
-    expect(gateway.state.intentCalls[0].params.metadata).toMatchObject({ orderCount: '2' });
+    // One line per seller order, each naming its seller (ADR 0021).
+    expect(gateway.session(payment.providerCheckoutSessionId).amount).toBe(BigInt(gross));
+    expect(gateway.session(payment.providerCheckoutSessionId).lines).toHaveLength(2);
+    expect(gateway.intent(payment.providerObjectId).metadata).toMatchObject({ orderCount: '2' });
 
     gateway.succeed(payment.providerObjectId);
     await deliverIntentEvent({
@@ -971,7 +995,7 @@ describe('card checkout on the Peable rail — idempotency and refusals', () => 
     );
     // ONE intent object, and the same client secret — a second charge for the
     // same goods is the failure the whole idempotency chain exists to prevent.
-    expect(gateway.state.intents.size).toBe(1);
+    expect(gateway.state.sessions.size).toBe(1);
     expect(replay.payment?.clientSecret).toBe(first.payment?.clientSecret);
     expect(replay.payment?.paymentId).toBe(first.payment?.paymentId);
 
@@ -1012,11 +1036,11 @@ describe('card checkout on the Peable rail — idempotency and refusals', () => 
     expect(later.checkoutGroupId).toBe(first.checkoutGroupId);
     // The SAME payment, payer material and all: the resume reads the intent
     // and hands back its own `client_secret` again.
-    expect(later.payment?.providerPaymentId).toBe(first.payment?.providerPaymentId);
+    expect(later.payment?.checkoutSessionId).toBe(first.payment?.checkoutSessionId);
     expect(later.payment?.clientSecret).toBe(first.payment?.clientSecret);
-    expect(later.payment?.clientSecret).toMatch(/_payer_secret_fixture$/);
-    expect(gateway.state.intentCalls).toHaveLength(1);
-    expect(gateway.state.intents.size).toBe(1);
+    expect(later.payment?.clientSecret).toMatch(/^cs_.*_secret_fixture$/);
+    expect(gateway.state.sessionCalls).toHaveLength(1);
+    expect(gateway.state.sessions.size).toBe(1);
     // …and the loser's reservation was rolled back: stock was taken once.
     expect((await stockOf(seller.variantId)).available).toBe(4);
   });
@@ -1040,7 +1064,7 @@ describe('card checkout on the Peable rail — idempotency and refusals', () => 
     // Nothing was reserved and no charge was opened: a currency question needs
     // no stock to answer.
     expect((await stockOf(seller.variantId)).available).toBe(5);
-    expect(gateway.state.intentCalls).toHaveLength(0);
+    expect(gateway.state.sessionCalls).toHaveLength(0);
   });
 
   it('refuses a seller with no account on the rail, naming them, before taking any stock', async () => {
@@ -1077,7 +1101,7 @@ describe('card checkout on the Peable rail — idempotency and refusals', () => 
     });
     await expect(refusal).rejects.not.toThrow(unready.sellerId);
     await expect(refusal).rejects.not.toThrow(`user:${ready.sellerId}`);
-    expect(gateway.state.intentCalls).toHaveLength(0);
+    expect(gateway.state.sessionCalls).toHaveLength(0);
     expect(await stockOf(ready.variantId)).toEqual({ available: 5, committed: 0 });
     expect(await stockOf(unready.variantId)).toEqual({ available: 5, committed: 0 });
 
@@ -1088,7 +1112,7 @@ describe('card checkout on the Peable rail — idempotency and refusals', () => 
       `key-${RUN}-gate-ready`,
     );
     expect(placed.orders).toHaveLength(1);
-    expect(gateway.state.intentCalls).toHaveLength(1);
+    expect(gateway.state.sessionCalls).toHaveLength(1);
   });
 
   it('leaves the reservation clock alone when a payment fails and is retried', async () => {
@@ -1140,8 +1164,8 @@ describe('card checkout on the Peable rail — idempotency and refusals', () => 
       intentId,
     });
 
-    expect(gateway.state.intents.size).toBe(1);
-    expect(gateway.state.intentCalls).toHaveLength(1);
+    expect(gateway.state.sessions.size).toBe(1);
+    expect(gateway.state.sessionCalls).toHaveLength(1);
     const [settledOrder] = await findOrdersInCheckoutGroup(result.checkoutGroupId);
     expect(settledOrder.status).toBe('paid');
     expect(settledOrder.createdAt.getTime()).toBe(before.createdAt.getTime());
@@ -1226,7 +1250,8 @@ describe('card checkout on the Peable rail — abandonment and a late capture', 
     expect((await stockOf(seller.variantId)).available).toBe(5);
     const [cancelled] = await findOrdersInCheckoutGroup(result.checkoutGroupId);
     expect(cancelled.status).toBe('cancelled');
-    expect(gateway.state.cancelCalls).toEqual([intentId]);
+    // The cart's checkout session is expired, which cancels its payment.
+    expect(gateway.state.expireCalls).toEqual([payment.providerCheckoutSessionId]);
     expect(gateway.intent(intentId).status).toBe('canceled');
     const released = await paymentFor(result.checkoutGroupId);
     expect(released.status).toBe('canceled');
@@ -1529,7 +1554,7 @@ describe('supervised shopping through the existing checkout and payment seam', (
     expect(prepared.status, JSON.stringify(prepared.body)).toBe(200);
     const { checkoutGroupId, purchaseApproval } = prepared.body.data;
     expect(purchaseApproval.status).toBe('pending');
-    expect(gateway.state.intentCalls).toHaveLength(0);
+    expect(gateway.state.sessionCalls).toHaveLength(0);
     expect(purchaseApproval.merchantAccountIds.sort()).toEqual(
       [first.sellerId, second.sellerId].sort(),
     );
@@ -1572,7 +1597,7 @@ describe('supervised shopping through the existing checkout and payment seam', (
       'POST',
     );
     expect(lost.status).toBeGreaterThanOrEqual(500);
-    expect(gateway.state.intents.size).toBe(1);
+    expect(gateway.state.sessions.size).toBe(1);
     expect(supervision.approvals.get(purchaseApproval.id)?.status).toBe('reserved');
     // Approval expiry limits the first reservation, not recovery of an already
     // reserved PSP operation. Keep the original session valid while passing that deadline.
@@ -1589,11 +1614,10 @@ describe('supervised shopping through the existing checkout and payment seam', (
       vi.useRealTimers();
     }
     expect(resumed.status, JSON.stringify(resumed.body)).toBe(200);
-    expect(gateway.state.intents.size).toBe(1);
-    expect(new Set(gateway.state.intentCalls.map((call) => call.idempotencyKey)).size).toBe(1);
-    const payment = await findNativePaymentByCheckoutGroupId(db, checkoutGroupId);
-    if (!payment?.providerObjectId) throw new Error('Expected durable PSP intent');
-    expect(payment.providerObjectId).toBeTruthy();
+    expect(gateway.state.sessions.size).toBe(1);
+    expect(new Set(gateway.state.sessionCalls.map((call) => call.idempotencyKey)).size).toBe(1);
+    // The durable thing is the cart's ONE checkout session; the payer pays it by card.
+    const payment = await paymentFor(checkoutGroupId);
     gateway.succeed(payment.providerObjectId);
     await deliverIntentEvent({
       eventId: 'kids-paid',
@@ -1609,7 +1633,7 @@ describe('supervised shopping through the existing checkout and payment seam', (
       type: 'payment_intent.succeeded',
       intentId: payment.providerObjectId,
     });
-    expect(gateway.state.intents.size).toBe(1);
+    expect(gateway.state.sessions.size).toBe(1);
   });
 
   it.each([false, true])(
@@ -1658,7 +1682,7 @@ describe('supervised shopping through the existing checkout and payment seam', (
       // Repeated sweeps and outbox delivery never recycle consent or open a new intent.
       await handleExpireReservations();
       await drainPaymentOutbox({ eventId, handler: runPaymentOutboxEvent });
-      expect(gateway.state.intents.size).toBe(1);
+      expect(gateway.state.sessions.size).toBe(1);
       expect(supervision.approvals.get(purchaseApproval.id)?.status).toBe(
         uncertain ? 'reserved' : 'cancelled',
       );
@@ -1749,7 +1773,7 @@ describe('supervised shopping through the existing checkout and payment seam', (
       'POST',
     );
     expect(resumed.status).toBe(409);
-    expect(gateway.state.intentCalls).toHaveLength(0);
+    expect(gateway.state.sessionCalls).toHaveLength(0);
     const browse = await shoppingRequest('/supervised-shopping/catalog', token);
     expect(browse.body.data.items.some((row: { id: string }) => row.id === item.listingId)).toBe(
       false,
@@ -1804,7 +1828,7 @@ describe('supervised shopping through the existing checkout and payment seam', (
       ).toHaveLength(0);
       expect(await stockOf(first.variantId)).toEqual({ available: 5, committed: 0 });
       expect(await stockOf(second.variantId)).toEqual({ available: 5, committed: 0 });
-      expect(gateway.state.intents.size).toBe(0);
+      expect(gateway.state.sessions.size).toBe(0);
     } finally {
       await db.execute(sql.raw(`DROP TRIGGER ${trigger} ON orders`));
       await db.execute(sql.raw(`DROP FUNCTION ${trigger}()`));
@@ -1859,6 +1883,155 @@ describe('supervised shopping through the existing checkout and payment seam', (
       key,
     );
     expect(changed.status).toBe(409);
-    expect(gateway.state.intents.size).toBe(0);
+    expect(gateway.state.sessions.size).toBe(0);
+  });
+});
+
+describe('ONE checkout session per cart; the fee follows the method used (ADR 0021)', () => {
+  async function twoSellerCart(label: string) {
+    const first = await seedSeller({ label: `${label}A`, priceMinor: 3_000, currency: 'USD' });
+    const second = await seedSeller({ label: `${label}B`, priceMinor: 7_000, currency: 'USD' });
+    const buyer = await seedBuyer({
+      label,
+      currency: 'USD',
+      lines: [
+        { listingId: first.listingId, variantId: first.variantId, quantity: 1 },
+        { listingId: second.listingId, variantId: second.variantId, quantity: 1 },
+      ],
+    });
+    const result = await checkout(
+      { kind: 'oxy', oxyUserId: buyer.buyerId },
+      { addressId: buyer.addressId },
+      `key-${RUN}-${label}`,
+    );
+    const session = await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId);
+    if (!session?.providerCheckoutSessionId) throw new Error('no checkout session opened');
+    return {
+      first,
+      second,
+      result,
+      payment: session,
+      sessionId: session.providerCheckoutSessionId,
+    };
+  }
+
+  async function outcomesFor(paymentId: string) {
+    const rows = await db
+      .select()
+      .from(feeOutcomeSchema.orderFeeOutcomes)
+      .where(eq(feeOutcomeSchema.orderFeeOutcomes.paymentId, paymentId));
+    return rows.map((row) => [row.method, row.feeAmount]);
+  }
+
+  it('a USD cart of two sellers paid by CARD: the platform charge, a transfer each, card fees', async () => {
+    const { first, second, result, payment, sessionId } = await twoSellerCart('sess-card');
+    // A line per seller order, each naming its seller; the session sums to the payment.
+    const session = gateway.session(sessionId);
+    expect(session.lines.map((line) => line.connectedAccount).sort()).toEqual(
+      [first.accountId, second.accountId].sort(),
+    );
+    expect(session.amount).toBe(BigInt(payment.presentmentAmount));
+
+    const intent = gateway.confirmSession(sessionId, 'card');
+    // The session's card payment is Mercaria's OWN platform charge: no seller on it.
+    expect(intent.faircoin).toBeUndefined();
+    gateway.succeed(intent.id);
+    await deliverIntentEvent({
+      eventId: 'sess-card-paid',
+      type: 'payment_intent.succeeded',
+      intentId: intent.id,
+    });
+
+    const paid = await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId);
+    expect(paid).toMatchObject({
+      status: 'succeeded',
+      provider: 'peable',
+      providerObjectId: intent.id,
+    });
+    // …settled to each seller by the transfers the platform charge has always made.
+    expect((await transfersFor(payment.id)).length).toBe(2);
+    expect((await outcomesFor(payment.id)).map(([method]) => method)).toEqual(['card', 'card']);
+  });
+
+  it('a USD cart paid by FAIRCOIN: each seller paid directly, no transfer, no ledger, no fee', async () => {
+    const { result, payment, sessionId } = await twoSellerCart('sess-fair');
+    const intent = gateway.confirmSession(sessionId, 'faircoin');
+    expect(intent.faircoin?.outputs).toHaveLength(2);
+    gateway.succeed(intent.id);
+    await deliverIntentEvent({
+      eventId: 'sess-fair-paid',
+      type: 'payment_intent.succeeded',
+      intentId: intent.id,
+    });
+
+    const paid = await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId);
+    expect(paid).toMatchObject({
+      status: 'succeeded',
+      provider: 'peable_faircoin',
+      providerObjectId: intent.id,
+    });
+    const orders = await findOrdersInCheckoutGroup(result.checkoutGroupId);
+    expect(orders.map((order) => order.status)).toEqual(['paid', 'paid']);
+    expect(gateway.state.transferCalls).toEqual([]);
+    expect(await ledgerEntriesFor(payment.id)).toEqual([]);
+    expect(await outcomesFor(payment.id)).toEqual([
+      ['faircoin', 0],
+      ['faircoin', 0],
+    ]);
+  });
+
+  it('a payer who switches from the card to FairCoin: the stale card cancel changes nothing', async () => {
+    const { result, sessionId } = await twoSellerCart('sess-switch');
+    const card = gateway.confirmSession(sessionId, 'card');
+    gateway.decline(card.id);
+    await deliverIntentEvent({
+      eventId: 'sess-switch-declined',
+      type: 'payment_intent.payment_failed',
+      intentId: card.id,
+    });
+    expect((await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId))?.provider).toBe(
+      'peable',
+    );
+
+    // The payer chooses FairCoin instead: the card payment is cancelled at the gateway.
+    const fair = gateway.confirmSession(sessionId, 'faircoin');
+    expect(gateway.intent(card.id).status).toBe('canceled');
+    const stale = await deliverIntentEvent({
+      eventId: 'sess-switch-stale',
+      type: 'payment_intent.canceled',
+      intentId: card.id,
+    });
+    expect(stale.outcome).toBe('accepted');
+    const afterStale = await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId);
+    expect(afterStale?.status).not.toBe('canceled');
+
+    gateway.succeed(fair.id);
+    await deliverIntentEvent({
+      eventId: 'sess-switch-paid',
+      type: 'payment_intent.succeeded',
+      intentId: fair.id,
+    });
+    expect(await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId)).toMatchObject({
+      status: 'succeeded',
+      provider: 'peable_faircoin',
+      providerObjectId: fair.id,
+    });
+  });
+
+  it('a session that expires unpaid cancels the payment', async () => {
+    const { result, sessionId } = await twoSellerCart('sess-expired');
+    gateway.session(sessionId).status = 'expired';
+    const delivered = await ingestPeableDelivery(
+      gateway.sessionDelivery({
+        eventId: `evt_sess_expired_${RUN}`,
+        type: 'checkout.session.expired',
+        sessionId,
+        secret: WEBHOOK_SECRET,
+      }),
+    );
+    expect(delivered.outcome).toBe('accepted');
+    expect((await findNativePaymentByCheckoutGroupId(db, result.checkoutGroupId))?.status).toBe(
+      'canceled',
+    );
   });
 });
