@@ -339,6 +339,14 @@ async function deliverIntentEvent(input: {
   expect(result.outcome).toBe('accepted');
 }
 
+/**
+ * The metadata the cart's checkout session copies onto every payment it creates
+ * (`payment_intent_data.metadata`, ADR 0021) — what a payment's events carry.
+ */
+function piMetadata(call: { params: Record<string, unknown> } | undefined): unknown {
+  return (call?.params.payment_intent_data as { metadata?: unknown } | undefined)?.metadata;
+}
+
 describe('a guest pays for a store order', () => {
   it('carries the REAL guest_checkouts id into the PaymentIntent metadata', async () => {
     const seller = await seedStoreSeller('meta');
@@ -376,8 +384,8 @@ describe('a guest pays for a store order', () => {
     // ADR 0006 G7's three Mercaria keys plus the adapter's own two correlation
     // ids — every one a server-issued id, and exhaustive so a sixth is a
     // decision rather than a spread that grew.
-    const [call] = gateway.state.intentCalls;
-    expect(call.params.metadata).toEqual({
+    const [call] = gateway.state.sessionCalls;
+    expect(piMetadata(call)).toEqual({
       paymentId,
       checkoutGroupId: result.checkoutGroupId,
       guestCheckoutId: contact.id,
@@ -388,8 +396,8 @@ describe('a guest pays for a store order', () => {
     });
     // The whole point of the key: it is durable and inert. Nothing about the
     // SESSION is in there, and the session is the thing that can be purged.
-    expect(JSON.stringify(call.params.metadata)).not.toContain(guestSessionId);
-    expect(JSON.stringify(call.params.metadata)).not.toContain('guest.meta@example.com');
+    expect(JSON.stringify(piMetadata(call))).not.toContain(guestSessionId);
+    expect(JSON.stringify(piMetadata(call))).not.toContain('guest.meta@example.com');
   });
 
   it('composes BYTE-IDENTICAL metadata when two submits converge', async () => {
@@ -433,11 +441,11 @@ describe('a guest pays for a store order', () => {
     // is byte-identical — which is what keeps the reused `pi:<paymentId>`
     // idempotency key valid at the rail. A differing key or a differing body
     // would be a SECOND charge for the same goods.
-    const bodies = gateway.state.intentCalls.map((call) => JSON.stringify(call.params.metadata));
+    const bodies = gateway.state.sessionCalls.map((call) => JSON.stringify(piMetadata(call)));
     expect(new Set(bodies).size).toBe(1);
-    expect(new Set(gateway.state.intentCalls.map((call) => call.idempotencyKey)).size).toBe(1);
+    expect(new Set(gateway.state.sessionCalls.map((call) => call.idempotencyKey)).size).toBe(1);
     expect(bodies[0]).toContain(contact.id);
-    expect(gateway.state.intents.size).toBe(1);
+    expect(gateway.state.sessions.size).toBe(1);
   });
 });
 
@@ -464,7 +472,7 @@ describe('a guest cannot buy from an individual, and a mixed cart separates (#11
 
     // No rail call at all — the gate runs before the reservation loop, so the
     // refusal has taken no stock and told the gateway nothing.
-    expect(gateway.state.intentCalls).toHaveLength(0);
+    expect(gateway.state.sessionCalls).toHaveLength(0);
     const [variant] = await db
       .select({ available: catalogSchema.productVariants.inventoryAvailable })
       .from(catalogSchema.productVariants)
@@ -490,7 +498,7 @@ describe('a guest cannot buy from an individual, and a mixed cart separates (#11
     await expect(checkout(actor, body, `idem-p2p-mixed-${RUN}`, 'USD')).rejects.toThrow(
       new RegExp(person.sellerKey),
     );
-    expect(gateway.state.intentCalls).toHaveLength(0);
+    expect(gateway.state.sessionCalls).toHaveLength(0);
 
     // Deselecting it is the documented remedy, and it works: one order, one
     // intent, and the P2P line is still sitting in the cart untouched.
@@ -502,7 +510,7 @@ describe('a guest cannot buy from an individual, and a mixed cart separates (#11
     );
 
     expect(placed.orders).toHaveLength(1);
-    expect(gateway.state.intentCalls).toHaveLength(1);
+    expect(gateway.state.sessionCalls).toHaveLength(1);
 
     // The charge covers the store order and nothing else. This is acceptance 6
     // read off the rail: a mixed cart cannot accidentally charge a P2P group.
@@ -515,7 +523,7 @@ describe('a guest cannot buy from an individual, and a mixed cart separates (#11
       .where(eq(orderSchema.orders.checkoutGroupId, placed.checkoutGroupId));
     expect(orders).toHaveLength(1);
     expect(orders[0].sellerType).toBe('store');
-    expect(gateway.state.intentCalls[0].params.metadata).toMatchObject({
+    expect(piMetadata(gateway.state.sessionCalls[0])).toMatchObject({
       orderCount: '1',
       orderIds: orders[0].id,
     });
@@ -540,7 +548,8 @@ describe('verified success hands #108 exactly one portal initialization', () => 
       `idem-portal-${RUN}`,
       'USD',
     );
-    const [intentId] = [...gateway.state.intents.keys()];
+    // The payer pays the cart's ONE checkout session by card (ADR 0021).
+    const intentId = gateway.confirmSession(result.payment?.checkoutSessionId ?? '', 'card').id;
     gateway.succeed(intentId);
 
     await deliverIntentEvent({
@@ -612,7 +621,8 @@ describe('verified success hands #108 exactly one portal initialization', () => 
       { destination: { type: 'inline_shipping_address', address: INLINE_ADDRESS } },
       `idem-oxy-${RUN}`,
     );
-    const [intentId] = [...gateway.state.intents.keys()];
+    // The payer pays the cart's ONE checkout session by card (ADR 0021).
+    const intentId = gateway.confirmSession(result.payment?.checkoutSessionId ?? '', 'card').id;
     gateway.succeed(intentId);
     await deliverIntentEvent({ eventId: 'oxy-1', type: 'payment_intent.succeeded', intentId });
 

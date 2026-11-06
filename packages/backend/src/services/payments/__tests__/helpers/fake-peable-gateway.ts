@@ -97,25 +97,56 @@ export interface FakeIntent {
    */
   settlementRate?: number;
   /** ADR 0019: a FairCoin on-behalf intent — its seller, chain and receive address. */
-  faircoin?: { connectedAccount: string; network: string; address: string };
+  faircoin?: {
+    connectedAccount: string | null;
+    network: string;
+    address: string;
+    /** ADR 0021 D6: every output of the ONE transaction (one per seller). */
+    outputs?: { address: string; amount: bigint; connectedAccount: string }[];
+  };
 }
 
-/** One transfer to a seller's connected account. */
-/** A FairCoin-only Checkout Session over a fiat order (Mercaria ADR 0020). */
+/** One Checkout Session (ADR 0021): a cart, one line per seller order. */
 export interface FakeSession {
   id: string;
   status: 'open' | 'complete' | 'expired';
-  paymentStatus: 'paid' | 'unpaid';
   currency: string;
   amount: bigint;
-  connectedAccount: string;
+  lines: { name: string; amount: bigint; connectedAccount: string | null }[];
   metadata: Record<string, string>;
+  /** `payment_intent_data.metadata`, copied to every payment the session creates. */
+  paymentMetadata: Record<string, string>;
   clientReferenceId: string | null;
   expiresAt: number;
-  /** The quoted FairCoin intent the payer's confirm created, once they did. */
+  /** The CURRENT payment — the one the payer last confirmed. */
   intentId: string | null;
+  clientSecret: string;
 }
 
+/** A session as the gateway renders it — for API answers and event payloads alike. */
+export function renderSession(session: FakeSession): Record<string, unknown> {
+  const now = Math.floor(Date.now() / 1000);
+  return {
+    id: session.id,
+    object: 'checkout_session',
+    livemode: false,
+    mode: 'payment',
+    ui_mode: 'embedded',
+    status: session.status,
+    payment_status: session.status === 'complete' ? 'paid' : 'unpaid',
+    currency: session.currency,
+    amount_total: minor(session.amount),
+    payment_intent: session.intentId,
+    client_reference_id: session.clientReferenceId,
+    metadata: { ...session.metadata },
+    client_secret: session.clientSecret,
+    url: null,
+    expires_at: session.expiresAt,
+    created: now,
+  };
+}
+
+/** One transfer to a seller's connected account. */
 export interface FakeTransfer {
   id: string;
   intentId: string;
@@ -241,7 +272,20 @@ export function renderIntent(
     faircoin: intent.faircoin
       ? {
           network: intent.faircoin.network,
-          address: intent.faircoin.address,
+          address: intent.faircoin.outputs ? null : intent.faircoin.address,
+          outputs: (
+            intent.faircoin.outputs ?? [
+              {
+                address: intent.faircoin.address,
+                amount: intent.amount,
+                connectedAccount: intent.faircoin.connectedAccount,
+              },
+            ]
+          ).map((output) => ({
+            address: output.address,
+            amount: minor(output.amount),
+            connected_account: output.connectedAccount,
+          })),
           txid: null,
           confirmations: 0,
           required_confirmations: 6,
@@ -438,42 +482,6 @@ export function signPeablePayload(
   return `t=${String(timestamp)},v1=${signature}`;
 }
 
-/** A session as the gateway renders it (merchant view, `payment_intent` expanded when asked). */
-export function renderSession(
-  session: FakeSession,
-  intent: FakeIntent | undefined,
-  options: { expand: boolean },
-): Record<string, unknown> {
-  const now = Math.floor(Date.now() / 1000);
-  return {
-    id: session.id,
-    object: 'checkout_session',
-    livemode: false,
-    mode: 'payment',
-    status: session.status,
-    payment_status: session.paymentStatus,
-    ui_mode: 'embedded',
-    currency: session.currency,
-    rail: 'card',
-    network: 'testnet',
-    payment_method_types: ['faircoin'],
-    amount_subtotal: minor(session.amount),
-    amount_total: minor(session.amount),
-    connected_account: session.connectedAccount,
-    payment_intent: intent
-      ? options.expand
-        ? renderIntent(intent, { clientAction: false })
-        : intent.id
-      : null,
-    client_reference_id: session.clientReferenceId,
-    metadata: { ...session.metadata },
-    client_secret: session.status === 'open' ? `${session.id}_secret_fixture` : null,
-    url: null,
-    expires_at: session.expiresAt,
-    created: now,
-  };
-}
-
 /** Build one fake gateway. Each suite holds its own, reset between cases. */
 export function createFakePeableGateway() {
   const tag = randomUUID().replaceAll('-', '').slice(0, 12);
@@ -484,6 +492,8 @@ export function createFakePeableGateway() {
   const disputes = new Map<string, FakeDispute>();
   const payouts = new Map<string, FakePayout>();
   const sessions = new Map<string, FakeSession>();
+  /** A session create's `Idempotency-Key` → the session it made. */
+  const sessionsByKey = new Map<string, string>();
   /** A create's `Idempotency-Key` → the intent it made, re-rendered on replay. */
   const intentsByKey = new Map<string, string>();
   /** Every other mutating call's `Idempotency-Key` → the answer it produced. */
@@ -492,13 +502,13 @@ export function createFakePeableGateway() {
   const state = {
     intents,
     transfers,
-    intentsByKey,
-    intentCalls: [] as FakeCall[],
     sessions,
     /** Every `checkout.sessions.create` call, in order. */
     sessionCalls: [] as FakeCall[],
-    /** Every session `checkout.sessions.expire` was asked for. */
-    sessionExpires: [] as string[],
+    /** Every session id `checkout.sessions.expire` was asked for. */
+    expireCalls: [] as string[],
+    intentsByKey,
+    intentCalls: [] as FakeCall[],
     cancelCalls: [] as string[],
     /** Every intent id `paymentIntents.retrieve` was asked for, in order. */
     retrieves: [] as string[],
@@ -561,85 +571,67 @@ export function createFakePeableGateway() {
     return session;
   }
 
-  function renderSessionOf(session: FakeSession, expand: boolean) {
-    return renderSession(session, session.intentId ? intents.get(session.intentId) : undefined, {
-      expand,
-    });
-  }
-
   const client = {
     checkout: {
       sessions: {
         create: (
           params: {
             line_items: {
-              price_data: { currency: string; unit_amount: string };
+              price_data: { currency: string; unit_amount: string; product_data: { name: string } };
               quantity: number;
+              connected_account?: string;
             }[];
-            payment_method_types?: string[];
-            connected_account?: string;
-            client_reference_id?: string;
             metadata?: Record<string, string>;
+            payment_intent_data?: { metadata?: Record<string, string> };
+            client_reference_id?: string;
             expires_at?: number;
           },
           options?: IdempotencyOptions,
         ) => {
           const idempotencyKey = options?.idempotencyKey;
           state.sessionCalls.push({ params, idempotencyKey });
-          const prior = replay(idempotencyKey);
-          if (prior) return Promise.resolve(prior);
-          const [line] = params.line_items;
-          if (!line || !params.connected_account) {
-            return Promise.reject(
-              refusal('a marketplace session names the seller', 'parameter_invalid'),
-            );
-          }
-          const seller = accountOf(params.connected_account);
-          if (seller.faircoin?.status !== 'active') {
-            return Promise.reject(
-              new PeableInvalidRequestError('seller not ready', {
-                statusCode: 409,
-                code: 'account_not_ready',
-              }),
-            );
-          }
+          const existing = idempotencyKey ? sessionsByKey.get(idempotencyKey) : undefined;
+          if (existing) return Promise.resolve(renderSession(sessionOf(existing)));
           const id = nextId('cs');
+          const lines = params.line_items.map((line) => ({
+            name: line.price_data.product_data.name,
+            amount: BigInt(line.price_data.unit_amount) * BigInt(line.quantity),
+            connectedAccount: line.connected_account ?? null,
+          }));
           const session: FakeSession = {
             id,
             status: 'open',
-            paymentStatus: 'unpaid',
-            currency: line.price_data.currency,
-            amount: BigInt(line.price_data.unit_amount) * BigInt(line.quantity),
-            connectedAccount: params.connected_account,
+            currency: params.line_items[0]?.price_data.currency ?? 'USD',
+            amount: lines.reduce((sum, line) => sum + line.amount, 0n),
+            lines,
             metadata: { ...params.metadata },
+            paymentMetadata: { ...params.payment_intent_data?.metadata },
             clientReferenceId: params.client_reference_id ?? null,
             expiresAt: params.expires_at ?? Math.floor(Date.now() / 1000) + 86_400,
             intentId: null,
+            clientSecret: `${id}_secret_fixture`,
           };
           sessions.set(id, session);
-          return Promise.resolve(remember(idempotencyKey, renderSessionOf(session, false)));
+          if (idempotencyKey) sessionsByKey.set(idempotencyKey, id);
+          if (state.acceptThenTimeout) {
+            state.acceptThenTimeout = false;
+            return Promise.reject(new Error('gateway response lost after acceptance'));
+          }
+          return Promise.resolve(renderSession(session));
         },
-        retrieve: (id: string, params?: { expand?: string[] }) =>
-          Promise.resolve(
-            renderSessionOf(sessionOf(id), params?.expand?.includes('payment_intent') ?? false),
-          ),
-        expire: (id: string, params?: { expand?: string[] }) => {
-          state.sessionExpires.push(id);
+        retrieve: (id: string) => Promise.resolve(renderSession(sessionOf(id))),
+        expire: (id: string, _params: unknown, _options?: IdempotencyOptions) => {
+          state.expireCalls.push(id);
           const session = sessionOf(id);
-          if (session.status === 'complete') {
+          const current = session.intentId ? intentOf(session.intentId) : undefined;
+          if (current && (current.status === 'processing' || current.status === 'succeeded')) {
             return Promise.reject(
-              refusal(
-                'This session is complete and cannot be expired.',
-                'checkout_session_unexpected_state',
-              ),
+              refusal('the payer is already paying this session', 'checkout_session_not_open'),
             );
           }
+          if (current) current.status = 'canceled';
           session.status = 'expired';
-          const intent = session.intentId ? intents.get(session.intentId) : undefined;
-          if (intent && intent.status !== 'succeeded') intent.status = 'canceled';
-          return Promise.resolve(
-            renderSessionOf(session, params?.expand?.includes('payment_intent') ?? false),
-          );
+          return Promise.resolve(renderSession(session));
         },
       },
     },
@@ -1041,6 +1033,76 @@ export function createFakePeableGateway() {
       return stored;
     },
 
+    /** The gateway's record of one checkout session. */
+    session(id: string): FakeSession {
+      return sessionOf(id);
+    },
+
+    /**
+     * The PAYER confirming a session in Peable's sheet with `method`: a payment
+     * for the order is created carrying `payment_intent_data.metadata`, and
+     * becomes the session's current one; a previous unpaid one is cancelled (the
+     * payer switched). FairCoin pays every seller its line's share, one output
+     * each (Peable ADR 0021 D6). Confirming the same method again answers the
+     * same payment.
+     */
+    confirmSession(sessionId: string, method: 'card' | 'faircoin'): FakeIntent {
+      const session = sessionOf(sessionId);
+      const previous = session.intentId ? intentOf(session.intentId) : undefined;
+      if (previous && (previous.faircoin ? 'faircoin' : 'card') === method) return previous;
+      if (previous && previous.status !== 'succeeded') previous.status = 'canceled';
+      const id = nextId('pi');
+      const intent: FakeIntent = {
+        id,
+        status: method === 'faircoin' ? 'requires_action' : 'requires_payment_method',
+        // A fiat order's FairCoin is quoted; the fake prices 1 FAIR base unit per minor unit.
+        amount: session.amount,
+        currency: method === 'faircoin' ? 'FAIR' : session.currency,
+        refunded: 0n,
+        metadata: { ...session.paymentMetadata },
+        clientSecret: `${id}_secret_fixture`,
+        payerSecret: `${id}_payer_secret_fixture`,
+        ...(method === 'faircoin'
+          ? {
+              faircoin: {
+                connectedAccount:
+                  session.lines.length === 1 ? (session.lines[0]?.connectedAccount ?? null) : null,
+                network: 'testnet',
+                address: `tFair${id}_0`,
+                outputs: session.lines.map((line, index) => ({
+                  address: `tFair${id}_${String(index)}`,
+                  amount: line.amount,
+                  connectedAccount: line.connectedAccount ?? '',
+                })),
+              },
+            }
+          : {}),
+      };
+      intents.set(id, intent);
+      session.intentId = id;
+      return intent;
+    },
+
+    /** A quoted FairCoin payment lapsed: cancelled, and the session forgets it. */
+    lapseSessionPayment(sessionId: string): void {
+      const session = sessionOf(sessionId);
+      if (session.intentId) intentOf(session.intentId).status = 'canceled';
+      session.intentId = null;
+    },
+
+    /** A signed delivery about one session, rendered as it is now. */
+    sessionDelivery(input: { eventId: string; type: string; sessionId: string; secret: string }): {
+      payload: Buffer;
+      signature: string;
+    } {
+      return gateway.objectDelivery({
+        eventId: input.eventId,
+        type: input.type,
+        object: renderSession(sessionOf(input.sessionId)),
+        secret: input.secret,
+      });
+    },
+
     /** The gateway's record of one intent; throws for one it never made. */
     intent(id: string): FakeIntent {
       return intentOf(id);
@@ -1155,64 +1217,6 @@ export function createFakePeableGateway() {
       };
     },
 
-    /**
-     * The payer chose FairCoin on a session: Peable quotes the total and creates
-     * the on-behalf FairCoin intent itself — WITHOUT Mercaria's metadata.
-     */
-    confirmSessionFaircoin(sessionId: string): string {
-      const session = sessionOf(sessionId);
-      const id = nextId('pi');
-      intents.set(id, {
-        id,
-        faircoin: {
-          connectedAccount: session.connectedAccount,
-          network: 'testnet',
-          address: `tFair${id}`,
-        },
-        status: 'requires_action',
-        amount: 123_456_789n,
-        currency: 'FAIR',
-        refunded: 0n,
-        metadata: {},
-        clientSecret: `${id}_secret_fixture`,
-        payerSecret: `${id}_payer_secret_fixture`,
-      });
-      session.intentId = id;
-      return id;
-    },
-
-    /** The payer's broadcast is reported: the session completes `unpaid`, its intent `processing`. */
-    broadcastSession(sessionId: string): void {
-      const session = sessionOf(sessionId);
-      const intent = session.intentId ? intentOf(session.intentId) : undefined;
-      if (!intent) throw new Error(`${sessionId} was never confirmed`);
-      intent.status = 'processing';
-      session.status = 'complete';
-    },
-
-    /** The coins confirmed: the session is `paid`, its intent `succeeded`. */
-    settleSession(sessionId: string): void {
-      const session = sessionOf(sessionId);
-      const intent = session.intentId ? intentOf(session.intentId) : undefined;
-      if (!intent) throw new Error(`${sessionId} was never confirmed`);
-      intent.status = 'succeeded';
-      session.status = 'complete';
-      session.paymentStatus = 'paid';
-    },
-
-    /** A signed `checkout.session.*` delivery: the session's current rendering. */
-    sessionDelivery(input: { eventId: string; type: string; sessionId: string; secret: string }): {
-      payload: Buffer;
-      signature: string;
-    } {
-      return gateway.objectDelivery({
-        eventId: input.eventId,
-        type: input.type,
-        object: renderSessionOf(sessionOf(input.sessionId), false),
-        secret: input.secret,
-      });
-    },
-
     /** The buyer confirmed and the acquirer captured (ADR 0001 D3: immediately). */
     succeed(id: string): void {
       const intent = intentOf(id);
@@ -1253,8 +1257,9 @@ export function createFakePeableGateway() {
       disputes.clear();
       payouts.clear();
       sessions.clear();
+      sessionsByKey.clear();
       state.sessionCalls.length = 0;
-      state.sessionExpires.length = 0;
+      state.expireCalls.length = 0;
       intentsByKey.clear();
       byKey.clear();
       state.intentCalls.length = 0;
@@ -1270,8 +1275,6 @@ export function createFakePeableGateway() {
       state.reversalFailures.clear();
       state.unreadableIntents.clear();
       state.acceptThenTimeout = false;
-      state.faircoinConfigurationReason = null;
-      state.faircoinCreateRefusal = null;
     },
 
     /**

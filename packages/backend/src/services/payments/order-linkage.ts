@@ -40,6 +40,7 @@ import {
   type OrderRecord,
 } from '../../db/orders/orderRepository.js';
 import {
+  effectiveFeeAmount,
   listOrderFeeSnapshots,
   type OrderFeeSnapshotRecord,
 } from '../../db/fees/orderFeeSnapshotRepository.js';
@@ -127,7 +128,8 @@ function toLinkedOrder(order: OrderRecord, feeSnapshot?: OrderFeeSnapshotRecord)
     presentmentCurrency: order.totalsGrandTotalPresentmentCurrency,
     paymentId: order.paymentId,
     checkoutGroupId: order.checkoutGroupId,
-    marketplaceFeePresentmentMinor: feeSnapshot?.feeAmount ?? 0,
+    // The fee that STANDS: the outcome's once paid (FairCoin: 0, ADR 0021).
+    marketplaceFeePresentmentMinor: effectiveFeeAmount(feeSnapshot),
   };
 }
 

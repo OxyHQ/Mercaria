@@ -116,7 +116,6 @@ const REFUSAL_REASON_TO_ANALYTICS: Record<CheckoutRefusalReason, AnalyticsReason
   // whose remedy (pay by card, or one seller at a time) a metric need not tell
   // apart from an unpayable seller.
   faircoin_unavailable: 'seller_not_payment_ready',
-  faircoin_one_seller_per_checkout: 'seller_not_payment_ready',
 };
 
 /**

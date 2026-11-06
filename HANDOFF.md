@@ -228,14 +228,15 @@ account events. No seller is `ready`, so every native checkout is refused
       where the coins go and the no-fee line); "Get paid in FairCoin" /
       "Confirm in Peable" posts `rail: 'faircoin'` to the onboarding-link route
       and opens Peable's page like the card onboarding, re-reading on return.
-- [x] **The checkout's FairCoin step** — Peable's sheet pays a FAIR order's
-      intent (#1212) and, since ADR 0020, a USD order's FairCoin-only session
-      (`payerObject: 'checkout_session'`); the storefront asks "How you'll pay".
-- [x] **FairCoin on USD orders** — ADR 0020: the buyer chooses Card or
-      FairCoin; FairCoin is a FairCoin-only Peable Checkout Session for the ONE
-      seller, and the fee follows the method (`faircoin_exempt`).
-- [ ] **The session events on Peable's endpoint** — add the four
-      `checkout.session.*` types to `we_82b5…` (`docs/payments.md` Webhooks).
+- [x] **FairCoin on every order** — ADR 0021 (amends ADR 0020): ONE Peable
+      Checkout Session per cart offers the card and FairCoin in Peable's sheet
+      (no pre-choice); FairCoin pays every seller's own wallet in one
+      multi-output transaction (Peable ADR 0021 D6); the card stays the platform
+      charge + transfers; the fee follows the method USED, at the outcome
+      (`order_fee_outcomes`). `@peable.to/sdk` 5.0.0.
+- [x] **The session events on Peable's endpoint** — the four
+      `checkout.session.*` types are on `we_82b5…` since 2026-11-06 (31 types,
+      read back; `docs/runbooks/marketplace-card-rail-live.md` §3b).
 - [x] **FairCoin-paid merchant plans** — a Peable `incomplete` subscription
       (first payment confirming) is Mercaria's `incomplete`, shown as "Waiting
       for your payment to confirm", entitling nothing and refusing checkout,

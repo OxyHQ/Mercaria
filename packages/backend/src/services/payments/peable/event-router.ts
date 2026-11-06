@@ -39,11 +39,17 @@
  */
 
 import type { PaymentProviderId, PaymentStatus } from '@mercaria/shared-types';
-import { findPaymentByProviderObjectId } from '../../../db/payments/paymentRepository.js';
+import {
+  attachSessionPayment,
+  findPaymentByCheckoutSessionId,
+  findPaymentById,
+  findPaymentByProviderObjectId,
+  type PaymentRow,
+} from '../../../db/payments/paymentRepository.js';
 import { getDb } from '../../../db/postgres.js';
 import { log } from '../../../lib/logger.js';
 import { recordSupervisedCancellation } from '../../supervised-shopping/purchase.service.js';
-import { PaymentProviderError } from '../provider.js';
+import { isCheckoutSessionProvider, PaymentProviderError } from '../provider.js';
 import {
   applyPaymentStatus,
   canTransitionPaymentStatus,
@@ -52,7 +58,7 @@ import {
 import { resolvePaymentProvider } from '../registry.js';
 import { PEABLE_BILLING_EVENT_HANDLERS } from '../../billing/peable/events.js';
 import { PEABLE_MARKETPLACE_EVENT_HANDLERS } from './marketplace-events.js';
-import { isPeablePaymentEvent, isPeableSessionEvent, PAYMENT_STATUS_FOR_EVENT } from './verify.js';
+import { isPeablePaymentEvent, PAYMENT_STATUS_FOR_EVENT } from './verify.js';
 
 /** What a handler is given, built from the stored row. */
 export interface PeableEventContext {
@@ -124,9 +130,30 @@ async function applyIntentEvent(
   // Either of the gateway's rails: a card intent is a `peable` payment and an
   // on-behalf FairCoin intent a `peable_faircoin` one (ADR 0019), on one
   // endpoint and one secret. Intent ids are unique across both.
-  const payment =
+  let payment =
     (await findPaymentByProviderObjectId(getDb(), 'peable', intentId)) ??
     (await findPaymentByProviderObjectId(getDb(), 'peable_faircoin', intentId));
+  // A cart paid through ONE checkout session (ADR 0021): the intent is whichever
+  // the payer confirmed in it, found by Mercaria's own marker — and acted on
+  // ONLY while it is the session's current payment. A payer who switched from
+  // the card to FairCoin leaves a cancelled card intent that must not cancel
+  // the order's payment.
+  const sessionPayment =
+    payment ??
+    (context.objectIds.mercaria_payment !== undefined
+      ? await findPaymentById(getDb(), context.objectIds.mercaria_payment)
+      : undefined);
+  if (sessionPayment?.providerCheckoutSessionId) {
+    const linked = await linkSessionPayment(sessionPayment, intentId);
+    if (!linked) {
+      return {
+        kind: 'ignored',
+        paymentId: sessionPayment.id,
+        note: `${intentId} is no longer its checkout session's payment; the payer moved on`,
+      };
+    }
+    payment = linked;
+  }
   if (!payment) {
     // Only an intent Mercaria MADE can be one whose row is not visible yet: it
     // carries Mercaria's own payment id (`createPayment`'s metadata), and a
@@ -139,45 +166,6 @@ async function applyIntentEvent(
     return { kind: 'ignored', note: `${intentId} is not a marketplace payment` };
   }
 
-  return await applyToPayment(context, payment, asserted, intentId);
-}
-
-/**
- * Apply one `checkout.session.*` event — a fiat order the buyer pays in
- * FairCoin (Mercaria ADR 0020), whose provider object is the SESSION: Peable
- * creates the quoted intent itself, without Mercaria's metadata, so the
- * session's events and the session's state are what move the payment.
- *
- * Every session event is re-read rather than trusted: `completed` means
- * `processing` (broadcast) or `succeeded` (confirmed) depending on
- * `payment_status`, `async_payment_failed` means the payment underpaid, and
- * the session read answers all of them in one mapping (`sessionStatus`).
- */
-async function applySessionEvent(context: PeableEventContext): Promise<PeableEventOutcome> {
-  const sessionId = context.objectIds.checkout_session;
-  if (!sessionId) {
-    return { kind: 'ignored', note: `'${context.type}' named no checkout session` };
-  }
-  const payment = await findPaymentByProviderObjectId(getDb(), 'peable_faircoin', sessionId);
-  if (!payment) {
-    // A merchant-plan session arrives on the same endpoint and is not a
-    // marketplace payment; only a session Mercaria's checkout opened carries
-    // its payment marker, and only that one can be "not visible yet".
-    if (context.objectIds.mercaria_payment !== undefined) {
-      throw unresolved(`no Mercaria payment is linked to Peable session ${sessionId} yet`);
-    }
-    return { kind: 'ignored', note: `${sessionId} is not a marketplace payment` };
-  }
-  return await applyToPayment(context, payment, 'reread', sessionId);
-}
-
-/** Move one payment to the status an event asserts (or the gateway answers). */
-async function applyToPayment(
-  context: PeableEventContext,
-  payment: NonNullable<Awaited<ReturnType<typeof findPaymentByProviderObjectId>>>,
-  asserted: PaymentStatus | 'reread',
-  intentId: string,
-): Promise<PeableEventOutcome> {
   const next =
     asserted === 'reread' ? await readPaymentStatus(payment.provider, intentId) : asserted;
 
@@ -272,6 +260,92 @@ async function applyToPayment(
 }
 
 /**
+ * Point a session-paid payment at `intentId` when — and only when — it is the
+ * session's CURRENT payment, on the rail it is on (`peable` card,
+ * `peable_faircoin` FairCoin). `undefined` when the payer has moved on.
+ */
+async function linkSessionPayment(
+  payment: PaymentRow,
+  intentId: string,
+): Promise<PaymentRow | undefined> {
+  const sessionId = payment.providerCheckoutSessionId;
+  if (!sessionId) return payment;
+  const sessions = resolvePaymentProvider('peable');
+  if (!sessions || !isCheckoutSessionProvider(sessions)) {
+    throw unresolved('the Peable rail is not configured; the checkout session cannot be read');
+  }
+  const session = await sessions.readCheckoutSession(sessionId);
+  if (session.payment?.providerObjectId !== intentId) return undefined;
+  const provider = session.payment.rail === 'faircoin' ? 'peable_faircoin' : 'peable';
+  if (payment.providerObjectId === intentId && payment.provider === provider) return payment;
+  // A closed payment never moves to another intent; re-read it as it stands.
+  return (
+    (await attachSessionPayment(getDb(), payment.id, intentId, provider)) ??
+    (await findPaymentById(getDb(), payment.id))
+  );
+}
+
+/**
+ * A marketplace checkout session's own events (ADR 0021).
+ *
+ *  - `completed` / `async_payment_*` — the session's current payment is linked
+ *    and re-read, exactly as its own `payment_intent.*` event would be.
+ *  - `expired` — nobody paid: the payment is cancelled through the same path a
+ *    cancelled intent takes, which releases the orders.
+ *
+ * A session with no Mercaria payment (a merchant-plan session on the same
+ * endpoint) is ignored.
+ */
+async function applySessionEvent(context: PeableEventContext): Promise<PeableEventOutcome> {
+  const sessionId = context.objectIds.checkout_session;
+  const payment = sessionId ? await findPaymentByCheckoutSessionId(getDb(), sessionId) : undefined;
+  if (!payment) {
+    if (context.objectIds.mercaria_payment !== undefined) {
+      throw unresolved(
+        `no Mercaria payment is linked to checkout session ${String(sessionId)} yet`,
+      );
+    }
+    return { kind: 'ignored', note: `'${context.type}' is not a marketplace checkout session` };
+  }
+  if (context.type === 'checkout.session.expired') {
+    if (!canTransitionPaymentStatus(payment.status, 'canceled')) {
+      return {
+        kind: 'applied',
+        paymentId: payment.id,
+        note: `the session expired; the payment is already '${payment.status}'`,
+      };
+    }
+    const result = await applyPaymentStatus({
+      paymentId: payment.id,
+      next: 'canceled',
+      providerEventId: context.providerEventId,
+    });
+    await recordSupervisedCancellation(payment.id, true);
+    return {
+      kind: 'applied',
+      paymentId: payment.id,
+      note: result.changed ? 'the checkout session expired unpaid' : 'already cancelled',
+    };
+  }
+  const intentId = context.objectIds.payment_intent;
+  if (!intentId) {
+    return { kind: 'ignored', paymentId: payment.id, note: 'the session wraps no payment yet' };
+  }
+  return await applyIntentEvent(
+    { ...context, objectIds: { ...context.objectIds, mercaria_payment: payment.id } },
+    'reread',
+  );
+}
+
+/** The checkout-session event types this router acts on (ADR 0021). */
+const SESSION_EVENT_TYPES: ReadonlySet<string> = new Set([
+  'checkout.session.completed',
+  'checkout.session.expired',
+  'checkout.session.async_payment_succeeded',
+  'checkout.session.async_payment_failed',
+]);
+
+/**
  * Where the gateway says the payment stands now, read through the rail.
  *
  * The rail being switched off between storing and processing is a transient
@@ -305,7 +379,7 @@ export function routePeableEvent(type: string): PeableEventHandler | undefined {
     return PEABLE_BILLING_EVENT_HANDLERS[type];
   if (Object.hasOwn(PEABLE_MARKETPLACE_EVENT_HANDLERS, type))
     return PEABLE_MARKETPLACE_EVENT_HANDLERS[type];
-  if (isPeableSessionEvent(type)) return applySessionEvent;
+  if (SESSION_EVENT_TYPES.has(type)) return applySessionEvent;
   if (!isPeablePaymentEvent(type)) return undefined;
   const asserted = PAYMENT_STATUS_FOR_EVENT[type];
   return async (context) => await applyIntentEvent(context, asserted);

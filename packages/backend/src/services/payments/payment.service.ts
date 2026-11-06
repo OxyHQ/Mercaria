@@ -39,7 +39,15 @@
 
 import { recordSupervisedCancellation } from '../supervised-shopping/purchase.service.js';
 
-import type { CurrencyCode, Money, PaymentProviderId, PaymentStatus } from '@mercaria/shared-types';
+import type {
+  CurrencyCode,
+  Money,
+  OrderFeeOutcomeMethod,
+  PaymentProviderId,
+  PaymentStatus,
+} from '@mercaria/shared-types';
+import { recordOrderFeeOutcomes } from '../../db/fees/orderFeeOutcomeRepository.js';
+import { findOrdersInCheckoutGroup as findOrdersInCheckoutGroupRows } from '../../db/orders/orderRepository.js';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import { RETENTION_SECONDS } from '../../db/expiryTargets.js';
 import {
@@ -133,6 +141,16 @@ function sourcesFor(next: PaymentStatus): PaymentStatus[] {
  * failure the comment predicted. Two lists that must agree need a mechanism, not
  * a paragraph, so the audit now derives its set from this one.
  */
+/**
+ * Which fee method a checkout payment's provider is (ADR 0021): the Peable card
+ * rail is `card`, the FairCoin rail `faircoin`. Every other provider decides no
+ * fee outcome (external imports, POS, the dev seam).
+ */
+const FEE_OUTCOME_METHOD: Partial<Record<PaymentProviderId, OrderFeeOutcomeMethod>> = {
+  peable: 'card',
+  peable_faircoin: 'faircoin',
+};
+
 export const PROVIDER_BOOKS_LEDGER: Record<PaymentProviderId, boolean> = {
   // Captured on Shopify/WooCommerce. Mercaria never held these funds.
   external: false,
@@ -294,6 +312,21 @@ export async function applyPaymentStatus(
       ...(input.errorCode ? { errorCode: input.errorCode } : {}),
       ...(input.errorMessage ? { errorMessage: redactProviderMessage(input.errorMessage) } : {}),
     });
+
+    // The marketplace fee follows the method USED, decided now (ADR 0021): the
+    // card keeps the snapshot's marketplace-card terms, FairCoin takes none.
+    const method = FEE_OUTCOME_METHOD[payment.provider];
+    if (input.next === 'succeeded' && method) {
+      const groupOrders = await findOrdersInCheckoutGroupRows(payment.checkoutGroupId, tx);
+      await recordOrderFeeOutcomes(tx, {
+        paymentId: payment.id,
+        method,
+        orders: groupOrders.map((order) => ({
+          id: order.id,
+          presentmentCurrency: order.totalsGrandTotalPresentmentCurrency,
+        })),
+      });
+    }
 
     let ledgerTransactionId: string | undefined;
     if (input.next === 'succeeded' && PROVIDER_BOOKS_LEDGER[payment.provider]) {
@@ -500,7 +533,29 @@ export async function cancelPaymentForCheckoutGroup(checkoutGroupId: string): Pr
   }
   let providerCancellationConfirmed = false;
 
-  if (payment.providerObjectId) {
+  if (payment.providerCheckoutSessionId) {
+    // ONE checkout session for the cart (ADR 0021): expiring it at the gateway
+    // cancels whichever payment the payer started in it, and is refused while
+    // they are already paying — which, like a lost cancel below, surfaces as a
+    // visible exception if the success event lands after this release.
+    const { resolvePaymentProvider } = await import('./registry.js');
+    const { isCheckoutSessionProvider } = await import('./provider.js');
+    const sessions = resolvePaymentProvider('peable');
+    if (sessions && isCheckoutSessionProvider(sessions)) {
+      try {
+        await sessions.expireCheckoutSession(
+          payment.providerCheckoutSessionId,
+          `expire:${payment.id}`,
+        );
+        providerCancellationConfirmed = true;
+      } catch (error: unknown) {
+        log.general.warn(
+          { err: error, paymentId: payment.id, checkoutGroupId },
+          '[Payments] could not expire the checkout session at its rail; cancelling locally anyway',
+        );
+      }
+    }
+  } else if (payment.providerObjectId) {
     const { resolvePaymentProvider } = await import('./registry.js');
     const provider = resolvePaymentProvider(payment.provider);
     if (provider) {

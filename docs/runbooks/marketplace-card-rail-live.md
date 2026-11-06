@@ -38,16 +38,19 @@ sellers' items in the order summary. Nothing is charged and nothing is held.
 Before the flag, the same checkout said "order placed" for an order with no
 payment attached.
 
-A buyer pricing in FAIR (the default display currency) pays in FairCoin
-([ADR 0019](../adr/0019-faircoin-is-always-offered.md)): one on-behalf
-FairCoin payment into the seller's own Peable wallet, one seller per checkout,
-no marketplace fee. Until the seller has opened and confirmed FairCoin, that
+Every cart is ONE Peable Checkout Session ([ADR 0021](../adr/0021-one-peable-checkout-per-cart.md)):
+a USD cart offers the card (this runbook's platform charge and transfers) AND
+FairCoin; a FAIR cart (the default display currency) offers FairCoin
+([ADR 0019](../adr/0019-faircoin-is-always-offered.md)). FairCoin is one
+payment paying every seller's own Peable wallet its share, with no marketplace
+fee; the fee follows the method used (`order_fee_outcomes`). Until the seller has opened and confirmed FairCoin, that
 checkout is refused before anything is reserved with the reason in words
 (`faircoin_unavailable`: `seller_not_connected` / `seller_not_confirmed`), and
 while Peable keeps mainnet identity receive closed every FAIR checkout is
 refused `faircoin_network_closed` — that is the state in production today and
-is surfaced, not worked around. A buyer pricing in USD pays by card; any other
-currency is told to switch to USD (card) or FAIR (FairCoin). Prices still
+is surfaced, not worked around; on a USD cart the same reason shows FairCoin as
+unavailable in Peable's sheet while the card keeps working. Any other currency
+is told to switch to USD (card or FairCoin) or FAIR (FairCoin). Prices still
 convert from the listing's native currency.
 
 ## 2b. FairCoin for a store (what the store owner does)
@@ -98,6 +101,26 @@ The Apple Pay association file is Stripe's, and it is the same for every Stripe
 account. If Stripe changes it, replace the file, deploy the storefront, then
 validate the domain again. `public/_worker.js` serves it as a plain asset: the
 path has no extension, and the worker only treats an HTML request as a page.
+
+## 3b. Peable event types on the endpoint (as Mercaria's workload)
+
+The marketplace and the plans share ONE Peable endpoint,
+`we_82b5f363eb495108b252e607` (`https://api.mercaria.co/webhooks/peable`). A new
+event type is added the same way as a wallet domain (§3): a one-off task on the
+live `oxy-mercaria` revision through `.github/scripts/run-ecs-task.sh` with a
+`bun -e` override that builds the same `OxyServer` + `peableForOxyService`
+client, checks `merchants.retrieve().id === 'merch_bd106296a0fef49a861ee6b7'`,
+reads `webhookEndpoints.retrieve(id)`, sends `webhookEndpoints.update(id, {
+enabled_events })` with the FULL list (existing ∪ new; the field replaces the
+list), and reads it back. Run it once read-only first. Print only the
+endpoint's id, url, status and event types — never the secret. Never write
+Peable's database.
+
+2026-11-06 (ADR 0021): added `checkout.session.completed`, `.expired`,
+`.async_payment_succeeded` and `.async_payment_failed` on `oxy-mercaria:186`;
+27 → 31 types, read back `enabled`, none missing. The live code already
+answered those types (ADR 0020's session events), so adding them before #1220
+deployed changed nothing for in-flight payments.
 
 ## 4. What is left before the first sale (owner)
 

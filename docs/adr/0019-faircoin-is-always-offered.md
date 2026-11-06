@@ -1,8 +1,9 @@
 # 0019 — FairCoin is always offered: a FAIR checkout pays the seller's own Peable wallet
 
-- **Status:** Accepted, 2026-11-06. D1 (a USD order is card-only) and D5 (the
-  fee follows the currency) amended by ADR 0020: a USD order is payable in
-  FairCoin, and the fee follows the method. The owner's rule, carried from Peable ADR
+- **Status:** Accepted, 2026-11-06. D1, D3 and D5 amended by ADR 0020 and
+  ADR 0021: every cart is ONE Peable Checkout Session offering FairCoin (a FAIR
+  cart of several sellers is one multi-output payment), and the fee follows the
+  method used. The owner's rule, carried from Peable ADR
   0021: *FairCoin must always be available and cannot be turned off; fiat
   methods are optional.*
 - **Builds on:** ADR 0009 (Peable is the rail), ADR 0001 D3/D8 (card sales are

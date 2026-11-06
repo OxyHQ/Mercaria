@@ -408,11 +408,21 @@ export const payments = pgTable(
      * a primary key.
      */
     providerObjectId: text(),
+    /**
+     * The ONE Peable Checkout Session the cart is paid through (ADR 0021), when
+     * it was opened as one. `provider_object_id` is then the session's CURRENT
+     * payment, attached from the gateway's events — the payer chooses the card or
+     * FairCoin in Peable's sheet, so it is unknown until they do.
+     */
+    providerCheckoutSessionId: text(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (t) => [
     checkOneOf('payments_provider_check', t.provider, PAYMENT_PROVIDER_IDS),
+    uniqueIndex('payments_provider_checkout_session_id_key')
+      .on(t.providerCheckoutSessionId)
+      .where(sql`${t.providerCheckoutSessionId} is not null`),
     checkOneOf('payments_status_check', t.status, PAYMENT_STATUSES),
     ...currencyChecks('payments', [t.presentmentCurrency, t.platformCurrency]),
     // The platform side is a conversion or it is absent — never a half of one.

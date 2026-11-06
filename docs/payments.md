@@ -17,13 +17,24 @@ no acquirer SDK and no acquirer credential. The direct Stripe marketplace rail
 was deleted on 2026-11-05 (ADR 0009 D13 "As built"); it had never carried
 money.
 
-**FairCoin is always offered** ([ADR 0019](./adr/0019-faircoin-is-always-offered.md)).
-The rail follows the presentment currency: a `FAIR` checkout is ONE on-behalf
-FairCoin PaymentIntent (`peable_faircoin`, `peable/faircoin-provider.ts`)
-paying the seller's own Peable wallet, and a USD checkout is the card rail
-below. A FairCoin payment books NO ledger entries, makes no transfer, carries
-no marketplace fee and cannot be refunded through Peable (the seller sends the
-coins back); a FAIR checkout covers one seller. A seller opens their FairCoin
+**FairCoin is always offered** ([ADR 0019](./adr/0019-faircoin-is-always-offered.md),
+[ADR 0021](./adr/0021-one-peable-checkout-per-cart.md)). Every cart is paid
+through ONE embedded Peable Checkout Session (`openCheckoutPayment` →
+`PeablePaymentProvider.openCheckoutSession`): one line per seller order — its
+grand total — naming the seller's connected account, ADR 0001 D11's metadata
+on every payment it creates (`payment_intent_data.metadata`). A USD cart's
+session offers the card (Mercaria's platform charge, settled by the transfers
+below) AND FairCoin, quoted by Peable; a `FAIR` cart's offers FairCoin. A
+FairCoin payment is ONE payer-signed transaction paying every seller its share
+into their own Peable wallet (Peable ADR 0021 D6): it books NO ledger entries,
+makes no transfer, carries no marketplace fee and cannot be refunded through
+Peable (the seller sends the coins back). The payment learns its rail from the
+gateway: an intent event links only while it is the session's CURRENT payment
+(a card attempt abandoned for FairCoin is ignored), and sets `provider` to
+`peable` or `peable_faircoin` (`payments_rail_immutable` freezes both once
+money moves). The fee follows the method USED, recorded at the outcome
+(`order_fee_outcomes`: card keeps the snapshot's `marketplace-card` fee,
+FairCoin none). A seller opens their FairCoin
 half from their payments settings (`rail: 'faircoin'` on the onboarding link,
 receiving into the store's owning Oxy account or the P2P seller's own) and
 confirms it on Peable's page. Every reason FairCoin cannot be paid
@@ -32,7 +43,7 @@ confirms it on Peable's page. Every reason FairCoin cannot be paid
 reserved, and the same answer is on the seller's settings. The reservation
 sweep keeps a group whose payment is `processing`.
 
-**A USD order is payable in FairCoin** ([ADR 0020](./adr/0020-usd-orders-payable-in-faircoin.md)).
+**A USD order is payable in FairCoin** ([ADR 0021](./adr/0020-usd-orders-payable-in-faircoin.md)).
 The buyer chooses Card or FairCoin at checkout (`paymentMethod: 'faircoin'`);
 FairCoin opens a FairCoin-only Peable Checkout Session for the ONE seller
 (`connected_account`, `payment_method_types: ['faircoin']`, the group's total
@@ -896,8 +907,8 @@ which the sweep never selects again.
 `@peable.to/sdk/checkout/ui`, the SAME sheet Mention opens on /plus — used by the
 checkout and the supervised-shopping checkout alike, for guests and account
 buyers alike, on the web and on iOS and Android (ADR 0006 G1/G2). Mercaria hands
-it the handoff's Peable PaymentIntent and ITS `client_secret` (the payer's
-capability, nothing of the acquirer's), the total it expects (a different
+it the cart's Peable Checkout Session through `sessionSource(clientSecret)` (the
+payer's capability, nothing of the acquirer's; ADR 0021), the total it expects (a different
 payment is refused) and the order numbers; the card (Peable's secure fields, or
 Peable's secure page from the native apps), FairCoin and every state of the
 payment are the SDK's — Apple Pay and Google Pay included (below). Mercaria keeps no card form, provider frame or payment
@@ -907,25 +918,24 @@ polls `GET /checkout/:groupId/payment-status`, which answers from the payment
 aggregate — a value only a verified webhook (or a live rail read) moves — and
 hands it back to the sheet as its `outcome` (`lib/payments/peable-payer.ts`
 `sheetOutcome`): paid only on `succeeded`, over only on `canceled`; a `failed`
-attempt is a decline the buyer retries in the sheet. The intent is created with
-`payment_method_types: ['card']`, so nothing asynchronous ADR 0001 D3 excludes
-is offered; Apple Pay and Google Pay are card payments, so they ride on it.
-Since `@peable.to/sdk` 4.3.0 the sheet's card step on the web opens with the
-provider's Apple Pay / Google Pay buttons (Express Checkout) mounted on this
-payment, shown where the device has a wallet and the page's domain is
-registered — `mercaria.co` is (`pmd_de5b5c1648a83fcb9e411c99`, with the
-storefront's Apple Pay domain-association file;
-`docs/runbooks/marketplace-card-rail-live.md`). From the native apps the card
-opens Peable's secure page, which offers the same wallets. The sheet speaks the
-buyer's language from the SDK's own catalog (`locale`); Mercaria translates
-none of it.
+attempt is a decline the buyer retries in the sheet (or pays with FairCoin
+instead). Which card methods the session offers is Mercaria's Peable payment
+method configuration (card only — nothing asynchronous ADR 0001 D3 excludes);
+FairCoin is always offered and cannot be turned off. Apple Pay and Google Pay
+are card payments: since `@peable.to/sdk` 4.3.0 the sheet's card step on the web
+opens with the provider's Apple Pay / Google Pay buttons (Express Checkout),
+shown where the device has a wallet and the page's domain is registered —
+`mercaria.co` is (`pmd_de5b5c1648a83fcb9e411c99`, with the storefront's Apple
+Pay domain-association file; `docs/runbooks/marketplace-card-rail-live.md`).
+From the native apps the card opens Peable's secure page, which offers the same
+wallets. The sheet speaks the buyer's language from the SDK's own catalog
+(`locale`); Mercaria translates none of it.
 
 The handoff is `CheckoutPaymentHandoff` = `{paymentId, provider,
-providerPaymentId, clientSecret, amount, methods}`: `providerPaymentId` is the
-gateway PaymentIntent (`pi_…`) and `clientSecret` ITS `client_secret` — exactly
-the `{ id, client_secret }` the payer SDK mounts on — never the acquirer's
-confirmation secret in the intent's `client_action`. A resumed payment hands back
-the same pair. There is no `publishableKey` (a server credential must never
+checkoutSessionId, clientSecret, amount, methods}`: `checkoutSessionId` is the
+cart's Peable Checkout Session (`cs_…`) and `clientSecret` ITS `client_secret` —
+what `sessionSource` mounts on — never an acquirer secret. A resumed checkout
+reads the same session back (`payments.provider_checkout_session_id`). There is no `publishableKey` (a server credential must never
 reach a buyer's browser, and Mercaria reaches Peable with its Oxy workload
 identity and holds no Peable key at all) and no `returnUrl`. The checkout
 request schema is `.strict()`, so a client that sent a card field would be
@@ -1318,7 +1328,7 @@ marketplace card sales in USD, card processing included: `marketplace-card` v1
 for stores and `marketplace-card-individual` v1 for private sellers (separate
 keys, so neither's activation supersedes the other's acceptances); no fee on
 FairCoin sales in any currency — the method decides it before any schedule is
-selected (`faircoin_exempt`, ADR 0020).
+selected (`faircoin_exempt`, ADR 0021).
 
 ### The calculation, and the snapshot it becomes
 
@@ -2221,12 +2231,12 @@ figure and reverses the seller's share. Neither has been run.
       `payout.paid`, `payout.failed`, `payout.canceled`. Done 2026-11-05 (as
       Mercaria's workload, `POST /v1/webhook_endpoints/:id` with the FULL list,
       after the intent marker shipped): 27 types, the seven billing ones kept.
-- [ ] ADR 0020: add `checkout.session.completed`,
+- [x] ADR 0021: `checkout.session.completed`,
       `checkout.session.async_payment_succeeded`,
       `checkout.session.async_payment_failed` and `checkout.session.expired`
-      to the same endpoint (the FULL list again, as Mercaria's workload). Until
-      then a USD order paid in FairCoin moves only through the open-payment
-      reconciliation's session read.
+      on the same endpoint. Done 2026-11-06 as Mercaria's workload (one-off task
+      on `oxy-mercaria:186`, `webhookEndpoints.update` with the FULL list; read
+      back: 31 types, status `enabled`) — `docs/runbooks/marketplace-card-rail-live.md` §3b.
 - [ ] `POST /webhooks/peable` with no signature answers 400 `missing_signature`,
       not 404. A 404 means the secret is unset and the endpoint is unmounted.
 

@@ -37,13 +37,19 @@ import type {
 import type { VariantRecord } from '../../db/catalog/variantRepository.js';
 
 const ensurePayment = vi.fn();
-const attachPaymentProviderObject = vi.fn();
+const attachPaymentCheckoutSession = vi.fn();
 const createPayment = vi.fn();
-const resumePayment = vi.fn();
-/** The Peable adapter, reduced to the two methods this path calls. */
+const openCheckoutSession = vi.fn();
+const readCheckoutSession = vi.fn();
+/**
+ * The Peable adapter, reduced to what this path calls: ONE checkout session per
+ * cart (ADR 0021). `createPayment` is here so a test can say it never ran.
+ */
 const peableProvider = {
   createPayment: (...args: unknown[]) => createPayment(...args),
-  resumePayment: (...args: unknown[]) => resumePayment(...args),
+  openCheckoutSession: (...args: unknown[]) => openCheckoutSession(...args),
+  readCheckoutSession: (...args: unknown[]) => readCheckoutSession(...args),
+  expireCheckoutSession: vi.fn(),
 };
 
 const getCart = vi.fn();
@@ -211,7 +217,7 @@ vi.mock('../payments/registry.js', () => ({
   resolvePaymentProvider: () => peableProvider,
 }));
 vi.mock('../../db/payments/paymentRepository.js', () => ({
-  attachPaymentProviderObject: (...args: unknown[]) => attachPaymentProviderObject(...args),
+  attachPaymentCheckoutSession: (...args: unknown[]) => attachPaymentCheckoutSession(...args),
   findNativePaymentByCheckoutGroupId: () => Promise.resolve(undefined),
 }));
 
@@ -424,14 +430,18 @@ beforeEach(() => {
     presentmentAmount: 1000,
     presentmentCurrency: 'USD',
     providerObjectId: null,
+    providerCheckoutSessionId: null,
+    createdAt: new Date(),
   });
-  attachPaymentProviderObject.mockReset().mockResolvedValue(undefined);
-  createPayment.mockReset().mockResolvedValue({
-    providerObjectId: 'pi_gate',
-    status: 'requires_action',
-    clientAction: { kind: 'client_secret', value: 'pi_gate_secret_x' },
+  attachPaymentCheckoutSession.mockReset().mockResolvedValue(undefined);
+  createPayment.mockReset();
+  openCheckoutSession.mockReset().mockResolvedValue({
+    sessionId: 'cs_gate',
+    clientSecret: 'cs_gate_secret_x',
+    status: 'open',
+    payment: null,
   });
-  resumePayment.mockReset();
+  readCheckoutSession.mockReset();
   clearCart.mockReset().mockResolvedValue(undefined);
   removeCartLines.mockReset().mockResolvedValue(undefined);
   reserve.mockReset().mockResolvedValue(undefined);
@@ -552,18 +562,15 @@ describe('checkout with the Peable rail on', () => {
     expect(reserve).not.toHaveBeenCalled();
   });
 
-  it('refuses FairCoin named on a cart in a currency no rail presents (ADR 0020)', async () => {
+  it('a USD cart where the buyer asked for FairCoin opens the ONE session, which offers it (ADR 0021)', async () => {
     findProviderAccountByOwner.mockResolvedValue({
       ...accountRow('ready'),
       faircoinState: 'active',
       faircoinNetwork: 'testnet',
     });
-    const cart = (await getCart()) as { currency: string };
-    getCart.mockResolvedValue({ ...cart, currency: 'EUR' });
-    await expect(
-      checkout(ACTOR, { addressId: ADDRESS_ID, paymentMethod: 'faircoin' }),
-    ).rejects.toThrow(/FairCoin payments are made for orders in FAIR or USD/);
-    expect(reserve).not.toHaveBeenCalled();
+    const result = await checkout(ACTOR, { addressId: ADDRESS_ID, paymentMethod: 'faircoin' });
+    expect(result.payment?.checkoutSessionId).toBe('cs_gate');
+    expect(openCheckoutSession).toHaveBeenCalledTimes(1);
   });
 
   it('refuses a EUR cart by default: marketplace card sales are USD only', async () => {
@@ -609,10 +616,9 @@ describe('checkout with the Peable rail on', () => {
     expect(result.payment).toEqual({
       paymentId: 'payment-gate',
       provider: 'peable',
-      rail: 'card',
-      payerObject: 'payment_intent',
-      providerPaymentId: 'pi_gate',
-      clientSecret: 'pi_gate_secret_x',
+      // The cart's ONE checkout session and its own secret (ADR 0021).
+      checkoutSessionId: 'cs_gate',
+      clientSecret: 'cs_gate_secret_x',
       amount: { amount: 1000, currency: 'USD' },
       // #107's server-authoritative payment surfaces (ADR 0006 G2/G14) — what a
       // client may RENDER, decided by the server and narrowed further by the
@@ -620,15 +626,16 @@ describe('checkout with the Peable rail on', () => {
       // the set is the same one a guest gets, which is B11 in one assertion.
       methods: ['card', 'apple_pay', 'google_pay', 'link'],
     });
-    // The charge is the group's own grand total, and its idempotency key is
+    // The session is the group's own grand total, and its idempotency key is
     // derived from the payment id — ADR 0001 D11, never from the request.
-    expect(createPayment).toHaveBeenCalledWith(
+    expect(openCheckoutSession).toHaveBeenCalledWith(
       expect.objectContaining({
         paymentId: 'payment-gate',
-        amount: { amount: 1000, currency: 'USD' },
-        idempotencyKey: 'pi:payment-gate',
+        currency: 'USD',
+        idempotencyKey: 'cs:payment-gate',
       }),
     );
+    expect(createPayment).not.toHaveBeenCalled();
     // Asked about the right seller, in the shape the gate derives from the key.
     expect(findProviderAccountByOwner).toHaveBeenCalledWith(expect.anything(), {
       provider: 'peable',

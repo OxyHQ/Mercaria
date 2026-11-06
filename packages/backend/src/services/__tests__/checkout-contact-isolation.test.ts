@@ -197,7 +197,7 @@ const CHECKOUT_REFUSAL_VOCABULARY = 'services/checkout/refusal.ts';
  * checkout controller must list (a `Record` over the closed set). An
  * identifier is not a branch on the rail; any other spelling still fails.
  */
-const FAIRCOIN_REFUSAL_REASONS = /\bfaircoin_(?:unavailable|one_seller_per_checkout)\b/g;
+const FAIRCOIN_REFUSAL_REASONS = /\bfaircoin_unavailable\b/g;
 
 /**
  * #105 actor rule 9 and privacy rules 9-10: referral attribution is not a buyer

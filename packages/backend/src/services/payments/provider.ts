@@ -37,6 +37,7 @@
 
 import type {
   CheckoutFaircoinInstruction,
+  CurrencyCode,
   FaircoinNetwork,
   FxRateSnapshot,
   Money,
@@ -443,4 +444,74 @@ export function isSettlingProvider(provider: PaymentProvider): provider is Settl
     typeof candidate.createTransfer === 'function' &&
     typeof candidate.reverseTransfer === 'function'
   );
+}
+
+/**
+ * One line of a cart's checkout session: one seller order (ADR 0021).
+ *
+ * The order's whole presentment grand total — shipping, tax and discount
+ * included — as ONE line naming the seller, so the session's total is exactly
+ * the payment's, and a FairCoin payment of it pays each seller its order's share
+ * (Peable splits by line subtotal, ADR 0021 D6).
+ */
+export interface CheckoutSessionLine {
+  readonly orderId: string;
+  /** Shown to the payer, e.g. `Order MRC-1042 from Lamp Shop`. */
+  readonly name: string;
+  /** Presentment minor units. */
+  readonly amountMinor: number;
+  /** The seller's connected account at the rail (`ca_…`). */
+  readonly providerAccountId: string;
+}
+
+export interface OpenCheckoutSessionRequest {
+  readonly paymentId: string;
+  readonly checkoutGroupId: string;
+  readonly currency: CurrencyCode;
+  readonly lines: readonly CheckoutSessionLine[];
+  /** Copied onto every payment the session creates (Peable ADR 0021 D8). */
+  readonly metadata: Readonly<Record<string, string>>;
+  readonly idempotencyKey: string;
+  /** Unix seconds; the rail's own window applies (Peable: 30 min–24 h). */
+  readonly expiresAt: number;
+  readonly customerEmail?: string;
+  /**
+   * Narrow what the session offers — `['faircoin']` for a fiat order the buyer
+   * chose to pay in FairCoin. Omitted, the session offers every method the
+   * order can be paid with (the card AND FairCoin on a fiat order).
+   */
+  readonly paymentMethodTypes?: readonly ('card' | 'faircoin')[];
+}
+
+/** A checkout session as Mercaria needs it. */
+export interface ProviderCheckoutSession {
+  readonly sessionId: string;
+  readonly clientSecret: string;
+  readonly status: 'open' | 'complete' | 'expired';
+  /**
+   * The session's CURRENT payment — the one the payer last confirmed — or
+   * `null` before they chose (or after a lapsed FairCoin quote). A payment the
+   * payer switched away from is not this one.
+   */
+  readonly payment: {
+    readonly providerObjectId: string;
+    readonly rail: 'card' | 'faircoin';
+  } | null;
+}
+
+/**
+ * A rail that sells a whole cart through ONE checkout session the payer pays in
+ * the method they choose (ADR 0021) — Peable's. Optional, like resuming.
+ */
+export interface CheckoutSessionProvider extends PaymentProvider {
+  openCheckoutSession(request: OpenCheckoutSessionRequest): Promise<ProviderCheckoutSession>;
+  readCheckoutSession(sessionId: string): Promise<ProviderCheckoutSession>;
+  /** Close an unpaid session; refused (thrown) when the payer is already paying it. */
+  expireCheckoutSession(sessionId: string, idempotencyKey: string): Promise<void>;
+}
+
+export function isCheckoutSessionProvider(
+  provider: PaymentProvider,
+): provider is CheckoutSessionProvider {
+  return typeof (provider as Partial<CheckoutSessionProvider>).openCheckoutSession === 'function';
 }

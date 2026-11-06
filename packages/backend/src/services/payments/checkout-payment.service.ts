@@ -37,8 +37,6 @@ import type {
   CheckoutPaymentStatus,
   CheckoutPaymentSurfaceMethod,
   CurrencyCode,
-  FaircoinNetwork,
-  FaircoinUnavailableReason,
   Money,
 } from '@mercaria/shared-types';
 import {
@@ -47,9 +45,10 @@ import {
   PAYMENT_METADATA_KEYS,
 } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
+import { listOrderFeeSnapshots } from '../../db/fees/orderFeeSnapshotRepository.js';
 import { getDb } from '../../db/postgres.js';
 import {
-  attachPaymentProviderObject,
+  attachPaymentCheckoutSession,
   findNativePaymentByCheckoutGroupId,
 } from '../../db/payments/paymentRepository.js';
 import {
@@ -57,17 +56,11 @@ import {
   type CheckoutGroupOwner,
   type OrderRecord,
 } from '../../db/orders/orderRepository.js';
-import { listOrderFeeSnapshots } from '../../db/fees/orderFeeSnapshotRepository.js';
 import { conflict, notFound } from '../../lib/errors/error-codes.js';
 import { log } from '../../lib/logger.js';
 import { findGuestCheckoutIdForGroup } from './guest-correlation.js';
 import { ensurePayment } from './payment.service.js';
-import {
-  type CreatePaymentRequest,
-  isResumableProvider,
-  type PaymentProvider,
-  type ProviderPaymentResult,
-} from './provider.js';
+import { type CheckoutSessionLine, isCheckoutSessionProvider } from './provider.js';
 import {
   FAIRCOIN_CURRENCY,
   nativeRailPresentmentCurrencies,
@@ -76,8 +69,6 @@ import {
   resolveRailProvider,
 } from './native-rail.js';
 import { findSellerAccount, parseSellerKey } from './provider-account.service.js';
-import { PaymentProviderError } from './provider.js';
-import { checkoutRefusal } from '../checkout/refusal.js';
 import { resolvePaymentProvider } from './registry.js';
 
 /**
@@ -255,22 +246,15 @@ export async function openCheckoutPayment(input: {
   const amount = groupPresentmentTotal(input.orders);
   const orderIds = input.orders.map((order) => order.id);
 
-  // WHICH native rail pays the group, read off the ORDERS and not the request:
-  // a converging replay may reach here with a request that names another
-  // method, and the orders are the record of what the buyer is paying for and
-  // how. A FAIR group is paid in FairCoin (ADR 0019 D1); a fiat group by the
-  // method its fee snapshot was decided for (ADR 0020) — so the rail a payment
-  // opens on can never disagree with the fee its orders carry.
+  // The rail the payment row starts on (ADR 0019 D1, read off the orders): a
+  // `FAIR` cart can only be paid in FairCoin; a fiat cart starts on the card and
+  // moves to `peable_faircoin` if the payer chooses FairCoin in the sheet — the
+  // method is known only from the gateway's outcome (ADR 0021).
   const paymentRail = await groupPaymentRail(input.orders, amount.currency);
-  const quoted = paymentRail === 'faircoin' && amount.currency !== FAIRCOIN_CURRENCY;
-
-  // Resolved ONCE and reused for the adapter, the payment row and the handoff.
-  // Three separate resolutions could disagree if configuration changed between
-  // them, and the row would then name a rail the charge was not opened on —
-  // which is the correlation every webhook afterwards depends on.
   const rail = resolveRailProvider(paymentRail);
-  const provider = rail ? resolvePaymentProvider(rail) : undefined;
-  if (!rail || !provider) {
+  // The session itself is Peable's, whichever method pays it.
+  const sessions = resolvePaymentProvider('peable');
+  if (!rail || !sessions || !isCheckoutSessionProvider(sessions)) {
     // `resolveCheckoutRail` already refused this case. Reaching here means the
     // configuration changed mid-request, which is worth a loud failure rather
     // than a silent order with no payment.
@@ -280,9 +264,9 @@ export async function openCheckoutPayment(input: {
         : 'Card payments are not available on this deployment.',
     );
   }
-  // The seller a FairCoin payment pays — before the payment row exists, so a
-  // group that cannot be paid this way leaves nothing behind.
-  const onBehalfOf = paymentRail === 'faircoin' ? await faircoinPayee(input.orders) : undefined;
+  // One line per seller order, each naming its seller — before the payment row
+  // exists, so a group that cannot be described leaves nothing behind.
+  const lines = await checkoutSessionLines(input.orders, amount, paymentRail);
 
   const payment = await ensurePayment({
     provider: rail,
@@ -295,104 +279,51 @@ export async function openCheckoutPayment(input: {
     return undefined;
 
   // ADR 0006 G7's third metadata key, read from the group rather than passed in
-  // by the caller. Reading it here is what makes it survive a CONVERGING
-  // replay: `summarizePriorGroup` re-opens a payment for a group it did not
-  // create and has no contact record in hand, so a parameter would be absent
-  // exactly when the metadata has to come out byte-identical.
-  //
-  // `undefined` for an Oxy buyer's group — the ordinary case, not a failure.
+  // by the caller, so a CONVERGING replay composes byte-identical metadata.
   const guestCheckoutId = await findGuestCheckoutIdForGroup(input.checkoutGroupId);
 
-  const result =
-    payment.providerObjectId && isResumableProvider(provider)
-      ? await provider.resumePayment(payment.providerObjectId)
-      : await createRailPayment(provider, {
+  // An already-opened session is READ, never re-created: a buyer returning to an
+  // unpaid checkout gets the SAME session (and whatever payment they started in
+  // it), whatever the age of the idempotency key.
+  const session = payment.providerCheckoutSessionId
+    ? await sessions.readCheckoutSession(payment.providerCheckoutSessionId)
+    : await sessions.openCheckoutSession({
+        paymentId: payment.id,
+        checkoutGroupId: input.checkoutGroupId,
+        currency: amount.currency,
+        lines,
+        idempotencyKey: `cs:${payment.id}`,
+        metadata: buildPaymentMetadata({
           paymentId: payment.id,
           checkoutGroupId: input.checkoutGroupId,
-          amount,
           orderIds,
-          idempotencyKey: `pi:${payment.id}`,
-          metadata: buildPaymentMetadata({
-            paymentId: payment.id,
-            checkoutGroupId: input.checkoutGroupId,
-            orderIds,
-            ...(guestCheckoutId !== undefined ? { guestCheckoutId } : {}),
-          }),
-          ...(quoted
-            ? {
-                description: `Mercaria order ${input.orders
-                  .map((order) => order.orderNumber)
-                  .sort()
-                  .join(', ')}`,
-              }
-            : {}),
-          ...(onBehalfOf
-            ? {
-                onBehalfOf,
-                // An unpaid FairCoin payment stops being payable when the
-                // reservation does, so a buyer cannot pay for goods the sweep has
-                // released. A broadcast one never expires (Peable ADR 0012 D9),
-                // and the sweep keeps its orders (`handleExpireReservations`).
-                expiresInSeconds: Math.max(60, Math.floor(config.orders.reservationTtlMs / 1_000)),
-              }
-            : {}),
-        });
+          ...(guestCheckoutId !== undefined ? { guestCheckoutId } : {}),
+        }),
+        expiresAt: sessionExpiresAt(payment.createdAt),
+        // A fiat group priced for FairCoin (the buyer asked for it, ADR 0021 D4:
+        // `faircoin_exempt`) is a FairCoin-only session; every other fiat
+        // group's session offers the card AND FairCoin (ADR 0021).
+        ...(paymentRail === 'faircoin' && amount.currency !== FAIRCOIN_CURRENCY
+          ? { paymentMethodTypes: ['faircoin' as const] }
+          : {}),
+      });
 
-  if (!payment.providerObjectId) {
-    // Attached rather than transitioned. The payment stays `created` — which is
-    // true, it has been opened and nobody has acted on it — and the rail's own
-    // events are what move it. Inventing a status here would put a client-time
-    // guess in front of the verified one.
-    await attachPaymentProviderObject(getDb(), payment.id, result.providerObjectId);
-  }
-
-  if (result.clientAction?.kind !== 'client_secret') {
-    throw conflict('The payment rail did not return client material for this checkout.');
+  if (!payment.providerCheckoutSessionId) {
+    // Attached rather than transitioned: the payment stays `created` until the
+    // gateway's events say which method the payer used and where it stands.
+    await attachPaymentCheckoutSession(getDb(), payment.id, session.sessionId);
   }
 
   // No key of any kind travels with the handoff: Mercaria reaches Peable with its
-  // own Oxy workload identity (ADR 0009 D20), and the rail's payment object and
-  // the payer's secret over it are the only material a buyer's client needs.
-  if (quoted) {
-    // A fiat order paid in FairCoin: the buyer's client opens Peable's sheet
-    // over the SESSION, which quotes the total in FAIR when they confirm. There
-    // is no address before that, and none is invented here.
-    return {
-      paymentId: payment.id,
-      provider: rail,
-      rail: 'faircoin',
-      payerObject: 'checkout_session',
-      providerPaymentId: result.providerObjectId,
-      clientSecret: result.clientAction.value,
-      amount,
-      methods: [],
-    };
-  }
-  if (paymentRail === 'faircoin') {
-    if (!result.faircoin) {
-      throw conflict('The payment rail did not say where to send the FairCoin for this checkout.');
-    }
-    return {
-      paymentId: payment.id,
-      provider: rail,
-      rail: 'faircoin',
-      payerObject: 'payment_intent',
-      faircoin: result.faircoin,
-      providerPaymentId: result.providerObjectId,
-      clientSecret: result.clientAction.value,
-      amount,
-      methods: [],
-    };
-  }
+  // own Oxy workload identity (ADR 0009 D20), and the session's own secret is the
+  // only material a buyer's client needs.
   return {
     paymentId: payment.id,
     provider: rail,
-    rail: 'card',
-    payerObject: 'payment_intent',
-    providerPaymentId: result.providerObjectId,
-    clientSecret: result.clientAction.value,
+    checkoutSessionId: session.sessionId,
+    clientSecret: session.clientSecret,
     amount,
-    methods: checkoutPaymentSurfaces(),
+    methods: paymentRail === 'faircoin' ? [] : checkoutPaymentSurfaces(),
   };
 }
 
@@ -418,81 +349,66 @@ async function groupPaymentRail(
 }
 
 /**
- * Create the payment at its rail, turning Peable's FairCoin refusals into a
- * classified checkout refusal the buyer is shown in words (ADR 0019 D4).
- *
- * The readiness gate already refused every case Mercaria can see ahead of a
- * payment; what is left is the gateway's own answer at creation — the seller's
- * wallet gone, or the network gate closing between the probe and this call.
- * The orders stay `pending_payment` and the sweep releases them, exactly as
- * for any refusal at this step.
+ * The session's lines (ADR 0021): ONE per seller order — its presentment grand
+ * total, shipping, tax and discount included — naming the seller's connected
+ * account. The session's total is therefore exactly the payment's, the card
+ * pays Mercaria's own platform charge (settled to each seller by the transfers
+ * `settlePaymentTransfers` makes), and a FairCoin payment pays each seller its
+ * order's share directly, in one transaction (Peable ADR 0021 D6).
  */
-async function createRailPayment(
-  provider: PaymentProvider,
-  request: CreatePaymentRequest,
-): Promise<ProviderPaymentResult> {
-  try {
-    return await provider.createPayment(request);
-  } catch (error) {
-    const reason = faircoinRefusalReason(error);
-    if (reason === undefined) throw error;
-    throw checkoutRefusal(
-      'faircoin_unavailable',
-      reason === 'price_unavailable'
-        ? 'FairCoin cannot be priced for this order right now. Try again in a moment, or pay by ' +
-            'card; nothing has been charged.'
-        : 'This seller cannot be paid in FairCoin right now. Pay by card in USD instead; nothing ' +
-            'has been charged.',
-      { reason: 'faircoin_unavailable', unavailableReason: reason, sellers: [] },
+async function checkoutSessionLines(
+  orders: readonly OrderRecord[],
+  amount: Money,
+  paymentRail: CheckoutPaymentRail,
+): Promise<CheckoutSessionLine[]> {
+  const lines: CheckoutSessionLine[] = [];
+  for (const order of orders) {
+    const owner = parseSellerKey(
+      order.sellerType === 'store' ? `store:${order.storeId}` : `user:${order.sellerOxyUserId}`,
+    );
+    const account = owner ? await findSellerAccount(owner) : undefined;
+    if (!account) {
+      throw conflict('A seller in this checkout cannot be paid yet. Nothing has been charged.');
+    }
+    // A group on the FairCoin rail is paid ONLY in FairCoin: the opener's own
+    // check for a converging replay, which never passed through the gate.
+    if (
+      paymentRail === 'faircoin' &&
+      (account.faircoinState !== 'active' || !account.faircoinNetwork)
+    ) {
+      throw conflict('This seller cannot be paid in FairCoin yet. Pay by card in USD instead.');
+    }
+    lines.push({
+      orderId: order.id,
+      name: `Order ${order.orderNumber}`,
+      amountMinor: order.totalsGrandTotalPresentmentAmount,
+      providerAccountId: account.providerAccountId,
+    });
+  }
+  const total = lines.reduce((sum, line) => sum + line.amountMinor, 0);
+  if (total !== amount.amount) {
+    throw new Error(
+      `checkout session lines sum to ${String(total)}, not the payment's ${String(amount.amount)}`,
     );
   }
-}
-
-/** The FairCoin reason behind a gateway refusal, or `undefined` for any other failure. */
-function faircoinRefusalReason(error: unknown): FaircoinUnavailableReason | undefined {
-  if (!(error instanceof PaymentProviderError) || error.provider !== 'peable_faircoin') {
-    return undefined;
-  }
-  switch (error.code) {
-    case 'faircoin_wallet_missing':
-      return 'faircoin_wallet_missing';
-    case 'faircoin_network_closed':
-      return 'faircoin_network_closed';
-    case 'account_not_ready':
-      return 'seller_not_confirmed';
-    case 'faircoin_price_unavailable':
-      return 'price_unavailable';
-    default:
-      return undefined;
-  }
+  return lines;
 }
 
 /**
- * The seller a FairCoin payment pays, and the chain it is paid on: the group's
- * ONE seller's connected account, whose FairCoin half must be active.
- *
- * The readiness gate refused every other shape before reservation; this is the
- * opener's own check for a converging replay, which never passed through it.
+ * When an unpaid session closes at the gateway: at least the reservation, never
+ * under Peable's 30-minute floor, and DERIVED from the payment (not the clock)
+ * so a converging replay sends a byte-identical request under the same key. The
+ * reservation sweep expires the session sooner (`releaseCheckoutPayments`).
  */
-async function faircoinPayee(
-  orders: readonly OrderRecord[],
-): Promise<{ providerAccountId: string; network: FaircoinNetwork }> {
-  const owners = new Set(
-    orders.map((order) =>
-      order.sellerType === 'store' ? `store:${order.storeId}` : `user:${order.sellerOxyUserId}`,
-    ),
-  );
-  const [sellerKey] = owners;
-  const owner = owners.size === 1 && sellerKey ? parseSellerKey(sellerKey) : undefined;
-  if (!owner) {
-    throw conflict('A FairCoin payment goes to one seller. Check out each seller separately.');
-  }
-  const account = await findSellerAccount(owner);
-  if (account?.faircoinState !== 'active' || !account.faircoinNetwork) {
-    throw conflict('This seller cannot be paid in FairCoin yet. Pay by card in USD instead.');
-  }
-  return { providerAccountId: account.providerAccountId, network: account.faircoinNetwork };
+function sessionExpiresAt(paymentCreatedAt: Date): number {
+  const seconds = Math.max(SESSION_MIN_SECONDS, Math.floor(config.orders.reservationTtlMs / 1_000));
+  return Math.floor(paymentCreatedAt.getTime() / 1_000) + seconds + SESSION_REPLAY_MARGIN_SECONDS;
 }
+
+/** Peable's floor on a session's `expires_at` (30 minutes from the request). */
+const SESSION_MIN_SECONDS = 30 * 60;
+/** Room for a converging replay to land after the payment row was written. */
+const SESSION_REPLAY_MARGIN_SECONDS = 10 * 60;
 
 /**
  * Which payment surfaces this deployment permits a client to render — #107's
