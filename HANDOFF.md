@@ -206,7 +206,8 @@ account events. No seller is `ready`, so every native checkout is refused
 - [x] **A P2P fee acceptance surface.** ADR 0018 D3 (amended): storefront
       Settings → Payments records a `user` acceptance through the store's own
       handlers; `marketplace-card-individual` v1 bills private sellers' USD card
-      sales once activated (runbook §5).
+      sales; active since 2026-11-06, with no payment-ready private seller taken
+      offline (runbook §1).
 - [ ] **Accepting a fee version before it is active.** A version can be accepted
       only once active, and `activate` refuses while a payment-ready seller it
       reaches has not accepted it. Fine for first versions; a rate CHANGE while

@@ -16,7 +16,7 @@ The owner approved: register `mercaria.co` as a wallet domain and sell in USD.
 | Wallet domain | `mercaria.co` = `pmd_de5b5c1648a83fcb9e411c99`, live, enabled, `apple_pay` and `google_pay` both `active` | Registered and validated as Mercaria's workload (§3) |
 | Apple Pay file | `https://mercaria.co/.well-known/apple-developer-merchantid-domain-association`, Stripe's file, from `packages/frontend/public/.well-known/` | Byte-identical to `https://stripe.com/files/apple-pay/apple-developer-merchantid-domain-association` |
 | Sellers | **None `ready`.** `provider_accounts` was empty when the rail went on | Read-only count, 2026-11-05 |
-| Commission | 5% + $0.30 per order on marketplace card sales in USD, processing included; none on FairCoin (ADR 0018). Stores: `marketplace-card` v1, active. Private sellers: `marketplace-card-individual` v1, accepted on storefront Settings → Payments (ADR 0018 D3), activated per §5 | `services/fees/catalog.ts`; published by `publish-fee-schedules.yml` (§5) |
+| Commission | 5% + $0.30 per order on marketplace card sales in USD, processing included; none on FairCoin (ADR 0018). Stores: `marketplace-card` v1, active. Private sellers: `marketplace-card-individual` v1, active since 2026-11-06, accepted on storefront Settings → Payments (ADR 0018 D3). Its preview counted 0 payment-ready private sellers without acceptance, so activation took nobody offline | `services/fees/catalog.ts`; published by `publish-fee-schedules.yml` (§5): runs 42143645214 (preview), 42143761231 (draft), 42143881233 (activate) |
 
 `www.mercaria.co` does not resolve, so it is not registered. Register any new
 host that renders the card step (§3), or Apple Pay and Google Pay do not show
