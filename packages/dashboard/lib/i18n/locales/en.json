@@ -2102,6 +2102,10 @@
       "pricePerYear": "%{price} · per year",
       "renewsOn": "Renews on %{date}.",
       "statuses": {
+        "incomplete": {
+          "body": "Your plan starts as soon as your first payment is confirmed. A FairCoin payment is confirmed once the network has confirmed your transaction, which can take a while. Until then your store keeps everything it has now. A payment you did not finish lapses on its own within a day.",
+          "heading": "Waiting for your payment to confirm"
+        },
         "active": {
           "body": "Your plan renews automatically. You can cancel at any time and keep it until the end of the period you have paid for.",
           "heading": "Active"
@@ -2160,6 +2164,7 @@
       "termsNotice": "Choosing a plan means you accept the Mercaria Merchant Plan Terms.",
       "termsLink": "Read the terms",
       "currentPlan": "Your current plan",
+      "awaitingPayment": "Waiting for your payment",
       "switchTo": "Switch to %{plan}",
       "changeConfirmTitle": "Switch to %{plan}?",
       "changeConfirmBody": "The change starts now. The unused part of your current period is credited and the rest of the new period is charged today, on one invoice. A credit larger than the charge is used for your next invoices.",

@@ -298,6 +298,10 @@ export interface NewSubscriptionEvent {
   providerEventId?: string;
   providerInvoiceId?: string;
   amount?: { amount: number; currency: CurrencyCode };
+  /** The payment that paid the invoice (`pi_…`), on an `invoice_paid` row. */
+  providerPaymentId?: string;
+  /** A FairCoin-paid invoice's fiat price and when it was quoted — see the column. */
+  quoted?: { amount: number; currency: CurrencyCode; at: Date };
   ledgerTransactionId?: string;
 }
 
@@ -324,6 +328,14 @@ export async function appendSubscriptionEvent(
     ...(input.providerInvoiceId ? { providerInvoiceId: input.providerInvoiceId } : {}),
     ...(input.amount
       ? { amountAmount: input.amount.amount, amountCurrency: input.amount.currency }
+      : {}),
+    ...(input.providerPaymentId ? { providerPaymentId: input.providerPaymentId } : {}),
+    ...(input.quoted
+      ? {
+          quotedAmount: input.quoted.amount,
+          quotedCurrency: input.quoted.currency,
+          quotedAt: input.quoted.at,
+        }
       : {}),
     ...(input.ledgerTransactionId ? { ledgerTransactionId: input.ledgerTransactionId } : {}),
   };

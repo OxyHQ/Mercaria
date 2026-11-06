@@ -40,6 +40,7 @@ export type BillingProviderStage =
   | 'createPortalSession'
   | 'retrieveSubscription'
   | 'retrieveInvoice'
+  | 'retrieveInvoicePayment'
   | 'cancelSubscription'
   | 'changeSubscriptionPrice';
 
@@ -111,6 +112,48 @@ export interface BillingInvoiceSnapshot {
   readonly amountPaidMinor: number;
   /** ISO 4217, upper case, exactly as the rail answered. */
   readonly currency: string;
+  /**
+   * The payment that collects (or collected) the invoice, or `undefined` when
+   * none is linked — an invoice settled from a credit balance has none.
+   */
+  readonly providerPaymentId?: string;
+}
+
+/**
+ * The fiat price a FairCoin payment was quoted at (Peable ADR 0021 D4) — a
+ * label on the payment, never an exchange: the payer paid FAIR and no fiat
+ * moved.
+ */
+export interface BillingFaircoinQuote {
+  /** The order's fiat currency, upper case, as the rail answered. */
+  readonly currency: string;
+  /** The order's total in `currency`'s minor units — the invoice's `amount_paid`. */
+  readonly amountMinor: number;
+  readonly quotedAt: Date;
+}
+
+/**
+ * The payment that paid an invoice, read when the invoice reports paid — what
+ * decides how the invoice is booked, because the invoice's own `amount_paid` is
+ * the order's figure whichever rail paid it.
+ */
+export interface BillingInvoicePaymentSnapshot {
+  readonly providerPaymentId: string;
+  readonly livemode: boolean;
+  /** The payment's own status; only `succeeded` has received anything. */
+  readonly status: string;
+  /**
+   * `card`: fiat captured to the platform balance. `faircoin`: FAIR sent by the
+   * payer's wallet to the Peable wallet of the account that owns Mercaria's
+   * merchant — self-custodial, so nothing reaches a fiat balance.
+   */
+  readonly rail: 'card' | 'faircoin';
+  /** What the payment received, in `currency`'s minor units (FAIR's 10⁻⁸ on `faircoin`). */
+  readonly amountReceivedMinor: number;
+  /** Upper case: `FAIR` on the FairCoin rail. */
+  readonly currency: string;
+  /** The fiat order a FairCoin payment was quoted for; `null` on a card or FAIR-priced one. */
+  readonly faircoinQuote: BillingFaircoinQuote | null;
 }
 
 /** A provider-hosted page for the merchant's browser. */
@@ -181,6 +224,12 @@ export interface BillingProvider {
 
   /** Re-read one invoice — what an `invoice.*` event is about. */
   retrieveInvoice(providerInvoiceId: string): Promise<BillingInvoiceSnapshot>;
+
+  /**
+   * Re-read the payment an invoice names — its rail, what it received and, on
+   * FairCoin, the quote. Never taken from an event payload.
+   */
+  retrieveInvoicePayment(providerPaymentId: string): Promise<BillingInvoicePaymentSnapshot>;
 
   /**
    * Schedule a cancellation for the end of the paid period.

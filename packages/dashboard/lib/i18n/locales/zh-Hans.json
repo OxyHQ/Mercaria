@@ -2101,6 +2101,10 @@
       "pricePerYear": "%{price} · 每年",
       "renewsOn": "将于 %{date} 续订。",
       "statuses": {
+        "incomplete": {
+          "body": "你的首笔付款一经确认，套餐即开始生效。FairCoin 付款在网络确认你的交易后即视为已确认，这可能需要一些时间。在此之前，你的店铺保留现有的一切。未完成的付款会在一天内自动失效。",
+          "heading": "正在等待你的付款确认"
+        },
         "active": {
           "body": "你的套餐会自动续订。你可以随时取消，并继续使用到已付费周期结束。",
           "heading": "生效中"
@@ -2159,6 +2163,7 @@
       "termsNotice": "选择套餐即表示你接受 Mercaria 商家套餐条款。",
       "termsLink": "阅读条款",
       "currentPlan": "你当前的套餐",
+      "awaitingPayment": "正在等待你的付款",
       "switchTo": "切换到 %{plan}",
       "changeConfirmTitle": "切换到 %{plan}？",
       "changeConfirmBody": "更改立即生效。当前周期未使用的部分将被抵扣，新周期剩余部分今天在一张发票中收取。抵扣额超过收费时，将用于之后的发票。",

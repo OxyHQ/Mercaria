@@ -87,7 +87,11 @@ import {
   type BillingProvider,
   type BillingSubscriptionSnapshot,
 } from './provider.js';
-import { subscriptionInvoicePaidEntries, type SubscriptionSettlement } from './ledger-postings.js';
+import {
+  subscriptionInvoicePaidEntries,
+  subscriptionInvoicePaidInFaircoinEntries,
+  type SubscriptionSettlement,
+} from './ledger-postings.js';
 
 /** Reject a malformed intent key before acceptance/customer effects. */
 function requireIntent(key?: string): void {
@@ -105,6 +109,17 @@ const DAY_MS = 24 * 60 * 60 * 1_000;
  * false`, because a redelivered invoice is an ordinary event and not a failure.
  */
 class SubscriptionInvoiceAlreadyBooked extends Error {}
+
+/**
+ * The refusal for any plan action while the store's first payment is pending
+ * (`incomplete`): the rail decides that payment, and nothing here may race it.
+ */
+function firstPaymentPending() {
+  return conflict(
+    'This store’s first plan payment is still being confirmed. The plan starts once it is; ' +
+      'an unfinished payment lapses on its own.',
+  );
+}
 
 /** The rail this deployment charges subscriptions on, or a refusal. */
 function requireBillingProvider(): BillingProvider {
@@ -182,6 +197,10 @@ export async function startMerchantPlanCheckout(
   // already pays changes plan instead (`changeMerchantPlan`); one whose plan
   // has ENDED (`expired`) starts afresh here.
   const live = await findSubscriptionByStore(db, input.storeId);
+  // A first payment still confirming (a FairCoin transaction on chain) is a
+  // subscription the rail may yet activate; a second checkout beside it could
+  // be paid too, and the store would be billed twice for one plan.
+  if (live?.status === 'incomplete') throw firstPaymentPending();
   if (live && live.status !== 'expired') {
     throw conflict(
       'This store already has a plan. Change plan instead of starting a second subscription.',
@@ -289,6 +308,7 @@ export async function changeMerchantPlan(
   if (!subscription || subscription.status === 'expired') {
     throw conflict('This store has no plan to change. Choose a plan instead.');
   }
+  if (subscription.status === 'incomplete') throw firstPaymentPending();
   if (subscription.status === 'past_due' || subscription.status === 'paused') {
     throw conflict('Settle this store’s billing before changing plan.');
   }
@@ -406,6 +426,9 @@ export async function scheduleMerchantSubscriptionCancellation(input: {
   if (subscription.status === 'expired') {
     throw conflict('That subscription has already ended.');
   }
+  // Nothing has been paid for yet, so there is no period to end at; an unpaid
+  // first payment lapses at the rail on its own.
+  if (subscription.status === 'incomplete') throw firstPaymentPending();
 
   const snapshot = await provider.cancelAtPeriodEnd(
     subscription.providerSubscriptionId,
@@ -621,6 +644,53 @@ function nextGraceDeadline(input: {
 }
 
 /**
+ * What one paid plan invoice actually brought in, by the rail that paid it.
+ *
+ * - `card` — fiat captured to the platform's Peable balance: booked to
+ *   `provider_clearing` against `subscription_revenue`, in the invoice currency.
+ * - `faircoin` — FAIR in the Peable wallet of the Oxy organization that owns
+ *   Mercaria's application: booked to `faircoin_received` against
+ *   `subscription_revenue`, in FAIR, with the fiat quote kept on the audit row.
+ *   `quote` is `null` only for an invoice priced in FAIR itself.
+ */
+export type SubscriptionInvoiceReceipt =
+  | { readonly rail: 'card'; readonly settlement: SubscriptionSettlement }
+  | {
+      readonly rail: 'faircoin';
+      readonly fairMinor: number;
+      readonly quote: {
+        readonly amountMinor: number;
+        readonly currency: CurrencyCode;
+        readonly quotedAt: Date;
+      } | null;
+    };
+
+/** The entries, the audit amount and the quote one receipt books. */
+function bookingOf(receipt: SubscriptionInvoiceReceipt) {
+  if (receipt.rail === 'card') {
+    const { settlement } = receipt;
+    return {
+      gross: settlement.netMinor + settlement.feeMinor,
+      currency: settlement.currency,
+      entries: () => subscriptionInvoicePaidEntries(settlement),
+      quoted: undefined,
+    };
+  }
+  return {
+    gross: receipt.fairMinor,
+    currency: 'FAIR' as const,
+    entries: () => subscriptionInvoicePaidInFaircoinEntries({ fairMinor: receipt.fairMinor }),
+    quoted: receipt.quote
+      ? {
+          amount: receipt.quote.amountMinor,
+          currency: receipt.quote.currency,
+          at: receipt.quote.quotedAt,
+        }
+      : undefined,
+  };
+}
+
+/**
  * Book one settled subscription invoice, exactly once.
  *
  * @returns `booked: false` when this provider event had already been applied, or
@@ -631,21 +701,22 @@ export async function recordSubscriptionInvoicePaid(input: {
   subscriptionId: string;
   providerEventId: string;
   providerInvoiceId: string;
+  /** The payment that paid it (`pi_…`), when the invoice names one. */
+  providerPaymentId?: string;
   expectedSubscription: Pick<
     MerchantSubscriptionRow,
     'provider' | 'livemode' | 'providerSubscriptionId' | 'billingCustomerId'
   >;
   /**
-   * What actually landed on the platform balance. ABSENT when the invoice
-   * settled no money at all — a fully-discounted period, or one paid from a
-   * credit balance. Absent rather than a zero amount in some currency, because
-   * "nothing moved" has no currency to name.
+   * What actually arrived, by rail. ABSENT when the invoice settled no money at
+   * all — a fully-discounted period, or one paid from a credit balance. Absent
+   * rather than a zero amount in some currency, because "nothing moved" has no
+   * currency to name.
    */
-  settlement?: SubscriptionSettlement;
+  receipt?: SubscriptionInvoiceReceipt;
   note: string;
 }): Promise<{ booked: boolean }> {
-  const settlement = input.settlement;
-  const gross = settlement ? settlement.netMinor + settlement.feeMinor : 0;
+  const booking = input.receipt ? bookingOf(input.receipt) : undefined;
   const db = getDb();
   try {
     return await db.transaction(async (tx) => {
@@ -678,7 +749,7 @@ export async function recordSubscriptionInvoicePaid(input: {
       // An invoice that settled nothing books NOTHING and still leaves a claim,
       // so a redelivery of it converges the same way a settled one does.
       const ledgerTransactionId =
-        settlement && gross > 0
+        booking && booking.gross > 0
           ? (
               await insertLedgerTransaction(
                 tx,
@@ -686,7 +757,7 @@ export async function recordSubscriptionInvoicePaid(input: {
                   kind: 'subscription_invoice_paid',
                   description: `Merchant subscription invoice ${input.providerInvoiceId}`,
                 },
-                subscriptionInvoicePaidEntries(settlement),
+                booking.entries(),
               )
             ).id
           : undefined;
@@ -697,7 +768,9 @@ export async function recordSubscriptionInvoicePaid(input: {
         note: input.note,
         providerEventId: input.providerEventId,
         providerInvoiceId: input.providerInvoiceId,
-        ...(settlement ? { amount: { amount: gross, currency: settlement.currency } } : {}),
+        ...(input.providerPaymentId ? { providerPaymentId: input.providerPaymentId } : {}),
+        ...(booking ? { amount: { amount: booking.gross, currency: booking.currency } } : {}),
+        ...(booking?.quoted ? { quoted: booking.quoted } : {}),
         ...(ledgerTransactionId ? { ledgerTransactionId } : {}),
       });
       // The claim was already taken by an earlier delivery, so the posting above

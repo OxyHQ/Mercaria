@@ -25,6 +25,9 @@ describe('a plan bought in the Peable sheet', () => {
   it('keeps waiting while the session is closed but the plan is not yet the store’s', () => {
     expect(planCheckoutOutcome('complete', status(null))).toBeNull();
     expect(planCheckoutOutcome('complete', status('past_due'))).toBeNull();
+    // A FairCoin first payment completes the session while it is still
+    // confirming; the plan is not the store's until the rail activates it.
+    expect(planCheckoutOutcome('complete', status('incomplete'))).toBeNull();
     expect(planCheckoutOutcome('complete', undefined)).toBeNull();
     // Nothing is decided before Peable closes the order, whatever the status reads.
     expect(planCheckoutOutcome(null, status('active'))).toBeNull();

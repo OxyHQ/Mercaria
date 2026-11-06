@@ -1,5 +1,7 @@
 /**
- * The ONE posting the subscription domain books, and its arithmetic.
+ * The postings the subscription domain books, and their arithmetic: a paid
+ * invoice, in fiat when a card paid it and in FAIR when FairCoin did
+ * ({@link subscriptionInvoicePaidInFaircoinEntries}).
  *
  * A merchant subscription is not a new way to move money — it is a new ACCOUNT
  * (`subscription_revenue`) on the existing ledger, written through the existing
@@ -13,9 +15,10 @@
  *
  * The caller supplies `net` and `fee` in one currency, and `gross = net + fee`
  * by construction, so the transaction cannot fail to balance for an arithmetic
- * reason. On Peable's native engine the caller has the invoice's paid amount
- * and no settlement detail, so it books that amount as `net` with a zero fee —
- * the stated fee gap in `peable/events.ts` — rather than inventing a figure.
+ * reason. On Peable's native engine the caller has a card-paid invoice's paid
+ * amount and no settlement detail, so it books that amount as `net` with a zero
+ * fee — the stated fee gap in `peable/events.ts` — rather than inventing a
+ * figure.
  *
  * ## The fee leg is OMITTED when there is no fee
  *
@@ -89,4 +92,52 @@ export function subscriptionInvoicePaidEntries(input: SubscriptionSettlement): L
     amountMinor: -gross,
   });
   return entries;
+}
+
+/**
+ * What a plan invoice paid in FairCoin brought in: FAIR, in the Peable wallet of
+ * the Oxy organization that owns Mercaria's application.
+ */
+export interface SubscriptionFaircoinReceipt {
+  /** The FAIR the payment received, in FAIR's minor units (10⁻⁸). */
+  fairMinor: number;
+}
+
+/**
+ * The balanced entries for one plan invoice paid in FairCoin.
+ *
+ * ```
+ * faircoin_received     +fair  (debit — the coins arrived in the `oxy` organization's wallet)
+ * subscription_revenue  −fair  (credit — revenue recognised, in the unit received)
+ * ```
+ *
+ * Booked in FAIR and only in FAIR. `provider_clearing` is NOT touched: it is
+ * the platform's fiat balance at Peable, and no fiat reached it — the payer's
+ * wallet paid the organization's own address (Peable ADR 0021 D5), which Peable
+ * never holds. The fiat price the payment was quoted at is a snapshot on the
+ * invoice's audit row, never an amount here: booking it would invent a
+ * conversion nobody made. There is no processor leg because there is no
+ * processor — a FairCoin payment carries no fee (Peable ADR 0021 D6).
+ *
+ * @throws {RangeError} On a non-positive or fractional amount, or one outside
+ *   the ledger column's range — a FairCoin payment that received nothing is not
+ *   a receipt, and the caller refuses it before reaching here.
+ */
+export function subscriptionInvoicePaidInFaircoinEntries(
+  input: SubscriptionFaircoinReceipt,
+): LedgerEntryInput[] {
+  if (!Number.isInteger(input.fairMinor) || input.fairMinor <= 0) {
+    throw new RangeError(
+      'A FairCoin plan payment is a positive whole number of FAIR minor units; received ' +
+        `${String(input.fairMinor)}.`,
+    );
+  }
+  const fair = BigInt(input.fairMinor);
+  assertSafeLedgerAmount(fair, 'subscription_invoice_paid.faircoin_received');
+  return [
+    // Positive is a DEBIT: FAIR arrived in the organization's wallet.
+    { account: 'faircoin_received', currency: 'FAIR', amountMinor: fair },
+    // Negative is a CREDIT: revenue recognised, in FAIR.
+    { account: 'subscription_revenue', currency: 'FAIR', amountMinor: -fair },
+  ];
 }

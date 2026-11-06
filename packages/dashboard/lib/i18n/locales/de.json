@@ -2102,6 +2102,10 @@
       "pricePerYear": "%{price} · pro Jahr",
       "renewsOn": "Verlängert sich am %{date}.",
       "statuses": {
+        "incomplete": {
+          "body": "Ihr Tarif beginnt, sobald Ihre erste Zahlung bestätigt ist. Eine FairCoin-Zahlung ist bestätigt, sobald das Netzwerk Ihre Transaktion bestätigt hat, was eine Weile dauern kann. Bis dahin behält Ihr Shop alles, was er jetzt hat. Eine nicht abgeschlossene Zahlung verfällt innerhalb eines Tages von selbst.",
+          "heading": "Warten auf die Bestätigung Ihrer Zahlung"
+        },
         "active": {
           "body": "Ihr Tarif verlängert sich automatisch. Sie können jederzeit kündigen und ihn bis zum Ende des bezahlten Zeitraums behalten.",
           "heading": "Aktiv"
@@ -2160,6 +2164,7 @@
       "termsNotice": "Mit der Wahl eines Tarifs akzeptierst du die Mercaria-Tarifbedingungen für Händler.",
       "termsLink": "Bedingungen lesen",
       "currentPlan": "Dein aktueller Tarif",
+      "awaitingPayment": "Warten auf Ihre Zahlung",
       "switchTo": "Zu %{plan} wechseln",
       "changeConfirmTitle": "Zu %{plan} wechseln?",
       "changeConfirmBody": "Die Änderung gilt sofort. Der ungenutzte Teil deines aktuellen Zeitraums wird gutgeschrieben und der Rest des neuen Zeitraums heute auf einer Rechnung berechnet. Ein Guthaben, das die Belastung übersteigt, wird mit deinen nächsten Rechnungen verrechnet.",

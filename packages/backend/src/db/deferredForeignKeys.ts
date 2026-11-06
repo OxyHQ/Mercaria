@@ -1867,6 +1867,14 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'subscription — the provider does, and the merchant reads it in the hosted portal — so ' +
       'there is nothing here to reference and no `invoices` table that should exist.',
   },
+  {
+    column: 'merchant_subscription_events.provider_payment_id',
+    reason:
+      "The billing provider's own payment object (`pi_…`) that paid the invoice — the one whose " +
+      'rail decided how the invoice was booked, and where a FairCoin payment’s full quote stays ' +
+      'readable. A subscription payment is not a marketplace `payments` row (a checkout group ' +
+      'with orders and a seller), so there is nothing here to reference.',
+  },
   // ── Unified sales-channel onboarding (#87) ────────────────────────────────
   // Who started a connection wizard, and who performed each audited channel
   // act. The whole of what these two tables hold about a person — an onboarding

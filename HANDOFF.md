@@ -236,11 +236,21 @@ account events. No seller is `ready`, so every native checkout is refused
       seller, and the fee follows the method (`faircoin_exempt`).
 - [ ] **The session events on Peable's endpoint** — add the four
       `checkout.session.*` types to `we_82b5…` (`docs/payments.md` Webhooks).
-- [ ] **FairCoin-paid merchant plans** — the plan screen reads a Peable
-      `incomplete` subscription (paid in FairCoin, awaiting confirmations) as
-      "Ended" until the first invoice is paid, and `invoice.paid` books the
-      quoted fiat amount as subscription revenue though the coins are in the
-      `oxy` organization's Peable wallet. Both before Mercaria's own wallet exists.
+- [x] **FairCoin-paid merchant plans** — a Peable `incomplete` subscription
+      (first payment confirming) is Mercaria's `incomplete`, shown as "Waiting
+      for your payment to confirm", entitling nothing and refusing checkout,
+      change and cancel until Peable reports `active`; `invoice.paid` reads the
+      payment's rail from Peable and books a FairCoin payment as the FAIR
+      received (`faircoin_received` / `subscription_revenue`, quote on the event
+      row), never fiat through `provider_clearing` (`docs/merchant-plans.md`
+      "The ledger"). Still inert in production until the `oxy` organization has
+      its Peable wallet and mainnet identity receive opens.
+- [ ] **A FairCoin-started plan renews by invoice, and the screen does not say
+      so.** Peable moves it to `send_invoice` (each renewal paid on the hosted
+      invoice page), but Mercaria stores no collection method, so the plan
+      screen's `active` copy still says it "renews automatically". Needs the
+      subscription's `collection_method` on the snapshot and row, and copy that
+      says where the next invoice is paid.
 
 ## 6. Known limitations (code, not blockers)
 - FX static rates for the 15 new currencies are dev defaults — need a real feed for accuracy.

@@ -93,6 +93,9 @@ const fakeRail: BillingProvider = {
   retrieveInvoice: async () => {
     throw new Error('not used');
   },
+  retrieveInvoicePayment: async () => {
+    throw new Error('not used');
+  },
   cancelAtPeriodEnd: async () => snapshot(),
   changeSubscriptionPrice: async (input) => {
     changes.push({ price: input.providerPriceId, key: input.idempotencyKey });

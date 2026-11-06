@@ -1356,7 +1356,7 @@
       "canonical": {
         "title": "De quel produit du catalogue s'agit-il ?",
         "body": "En choisir un rattache votre annonce directement à celui-ci et l'empêche d'être rapprochée automatiquement.",
-        "notPermitted": "Vous n'avez pas l'autorisation de rattacher un produit du catalogue.",
+        "notPermitted": "Vous n’avez pas l'autorisation de rattacher un produit du catalogue.",
         "searchPlaceholder": "Nom, modèle ou code-barres",
         "searchBrandPlaceholder": "Rechercher des marques",
         "minQuery": "Saisissez au moins deux caractères.",
@@ -2121,6 +2121,10 @@
       "pricePerYear": "%{price} · par an",
       "renewsOn": "Se renouvelle le %{date}.",
       "statuses": {
+        "incomplete": {
+          "body": "Votre forfait commence dès que votre premier paiement est confirmé. Un paiement en FairCoin est confirmé une fois que le réseau a confirmé votre transaction, ce qui peut prendre un moment. D’ici là, votre boutique conserve tout ce qu’elle a aujourd’hui. Un paiement que vous n’avez pas terminé expire de lui-même en moins d’un jour.",
+          "heading": "En attente de la confirmation de votre paiement"
+        },
         "active": {
           "body": "Votre forfait se renouvelle automatiquement. Vous pouvez l’annuler à tout moment et le conserver jusqu’à la fin de la période que vous avez payée.",
           "heading": "Actif"
@@ -2180,6 +2184,7 @@
       "termsNotice": "En choisissant une offre, vous acceptez les Conditions des offres marchands Mercaria.",
       "termsLink": "Lire les conditions",
       "currentPlan": "Votre offre actuelle",
+      "awaitingPayment": "En attente de votre paiement",
       "switchTo": "Passer à %{plan}",
       "changeConfirmTitle": "Passer à %{plan} ?",
       "changeConfirmBody": "Le changement prend effet maintenant. La partie non utilisée de votre période en cours est créditée et le reste de la nouvelle période est facturé aujourd'hui, sur une seule facture. Un crédit supérieur au montant dû est utilisé pour vos prochaines factures.",

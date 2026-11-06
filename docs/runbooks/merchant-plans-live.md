@@ -132,6 +132,18 @@ Do them in this order. Each one is reversible until step 6.
   (no fee leg; a stated gap);
 - cancelling through Peable's portal sets `cancel_at_period_end`.
 
+**What one real FairCoin purchase confirms** (once the `oxy` organization has
+its Peable wallet and Peable opens mainnet identity receive, ADR 0019):
+
+- while the transaction confirms, `merchant_subscriptions` is `incomplete`, the
+  plan screen says it is waiting for the payment, and the store's entitlements
+  are still the free plan's;
+- `invoice.paid` is booked once to `faircoin_received` / `subscription_revenue`
+  in FAIR, the amount the payment received, with the quote's fiat amount and
+  `quoted_at` on its `merchant_subscription_events` row — and nothing in
+  `provider_clearing`;
+- `customer.subscription.updated` then moves it to `active` on the paid version.
+
 Refund the purchase as an operator `adjustment` if it was a test (§6 of
 `merchant-plans.md`: subscriptions issue no refunds).
 
