@@ -159,6 +159,7 @@ import {
 import { ErrorCodes, sendError } from './utils/api-response.js';
 import capabilitiesRouter from './routes/capabilities.js';
 import { createMercariaMcpHttpService } from './capabilities/mercaria-mcp-http.js';
+import { MERCARIA_CAPABILITY_CATALOG } from './capabilities/mercaria.catalog.js';
 
 /**
  * Build the application.
@@ -191,6 +192,14 @@ export function createApp(): express.Express {
     mercariaMcpHttpService.handleProtectedResourceMetadata(request, response);
   });
   app.all(mercariaMcpHttpService.mcpPath, (request, response) => {
+    void mercariaMcpHttpService.handleMcp(request, response);
+  });
+  // The MCP host's root answers like its MCP endpoint. Mercaria's public root serves the
+  // API welcome JSON, and a client that probes the bare resource URL reads that as "no
+  // OAuth needed" and never starts login.
+  const mercariaMcpHost = new URL(MERCARIA_CAPABILITY_CATALOG.externalMcp?.resource ?? '').host;
+  app.all('/', (request, response, next) => {
+    if (request.headers.host?.toLowerCase() !== mercariaMcpHost) return next();
     void mercariaMcpHttpService.handleMcp(request, response);
   });
 
