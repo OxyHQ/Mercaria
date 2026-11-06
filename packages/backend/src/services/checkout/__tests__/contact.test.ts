@@ -9,7 +9,11 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { CheckoutAddressInput } from '@mercaria/shared-types';
+import {
+  validateCheckoutAddress,
+  validateCheckoutContact,
+  type CheckoutAddressInput,
+} from '@mercaria/shared-types';
 import {
   canonicalizePhone,
   isIsoAlpha2Country,
@@ -52,6 +56,11 @@ describe('postal-code validation is country-aware and only where reliable', () =
     expect(normalizeCheckoutAddress(address({ postalCode: '46004' })).postalCode).toBe('46004');
   });
 
+  it('still refuses a missing postcode where the existing country pattern requires one', () => {
+    expect(() => normalizeCheckoutAddress(address({ postalCode: '' }))).toThrow(/ES/);
+    expect(() => normalizeCheckoutAddress(address({ postalCode: '   ' }))).toThrow(/ES/);
+  });
+
   it('accepts a lower-case UK postcode and a Dutch one with no space', () => {
     expect(
       normalizeCheckoutAddress(address({ country: 'GB', postalCode: 'sw1a 1aa', city: 'London' }))
@@ -66,7 +75,7 @@ describe('postal-code validation is country-aware and only where reliable', () =
   });
 
   it('does NOT pattern-check a country with no reliable rule', () => {
-    // Ireland's Eircode, Hong Kong (no postal system at all): an overfitted
+    // Ireland's Eircode and Hong Kong (no postcode): an overfitted
     // regex here is exactly the failure #105 validation rule 3 names, so the
     // long tail is length-checked and left alone.
     expect(
@@ -74,9 +83,9 @@ describe('postal-code validation is country-aware and only where reliable', () =
         .postalCode,
     ).toBe('D02 AF30');
     expect(
-      normalizeCheckoutAddress(address({ country: 'HK', postalCode: '000', city: 'Kowloon' }))
+      normalizeCheckoutAddress(address({ country: 'HK', postalCode: '', city: 'Kowloon' }))
         .postalCode,
-    ).toBe('000');
+    ).toBe('');
   });
 });
 
@@ -171,4 +180,38 @@ describe('phone: canonical for comparison, display preserved', () => {
       /6 to 15 digits/,
     );
   });
+});
+
+describe('shared checkout preflight agrees with the authoritative server adapter', () => {
+  it('returns the same normalized address without starting an order', () => {
+    const input = address({ country: 'hk', postalCode: '', city: ' Kowloon ' });
+    expect(validateCheckoutAddress(input)).toEqual({
+      ok: true,
+      address: normalizeCheckoutAddress(input),
+    });
+  });
+  it('returns a value-safe structured issue and keeps the existing server validation error', () => {
+    const input = address({ postalCode: '' });
+    const result = validateCheckoutAddress(input);
+    expect(result).toEqual({ ok: false, message: 'Postal code is not a valid format for ES.' });
+    expect(() => normalizeCheckoutAddress(input)).toThrow(
+      expect.objectContaining({
+        code: 'VALIDATION_ERROR',
+        message: result.ok === false ? result.message : '',
+      }),
+    );
+  });
+});
+
+it('shares receipt and pickup contact preflight with authoritative email and phone validation', () => {
+  expect(validateCheckoutContact({ email: 'x@y.c' })).toEqual({
+    ok: false,
+    message: 'Email is not a valid address.',
+  });
+  const input = { email: 'Buyer+Receipt@Example.com', phone: '+34 612 345 678' };
+  expect(validateCheckoutContact(input)).toEqual({
+    ok: true,
+    contact: normalizeCheckoutContact(input),
+  });
+  expect(validateCheckoutContact({ email: 'buyer@example.com', phone: '123' }).ok).toBe(false);
 });

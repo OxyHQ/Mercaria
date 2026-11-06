@@ -452,7 +452,7 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // `SubscriptionCollectionMethod` and `MerchantSubscriptionView`'s
     // `collectionMethod` and `nextInvoiceDueAt`: +1 type, +2 properties.
     // Measured by the real guard.
-    'walked 148 contract module(s), 2478 exported type(s), 8341 property signature(s)',
+    'walked 149 contract module(s), 2482 exported type(s), 8361 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });

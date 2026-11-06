@@ -942,3 +942,5 @@ export * from './automation-rule';
 // sets a forecast counts. It describes a store's OWN stock and sales and nothing
 // any other store, buyer or ranking surface can read.
 export * from './replenishment';
+
+export * from './checkout-address';
