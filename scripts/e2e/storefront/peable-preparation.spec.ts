@@ -240,7 +240,7 @@ for (const viewport of [
     expect(requests).toHaveLength(0);
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await expect(page.getByText('10 Example Street', { exact: false })).toBeVisible();
-    await expect(page.getByRole('textbox', { name: 'Email', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('textbox', { name: 'Email address', exact: true })).toHaveCount(0);
     expect(requests).toHaveLength(0);
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await expect(page.getByText('Please retry this same payment.')).toBeVisible();
@@ -250,8 +250,8 @@ for (const viewport of [
         type: 'inline_shipping_address',
         address: { recipientName: address.recipientName, line1: address.line1 },
       },
-      contact: { email: 'alex@example.test' },
     });
+    expect(requests[0].body).not.toHaveProperty('contact');
     await page.getByRole('button', { name: 'Continue', exact: true }).click();
     await expect.poll(() => requests.length).toBe(2);
     expect(requests[1]).toEqual(requests[0]);
@@ -275,7 +275,7 @@ test('authoritative repricing and cart invalidation retain the same sheet before
   await expect(sheet).toHaveAttribute('data-mount-probe', 'same');
   await expect(page.getByText('Your cart is empty', { exact: true })).toHaveCount(0);
   expect(requests).toHaveLength(1);
-  await expect(page.getByRole('textbox', { name: 'Email', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: 'Email address', exact: true })).toHaveCount(0);
 });
 
 test('a guest opens the same sheet and supplies contact inside it', async ({ page }) => {
@@ -283,7 +283,7 @@ test('a guest opens the same sheet and supplies contact inside it', async ({ pag
   await page.goto('/checkout');
   await page.getByRole('button', { name: 'Pay now', exact: true }).click();
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
-  await expect(page.getByRole('textbox', { name: 'Email', exact: true })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Email address', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Continue', exact: true })).toBeDisabled();
   expect(requests).toHaveLength(0);
 });

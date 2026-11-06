@@ -574,7 +574,8 @@
       "saveToOxy": "把这些订单保存到 Oxy"
     },
     "destination": {
-      "guestPickupHint": "无需账号。告诉我们这次自取怎么联系你——用不上的地址我们不会问。"
+      "guestPickupHint": "无需账号。告诉我们这次自取怎么联系你——用不上的地址我们不会问。",
+      "collectInPerson": "到店自取"
     },
     "discount": {
       "accessibilityLabel": "优惠码",

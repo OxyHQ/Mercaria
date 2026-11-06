@@ -574,7 +574,8 @@
       "saveToOxy": "この注文を Oxy に保存する"
     },
     "destination": {
-      "guestPickupHint": "アカウントは不要です。この受け取りについてご連絡する方法をお知らせください。必要のない住所はお尋ねしません。"
+      "guestPickupHint": "アカウントは不要です。この受け取りについてご連絡する方法をお知らせください。必要のない住所はお尋ねしません。",
+      "collectInPerson": "店頭で受け取る"
     },
     "discount": {
       "accessibilityLabel": "割引コード",

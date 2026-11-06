@@ -579,7 +579,8 @@
       "saveToOxy": "Desa aquestes comandes a Oxy"
     },
     "destination": {
-      "guestPickupHint": "No cal cap compte. Digues-nos com localitzar-te per a aquesta recollida: no et demanarem una adreça que no necessites."
+      "guestPickupHint": "No cal cap compte. Digues-nos com localitzar-te per a aquesta recollida: no et demanarem una adreça que no necessites.",
+      "collectInPerson": "Recollir en persona"
     },
     "discount": {
       "accessibilityLabel": "Codi de descompte",

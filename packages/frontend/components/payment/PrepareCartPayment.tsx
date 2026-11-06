@@ -93,7 +93,10 @@ export function PrepareCartPayment({
   const preferred =
     saved.find(
       (address) => address.id === `oxy:${addresses.data?.find((entry) => entry.isDefault)?.id}`,
-    ) ?? saved[0];
+    ) ??
+    saved.find(
+      (address) => address.id === `mercaria:${legacy.data?.find((entry) => entry.isDefault)?.id}`,
+    );
   const [discount, setDiscount] = useState('');
   const [supplyCountry, setSupplyCountry] = useState('');
   const [digitalConsent, setDigitalConsent] = useState(false);
@@ -130,7 +133,7 @@ export function PrepareCartPayment({
       requiresContact: !actor,
       paymentMethods: selection.currency === 'FAIR' ? ['faircoin'] : ['card', 'faircoin'],
     },
-    addresses: [...saved, ...profileAddressCandidates(profile.data)],
+    addresses: [...saved, ...(actor ? profileAddressCandidates(profile.data) : [])],
     initialDetails: {
       ...(email ? { email } : {}),
       ...(preferred ? { selectedAddressId: preferred.id, shipping: preferred.address } : {}),
@@ -158,7 +161,7 @@ export function PrepareCartPayment({
               appearance={pickup ? 'solid' : 'outline'}
               onPress={() => setUsePickup(true)}
             >
-              {t('checkout.form.deliveryMethodTitle')}
+              {t('checkout.destination.collectInPerson')}
             </Button>
           </View>
         ) : null}
@@ -172,7 +175,7 @@ export function PrepareCartPayment({
                 label={t('checkout.form.emailA11y')}
                 value={pickupEmail}
                 onValueChange={setPickupEmail}
-                editable={!disabled}
+                disabled={disabled}
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
@@ -182,7 +185,7 @@ export function PrepareCartPayment({
                 label={t('checkout.form.pickupPhoneA11y')}
                 value={pickupPhone}
                 onValueChange={setPickupPhone}
-                editable={!disabled}
+                disabled={disabled}
                 keyboardType="phone-pad"
               />
             </Field>
@@ -197,7 +200,7 @@ export function PrepareCartPayment({
               label={t('checkout.form.supplyCountryA11y')}
               value={supplyCountry}
               onValueChange={setSupplyCountry}
-              editable={!disabled}
+              disabled={disabled}
               maxLength={2}
               autoCapitalize="characters"
             />
@@ -215,7 +218,7 @@ export function PrepareCartPayment({
             label={t('checkout.discount.accessibilityLabel')}
             value={discount}
             onValueChange={setDiscount}
-            editable={!disabled}
+            disabled={disabled}
             autoCapitalize="characters"
           />
         </Field>
@@ -265,7 +268,7 @@ export function PrepareCartPayment({
       // Retain ALL submitted fields and the key across uncertain failures. No retry changes consent or prices.
       if (!attempt.current) {
         const input = checkoutInput(
-          details,
+          { ...details, email: actor ? '' : details.email },
           { ...selection, pickupLocationId: pickup ? selection.pickupLocationId : undefined },
           {
             discount,

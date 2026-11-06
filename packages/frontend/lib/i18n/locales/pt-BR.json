@@ -579,7 +579,8 @@
       "saveToOxy": "Salvar estes pedidos no Oxy"
     },
     "destination": {
-      "guestPickupHint": "Não precisa de conta. Diga como falar com você sobre esta retirada — não vamos pedir um endereço de que você não precisa."
+      "guestPickupHint": "Não precisa de conta. Diga como falar com você sobre esta retirada — não vamos pedir um endereço de que você não precisa.",
+      "collectInPerson": "Retirar pessoalmente"
     },
     "discount": {
       "accessibilityLabel": "Código de desconto",

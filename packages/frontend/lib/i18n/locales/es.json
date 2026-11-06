@@ -579,7 +579,8 @@
       "saveToOxy": "Guardar estos pedidos en Oxy"
     },
     "destination": {
-      "guestPickupHint": "No hace falta cuenta. Dinos cómo localizarte para esta recogida: no te pediremos una dirección que no necesitas."
+      "guestPickupHint": "No hace falta cuenta. Dinos cómo localizarte para esta recogida: no te pediremos una dirección que no necesitas.",
+      "collectInPerson": "Recoger en persona"
     },
     "discount": {
       "accessibilityLabel": "Código de descuento",

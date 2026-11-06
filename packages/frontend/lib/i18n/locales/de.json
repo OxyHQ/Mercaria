@@ -575,7 +575,8 @@
       "saveToOxy": "Diese Bestellungen in Oxy speichern"
     },
     "destination": {
-      "guestPickupHint": "Kein Konto nötig. Sag uns, wie wir dich zu dieser Abholung erreichen — nach einer Adresse, die du nicht brauchst, fragen wir nicht."
+      "guestPickupHint": "Kein Konto nötig. Sag uns, wie wir dich zu dieser Abholung erreichen — nach einer Adresse, die du nicht brauchst, fragen wir nicht.",
+      "collectInPerson": "Persönlich abholen"
     },
     "discount": {
       "accessibilityLabel": "Rabattcode",

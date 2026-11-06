@@ -575,7 +575,8 @@
       "saveToOxy": "Save these orders to Oxy"
     },
     "destination": {
-      "guestPickupHint": "No account needed. Tell us how to reach you about this collection — we will not ask for an address you do not need."
+      "guestPickupHint": "No account needed. Tell us how to reach you about this collection — we will not ask for an address you do not need.",
+      "collectInPerson": "Collect in person"
     },
     "discount": {
       "accessibilityLabel": "Discount code",

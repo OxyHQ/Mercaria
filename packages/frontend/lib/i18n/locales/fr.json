@@ -579,7 +579,8 @@
       "saveToOxy": "Enregistrer ces commandes dans Oxy"
     },
     "destination": {
-      "guestPickupHint": "Pas besoin de compte. Dites-nous comment vous joindre au sujet de ce retrait — nous ne demanderons pas une adresse dont vous n'avez pas besoin."
+      "guestPickupHint": "Pas besoin de compte. Dites-nous comment vous joindre au sujet de ce retrait — nous ne demanderons pas une adresse dont vous n'avez pas besoin.",
+      "collectInPerson": "Retrait en personne"
     },
     "discount": {
       "accessibilityLabel": "Code de réduction",
