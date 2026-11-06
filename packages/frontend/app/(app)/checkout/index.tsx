@@ -112,10 +112,9 @@ const SELLER_REFUSAL_COPY = {
 } as const satisfies Record<SellerRefusalReason, Record<string, string>>;
 
 /**
- * The refusals this screen tells in its own words. The FairCoin refusals (ADR
- * 0019: `faircoin_unavailable`, `faircoin_one_seller_per_checkout`) carry a
- * reason the server words, and are shown as its message with the sellers
- * highlighted, until the Peable sheet renders FairCoin itself.
+ * The refusals this screen tells in its own words. Every other refusal that
+ * names sellers (ADR 0019's payment-rail refusals) carries a reason the server
+ * words, and is shown as its message with the sellers highlighted.
  */
 type SellerRefusalReason = 'seller_not_payment_ready' | 'seller_not_activated';
 
