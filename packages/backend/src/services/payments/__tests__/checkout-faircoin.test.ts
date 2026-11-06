@@ -45,6 +45,9 @@ vi.mock('../../../db/payments/paymentRepository.js', () => ({
   attachPaymentProviderObject: () => Promise.resolve(undefined),
   findNativePaymentByCheckoutGroupId: () => Promise.resolve(undefined),
 }));
+vi.mock('../../../db/fees/orderFeeSnapshotRepository.js', () => ({
+  listOrderFeeSnapshots: () => Promise.resolve(new Map()),
+}));
 vi.mock('../../../db/postgres.js', () => ({ getDb: () => ({}) }));
 vi.mock('../../supervised-shopping/purchase.service.js', () => ({
   permitSupervisedPayment: async () => true,
@@ -121,6 +124,7 @@ describe('a FAIR checkout pays the seller in FairCoin (ADR 0019 D3)', () => {
       paymentId: PAYMENT_ID,
       provider: 'peable_faircoin',
       rail: 'faircoin',
+      payerObject: 'payment_intent',
       faircoin: INSTRUCTION,
       providerPaymentId: 'pi_fair',
       clientSecret: 'pi_fair_secret',
@@ -187,11 +191,12 @@ describe('the rail follows the currency (ADR 0019 D1)', () => {
     expect(service.selectCheckoutRail('none', undefined, 'FAIR')).toBe('none');
   });
 
-  it('refuses FairCoin in a fiat currency, and names FAIR on a card refusal', () => {
-    expect(() => service.assertCheckoutCurrencyEligible('faircoin', 'USD')).toThrow(
-      /FairCoin payments are made in FAIR/,
-    );
+  it('takes FairCoin on a FAIR or card-currency order (ADR 0020), and names FAIR on a card refusal', () => {
+    expect(() => service.assertCheckoutCurrencyEligible('faircoin', 'USD')).not.toThrow();
     expect(() => service.assertCheckoutCurrencyEligible('faircoin', 'FAIR')).not.toThrow();
+    expect(() => service.assertCheckoutCurrencyEligible('faircoin', 'EUR')).toThrow(
+      /FairCoin payments are made for orders in FAIR or USD/,
+    );
     expect(() => service.assertCheckoutCurrencyEligible('card', 'EUR')).toThrow(
       /or to FAIR to pay with FairCoin/,
     );

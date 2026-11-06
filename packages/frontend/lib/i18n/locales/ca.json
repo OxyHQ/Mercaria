@@ -684,7 +684,13 @@
     },
     "useSavedAddress": "Fes servir una adreça desada",
     "viewOrder": "Mostra la comanda",
-    "viewOrders": "Mostra les teves comandes"
+    "viewOrders": "Mostra les teves comandes",
+    "payWith": {
+      "label": "Com pagaràs",
+      "card": "Targeta",
+      "faircoin": "FairCoin",
+      "faircoinHint": "Pagues el total en FairCoin, directament al moneder de Peable del venedor. Peable calcula l'import en FairCoin quan pagues i el preu es manté 10 minuts. Un pagament en FairCoin cobreix un sol venedor."
+    }
   },
   "payment": {
     "cancelled": {

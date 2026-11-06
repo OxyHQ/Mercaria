@@ -680,7 +680,13 @@
     },
     "useSavedAddress": "Gespeicherte Adresse verwenden",
     "viewOrder": "Bestellung ansehen",
-    "viewOrders": "Deine Bestellungen ansehen"
+    "viewOrders": "Deine Bestellungen ansehen",
+    "payWith": {
+      "label": "So zahlst du",
+      "card": "Karte",
+      "faircoin": "FairCoin",
+      "faircoinHint": "Du zahlst den Gesamtbetrag in FairCoin, direkt in die Peable-Wallet des Verkäufers. Peable berechnet den Betrag in FairCoin beim Bezahlen, und der Preis gilt 10 Minuten. Eine FairCoin-Zahlung gilt für einen Verkäufer."
+    }
   },
   "payment": {
     "cancelled": {

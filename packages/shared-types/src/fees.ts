@@ -156,14 +156,26 @@ export const FEE_BASES: readonly FeeBasis[] = ['discounted_item_subtotal'];
  *    fee (`mercaria_retail`, `external_referral`, `informational`). The
  *    snapshot carries NO fee amount at all — a NULL, not a zero — so nothing
  *    downstream can mistake it for a schedule outcome.
+ *  - `faircoin_exempt` — a connected-marketplace order the buyer chose to pay
+ *    in FairCoin, whatever currency it is priced in (Mercaria ADR 0020). The
+ *    fee is a REAL zero decided by the METHOD, never by the absence of a
+ *    schedule: the coins go straight to the seller's own Peable wallet, so
+ *    there is no transfer to take a commission from (ADR 0018 D2, Peable ADR
+ *    0021 D6). Selection is not run at all, so no schedule's acceptance is
+ *    asked of the seller.
  */
-export type FeeSnapshotResult = 'calculated' | 'no_active_schedule' | 'not_applicable';
+export type FeeSnapshotResult =
+  | 'calculated'
+  | 'no_active_schedule'
+  | 'not_applicable'
+  | 'faircoin_exempt';
 
 /** {@link FeeSnapshotResult} as the tuple the column types and CHECKs read. */
 export const FEE_SNAPSHOT_RESULTS: readonly FeeSnapshotResult[] = [
   'calculated',
   'no_active_schedule',
   'not_applicable',
+  'faircoin_exempt',
 ];
 
 /** Which clamp bound a calculated fee, when one did. */

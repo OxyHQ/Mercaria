@@ -5,7 +5,8 @@
  *
  * ## What Mercaria supplies, and what it does not
  *
- * The handoff's Peable PaymentIntent and ITS `client_secret` (the payer's
+ * The handoff's Peable PaymentIntent — or, for a USD order paid in FairCoin,
+ * its FairCoin-only Checkout Session — and ITS `client_secret` (the payer's
  * capability, nothing of the acquirer's), the order's total and numbers, and
  * how to open a page in this app. Everything else — the card in Peable's secure
  * fields (or Peable's secure page where a native app cannot host them),
@@ -24,7 +25,7 @@ import { useEffect, useRef } from 'react';
 import { Linking, Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import type { CheckoutPaymentHandoff, PaymentStatus } from '@mercaria/shared-types';
-import { intentSource, PeableSheetCheckout } from '@peable.to/sdk/checkout/ui';
+import { intentSource, PeableSheetCheckout, sessionSource } from '@peable.to/sdk/checkout/ui';
 import { track } from '@/lib/analytics';
 import { PEABLE_CHECKOUT_URL, PEABLE_GATEWAY_URL } from '@/lib/config';
 import { useTranslation } from '@/lib/i18n';
@@ -62,7 +63,15 @@ export function PeablePaymentSheet({
   onClose: () => void;
 }) {
   const { t, locale } = useTranslation();
-  const source = intentSource(payment.providerPaymentId, payment.clientSecret);
+  // A USD order the buyer chose to pay in FairCoin is a FairCoin-only Peable
+  // Checkout Session (ADR 0020): the sheet quotes the total in FAIR when the
+  // buyer confirms. Its one line IS the order's total, so the session's
+  // subtotal — what the sheet compares — is the same figure as a payment's.
+  const candidate =
+    payment.payerObject === 'checkout_session'
+      ? sessionSource(payment.clientSecret)
+      : intentSource(payment.providerPaymentId, payment.clientSecret);
+  const source = candidate?.id === payment.providerPaymentId ? candidate : null;
 
   const reported = useRef(false);
   useEffect(() => {

@@ -52,7 +52,7 @@ import {
 import { resolvePaymentProvider } from '../registry.js';
 import { PEABLE_BILLING_EVENT_HANDLERS } from '../../billing/peable/events.js';
 import { PEABLE_MARKETPLACE_EVENT_HANDLERS } from './marketplace-events.js';
-import { isPeablePaymentEvent, PAYMENT_STATUS_FOR_EVENT } from './verify.js';
+import { isPeablePaymentEvent, isPeableSessionEvent, PAYMENT_STATUS_FOR_EVENT } from './verify.js';
 
 /** What a handler is given, built from the stored row. */
 export interface PeableEventContext {
@@ -139,6 +139,45 @@ async function applyIntentEvent(
     return { kind: 'ignored', note: `${intentId} is not a marketplace payment` };
   }
 
+  return await applyToPayment(context, payment, asserted, intentId);
+}
+
+/**
+ * Apply one `checkout.session.*` event — a fiat order the buyer pays in
+ * FairCoin (Mercaria ADR 0020), whose provider object is the SESSION: Peable
+ * creates the quoted intent itself, without Mercaria's metadata, so the
+ * session's events and the session's state are what move the payment.
+ *
+ * Every session event is re-read rather than trusted: `completed` means
+ * `processing` (broadcast) or `succeeded` (confirmed) depending on
+ * `payment_status`, `async_payment_failed` means the payment underpaid, and
+ * the session read answers all of them in one mapping (`sessionStatus`).
+ */
+async function applySessionEvent(context: PeableEventContext): Promise<PeableEventOutcome> {
+  const sessionId = context.objectIds.checkout_session;
+  if (!sessionId) {
+    return { kind: 'ignored', note: `'${context.type}' named no checkout session` };
+  }
+  const payment = await findPaymentByProviderObjectId(getDb(), 'peable_faircoin', sessionId);
+  if (!payment) {
+    // A merchant-plan session arrives on the same endpoint and is not a
+    // marketplace payment; only a session Mercaria's checkout opened carries
+    // its payment marker, and only that one can be "not visible yet".
+    if (context.objectIds.mercaria_payment !== undefined) {
+      throw unresolved(`no Mercaria payment is linked to Peable session ${sessionId} yet`);
+    }
+    return { kind: 'ignored', note: `${sessionId} is not a marketplace payment` };
+  }
+  return await applyToPayment(context, payment, 'reread', sessionId);
+}
+
+/** Move one payment to the status an event asserts (or the gateway answers). */
+async function applyToPayment(
+  context: PeableEventContext,
+  payment: NonNullable<Awaited<ReturnType<typeof findPaymentByProviderObjectId>>>,
+  asserted: PaymentStatus | 'reread',
+  intentId: string,
+): Promise<PeableEventOutcome> {
   const next =
     asserted === 'reread' ? await readPaymentStatus(payment.provider, intentId) : asserted;
 
@@ -266,6 +305,7 @@ export function routePeableEvent(type: string): PeableEventHandler | undefined {
     return PEABLE_BILLING_EVENT_HANDLERS[type];
   if (Object.hasOwn(PEABLE_MARKETPLACE_EVENT_HANDLERS, type))
     return PEABLE_MARKETPLACE_EVENT_HANDLERS[type];
+  if (isPeableSessionEvent(type)) return applySessionEvent;
   if (!isPeablePaymentEvent(type)) return undefined;
   const asserted = PAYMENT_STATUS_FOR_EVENT[type];
   return async (context) => await applyIntentEvent(context, asserted);

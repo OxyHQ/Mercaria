@@ -1153,7 +1153,8 @@
       "processingIncluded": "Included",
       "net": "You receive",
       "refundNote": "Before any refund. If you refund this order, the fee on the refunded amount is returned to you in proportion.",
-      "none": "No marketplace fee was charged on this order."
+      "none": "No marketplace fee was charged on this order.",
+      "faircoin": "Paid in FairCoin: no marketplace fee. The buyer paid straight into your Peable wallet, so you received the whole amount."
     }
   },
   "products": {

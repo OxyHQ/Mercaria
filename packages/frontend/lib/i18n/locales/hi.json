@@ -680,7 +680,13 @@
     },
     "useSavedAddress": "सहेजा हुआ पता इस्तेमाल करें",
     "viewOrder": "अपना ऑर्डर देखें",
-    "viewOrders": "अपने ऑर्डर देखें"
+    "viewOrders": "अपने ऑर्डर देखें",
+    "payWith": {
+      "label": "आप कैसे भुगतान करेंगे",
+      "card": "कार्ड",
+      "faircoin": "FairCoin",
+      "faircoinHint": "आप पूरी राशि FairCoin में, सीधे विक्रेता के अपने Peable वॉलेट में चुकाते हैं। भुगतान के समय Peable राशि FairCoin में तय करता है, और यह कीमत 10 मिनट तक मान्य रहती है। एक FairCoin भुगतान एक ही विक्रेता के लिए होता है।"
+    }
   },
   "payment": {
     "cancelled": {

@@ -684,7 +684,13 @@
     },
     "useSavedAddress": "استخدام عنوان محفوظ",
     "viewOrder": "عرض طلبك",
-    "viewOrders": "عرض طلباتك"
+    "viewOrders": "عرض طلباتك",
+    "payWith": {
+      "label": "طريقة الدفع",
+      "card": "بطاقة",
+      "faircoin": "FairCoin",
+      "faircoinHint": "تدفع المبلغ الإجمالي بعملة FairCoin مباشرةً إلى محفظة Peable الخاصة بالبائع. تحدد Peable المبلغ بعملة FairCoin عند الدفع، ويبقى السعر ثابتًا لمدة 10 دقائق. تغطي دفعة FairCoin بائعًا واحدًا."
+    }
   },
   "payment": {
     "cancelled": {

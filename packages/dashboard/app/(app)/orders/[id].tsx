@@ -256,7 +256,8 @@ function TotalsCard({ order }: { order: MerchantOrder }) {
  * `deriveSellerNetShares` makes — and is shown only when the two share a
  * currency; a figure converted here would be a second FX authority.
  *
- * `not_applicable` (an order Mercaria itself sold) and an order with no
+ * A FairCoin-paid order (`faircoin_exempt`, ADR 0020) says it carries no fee
+ * because of the method. `not_applicable` (an order Mercaria itself sold) and an order with no
  * snapshot (POS, connector import) show nothing: no marketplace fee concept
  * applies to them.
  */
@@ -302,7 +303,9 @@ function MarketplaceFeeCard({ order }: { order: MerchantOrder }) {
           <Text className="mt-1 text-xs text-muted-foreground">{t('orders.fee.refundNote')}</Text>
         </View>
       ) : (
-        <Text className="text-xs text-muted-foreground">{t('orders.fee.none')}</Text>
+        <Text className="text-xs text-muted-foreground">
+          {t(fee.result === 'faircoin_exempt' ? 'orders.fee.faircoin' : 'orders.fee.none')}
+        </Text>
       )}
     </View>
   );

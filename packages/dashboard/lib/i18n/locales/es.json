@@ -1168,7 +1168,8 @@
       "processingIncluded": "Incluido",
       "net": "Recibes",
       "refundNote": "Antes de cualquier reembolso. Si reembolsas este pedido, se te devuelve la parte proporcional de la comisión sobre el importe reembolsado.",
-      "none": "No se cobró ninguna comisión del marketplace en este pedido."
+      "none": "No se cobró ninguna comisión del marketplace en este pedido.",
+      "faircoin": "Pagado en FairCoin: sin comisión del marketplace. El comprador pagó directamente a tu monedero de Peable, así que recibiste el importe completo."
     }
   },
   "products": {

@@ -28,6 +28,7 @@
  */
 
 import type {
+  CheckoutPaymentRail,
   CommercialMode,
   CurrencyCode,
   FeePreview,
@@ -89,6 +90,31 @@ export interface ConnectedMarketplaceFeeInput {
   currency: CurrencyCode;
   /** Presentment-side line totals and their item-level discounts, in item order. */
   lines: readonly FeeBasisLine[];
+  /**
+   * The METHOD the buyer pays with — the fee's first fact (Mercaria ADR 0020).
+   * `faircoin` never selects a schedule, in any currency: the coins go straight
+   * to the seller's own wallet and there is no transfer to take a commission
+   * from. `card` selects by seller type and currency, as #88 defined.
+   */
+  paymentRail: CheckoutPaymentRail;
+}
+
+/** The discounted item subtotal a fee would be computed from — no line below zero. */
+function discountedBasisMinor(lines: readonly FeeBasisLine[]): number {
+  return lines.reduce((sum, line) => {
+    const base = line.lineTotalMinor - line.discountMinor;
+    return sum + (base > 0 ? base : 0);
+  }, 0);
+}
+
+/**
+ * Whether a payment method can carry a marketplace fee at all — the ONE place
+ * the rule "FairCoin carries no fee" is written (ADR 0018 D2, Mercaria ADR
+ * 0020). Checkout's pre-selection and acceptance gate read it too, so a seller
+ * is never asked to accept card terms for a FairCoin sale.
+ */
+export function paymentRailCarriesFee(rail: CheckoutPaymentRail): boolean {
+  return rail === 'card';
 }
 
 /**
@@ -103,6 +129,23 @@ export interface ConnectedMarketplaceFeeInput {
 export async function planConnectedMarketplaceFee(
   input: ConnectedMarketplaceFeeInput,
 ): Promise<NewOrderFeeSnapshot> {
+  if (!paymentRailCarriesFee(input.paymentRail)) {
+    // Decided by the method, before any schedule is consulted: a FairCoin sale
+    // is a real zero whatever the order is priced in, recorded as exactly that
+    // so it is never read as "no schedule was in force".
+    return {
+      commercialMode: 'connected_marketplace',
+      result: 'faircoin_exempt',
+      basis: 'discounted_item_subtotal',
+      basisAmount: { amount: discountedBasisMinor(input.lines), currency: input.currency },
+      fee: { amount: 0, currency: input.currency },
+      roundingAdjustmentMinor: 0,
+      scopeSellerType: input.sellerType,
+      scopeCurrency: input.currency,
+      lineAllocationsMinor: input.lines.map(() => 0),
+    };
+  }
+
   const facts = { sellerType: input.sellerType, currency: input.currency };
   const schedule = selectFeeSchedule({
     schedules: input.context.schedules,
@@ -111,10 +154,7 @@ export async function planConnectedMarketplaceFee(
   });
 
   if (!schedule) {
-    const basisMinor = input.lines.reduce((sum, line) => {
-      const base = line.lineTotalMinor - line.discountMinor;
-      return sum + (base > 0 ? base : 0);
-    }, 0);
+    const basisMinor = discountedBasisMinor(input.lines);
     return {
       commercialMode: 'connected_marketplace',
       result: 'no_active_schedule',
@@ -379,6 +419,12 @@ export function explainSnapshot(row: OrderFeeSnapshotRecord): string {
     return row.commercialMode === 'connected_marketplace'
       ? 'Not applicable.'
       : why[row.commercialMode];
+  }
+  if (row.result === 'faircoin_exempt') {
+    return (
+      "The buyer paid this order in FairCoin, straight into the seller's own Peable wallet; " +
+      'FairCoin sales carry no marketplace fee.'
+    );
   }
   if (row.result === 'no_active_schedule') {
     return (

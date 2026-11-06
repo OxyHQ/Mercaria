@@ -854,12 +854,13 @@ export const PAYMENT_OUTBOX_STATUSES: readonly PaymentOutboxStatus[] = [
 /**
  * Which rail a client asks a checkout to fund through.
  *
- * Optional, and a client normally sends nothing: the rail FOLLOWS THE
- * PRESENTMENT CURRENCY (ADR 0019 D1) — a `FAIR` checkout is paid in FairCoin,
- * a checkout in a card currency (USD) by card. Naming one is an assertion the
- * server checks against that currency and refuses when they disagree, rather
- * than silently switching rails. Both name the SURFACE the buyer sees, not the
- * gateway behind it (ADR 0009 D19).
+ * Optional: unnamed, the rail FOLLOWS THE PRESENTMENT CURRENCY (ADR 0019 D1) —
+ * a `FAIR` checkout is paid in FairCoin, a checkout in a card currency (USD) by
+ * card. A buyer of a card-currency order may name `faircoin` (ADR 0020): the
+ * order stays priced in its currency and is paid in FairCoin at Peable's quote,
+ * with no marketplace fee. `card` on a `FAIR` order is refused, never switched.
+ * Both name the SURFACE the buyer sees, not the gateway behind it (ADR 0009
+ * D19).
  */
 export type CheckoutPaymentMethod = 'card' | 'faircoin' | 'mock';
 
@@ -1049,6 +1050,15 @@ export const FORBIDDEN_PAYMENT_METADATA_SUBSTRINGS = [
  * payment was created for rather than re-adding the orders itself and rounding
  * differently.
  */
+/** What a buyer's client confirms a checkout's payment through — {@link CheckoutPaymentHandoff.payerObject}. */
+export type CheckoutPayerObject = 'payment_intent' | 'checkout_session';
+
+/** {@link CheckoutPayerObject} as a tuple. */
+export const CHECKOUT_PAYER_OBJECTS: readonly CheckoutPayerObject[] = [
+  'payment_intent',
+  'checkout_session',
+];
+
 export interface CheckoutPaymentHandoff {
   /** Mercaria's payment id. The handle for the status endpoint below. */
   paymentId: string;
@@ -1059,16 +1069,28 @@ export interface CheckoutPaymentHandoff {
    * the same `providerPaymentId` + `clientSecret`.
    */
   rail: CheckoutPaymentRail;
-  /** Present exactly when `rail === 'faircoin'`: what to pay, and where. */
+  /**
+   * WHAT the payer confirms (Mercaria ADR 0020):
+   *
+   *  - `payment_intent` — one payment on one rail: a card PaymentIntent, or a
+   *    FAIR-priced FairCoin one carrying {@link faircoin}.
+   *  - `checkout_session` — a fiat-priced order the buyer chose to pay in
+   *    FairCoin: Peable's FairCoin-only Checkout Session (`cs_…`), which quotes
+   *    the total in FAIR when the payer confirms. Its client opens Peable's
+   *    sheet over the session's secret; there is no address until then.
+   */
+  payerObject: CheckoutPayerObject;
+  /** Present on a FAIR-priced FairCoin payment: what to pay, and where. */
   faircoin?: CheckoutFaircoinInstruction;
   /**
    * The rail's own payment object the client confirms (Peable: the gateway
-   * PaymentIntent, `pi_…`). Not a credential — `clientSecret` is.
+   * PaymentIntent, `pi_…`, or the Checkout Session, `cs_…`). Not a
+   * credential — `clientSecret` is.
    */
   providerPaymentId: string;
   /**
    * The payer's secret over {@link providerPaymentId} (Peable: that
-   * PaymentIntent's `client_secret`), opaque and never persisted.
+   * object's `client_secret`), opaque and never persisted.
    */
   clientSecret: string;
   amount: Money;

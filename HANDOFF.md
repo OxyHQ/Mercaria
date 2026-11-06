@@ -228,10 +228,14 @@ account events. No seller is `ready`, so every native checkout is refused
       where the coins go and the no-fee line); "Get paid in FairCoin" /
       "Confirm in Peable" posts `rail: 'faircoin'` to the onboarding-link route
       and opens Peable's page like the card onboarding, re-reading on return.
-- [ ] **The checkout's FairCoin step** over the `rail: 'faircoin'` handoff —
-      owned by the Peable sheet work.
-- [ ] **FairCoin on USD orders** — a FairCoin-only Peable Checkout Session per
-      seller (`@peable.to/sdk` 4.1.0), the fee decided once the method is known.
+- [x] **The checkout's FairCoin step** — Peable's sheet pays a FAIR order's
+      intent (#1212) and, since ADR 0020, a USD order's FairCoin-only session
+      (`payerObject: 'checkout_session'`); the storefront asks "How you'll pay".
+- [x] **FairCoin on USD orders** — ADR 0020: the buyer chooses Card or
+      FairCoin; FairCoin is a FairCoin-only Peable Checkout Session for the ONE
+      seller, and the fee follows the method (`faircoin_exempt`).
+- [ ] **The session events on Peable's endpoint** — add the four
+      `checkout.session.*` types to `we_82b5…` (`docs/payments.md` Webhooks).
 - [ ] **FairCoin-paid merchant plans** — the plan screen reads a Peable
       `incomplete` subscription (paid in FairCoin, awaiting confirmations) as
       "Ended" until the first invoice is paid, and `invoice.paid` books the

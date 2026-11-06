@@ -404,7 +404,15 @@ function localeBundles(): {
  * every locale — asserted below — so a reworded or renamed key fails as stale
  * instead of quietly excusing nothing.
  */
-const CURRENCY_NAME_KEYS: readonly string[] = ['settings.currency.description'];
+const CURRENCY_NAME_KEYS: readonly string[] = [
+  'settings.currency.description',
+  // FairCoin NAMED as the payment method a buyer of a card-currency order
+  // chooses at checkout (ADR 0019 retired the ban on naming the method; ADR
+  // 0020 is the choice). A checkout step, not a claim benefit — and still
+  // excused by key, so the same word anywhere else in the bundle stays red.
+  'checkout.payWith.faircoin',
+  'checkout.payWith.faircoinHint',
+];
 
 /**
  * The vacuity floors, PER SHAPE rather than one on the total.

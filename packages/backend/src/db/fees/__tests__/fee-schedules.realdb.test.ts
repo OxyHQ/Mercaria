@@ -483,6 +483,7 @@ describe('planConnectedMarketplaceFee against real schedules', () => {
 
     const context1 = { at: new Date(), schedules: await listActiveFeeSchedules(db, new Date()) };
     const plan1 = await planConnectedMarketplaceFee({
+      paymentRail: 'card',
       context: context1,
       sellerType: 'user',
       sellerOwnerId: 'seller-x',
@@ -507,6 +508,7 @@ describe('planConnectedMarketplaceFee against real schedules', () => {
 
     const context2 = { at: new Date(), schedules: await listActiveFeeSchedules(db, new Date()) };
     const plan2 = await planConnectedMarketplaceFee({
+      paymentRail: 'card',
       context: context2,
       sellerType: 'user',
       sellerOwnerId: 'seller-x',
@@ -542,6 +544,7 @@ describe('planConnectedMarketplaceFee against real schedules', () => {
 
     const context = { at: new Date(), schedules: await listActiveFeeSchedules(db, new Date()) };
     const plan = await planConnectedMarketplaceFee({
+      paymentRail: 'card',
       context,
       sellerType: 'user',
       sellerOwnerId,
@@ -551,12 +554,54 @@ describe('planConnectedMarketplaceFee against real schedules', () => {
     expect(plan.termsVersionAccepted).toBe('terms-7');
   });
 
+  it('decides the fee by the payment method: card selects the schedule, FairCoin is exempt (ADR 0020)', async () => {
+    // One active schedule that DOES match the order's currency — the case ADR
+    // 0018 D2 left open. Scoped to a currency no other suite schedules in.
+    const scheduleKey = `sched-${uuidv7()}`;
+    const currency = 'AUD' as const;
+    const row = await insertFeeSchedule(
+      db,
+      draft(currency, { scheduleKey, version: 1, percentageBps: 500 }),
+    );
+    await activateFeeSchedule(db, {
+      id: row.id,
+      approvedBy: { authority: 'deployment', ref: 'op' },
+    });
+    const context = { at: new Date(), schedules: await listActiveFeeSchedules(db, new Date()) };
+    const facts = {
+      context,
+      sellerType: 'store' as const,
+      sellerOwnerId: `store-${uuidv7()}`,
+      currency,
+      lines: [{ lineTotalMinor: 10_000, discountMinor: 1_000 }],
+    };
+
+    const card = await planConnectedMarketplaceFee({ ...facts, paymentRail: 'card' });
+    expect(card.result).toBe('calculated');
+    expect(card.scheduleKey).toBe(scheduleKey);
+    expect(card.fee).toEqual({ amount: 450, currency });
+
+    const faircoin = await planConnectedMarketplaceFee({ ...facts, paymentRail: 'faircoin' });
+    // A REAL zero decided by the method, never "no schedule was in force", and
+    // no schedule named — so no terms acceptance can be asked for it.
+    expect(faircoin).toMatchObject({
+      commercialMode: 'connected_marketplace',
+      result: 'faircoin_exempt',
+      basisAmount: { amount: 9_000, currency },
+      fee: { amount: 0, currency },
+      lineAllocationsMinor: [0],
+    });
+    expect(faircoin.scheduleKey).toBeUndefined();
+    expect(faircoin.percentageBps).toBeUndefined();
+  });
+
   it('carries no buyer identity, guest token or payment-method field, in any mode', async () => {
     // The snapshot rule made checkable: whatever the mode, the plan's key set
     // contains nothing buyer-shaped. This is a vacuity-proof scan — the
     // forbidden list is asserted against a plan that HAS keys.
     const context = { at: new Date(), schedules: [] };
     const plan = await planConnectedMarketplaceFee({
+      paymentRail: 'card',
       context,
       sellerType: 'user',
       sellerOwnerId: 'seller-x',

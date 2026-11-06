@@ -32,6 +32,16 @@ confirms it on Peable's page. Every reason FairCoin cannot be paid
 reserved, and the same answer is on the seller's settings. The reservation
 sweep keeps a group whose payment is `processing`.
 
+**A USD order is payable in FairCoin** ([ADR 0020](./adr/0020-usd-orders-payable-in-faircoin.md)).
+The buyer chooses Card or FairCoin at checkout (`paymentMethod: 'faircoin'`);
+FairCoin opens a FairCoin-only Peable Checkout Session for the ONE seller
+(`connected_account`, `payment_method_types: ['faircoin']`, the group's total
+as one USD line), whose `cs_…` is the payment's provider object. Peable quotes
+the total in FAIR when the buyer confirms in its sheet; `checkout.session.*`
+events and the session read move the payment (`paid` = received). The fee
+follows the method, decided at pricing: FairCoin snapshots `faircoin_exempt`
+(no schedule, no acceptance asked), card the card schedule.
+
 What is built: the domain and the ledger (#45), checkout and the per-seller
 settlement (#47), the money coming back — refunds, transfer reversals, disputes,
 payouts (#49) — reconciliation and operator recovery (#50), and the Peable
@@ -1302,7 +1312,8 @@ their card sales select. The terms render through ONE component,
 marketplace card sales in USD, card processing included: `marketplace-card` v1
 for stores and `marketplace-card-individual` v1 for private sellers (separate
 keys, so neither's activation supersedes the other's acceptances); no fee on
-FairCoin sales (no schedule covers FAIR).
+FairCoin sales in any currency — the method decides it before any schedule is
+selected (`faircoin_exempt`, ADR 0020).
 
 ### The calculation, and the snapshot it becomes
 
@@ -2205,6 +2216,12 @@ figure and reverses the seller's share. Neither has been run.
       `payout.paid`, `payout.failed`, `payout.canceled`. Done 2026-11-05 (as
       Mercaria's workload, `POST /v1/webhook_endpoints/:id` with the FULL list,
       after the intent marker shipped): 27 types, the seven billing ones kept.
+- [ ] ADR 0020: add `checkout.session.completed`,
+      `checkout.session.async_payment_succeeded`,
+      `checkout.session.async_payment_failed` and `checkout.session.expired`
+      to the same endpoint (the FULL list again, as Mercaria's workload). Until
+      then a USD order paid in FairCoin moves only through the open-payment
+      reconciliation's session read.
 - [ ] `POST /webhooks/peable` with no signature answers 400 `missing_signature`,
       not 404. A 404 means the secret is unset and the endpoint is unmounted.
 

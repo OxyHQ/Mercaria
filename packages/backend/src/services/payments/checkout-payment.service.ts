@@ -33,6 +33,7 @@ import {
 import type {
   CheckoutPaymentHandoff,
   CheckoutPaymentMethod,
+  CheckoutPaymentRail,
   CheckoutPaymentStatus,
   CheckoutPaymentSurfaceMethod,
   CurrencyCode,
@@ -56,6 +57,7 @@ import {
   type CheckoutGroupOwner,
   type OrderRecord,
 } from '../../db/orders/orderRepository.js';
+import { listOrderFeeSnapshots } from '../../db/fees/orderFeeSnapshotRepository.js';
 import { conflict, notFound } from '../../lib/errors/error-codes.js';
 import { log } from '../../lib/logger.js';
 import { findGuestCheckoutIdForGroup } from './guest-correlation.js';
@@ -169,17 +171,19 @@ export function selectCheckoutRail(
  */
 export function assertCheckoutCurrencyEligible(rail: CheckoutRail, currency: CurrencyCode): void {
   if (rail === 'none') return;
+  const eligible = nativeRailPresentmentCurrencies();
   if (rail === 'faircoin') {
-    // ADR 0019 D1: FairCoin is paid in FAIR. A raw PaymentIntent carries no
-    // fiat quote (that is a Peable Checkout Session feature), so a buyer
-    // reading prices in another currency switches to FAIR to pay this way.
-    if (currency === FAIRCOIN_CURRENCY) return;
+    // FAIR is paid as it is priced (ADR 0019 D1). An order priced in a card
+    // currency is paid in FairCoin at Peable's quote, through a FairCoin-only
+    // Checkout Session (ADR 0020) — the currencies Mercaria presents an order
+    // in for payment at all, so FairCoin is offered on every order a card can
+    // pay and nothing narrower.
+    if (currency === FAIRCOIN_CURRENCY || eligible.includes(currency)) return;
     throw conflict(
-      `FairCoin payments are made in ${FAIRCOIN_CURRENCY}. Switch your currency to ` +
-        `${FAIRCOIN_CURRENCY} to pay with FairCoin.`,
+      `FairCoin payments are made for orders in ${[FAIRCOIN_CURRENCY, ...eligible].join(' or ')}. ` +
+        `Switch your currency to one of them to pay with FairCoin.`,
     );
   }
-  const eligible = nativeRailPresentmentCurrencies();
   // An empty set means the deployment configured its rail's currencies away
   // entirely, and refusing every card checkout is the correct reading of that —
   // NOT the vacuous pass an `if (eligible.length === 0) return;` would give. The
@@ -251,11 +255,14 @@ export async function openCheckoutPayment(input: {
   const amount = groupPresentmentTotal(input.orders);
   const orderIds = input.orders.map((order) => order.id);
 
-  // WHICH native rail is the group's currency's (ADR 0019 D1), read off the
-  // orders and not the request: a converging replay reaches here with the rail
-  // its first step resolved before any cart was loaded, and the orders are the
-  // record of what the buyer is paying in.
-  const paymentRail = railForCurrency(amount.currency);
+  // WHICH native rail pays the group, read off the ORDERS and not the request:
+  // a converging replay may reach here with a request that names another
+  // method, and the orders are the record of what the buyer is paying for and
+  // how. A FAIR group is paid in FairCoin (ADR 0019 D1); a fiat group by the
+  // method its fee snapshot was decided for (ADR 0020) — so the rail a payment
+  // opens on can never disagree with the fee its orders carry.
+  const paymentRail = await groupPaymentRail(input.orders, amount.currency);
+  const quoted = paymentRail === 'faircoin' && amount.currency !== FAIRCOIN_CURRENCY;
 
   // Resolved ONCE and reused for the adapter, the payment row and the handoff.
   // Three separate resolutions could disagree if configuration changed between
@@ -311,6 +318,14 @@ export async function openCheckoutPayment(input: {
             orderIds,
             ...(guestCheckoutId !== undefined ? { guestCheckoutId } : {}),
           }),
+          ...(quoted
+            ? {
+                description: `Mercaria order ${input.orders
+                  .map((order) => order.orderNumber)
+                  .sort()
+                  .join(', ')}`,
+              }
+            : {}),
           ...(onBehalfOf
             ? {
                 onBehalfOf,
@@ -338,6 +353,21 @@ export async function openCheckoutPayment(input: {
   // No key of any kind travels with the handoff: Mercaria reaches Peable with its
   // own Oxy workload identity (ADR 0009 D20), and the rail's payment object and
   // the payer's secret over it are the only material a buyer's client needs.
+  if (quoted) {
+    // A fiat order paid in FairCoin: the buyer's client opens Peable's sheet
+    // over the SESSION, which quotes the total in FAIR when they confirm. There
+    // is no address before that, and none is invented here.
+    return {
+      paymentId: payment.id,
+      provider: rail,
+      rail: 'faircoin',
+      payerObject: 'checkout_session',
+      providerPaymentId: result.providerObjectId,
+      clientSecret: result.clientAction.value,
+      amount,
+      methods: [],
+    };
+  }
   if (paymentRail === 'faircoin') {
     if (!result.faircoin) {
       throw conflict('The payment rail did not say where to send the FairCoin for this checkout.');
@@ -346,6 +376,7 @@ export async function openCheckoutPayment(input: {
       paymentId: payment.id,
       provider: rail,
       rail: 'faircoin',
+      payerObject: 'payment_intent',
       faircoin: result.faircoin,
       providerPaymentId: result.providerObjectId,
       clientSecret: result.clientAction.value,
@@ -357,11 +388,33 @@ export async function openCheckoutPayment(input: {
     paymentId: payment.id,
     provider: rail,
     rail: 'card',
+    payerObject: 'payment_intent',
     providerPaymentId: result.providerObjectId,
     clientSecret: result.clientAction.value,
     amount,
     methods: checkoutPaymentSurfaces(),
   };
+}
+
+/**
+ * The rail a placed group is paid on — Mercaria ADR 0020's "the payment follows
+ * the method the fee was decided for".
+ *
+ * A FAIR group is FairCoin (no card settles FAIR). A fiat group is FairCoin
+ * exactly when checkout priced its orders for a FairCoin payment
+ * (`faircoin_exempt`), and card otherwise; a group whose orders disagree was not
+ * produced by checkout and is refused rather than opened on either rail.
+ */
+async function groupPaymentRail(
+  orders: readonly OrderRecord[],
+  currency: CurrencyCode,
+): Promise<CheckoutPaymentRail> {
+  if (currency === FAIRCOIN_CURRENCY) return railForCurrency(currency);
+  const snapshots = await listOrderFeeSnapshots(orders.map((order) => order.id));
+  const exempt = orders.filter((order) => snapshots.get(order.id)?.result === 'faircoin_exempt');
+  if (exempt.length === 0) return 'card';
+  if (exempt.length === orders.length) return 'faircoin';
+  throw conflict('This checkout mixes payment methods and cannot be paid. Check out again.');
 }
 
 /**
@@ -385,8 +438,11 @@ async function createRailPayment(
     if (reason === undefined) throw error;
     throw checkoutRefusal(
       'faircoin_unavailable',
-      'This seller cannot be paid in FairCoin right now. Pay by card in USD instead; nothing ' +
-        'has been charged.',
+      reason === 'price_unavailable'
+        ? 'FairCoin cannot be priced for this order right now. Try again in a moment, or pay by ' +
+            'card; nothing has been charged.'
+        : 'This seller cannot be paid in FairCoin right now. Pay by card in USD instead; nothing ' +
+            'has been charged.',
       { reason: 'faircoin_unavailable', unavailableReason: reason, sellers: [] },
     );
   }
@@ -404,6 +460,8 @@ function faircoinRefusalReason(error: unknown): FaircoinUnavailableReason | unde
       return 'faircoin_network_closed';
     case 'account_not_ready':
       return 'seller_not_confirmed';
+    case 'faircoin_price_unavailable':
+      return 'price_unavailable';
     default:
       return undefined;
   }
