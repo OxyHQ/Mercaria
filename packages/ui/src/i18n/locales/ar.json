@@ -1065,6 +1065,39 @@
       "processingIncluded": "تشمل الرسوم معالجة البطاقات. لا توجد رسوم معالجة منفصلة.",
       "cardSalesOnly": "تنطبق على المبيعات بالبطاقة بعملة %{currency}.",
       "faircoinNoFee": "المبيعات المدفوعة بعملة FairCoin بلا رسوم."
+    },
+    "faircoinSeller": {
+      "title": "FairCoin",
+      "explanationStore": "عندما يدفع المشتري بعملة FairCoin، تذهب العملات مباشرة إلى محفظة Peable الخاصة بحساب Oxy الذي يملك هذا المتجر. لا تحتفظ بها Peable ولا Mercaria أبدًا، ولا تخضع المبيعات المدفوعة بعملة FairCoin لأي رسوم من السوق.",
+      "explanationSelf": "عندما يدفع المشتري بعملة FairCoin، تذهب العملات مباشرة إلى محفظة Peable الخاصة بحساب Oxy الخاص بك. لا تحتفظ بها Peable ولا Mercaria أبدًا، ولا تخضع المبيعات المدفوعة بعملة FairCoin لأي رسوم من السوق.",
+      "stateLabel": "الحالة",
+      "state": {
+        "notConnected": "غير مُعدّ",
+        "pending": "بانتظار تأكيدك",
+        "active": "نشط"
+      },
+      "payableLabel": "يمكن للمشترين الدفع بعملة FairCoin الآن",
+      "payableYes": "نعم",
+      "payableNo": "لا",
+      "receiverLabel": "حساب Oxy المستلم",
+      "confirmedLabel": "تاريخ التأكيد",
+      "reason": {
+        "walletMissingStore": "لا يملك حساب Oxy المستلم محفظة Peable بعد. افتح Peable بعد تسجيل الدخول بهذا الحساب، أو بالتصرف نيابةً عنه، وأنشئ محفظته، ثم أكّد مرة أخرى.",
+        "walletMissingSelf": "لا يملك حساب Oxy الخاص بك محفظة Peable بعد. افتح Peable بهذا الحساب وأنشئ محفظتك، ثم أكّد مرة أخرى.",
+        "networkClosed": "لم تفتح Peable مدفوعات FairCoin على هذه الشبكة بعد. لا يلزمك فعل أي شيء: سيتم تفعيل FairCoin هنا بمجرد أن تفتحها Peable.",
+        "priceUnavailable": "لا تستطيع Peable تسعير مدفوعات FairCoin الآن. هذا مؤقت؛ حاول مرة أخرى لاحقًا.",
+        "temporarilyUnavailable": "مدفوعات FairCoin غير متاحة مؤقتًا لدى Peable. حاول مرة أخرى لاحقًا.",
+        "notConnected": "لم يتم إعداد مدفوعات FairCoin بعد.",
+        "notConfirmed": "مدفوعات FairCoin بانتظار تأكيدك في Peable.",
+        "railDisabled": "مدفوعات FairCoin غير متاحة في هذا النشر من Mercaria."
+      },
+      "confirmAsStore": "أكّد في Peable بعد تسجيل الدخول بحساب Oxy الذي يملك هذا المتجر، أو بالتصرف نيابةً عنه.",
+      "confirmAsSelf": "أكّد في Peable بعد تسجيل الدخول بحساب Oxy الخاص بك.",
+      "action": {
+        "start": "استلم المدفوعات بعملة FairCoin",
+        "confirm": "التأكيد في Peable"
+      },
+      "setupUnavailable": "لا يمكن بدء إعداد FairCoin في هذا النشر بعد."
     }
   }
 }

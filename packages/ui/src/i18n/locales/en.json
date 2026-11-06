@@ -1065,6 +1065,39 @@
       "processingIncluded": "Card processing is included. There is no separate processing fee.",
       "cardSalesOnly": "Applies to card sales in %{currency}.",
       "faircoinNoFee": "Sales paid in FairCoin carry no fee."
+    },
+    "faircoinSeller": {
+      "title": "FairCoin",
+      "explanationStore": "When a buyer pays in FairCoin, the coins go straight to the Peable wallet of the Oxy account that owns this store. Peable and Mercaria never hold them, and sales paid in FairCoin carry no marketplace fee.",
+      "explanationSelf": "When a buyer pays in FairCoin, the coins go straight to the Peable wallet of your own Oxy account. Peable and Mercaria never hold them, and sales paid in FairCoin carry no marketplace fee.",
+      "stateLabel": "Status",
+      "state": {
+        "notConnected": "Not set up",
+        "pending": "Waiting for your confirmation",
+        "active": "Active"
+      },
+      "payableLabel": "Buyers can pay in FairCoin now",
+      "payableYes": "Yes",
+      "payableNo": "No",
+      "receiverLabel": "Receiving Oxy account",
+      "confirmedLabel": "Confirmed on",
+      "reason": {
+        "walletMissingStore": "The receiving Oxy account has no Peable wallet yet. Open Peable signed in as, or acting as, that account and create its wallet, then confirm again.",
+        "walletMissingSelf": "Your Oxy account has no Peable wallet yet. Open Peable signed in with it and create your wallet, then confirm again.",
+        "networkClosed": "Peable has not opened FairCoin payments on this network yet. There is nothing you need to do: FairCoin turns on here once Peable opens it.",
+        "priceUnavailable": "Peable cannot price FairCoin payments right now. This is temporary; try again later.",
+        "temporarilyUnavailable": "FairCoin payments are temporarily unavailable at Peable. Try again later.",
+        "notConnected": "FairCoin payments are not set up yet.",
+        "notConfirmed": "FairCoin payments are waiting for you to confirm them in Peable.",
+        "railDisabled": "FairCoin payments are not available on this Mercaria deployment."
+      },
+      "confirmAsStore": "Confirm in Peable signed in as, or acting as, the Oxy account that owns this store.",
+      "confirmAsSelf": "Confirm in Peable signed in with your own Oxy account.",
+      "action": {
+        "start": "Get paid in FairCoin",
+        "confirm": "Confirm in Peable"
+      },
+      "setupUnavailable": "FairCoin setup cannot be started on this deployment yet."
     }
   }
 }

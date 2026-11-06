@@ -1079,6 +1079,39 @@
       "processingIncluded": "Обработка карт включена. Отдельной комиссии за обработку нет.",
       "cardSalesOnly": "Применяется к продажам по карте в %{currency}.",
       "faircoinNoFee": "С продаж, оплаченных в FairCoin, комиссия не взимается."
+    },
+    "faircoinSeller": {
+      "title": "FairCoin",
+      "explanationStore": "Когда покупатель платит в FairCoin, монеты поступают прямо в кошелёк Peable аккаунта Oxy, которому принадлежит этот магазин. Ни Peable, ни Mercaria никогда их не хранят, а с продаж, оплаченных в FairCoin, комиссия маркетплейса не взимается.",
+      "explanationSelf": "Когда покупатель платит в FairCoin, монеты поступают прямо в кошелёк Peable вашего собственного аккаунта Oxy. Ни Peable, ни Mercaria никогда их не хранят, а с продаж, оплаченных в FairCoin, комиссия маркетплейса не взимается.",
+      "stateLabel": "Статус",
+      "state": {
+        "notConnected": "Не настроено",
+        "pending": "Ожидает вашего подтверждения",
+        "active": "Активно"
+      },
+      "payableLabel": "Покупатели могут платить в FairCoin сейчас",
+      "payableYes": "Да",
+      "payableNo": "Нет",
+      "receiverLabel": "Аккаунт Oxy получателя",
+      "confirmedLabel": "Подтверждено",
+      "reason": {
+        "walletMissingStore": "У аккаунта Oxy получателя ещё нет кошелька Peable. Откройте Peable, войдя под этим аккаунтом или действуя от его имени, создайте кошелёк и подтвердите снова.",
+        "walletMissingSelf": "У вашего аккаунта Oxy ещё нет кошелька Peable. Откройте Peable под этим аккаунтом, создайте кошелёк и подтвердите снова.",
+        "networkClosed": "Peable ещё не открыл платежи в FairCoin в этой сети. Вам ничего делать не нужно: FairCoin включится здесь, как только Peable его откроет.",
+        "priceUnavailable": "Peable сейчас не может определить цену платежей в FairCoin. Это временно; повторите попытку позже.",
+        "temporarilyUnavailable": "Платежи в FairCoin временно недоступны в Peable. Повторите попытку позже.",
+        "notConnected": "Платежи в FairCoin ещё не настроены.",
+        "notConfirmed": "Платежи в FairCoin ждут вашего подтверждения в Peable.",
+        "railDisabled": "Платежи в FairCoin недоступны в этой установке Mercaria."
+      },
+      "confirmAsStore": "Подтвердите в Peable, войдя под аккаунтом Oxy, которому принадлежит этот магазин, или действуя от его имени.",
+      "confirmAsSelf": "Подтвердите в Peable под своим собственным аккаунтом Oxy.",
+      "action": {
+        "start": "Получать оплату в FairCoin",
+        "confirm": "Подтвердить в Peable"
+      },
+      "setupUnavailable": "Настройку FairCoin пока нельзя начать в этой установке."
     }
   }
 }

@@ -68,6 +68,7 @@
       "neededNow": "今すぐ必要",
       "onboardingUnavailable": "このMercaria環境では、入金の設定をまだ利用できません。",
       "openFailed": "入金の設定を開けませんでした",
+      "faircoinOpenFailed": "Peable で FairCoin の確認を開けませんでした",
       "outstandingTitle": "Peableで未対応の項目",
       "paidOutIn": "入金通貨",
       "payoutsTitle": "入金",

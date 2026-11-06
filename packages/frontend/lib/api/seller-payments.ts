@@ -44,6 +44,20 @@ export async function createSellerOnboardingLink(
   return unwrap(data, 'Failed to start payment onboarding');
 }
 
+/**
+ * Peable's FairCoin confirmation link (ADR 0019 D2), opening the seller's
+ * FairCoin half the first time. The receiving account is the caller's own Oxy
+ * account, decided by the server from the session — the body names only the
+ * rail. Never cached or stored: the caller opens it at once.
+ */
+export async function createSellerFaircoinLink(): Promise<ProviderOnboardingLink> {
+  const { data } = await apiClient.post<ApiResponse<ProviderOnboardingLink>>(
+    '/seller/payments/account/onboarding-link',
+    { rail: 'faircoin' },
+  );
+  return unwrap(data, 'Failed to start FairCoin confirmation');
+}
+
 /** Ask Peable to re-read the account now — the seller is back from the hosted flow. */
 export async function refreshSellerPaymentSettings(): Promise<SellerPaymentSettings> {
   const { data } = await apiClient.post<ApiResponse<SellerPaymentSettings>>(

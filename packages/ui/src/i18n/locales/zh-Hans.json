@@ -1065,6 +1065,39 @@
       "processingIncluded": "已包含银行卡处理费用，不另收处理费。",
       "cardSalesOnly": "适用于以 %{currency} 进行的银行卡销售。",
       "faircoinNoFee": "以 FairCoin 支付的销售不收取费用。"
+    },
+    "faircoinSeller": {
+      "title": "FairCoin",
+      "explanationStore": "买家使用 FairCoin 付款时，代币会直接进入拥有此店铺的 Oxy 账户的 Peable 钱包。Peable 和 Mercaria 都不会持有这些代币，以 FairCoin 支付的销售不收取市场平台费用。",
+      "explanationSelf": "买家使用 FairCoin 付款时，代币会直接进入你自己的 Oxy 账户的 Peable 钱包。Peable 和 Mercaria 都不会持有这些代币，以 FairCoin 支付的销售不收取市场平台费用。",
+      "stateLabel": "状态",
+      "state": {
+        "notConnected": "未设置",
+        "pending": "等待你的确认",
+        "active": "已启用"
+      },
+      "payableLabel": "买家现在可以使用 FairCoin 付款",
+      "payableYes": "是",
+      "payableNo": "否",
+      "receiverLabel": "收款 Oxy 账户",
+      "confirmedLabel": "确认日期",
+      "reason": {
+        "walletMissingStore": "收款 Oxy 账户还没有 Peable 钱包。请以该账户身份登录（或代表该账户操作）打开 Peable，创建它的钱包，然后再次确认。",
+        "walletMissingSelf": "你的 Oxy 账户还没有 Peable 钱包。请用该账户打开 Peable，创建你的钱包，然后再次确认。",
+        "networkClosed": "Peable 尚未在此网络上开放 FairCoin 付款。你无需执行任何操作：Peable 开放后，这里的 FairCoin 会自动启用。",
+        "priceUnavailable": "Peable 目前无法为 FairCoin 付款定价。这是暂时的，请稍后重试。",
+        "temporarilyUnavailable": "Peable 的 FairCoin 付款暂时不可用。请稍后重试。",
+        "notConnected": "FairCoin 付款尚未设置。",
+        "notConfirmed": "FairCoin 付款正在等待你在 Peable 中确认。",
+        "railDisabled": "此 Mercaria 部署不支持 FairCoin 付款。"
+      },
+      "confirmAsStore": "请以拥有此店铺的 Oxy 账户身份登录（或代表该账户操作），在 Peable 中确认。",
+      "confirmAsSelf": "请使用你自己的 Oxy 账户登录 Peable 进行确认。",
+      "action": {
+        "start": "通过 FairCoin 收款",
+        "confirm": "在 Peable 中确认"
+      },
+      "setupUnavailable": "此部署暂时无法开始设置 FairCoin。"
     }
   }
 }

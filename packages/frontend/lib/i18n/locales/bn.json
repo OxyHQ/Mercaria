@@ -69,6 +69,7 @@
       "neededNow": "এখনই দরকার",
       "onboardingUnavailable": "এই Mercaria ডিপ্লয়মেন্টে এখনো পেআউট সেটআপ নেই।",
       "openFailed": "পেআউট সেটআপ খোলা যায়নি",
+      "faircoinOpenFailed": "Peable-এ FairCoin নিশ্চিতকরণ খোলা যায়নি",
       "outstandingTitle": "Peable-এর কাছে বাকি",
       "paidOutIn": "পেআউটের মুদ্রা",
       "payoutsTitle": "পেআউট",

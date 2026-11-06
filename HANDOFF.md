@@ -221,11 +221,15 @@ account events. No seller is `ready`, so every native checkout is refused
       the ONE seller's own Peable wallet, no fee, nothing booked; FAIR-default
       stores activate. Production answers `faircoin_network_closed` until
       Peable opens mainnet identity receive.
-- [ ] **The FairCoin seller UI** (dashboard and storefront payments settings:
-      the FairCoin row, its reason and "Get paid in FairCoin", which posts
-      `rail: 'faircoin'` to the onboarding-link route), and the checkout's
-      FairCoin step over the `rail: 'faircoin'` handoff — owned by the Peable
-      sheet work.
+- [x] **The FairCoin seller UI** — dashboard Settings → Payments & payouts and
+      the storefront's Settings → Payments render `@mercaria/ui`'s
+      `FaircoinSellerPayments` over `SellerPaymentSettings.faircoin` (state,
+      payable and the reason in words, receiving Oxy account, confirmation date,
+      where the coins go and the no-fee line); "Get paid in FairCoin" /
+      "Confirm in Peable" posts `rail: 'faircoin'` to the onboarding-link route
+      and opens Peable's page like the card onboarding, re-reading on return.
+- [ ] **The checkout's FairCoin step** over the `rail: 'faircoin'` handoff —
+      owned by the Peable sheet work.
 - [ ] **FairCoin on USD orders** — a FairCoin-only Peable Checkout Session per
       seller (`@peable.to/sdk` 4.1.0), the fee decided once the method is known.
 - [ ] **FairCoin-paid merchant plans** — the plan screen reads a Peable

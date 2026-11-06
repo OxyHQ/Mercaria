@@ -1065,6 +1065,39 @@
       "processingIncluded": "カード決済の処理費用は含まれています。別途の処理手数料はありません。",
       "cardSalesOnly": "%{currency} でのカード販売に適用されます。",
       "faircoinNoFee": "FairCoin で支払われた販売には手数料はかかりません。"
+    },
+    "faircoinSeller": {
+      "title": "FairCoin",
+      "explanationStore": "購入者が FairCoin で支払うと、コインはこのストアを所有する Oxy アカウントの Peable ウォレットに直接届きます。Peable も Mercaria もコインを預かることはなく、FairCoin で支払われた販売にはマーケットプレイス手数料がかかりません。",
+      "explanationSelf": "購入者が FairCoin で支払うと、コインはあなた自身の Oxy アカウントの Peable ウォレットに直接届きます。Peable も Mercaria もコインを預かることはなく、FairCoin で支払われた販売にはマーケットプレイス手数料がかかりません。",
+      "stateLabel": "ステータス",
+      "state": {
+        "notConnected": "未設定",
+        "pending": "あなたの確認待ち",
+        "active": "有効"
+      },
+      "payableLabel": "現在 FairCoin で支払い可能",
+      "payableYes": "はい",
+      "payableNo": "いいえ",
+      "receiverLabel": "受け取る Oxy アカウント",
+      "confirmedLabel": "確認日",
+      "reason": {
+        "walletMissingStore": "受け取る Oxy アカウントにはまだ Peable ウォレットがありません。そのアカウントとしてサインインするか、そのアカウントとして操作して Peable を開き、ウォレットを作成してから、もう一度確認してください。",
+        "walletMissingSelf": "あなたの Oxy アカウントにはまだ Peable ウォレットがありません。そのアカウントで Peable を開いてウォレットを作成し、もう一度確認してください。",
+        "networkClosed": "Peable はこのネットワークでまだ FairCoin 決済を開始していません。対応は不要です。Peable が開始すると、ここで FairCoin が有効になります。",
+        "priceUnavailable": "Peable は現在 FairCoin 決済の価格を算出できません。一時的なものです。しばらくしてからもう一度お試しください。",
+        "temporarilyUnavailable": "Peable で FairCoin 決済が一時的に利用できません。しばらくしてからもう一度お試しください。",
+        "notConnected": "FairCoin 決済はまだ設定されていません。",
+        "notConfirmed": "FairCoin 決済は Peable でのあなたの確認を待っています。",
+        "railDisabled": "この Mercaria 環境では FairCoin 決済を利用できません。"
+      },
+      "confirmAsStore": "このストアを所有する Oxy アカウントとしてサインインするか、そのアカウントとして操作して、Peable で確認してください。",
+      "confirmAsSelf": "あなた自身の Oxy アカウントで Peable にサインインして確認してください。",
+      "action": {
+        "start": "FairCoin で受け取る",
+        "confirm": "Peable で確認"
+      },
+      "setupUnavailable": "この環境ではまだ FairCoin の設定を開始できません。"
     }
   }
 }

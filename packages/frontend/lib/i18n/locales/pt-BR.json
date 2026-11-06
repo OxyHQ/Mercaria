@@ -70,6 +70,7 @@
       "neededNow": "Necessário agora",
       "onboardingUnavailable": "A configuração de repasses ainda não está disponível nesta instalação da Mercaria.",
       "openFailed": "Não foi possível abrir a configuração de repasses",
+      "faircoinOpenFailed": "Não foi possível abrir a confirmação do FairCoin na Peable",
       "outstandingTitle": "Pendências com a Peable",
       "paidOutIn": "Repasse em",
       "payoutsTitle": "Repasses",

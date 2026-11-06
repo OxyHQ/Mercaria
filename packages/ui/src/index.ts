@@ -82,6 +82,7 @@ export { syncLayoutDirection, type DirectionSyncResult } from './i18n/layout-dir
 export { useShopControlClassName } from './lib/useShopControlClassName';
 export { useColorScheme } from './lib/useColorScheme';
 export { useSidebarCollapse } from './lib/useSidebarCollapse';
+export { useRefreshOnReturn } from './lib/use-refresh-on-return';
 
 // Settings is one Bloom `SettingsModal` per app (the Oxy-wide surface). The
 // provider and the hook every screen opens it with live here; the dialog and its
@@ -375,6 +376,11 @@ export {
   FeeScheduleTerms,
   type FeeScheduleTermsProps,
 } from './components/marketplace/FeeScheduleTerms';
+export {
+  FaircoinSellerPayments,
+  type FaircoinSellerAudience,
+  type FaircoinSellerPaymentsProps,
+} from './components/marketplace/FaircoinSellerPayments';
 export { CategoryPills, type CategoryPillsProps } from './components/marketplace/CategoryPills';
 export {
   MerchantCard,
