@@ -55,6 +55,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { validateCheckoutAddress } from '@mercaria/shared-types';
 import {
   SCRIPT_CORPUS,
   type ScriptFamily,
@@ -516,13 +517,15 @@ describe('a delivery address survives in every script', () => {
     // asserted so that a future "clean up the address" change cannot quietly turn
     // it into a slug.
     for (const sample of SCRIPT_CORPUS) {
-      const normalized = normalizeCheckoutAddress({
+      const input = {
         recipientName: sample.noun,
         line1: `12 ${sample.noun}`,
         city: sample.adjective,
         postalCode: '28001',
         country: 'ES',
-      });
+      };
+      const normalized = normalizeCheckoutAddress(input);
+      expect(validateCheckoutAddress(input)).toEqual({ ok: true, address: normalized });
       expect(normalized.recipientName, `${sample.script} recipient`).toBe(sample.noun);
       expect(normalized.line1, `${sample.script} street`).toBe(`12 ${sample.noun}`);
       expect(normalized.city, `${sample.script} city`).toBe(sample.adjective);
