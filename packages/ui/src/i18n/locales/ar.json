@@ -1063,7 +1063,8 @@
       "version": "إصدار الشروط %{version}",
       "effectiveFrom": "سارية منذ %{date}",
       "processingIncluded": "تشمل الرسوم معالجة البطاقات. لا توجد رسوم معالجة منفصلة.",
-      "cardSalesOnly": "تنطبق على المبيعات بالبطاقة بعملة %{currency}."
+      "cardSalesOnly": "تنطبق على المبيعات بالبطاقة بعملة %{currency}.",
+      "faircoinNoFee": "المبيعات المدفوعة بعملة FairCoin بلا رسوم."
     }
   }
 }

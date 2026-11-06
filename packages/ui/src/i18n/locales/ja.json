@@ -1063,7 +1063,8 @@
       "version": "条件バージョン %{version}",
       "effectiveFrom": "%{date} から有効",
       "processingIncluded": "カード決済の処理費用は含まれています。別途の処理手数料はありません。",
-      "cardSalesOnly": "%{currency} でのカード販売に適用されます。"
+      "cardSalesOnly": "%{currency} でのカード販売に適用されます。",
+      "faircoinNoFee": "FairCoin で支払われた販売には手数料はかかりません。"
     }
   }
 }
