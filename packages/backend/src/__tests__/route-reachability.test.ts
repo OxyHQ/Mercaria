@@ -192,6 +192,7 @@ describe('THE GATE: every route is reachable, or says why it is not', () => {
         'must never reach that screen; if the truth is "nobody has wired it yet", it is ' +
         'awaiting_product_decision instead.',
     ).toEqual([
+      'frontend/checkout',
       'frontend/checkout/return',
       'frontend/materials-transport/[id]',
       'frontend/referral-partner',
