@@ -15,6 +15,17 @@ composition is a second set of options that can drift from what production
 actually runs with nothing noticing; a later "speed-up" that inlines the call
 keeps every realdb suite green while validating a path production never takes.
 
+## Checkout lease tests also use Redis
+
+The API suite requires `TEST_REDIS_URL` pointing at a disposable Redis server
+(for example `redis://127.0.0.1:6379`). CI supplies Redis 7.4.2 alongside Postgres.
+For local tests, start the same image with
+`docker run --rm -p 127.0.0.1:6379:6379 redis:7.4.2-alpine`.
+Do not set the application `REDIS_URL` for this purpose: it would also enable
+queues and rate limiters unrelated to these tests. Lease tests use unique keys,
+remove only their own keys, and never flush the database. Missing test Redis
+fails the lease regressions rather than silently skipping them.
+
 ## Traps the shared test database sets
 
 - **A test that widens a global bound widens it for every parallel file.**

@@ -35,11 +35,12 @@
  *
  * The honest gate would be the runtime one: build the app, probe every mount
  * prefix, assert no bucket is incremented more than once per request. That
- * needs Redis, and `ci.yml` has one service container and it is Postgres. So
- * this asserts the SHAPE instead — the `general` scope is mounted exactly once,
- * in `app.ts` — and the runtime measurement lives in the PR that removed the
- * twelve. A CI Redis is what would upgrade it, and that is a decision about the
- * workflow rather than about this file.
+ * needs the application Redis connection. CI now supplies TEST_REDIS_URL for
+ * isolated checkout lease tests, but deliberately does not set REDIS_URL or
+ * enable every application queue/limiter. This gate still asserts the SHAPE —
+ * the `general` scope is mounted exactly once, in `app.ts`. The runtime
+ * measurement lives in the PR that removed the twelve; a scoped application
+ * harness is needed to promote that measurement to a runtime gate.
  *
  * The scope is narrowed to `general` deliberately rather than "no scope twice",
  * which sounds stronger and is not checkable here: whether two mounts of one

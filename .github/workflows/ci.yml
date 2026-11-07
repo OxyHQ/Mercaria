@@ -57,6 +57,15 @@ jobs:
     timeout-minutes: 25
 
     services:
+      redis:
+        image: redis:7.4.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
       # The API suite needs a real PostGIS server: the `*.realdb.test.ts` files
       # run their SQL against a throwaway database the harness creates HERE
       # (see packages/backend/vitest.pg.globalSetup.ts).
@@ -566,6 +575,7 @@ jobs:
         # it afterwards, so `mercaria_ci` is never written to.
         env:
           TEST_DATABASE_URL: postgres://mercaria:mercaria@127.0.0.1:5432/mercaria_ci
+          TEST_REDIS_URL: redis://127.0.0.1:6379
         run: bun run --filter @mercaria/backend test
 
       - name: Test real commerce CORS and legacy referral retirement in Chromium
@@ -591,6 +601,7 @@ jobs:
       - name: Run API unit tests under Bun
         env:
           TEST_DATABASE_URL: postgres://mercaria:mercaria@127.0.0.1:5432/mercaria_ci
+          TEST_REDIS_URL: redis://127.0.0.1:6379
         run: bun run --cwd packages/backend test:bun
 
   build-api:
