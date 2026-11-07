@@ -15,6 +15,17 @@ composition is a second set of options that can drift from what production
 actually runs with nothing noticing; a later "speed-up" that inlines the call
 keeps every realdb suite green while validating a path production never takes.
 
+## Checkout lease tests also use Redis
+
+The API suite requires `TEST_REDIS_URL` pointing at a disposable Redis server
+(for example `redis://127.0.0.1:6379`). CI supplies Redis 7.4.2 alongside Postgres.
+For local tests, start the same image with
+`docker run --rm -p 127.0.0.1:6379:6379 redis:7.4.2-alpine`.
+Do not set the application `REDIS_URL` for this purpose: it would also enable
+queues and rate limiters unrelated to these tests. Lease tests use unique keys,
+remove only their own keys, and never flush the database. Missing test Redis
+fails the lease regressions rather than silently skipping them.
+
 ## Traps the shared test database sets
 
 - **A test that widens a global bound widens it for every parallel file.**
@@ -219,3 +230,23 @@ Mechanical, and every part done by hand corrupts the chain silently.
 - **`SCHEMA_TABLE_COUNT` in `db/__tests__/schema-conventions.test.ts` conflicts
   on every such rebase and NEITHER side is right** — count it empirically from
   the barrel's `PgTable` exports.
+
+### Checkout claim rollout prerequisite
+
+Checkout claim ownership changes ship in two deployments. First deploy readers
+that recognize both `__pending__` and `__pending__:<token>`, while continuing to
+write the legacy marker. Legacy completion must compare that exact marker
+before publishing a group; it must not replace a future owned claim or a
+completed group. This first deployment does not release seller-refusal claims.
+
+Only after **every old API task has stopped** may the second deployment write
+owned markers and selectively release them after definitive pre-order refusals.
+Record the first deployment's running image/task evidence before merging the
+second change. Once owned writers are enabled, rollback images must retain the
+compatible reader and guarded legacy completion.
+
+Do not replace the single value with a legacy marker plus an ownership side key:
+the shared cache uses `volatile-lru`, so independent eviction can remove the
+main marker while retaining the owner. A legacy request could then acquire the
+same main marker and be mistaken for the old owner. Equal expiry times do not
+solve this eviction case.

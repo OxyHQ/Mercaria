@@ -49,6 +49,8 @@
  * row and keeps its existing per-order transactions untouched.
  */
 
+import { isPendingCheckoutClaim, completeLegacyCheckoutClaim } from './checkout/idempotency.js';
+
 import {
   recoverSupervisedCheckout,
   shoppingSelectionFingerprint,
@@ -878,12 +880,12 @@ export async function checkout(
       );
       if (claim === null) {
         const stored = await withRedisTimeout(redis.get(redisKey));
-        if (stored && stored !== IDEMPOTENCY_PENDING) {
+        if (stored && !isPendingCheckoutClaim(stored)) {
           const prior = await findOrdersByCheckoutGroup(stored, checkoutGroupOwner(owner));
           if (prior.length > 0) {
             return await summarizePriorGroup(actor, owner, stored, rail, supervisedPurchase);
           }
-        } else if (stored === IDEMPOTENCY_PENDING) {
+        } else if (stored && isPendingCheckoutClaim(stored)) {
           throw conflict('Checkout already in progress');
         }
       } else {
@@ -1829,7 +1831,12 @@ export async function checkout(
   if (redis && redisKey && holdsRedisClaim) {
     try {
       await withRedisTimeout(
-        redis.set(redisKey, checkoutGroupId, 'PX', config.orders.idempotencyTtlMs),
+        completeLegacyCheckoutClaim(
+          redis,
+          redisKey,
+          checkoutGroupId,
+          config.orders.idempotencyTtlMs,
+        ),
       );
     } catch (err) {
       log.general.warn({ err }, 'Failed to persist checkout idempotency group id to Redis');

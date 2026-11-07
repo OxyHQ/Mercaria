@@ -633,6 +633,21 @@ describe('checkout.service.checkout — reservation rollback', () => {
 });
 
 describe('checkout.service.checkout — idempotent replay', () => {
+  it.each(['__pending__', '__pending__:another-request'])(
+    'refuses an in-flight legacy or owned claim: %s',
+    async (marker) => {
+      getRedisClient.mockReturnValue({
+        set: vi.fn().mockResolvedValue(null),
+        get: vi.fn().mockResolvedValue(marker),
+      });
+      await expect(checkout(ACTOR, { addressId: ADDRESS_ID }, 'pending-key')).rejects.toThrow(
+        'Checkout already in progress',
+      );
+      expect(getCart).not.toHaveBeenCalled();
+      expect(insertOrder).not.toHaveBeenCalled();
+    },
+  );
+
   it('returns the original orders without reserving or creating again', async () => {
     const storedGroupId = 'group-prior-1';
     const redis = {
