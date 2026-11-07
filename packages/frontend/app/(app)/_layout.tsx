@@ -1,3 +1,4 @@
+import { CartPaymentProvider } from '@/components/payment/CartPaymentProvider';
 import { SupervisedStorefrontGate } from '@/components/shell/SupervisedStorefrontGate';
 import { Slot, Stack } from 'expo-router';
 import { Platform, useWindowDimensions } from 'react-native';
@@ -96,7 +97,7 @@ function StorefrontLayout() {
             <AppShellPanel>
               {/* Web only: a referral link opens in the browser, never the app. */}
               {IS_WEB ? <ReferralDisclosureNotice /> : null}
-              {routed}
+              <CartPaymentProvider>{routed}</CartPaymentProvider>
             </AppShellPanel>
           </AppShell>
         </GestureHandlerRootView>

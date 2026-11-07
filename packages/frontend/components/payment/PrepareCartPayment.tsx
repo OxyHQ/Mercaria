@@ -17,10 +17,11 @@ import {
   type CheckoutResult,
   type PaymentStatus,
 } from '@mercaria/shared-types';
-import { Text } from '@mercaria/ui';
+import { Text, CommercialDisclosure, commercialSellerLabel } from '@mercaria/ui';
 import { DigitalSupplyConsent } from '@/components/checkout/CheckoutDestinationForm';
 import { fetchAddresses } from '@/lib/api/addresses';
 import { postCheckout } from '@/lib/api/checkout';
+import { apiErrorDetails } from '@/lib/api/client';
 import { PEABLE_CHECKOUT_URL, PEABLE_GATEWAY_URL } from '@/lib/config';
 import { useTranslation } from '@/lib/i18n';
 import {
@@ -44,6 +45,7 @@ export function PrepareCartPayment({
   onClose,
   onRefused,
   onSubmitting,
+  onRejectedBeforeCreation,
 }: {
   selection: CheckoutSelection;
   attemptId: string;
@@ -54,6 +56,7 @@ export function PrepareCartPayment({
   onClose: () => void;
   onRefused: (error: unknown) => string;
   onSubmitting: () => void;
+  onRejectedBeforeCreation: () => void;
 }) {
   const { t, locale } = useTranslation();
   const { user, isAuthenticated, canUsePrivateApi, oxyServices } = useOxy();
@@ -110,6 +113,8 @@ export function PrepareCartPayment({
   const [unavailable, setUnavailable] = useState<string>();
   const attempt = useRef<ReturnType<typeof checkoutInput> | null>(null);
   const resultRef = useRef<CheckoutResult | null>(null);
+  const unresolvedSubmission = useRef(false);
+  const submissionGeneration = useRef(0);
   const [groupId, setGroupId] = useState<string>();
   const lines = selection.groups.flatMap((group) => group.items);
   const ships = lines.some((line) => line.delivery !== 'digital');
@@ -166,6 +171,12 @@ export function PrepareCartPayment({
       (!pickup || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pickupEmail.trim())),
     renderAdditionalDetails: ({ disabled, details }) => (
       <View className="gap-4">
+        {selection.groups.map((group) => (
+          <View key={group.sellerKey} className="gap-2">
+            <Text className="font-semibold">{commercialSellerLabel(t, group.commercial)}</Text>
+            <CommercialDisclosure presentation={group.commercial} showExplanations />
+          </View>
+        ))}
         {actor && (addresses.isError || legacy.isError || profile.isError) ? (
           <View className="gap-2">
             <Text accessibilityRole="alert">{t('checkout.account.loadFailed')}</Text>
@@ -318,13 +329,31 @@ export function PrepareCartPayment({
         attempt.current = input;
       }
       onSubmitting();
+      const generation = ++submissionGeneration.current;
+      const hadUnresolvedSubmission = unresolvedSubmission.current;
+      // Until this request proves otherwise, another attempt may already own an order.
+      unresolvedSubmission.current = true;
       let result: CheckoutResult;
       try {
         result =
           resultRef.current ?? (await postCheckout(attempt.current, attemptId, selection.currency));
       } catch (error) {
         if (signal.aborted) throw error;
-        throw new SheetPreparationError(onRefused(error), 'unknown');
+        const message = onRefused(error);
+        const reason = apiErrorDetails(error)?.reason;
+        // Both named gates precede order writes. Repeated definitive refusals
+        // remain editable, but none can resolve an earlier uncertain request.
+        if (
+          !hadUnresolvedSubmission &&
+          generation === submissionGeneration.current &&
+          (reason === 'seller_not_activated' || reason === 'seller_not_payment_ready')
+        ) {
+          unresolvedSubmission.current = false;
+          attempt.current = null;
+          onRejectedBeforeCreation();
+          throw new SheetPreparationError(message, 'not_created');
+        }
+        throw new SheetPreparationError(message, 'unknown');
       }
       resultRef.current = result;
       if (signal.aborted) throw new Error(t('payment.sheet.unreadable'));

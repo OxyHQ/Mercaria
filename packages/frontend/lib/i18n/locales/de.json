@@ -568,8 +568,6 @@
   },
   "checkout": {
     "address": {},
-    "backToOrders": "Zurück zu deinen Bestellungen",
-    "checkLaterFromOrders": "Später in deinen Bestellungen nachsehen",
     "claim": {
       "optional": "Optional. Deine Bestellung ist so oder so bestätigt.",
       "saveToOxy": "Diese Bestellungen in Oxy speichern"
@@ -582,12 +580,7 @@
       "accessibilityLabel": "Rabattcode",
       "label": "Rabattcode (optional)"
     },
-    "emailMeLink": "Schick mir einen Link zu dieser Bestellung per E-Mail",
-    "empty": {
-      "backToCart": "Zurück zum Warenkorb",
-      "body": "Dein Warenkorb ist leer oder diese Artikel sind nicht mehr verfügbar.",
-      "title": "Nichts zu bestellen"
-    },
+    "empty": {},
     "error": {
       "sellerNotActivated": "%{seller} nimmt gerade keine Bestellungen an. Entferne die Artikel dieses Verkäufers aus deiner Bestellung, um den Rest zu bezahlen.",
       "sellerNotPaymentReady": "%{seller} kann gerade keine Zahlungen annehmen. Entferne die Artikel dieses Verkäufers aus deiner Bestellung, um den Rest zu bezahlen.",
@@ -637,30 +630,16 @@
       "supplyCountryLabel": "Land, in dem du bist"
     },
     "keepShopping": "Weiter einkaufen",
-    "orderNumbers": {
-      "headingOne": "Deine Bestellnummer",
-      "headingOther": "Deine Bestellnummern",
-      "keepToHand": "Halte sie bereit — damit lässt sich dein Kauf zuordnen, wenn du dich melden musst."
-    },
-    "pageTitle": "Kasse — Mercaria",
-    "signIn": {
-      "action": "Anmelden",
-      "body": "Mit der Anmeldung hast du deine gespeicherten Adressen, dieser Warenkorb ist auf deinen anderen Geräten da, und die Bestellung bleibt in der Bestellhistorie deines Kontos. Du kannst auch als Gast bestellen — es ist genauso viel zu tippen.",
-      "title": "Hast du ein Oxy-Konto?"
-    },
+    "orderNumbers": {},
+    "signIn": {},
     "summary": {
-      "calculatedAtPlacement": "Rabatte, Steuern und Versand werden bei der Bestellung berechnet.",
       "cannotAcceptPayment": "Kann gerade keine Zahlungen annehmen",
-      "subtotal": "Zwischensumme",
-      "title": "Bestellübersicht",
       "notAcceptingOrders": "Nimmt gerade keine Bestellungen an"
     },
-    "title": "Kasse",
     "toast": {
       "reservedGuest": "Deine Bestellung ist für kurze Zeit reserviert. Geh erneut zur Kasse, um sie zu bezahlen.",
       "reservedSignedIn": "Deine Bestellung ist reserviert. Du kannst sie in deinen Bestellungen bezahlen."
     },
-    "viewOrder": "Bestellung ansehen",
     "viewOrders": "Deine Bestellungen ansehen",
     "payWith": {},
     "account": {
@@ -673,16 +652,12 @@
   "payment": {
     "cancelled": {
       "body": "Diese Zahlung wurde abgebrochen und es wurde nichts abgebucht.",
-      "bodyItemsReturned": "Diese Zahlung wurde abgebrochen und es wurde nichts abgebucht. Deine Artikel sind zurück im Shop.",
       "title": "Zahlung abgebrochen"
     },
     "card": {
       "payNow": "Jetzt bezahlen"
     },
-    "cardDetailsNotice": "Deine Kartendaten gehen direkt an unseren Zahlungsdienstleister und erreichen Mercaria nie.",
     "confirming": {
-      "bankStillCompleting": "Deine Bank schließt diese Zahlung noch ab. Das kann einen Moment dauern.",
-      "checkingWithBank": "Wir bestätigen das gerade mit deiner Bank. Deine Bestellung bleibt so lange reserviert.",
       "continueWithoutWaiting": "Weiter, ohne zu warten",
       "pageTitle": "Zahlung wird bestätigt — Mercaria",
       "returnBody": "Deine Bank hat dich zu uns zurückgeschickt und wir bestätigen die Zahlung. Das dauert meist ein paar Sekunden.",
@@ -700,7 +675,6 @@
       "missingGroup": "Diesem Link fehlt der Kauf, zu dem er gehört. Falls du eine Zahlung abgeschlossen hast, ist deine Bestellung sicher — hier ändert sich nichts daran."
     },
     "title": "Zahlung",
-    "totalToPay": "Zu zahlen",
     "unreadable": {
       "body": "Wir konnten diese Zahlung von hier aus nicht prüfen. Falls sie durchging, ist deine Bestellung sicher — diese Seite kann daran ohnehin nichts ändern.",
       "title": "Wir konnten diese Zahlung nicht auslesen"

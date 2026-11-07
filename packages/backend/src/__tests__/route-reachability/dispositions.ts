@@ -63,6 +63,14 @@ export const ROUTE_DISPOSITIONS: Readonly<
   Record<string, Readonly<Record<string, RouteDisposition>>>
 > = {
   frontend: {
+    '/checkout': {
+      kind: 'deliberate',
+      reason:
+        'Compatibility for saved purchase and pickup links. The route redirects to the cart ' +
+        'and opens the canonical Peable sheet with the public seller/pickup selection; it has ' +
+        'no standalone checkout UI. In-app cart, Buy now and pickup actions open that sheet ' +
+        'directly over the current page and must not add this intermediate navigation step.',
+    },
     '/checkout/return': {
       kind: 'deliberate',
       reason:

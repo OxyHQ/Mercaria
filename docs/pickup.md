@@ -617,10 +617,14 @@ The buyer's coordinate lives in one component's state for as long as the screen
 is open. It is never a route param, never in a store, never in an analytics call
 and never in a React Query key — the key carries the COARSE cell (`use-nearby.ts`).
 
-`?pickup=` and `?pickupName=` carry a merchant's own published shop front, which
-#93 client rule 14 does not cover: it is public, it is the merchant's rather
-than the buyer's, and it authorizes nothing. It is in the URL because the choice
-has to survive a reload and a bank redirect, which is client rule 11.
+`?pay=1&seller=…&pickup=…` retains the chosen public seller and collection
+location on the nearby page (or the cart for saved `/checkout` links). These are
+merchant facts, not buyer coordinates or contact details, and authorize nothing.
+Reloading opens the same Peable review sheet without submitting an order. Once
+an authoritative order exists, only its matching public intent is removed; the
+order's immutable destination and checkout return link preserve collection
+through a bank redirect. Other product/variant route parameters remain intact
+(#93 client rules 11 and 14).
 
 ### The collection code
 

@@ -224,6 +224,9 @@ const EXTRA_NAVIGATION_PATHS = [
   // #108's portal rather than the storefront — and that link is held to the
   // route gate and to nothing else.
   'app/(app)/checkout/index.tsx',
+  // Cart and Buy now now share this payment controller; its order/guest portal
+  // targets remain covered when the legacy checkout route only redirects.
+  'components/payment/CartPaymentProvider.tsx',
 ];
 
 /** Every file WALL 6 reads navigation targets out of: this page's, plus the extras. */

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useCartPayment } from '@/components/payment/CartPaymentProvider';
+import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import Head from 'expo-router/head';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -10,7 +11,7 @@ import { EmptyState } from '@oxy.so/bloom/empty-state';
 import { ScreenShell } from '@/components/shell/ScreenShell';
 import { Footer } from '@/components/shell/Footer';
 import { NearbyAvailability } from '@/components/nearby/NearbyAvailability';
-import { useAddCartItem } from '@/lib/hooks/use-cart';
+import { useAddCartItem, useCart } from '@/lib/hooks/use-cart';
 import { useTranslation } from '@/lib/i18n';
 
 /**
@@ -35,32 +36,42 @@ import { useTranslation } from '@/lib/i18n';
  * changes the answer — `describeBuyerPickupBlock` decides that, not this
  * screen, and a mixed refusal never offers it.
  *
- * ## What travels in the URL, and why it is allowed to
- *
- * `?pickup=` carries a LOCATION id and `?pickupName=` its published display
- * name. #93 client rule 14 forbids precise location, contact and access tokens
- * in URLs — a merchant's own published shop front is none of the three: it is
- * public, it is the merchant's rather than the buyer's, and it authorizes
- * nothing (the server re-validates it against the actor and every cart line
- * before a single unit is reserved). The BUYER's position never leaves this
- * screen: it lives in `useNearbyOrigin`'s state and is never written to a
- * param, a store or an analytics call.
- *
- * That choice also has to survive a reload and a bank redirect, which is #93
- * client rule 11 — and a URL param survives both where component state does
- * not.
+ * The chosen public location id is frozen in the sheet's checkout attempt.
+ * Mercaria revalidates it against the actor and every cart line before reserving
+ * stock. The buyer's position remains in this screen's nearby-origin state.
  */
 
 export default function NearbyScreen() {
   const { t } = useTranslation();
-  const params = useLocalSearchParams<{ product?: string; variant?: string }>();
+  const params = useLocalSearchParams<{
+    product?: string;
+    variant?: string;
+    pay?: string;
+    seller?: string;
+    pickup?: string;
+  }>();
+  const cartPayment = useCartPayment();
   const router = useRouter();
-  const { isAuthenticated, openAccountDialog } = useOxy();
+  const { isAuthenticated, openAccountDialog, isLoading: accountLoading } = useOxy();
+  const { data: cart } = useCart();
+  const restoredPickup = useRef<string | undefined>(undefined);
   const addToCart = useAddCartItem();
   const [error, setError] = useState<string | null>(null);
 
   const canonicalProductId = params.product;
   const canonicalVariantId = params.variant;
+
+  // Persist only public merchant intent; restoring it opens review, never an order.
+  useEffect(() => {
+    if (params.pay !== '1' || !params.seller || !params.pickup) {
+      restoredPickup.current = undefined;
+      return;
+    }
+    const intent = `${params.seller}:${params.pickup}`;
+    if (!cart || accountLoading || restoredPickup.current === intent) return;
+    restoredPickup.current = intent;
+    cartPayment.begin(cart, [params.seller], params.pickup);
+  }, [params.pay, params.seller, params.pickup, cart, accountLoading, cartPayment]);
 
   /**
    * Take the chosen shop to checkout.
@@ -72,6 +83,7 @@ export default function NearbyScreen() {
    * meeting the refusal.
    */
   const collectHere = (result: NearbyLocationResult) => {
+    if (cartPayment.resumeSubmitted()) return;
     setError(null);
     addToCart.mutate(
       { listingId: result.listingId, variantId: result.variantId, quantity: 1 },
@@ -87,12 +99,13 @@ export default function NearbyScreen() {
             setError(t('nearby.screen.addedToCart'));
             return;
           }
-          const query = new URLSearchParams({
+          restoredPickup.current = `${group.sellerKey}:${result.location.locationId}`;
+          router.setParams({
+            pay: '1',
             seller: group.sellerKey,
             pickup: result.location.locationId,
-            pickupName: result.location.displayName,
           });
-          router.push(`/checkout?${query.toString()}`);
+          cartPayment.begin(cart, [group.sellerKey], result.location.locationId);
         },
         onError: (cause: Error) => setError(cause.message),
       },

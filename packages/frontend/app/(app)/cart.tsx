@@ -1,12 +1,13 @@
+import { CartPaymentRecovery, useCartPayment } from '@/components/payment/CartPaymentProvider';
 import { renderCartVendorLink } from '@/lib/catalog/cart-vendor-links';
 import { renderListingLink } from '@/lib/catalog/product-links';
 import { useImageResolver } from '@oxy.so/bloom/image-resolver';
 import { merchantImageSource } from '@mercaria/ui';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Image } from '@mercaria/ui';
 import Head from 'expo-router/head';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useOxy } from '@oxy.so/services/ui/client';
 import { RiShoppingBag3Line } from '@oxy.so/bloom/icons/RiShoppingBag3Line';
 import { EmptyState } from '@oxy.so/bloom/empty-state';
@@ -126,6 +127,7 @@ function CartGroupCard({
 }) {
   const { t } = useTranslation();
   const ratingDisplay = useRatingDisplay();
+  const { refusedKeys, refusalReason } = useCartPayment();
   const { vendor, commercial } = group;
   const resolveImage = useImageResolver();
   const logoSource = merchantImageSource(vendor.logoUrl, resolveImage);
@@ -174,6 +176,15 @@ function CartGroupCard({
 
   return (
     <View className="mb-4 overflow-hidden rounded-3xl border border-border bg-card p-4 web:shadow">
+      {refusedKeys.has(group.sellerKey) ? (
+        <Text accessibilityRole="alert" className="mb-2 text-sm text-destructive">
+          {t(
+            refusalReason === 'seller_not_activated'
+              ? 'checkout.summary.notAcceptingOrders'
+              : 'checkout.summary.cannotAcceptPayment',
+          )}
+        </Text>
+      ) : null}
       {/* Header: the seller, linked to the vendor page only when they are one. */}
       {(linksToVendor
         ? renderCartVendorLink(
@@ -273,10 +284,34 @@ function GuestGroupBlockedNotice({ vendorName }: { vendorName: string }) {
 function CartBody() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { isAuthenticated } = useOxy();
+  const payment = useCartPayment();
+  const { pay, seller, pickup } = useLocalSearchParams<{
+    pay?: string;
+    seller?: string;
+    pickup?: string;
+  }>();
+  const openedLink = useRef(false);
+  const { isAuthenticated, isLoading: accountLoading } = useOxy();
   const { data: cart, isLoading, isError } = useCart();
   const { storageAvailable } = useGuestCredential();
   const { data: feed } = useFeed();
+  useEffect(() => {
+    if (pay !== '1') {
+      openedLink.current = false;
+      return;
+    }
+    if (!cart || accountLoading || openedLink.current) return;
+    openedLink.current = true;
+    payment.begin(
+      cart,
+      seller
+        ?.split(',')
+        .map((key) => key.trim())
+        .filter(Boolean),
+      pickup,
+    );
+    if (!pickup) router.setParams({ pay: undefined, seller: undefined, pickup: undefined });
+  }, [cart, accountLoading, pay, seller, pickup, payment, router]);
 
   const updateItem = useUpdateCartItem();
   const removeItem = useRemoveCartItem();
@@ -289,28 +324,15 @@ function CartBody() {
     removeItem.mutate(variantId);
   };
 
-  // Per-group checkout: place just this group (the rest stay in cart).
-  //
-  // The key comes from the SERVER (`group.sellerKey`) rather than being built
-  // from `vendor.kind` and `vendor.id`: Mercaria's own lines answer to the flat
-  // `platform` key #123 put in the same namespace, and a client composing
-  // `store:<id>` for them would be told there are no matching cart items.
   const onCheckout = (group: CartGroup) => {
-    router.push({ pathname: '/checkout', params: { seller: group.sellerKey } });
+    if (payment.resumeSubmitted()) return;
+    router.setParams({ pay: undefined, seller: undefined, pickup: undefined });
+    if (cart) payment.begin(cart, [group.sellerKey]);
   };
-
-  // Whole-cart checkout: place every group the CALLER may actually place.
-  //
-  // A guest whose cart mixes a shop with a person gets the shop's group and is
-  // told why the rest is left behind (#112: a mixed cart is separated before
-  // the payment, never charged as a whole and then refused). With nothing
-  // blocked this pushes the bare `/checkout` route exactly as it always did.
   const onCheckoutAll = () => {
-    router.push(
-      blockedGroups.length === 0
-        ? '/checkout'
-        : { pathname: '/checkout', params: { seller: checkoutableKeys.join(',') } },
-    );
+    if (payment.resumeSubmitted()) return;
+    router.setParams({ pay: undefined, seller: undefined, pickup: undefined });
+    if (cart) payment.begin(cart);
   };
 
   // Bottom recommendation shelf: flatten product-feed-section products.
@@ -340,6 +362,7 @@ function CartBody() {
   return (
     <>
       <SectionHeader title={t('cart.title')} />
+      <CartPaymentRecovery />
 
       {/* Signing out of the cart is no longer a state this screen has: the cart
           belongs to whoever the server resolves the caller to be, so a guest

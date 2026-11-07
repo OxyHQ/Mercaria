@@ -60,7 +60,14 @@ adapter and event ingress (ADR 0009).
 
 ### The storefront opens Peable before creating orders
 
-Pay opens `PeableSheetCheckout` immediately. Its preparation step contains the
+Cart checkout, Buy now and pickup actions open `PeableSheetCheckout` directly over
+the current storefront page. There is no separate checkout screen or second Pay
+button before it. Saved `/checkout` links only adapt their seller/pickup selection
+to the cart and open the same sheet. Seller identities and commercial disclosures
+appear in the sheet before submission; named seller refusals also flag their cart
+groups. A closed pending attempt can be resumed from the cart without a new order.
+
+Its preparation step contains the
 private Oxy address book, guest receipt contact, and Mercaria's pickup and
 digital-supply fields. Existing Mercaria destinations remain selectable; saving
 a reviewed destination to Oxy is a separate explicit action. Structured places
@@ -76,8 +83,9 @@ opening the panel and completing preparation never authorize a charge.
 The same Bloom sheet remains mounted while the session is created, while the
 cart refreshes after placement, and across dismissal/reopening. After a request
 starts, its address, collector, consent, discount and idempotency key stay frozen
-for retries, including uncertain server failures. Only a local preflight refusal
-before the first request allows editing. Account changes discard the private
+for retries, including uncertain server failures. A local preflight refusal or a
+sequence of definitive pre-order seller refusals permits editing; a later refusal
+never unlocks an earlier uncertain request. Account changes discard the private
 controller and suppress stale callbacks. A failed session read recovers using
 the existing order's capability; it does not create another checkout.
 

@@ -572,8 +572,6 @@
   },
   "checkout": {
     "address": {},
-    "backToOrders": "Torna a les teves comandes",
-    "checkLaterFromOrders": "Consulta-ho més tard des de les teves comandes",
     "claim": {
       "optional": "Opcional. La teva comanda està confirmada igualment.",
       "saveToOxy": "Desa aquestes comandes a Oxy"
@@ -586,12 +584,7 @@
       "accessibilityLabel": "Codi de descompte",
       "label": "Codi de descompte (opcional)"
     },
-    "emailMeLink": "Envia'm per correu un enllaç a aquesta comanda",
-    "empty": {
-      "backToCart": "Torna al carretó",
-      "body": "El teu carretó és buit o aquests articles ja no estan disponibles.",
-      "title": "No hi ha res per comprar"
-    },
+    "empty": {},
     "error": {
       "sellerNotActivated": "%{seller} no accepta comandes ara mateix. Treu-ne els articles de la comanda per pagar la resta.",
       "sellerNotPaymentReady": "%{seller} no pot acceptar pagaments ara mateix. Treu els seus articles de la comanda per pagar la resta.",
@@ -641,30 +634,16 @@
       "supplyCountryLabel": "País on ets"
     },
     "keepShopping": "Continua comprant",
-    "orderNumbers": {
-      "headingOne": "El teu número de comanda",
-      "headingOther": "Els teus números de comanda",
-      "keepToHand": "Tingues-lo a mà: identifica la teva compra si necessites posar-te en contacte."
-    },
-    "pageTitle": "Finalitza la compra — Mercaria",
-    "signIn": {
-      "action": "Inicia la sessió",
-      "body": "En iniciar la sessió tindràs les adreces desades, aquest carretó als teus altres dispositius i la comanda a l'historial del teu compte. També pots comprar com a convidat: s'escriu el mateix.",
-      "title": "Tens un compte d'Oxy?"
-    },
+    "orderNumbers": {},
+    "signIn": {},
     "summary": {
-      "calculatedAtPlacement": "Els descomptes, els impostos i l'enviament es calculen en fer la comanda.",
       "cannotAcceptPayment": "No pot acceptar pagaments ara mateix",
-      "subtotal": "Subtotal",
-      "title": "Resum de la comanda",
       "notAcceptingOrders": "No accepta comandes ara mateix"
     },
-    "title": "Finalitza la compra",
     "toast": {
       "reservedGuest": "La teva comanda queda reservada una estona. Torna a finalitzar la compra per pagar-la.",
       "reservedSignedIn": "La teva comanda queda reservada. La pots pagar des de les teves comandes."
     },
-    "viewOrder": "Mostra la comanda",
     "viewOrders": "Mostra les teves comandes",
     "payWith": {},
     "account": {
@@ -677,16 +656,12 @@
   "payment": {
     "cancelled": {
       "body": "Aquest pagament s'ha cancel·lat i no s'ha cobrat res.",
-      "bodyItemsReturned": "Aquest pagament s'ha cancel·lat i no s'ha cobrat res. Els teus articles han tornat a la botiga.",
       "title": "Pagament cancel·lat"
     },
     "card": {
       "payNow": "Paga ara"
     },
-    "cardDetailsNotice": "Les dades de la teva targeta van directament al nostre proveïdor de pagaments i no arriben mai a Mercaria.",
     "confirming": {
-      "bankStillCompleting": "El teu banc encara està completant aquest pagament. Pot trigar un moment.",
-      "checkingWithBank": "Ho estem confirmant amb el teu banc. Mentrestant, la teva comanda queda reservada.",
       "continueWithoutWaiting": "Continua sense esperar",
       "pageTitle": "Confirmant el teu pagament — Mercaria",
       "returnBody": "El teu banc t'ha tornat aquí i estem confirmant el pagament. Sol trigar uns segons.",
@@ -704,7 +679,6 @@
       "missingGroup": "A aquest enllaç li falta la compra a la qual pertany. Si has completat un pagament, la teva comanda és fora de perill: aquí no canvia res."
     },
     "title": "Pagament",
-    "totalToPay": "Total a pagar",
     "unreadable": {
       "body": "No hem pogut comprovar aquest pagament des d'aquí. Si s'ha fet, la teva comanda és fora de perill: aquesta pàgina no la pot canviar.",
       "title": "No hem pogut llegir aquest pagament"

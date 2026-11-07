@@ -1229,8 +1229,13 @@ test('Buy now uses the selected variant and the server-provided checkout seller'
   const group = cart.groups.find((item: { items: { variantId: string }[] }) =>
     item.items.some((line) => line.variantId === variant.id),
   );
-  await expect(page).toHaveURL(/\/checkout\?/);
-  expect(new URL(page.url()).searchParams.get('seller')).toBe(group.sellerKey);
+  await expect(page.getByTestId('bloom-checkout-step')).toBeVisible();
+  await expect(page).toHaveURL(/\/products\//);
+  await expect(
+    page
+      .getByTestId('bloom-checkout-step')
+      .getByText(group.commercial.sellerLabel, { exact: true }),
+  ).toBeVisible();
 });
 
 test('a product without photographs keeps an accessible empty gallery and working purchase controls', async ({

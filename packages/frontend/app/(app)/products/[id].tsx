@@ -1,3 +1,4 @@
+import { useCartPayment } from '@/components/payment/CartPaymentProvider';
 import { ProductMediaGallery } from '@/components/product/ProductMediaGallery';
 import { renderListingLink } from '@/lib/catalog/product-links';
 import { listingGalleryMedia } from '@/lib/catalog/product-media';
@@ -276,6 +277,7 @@ function ProductBody({ listing }: ProductBodyProps) {
   const { flyToCart } = useCartFlight();
   const desktopNavigation = width >= STOREFRONT_NAV_FROM;
   const router = useRouter();
+  const cartPayment = useCartPayment();
   const { t } = useTranslation();
   const { formatMoney } = useFormatters();
   const ratingDisplay = useRatingDisplay();
@@ -472,6 +474,7 @@ function ProductBody({ listing }: ProductBodyProps) {
   };
 
   const onBuyNow = () => {
+    if (cartPayment.resumeSubmitted()) return;
     if (!selectedVariant) return;
     addToCart.mutate(
       { listingId: listing.id, variantId: selectedVariant.id, quantity },
@@ -480,11 +483,8 @@ function ProductBody({ listing }: ProductBodyProps) {
           const group = cart.groups.find((candidate) =>
             candidate.items.some((item) => item.variantId === selectedVariant.id),
           );
-          router.push(
-            !group || group.guestCheckout?.status === 'blocked'
-              ? '/cart'
-              : { pathname: '/checkout', params: { seller: group.sellerKey } },
-          );
+          if (!group || group.guestCheckout?.status === 'blocked') router.push('/cart');
+          else cartPayment.begin(cart, [group.sellerKey]);
         },
       },
     );

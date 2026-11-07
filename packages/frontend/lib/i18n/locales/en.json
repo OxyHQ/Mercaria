@@ -568,8 +568,6 @@
   },
   "checkout": {
     "address": {},
-    "backToOrders": "Back to your orders",
-    "checkLaterFromOrders": "Check later from your orders",
     "claim": {
       "optional": "Optional. Your order is confirmed either way.",
       "saveToOxy": "Save these orders to Oxy"
@@ -582,12 +580,7 @@
       "accessibilityLabel": "Discount code",
       "label": "Discount code (optional)"
     },
-    "emailMeLink": "Email me a link to this order",
-    "empty": {
-      "backToCart": "Back to cart",
-      "body": "Your cart is empty or these items are no longer available.",
-      "title": "Nothing to check out"
-    },
+    "empty": {},
     "error": {
       "sellerNotActivated": "%{seller} isn't accepting orders right now. Remove their items from your order to check out with the rest.",
       "sellerNotPaymentReady": "%{seller} can't accept payment right now. Remove their items from your order to check out with the rest.",
@@ -637,30 +630,16 @@
       "supplyCountryLabel": "Country you are in"
     },
     "keepShopping": "Keep shopping",
-    "orderNumbers": {
-      "headingOne": "Your order number",
-      "headingOther": "Your order numbers",
-      "keepToHand": "Keep this to hand — it identifies your purchase if you need to get in touch."
-    },
-    "pageTitle": "Checkout — Mercaria",
-    "signIn": {
-      "action": "Sign in",
-      "body": "Signing in brings your saved addresses, keeps this cart on your other devices, and keeps this order in your account's order history. You can also check out as a guest — it takes the same amount of typing.",
-      "title": "Have an Oxy account?"
-    },
+    "orderNumbers": {},
+    "signIn": {},
     "summary": {
-      "calculatedAtPlacement": "Discounts, taxes and shipping are calculated when your order is placed.",
       "cannotAcceptPayment": "Can't accept payment right now",
-      "subtotal": "Subtotal",
-      "title": "Order summary",
       "notAcceptingOrders": "Not accepting orders right now"
     },
-    "title": "Checkout",
     "toast": {
       "reservedGuest": "Your order is reserved for a short while. Check out again to pay for it.",
       "reservedSignedIn": "Your order is reserved. You can pay for it from your orders."
     },
-    "viewOrder": "View your order",
     "viewOrders": "View your orders",
     "payWith": {},
     "account": {
@@ -673,16 +652,12 @@
   "payment": {
     "cancelled": {
       "body": "This payment was cancelled and nothing was charged.",
-      "bodyItemsReturned": "This payment was cancelled and nothing was charged. Your items have been returned to the shop.",
       "title": "Payment cancelled"
     },
     "card": {
       "payNow": "Pay now"
     },
-    "cardDetailsNotice": "Your card details go straight to our payment provider and never reach Mercaria.",
     "confirming": {
-      "bankStillCompleting": "Your bank is still completing this payment. This can take a moment.",
-      "checkingWithBank": "We are confirming this with your bank. Your order is reserved meanwhile.",
       "continueWithoutWaiting": "Continue without waiting",
       "pageTitle": "Confirming your payment — Mercaria",
       "returnBody": "Your bank has sent you back to us and we are confirming the payment. This usually takes a few seconds.",
@@ -700,7 +675,6 @@
       "missingGroup": "This link is missing the checkout it belongs to. If you completed a payment, your order is safe — nothing here changes it."
     },
     "title": "Payment",
-    "totalToPay": "Total to pay",
     "unreadable": {
       "body": "We could not check this payment from here. If it went through, your order is safe — this page cannot change it either way.",
       "title": "We could not read this payment"

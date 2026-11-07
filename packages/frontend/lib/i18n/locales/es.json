@@ -572,8 +572,6 @@
   },
   "checkout": {
     "address": {},
-    "backToOrders": "Volver a tus pedidos",
-    "checkLaterFromOrders": "Consultarlo después desde tus pedidos",
     "claim": {
       "optional": "Opcional. Tu pedido está confirmado en cualquier caso.",
       "saveToOxy": "Guardar estos pedidos en Oxy"
@@ -586,12 +584,7 @@
       "accessibilityLabel": "Código de descuento",
       "label": "Código de descuento (opcional)"
     },
-    "emailMeLink": "Enviarme por correo un enlace a este pedido",
-    "empty": {
-      "backToCart": "Volver al carrito",
-      "body": "Tu carrito está vacío o estos artículos ya no están disponibles.",
-      "title": "No hay nada que comprar"
-    },
+    "empty": {},
     "error": {
       "sellerNotActivated": "%{seller} no acepta pedidos en este momento. Quita sus artículos del pedido para pagar el resto.",
       "sellerNotPaymentReady": "%{seller} no puede aceptar pagos en este momento. Quita sus artículos del pedido para pagar el resto.",
@@ -641,30 +634,16 @@
       "supplyCountryLabel": "País en el que estás"
     },
     "keepShopping": "Seguir comprando",
-    "orderNumbers": {
-      "headingOne": "Tu número de pedido",
-      "headingOther": "Tus números de pedido",
-      "keepToHand": "Tenlo a mano: identifica tu compra si necesitas ponerte en contacto."
-    },
-    "pageTitle": "Finalizar compra — Mercaria",
-    "signIn": {
-      "action": "Iniciar sesión",
-      "body": "Al iniciar sesión tendrás tus direcciones guardadas, este carrito estará en tus otros dispositivos y el pedido quedará en el historial de tu cuenta. También puedes comprar como invitado: se escribe lo mismo.",
-      "title": "¿Tienes una cuenta de Oxy?"
-    },
+    "orderNumbers": {},
+    "signIn": {},
     "summary": {
-      "calculatedAtPlacement": "Los descuentos, los impuestos y el envío se calculan al realizar el pedido.",
       "cannotAcceptPayment": "No puede aceptar pagos en este momento",
-      "subtotal": "Subtotal",
-      "title": "Resumen del pedido",
       "notAcceptingOrders": "No acepta pedidos en este momento"
     },
-    "title": "Finalizar compra",
     "toast": {
       "reservedGuest": "Tu pedido está reservado durante un rato. Vuelve a finalizar la compra para pagarlo.",
       "reservedSignedIn": "Tu pedido está reservado. Puedes pagarlo desde tus pedidos."
     },
-    "viewOrder": "Ver tu pedido",
     "viewOrders": "Ver tus pedidos",
     "payWith": {},
     "account": {
@@ -677,16 +656,12 @@
   "payment": {
     "cancelled": {
       "body": "Este pago se canceló y no se ha cobrado nada.",
-      "bodyItemsReturned": "Este pago se canceló y no se ha cobrado nada. Tus artículos han vuelto a la tienda.",
       "title": "Pago cancelado"
     },
     "card": {
       "payNow": "Pagar ahora"
     },
-    "cardDetailsNotice": "Los datos de tu tarjeta van directamente a nuestro proveedor de pagos y nunca llegan a Mercaria.",
     "confirming": {
-      "bankStillCompleting": "Tu banco todavía está completando este pago. Puede tardar un momento.",
-      "checkingWithBank": "Lo estamos confirmando con tu banco. Mientras tanto, tu pedido queda reservado.",
       "continueWithoutWaiting": "Continuar sin esperar",
       "pageTitle": "Confirmando tu pago — Mercaria",
       "returnBody": "Tu banco te ha devuelto aquí y estamos confirmando el pago. Suele tardar unos segundos.",
@@ -704,7 +679,6 @@
       "missingGroup": "A este enlace le falta la compra a la que pertenece. Si completaste un pago, tu pedido está a salvo: aquí no cambia nada."
     },
     "title": "Pago",
-    "totalToPay": "Total a pagar",
     "unreadable": {
       "body": "No hemos podido comprobar este pago desde aquí. Si se realizó, tu pedido está a salvo: esta página no puede cambiarlo.",
       "title": "No hemos podido leer este pago"
