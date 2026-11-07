@@ -310,7 +310,7 @@ function CartBody() {
         .filter(Boolean),
       pickup,
     );
-    router.setParams({ pay: undefined, seller: undefined, pickup: undefined });
+    if (!pickup) router.setParams({ pay: undefined, seller: undefined, pickup: undefined });
   }, [cart, accountLoading, pay, seller, pickup, payment, router]);
 
   const updateItem = useUpdateCartItem();
@@ -325,9 +325,13 @@ function CartBody() {
   };
 
   const onCheckout = (group: CartGroup) => {
+    if (payment.resumeSubmitted()) return;
+    router.setParams({ pay: undefined, seller: undefined, pickup: undefined });
     if (cart) payment.begin(cart, [group.sellerKey]);
   };
   const onCheckoutAll = () => {
+    if (payment.resumeSubmitted()) return;
+    router.setParams({ pay: undefined, seller: undefined, pickup: undefined });
     if (cart) payment.begin(cart);
   };
 

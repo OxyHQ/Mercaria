@@ -1,5 +1,5 @@
 import { useCartPayment } from '@/components/payment/CartPaymentProvider';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import Head from 'expo-router/head';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -11,7 +11,7 @@ import { EmptyState } from '@oxy.so/bloom/empty-state';
 import { ScreenShell } from '@/components/shell/ScreenShell';
 import { Footer } from '@/components/shell/Footer';
 import { NearbyAvailability } from '@/components/nearby/NearbyAvailability';
-import { useAddCartItem } from '@/lib/hooks/use-cart';
+import { useAddCartItem, useCart } from '@/lib/hooks/use-cart';
 import { useTranslation } from '@/lib/i18n';
 
 /**
@@ -43,15 +43,35 @@ import { useTranslation } from '@/lib/i18n';
 
 export default function NearbyScreen() {
   const { t } = useTranslation();
-  const params = useLocalSearchParams<{ product?: string; variant?: string }>();
+  const params = useLocalSearchParams<{
+    product?: string;
+    variant?: string;
+    pay?: string;
+    seller?: string;
+    pickup?: string;
+  }>();
   const cartPayment = useCartPayment();
   const router = useRouter();
-  const { isAuthenticated, openAccountDialog } = useOxy();
+  const { isAuthenticated, openAccountDialog, isLoading: accountLoading } = useOxy();
+  const { data: cart } = useCart();
+  const restoredPickup = useRef<string | undefined>(undefined);
   const addToCart = useAddCartItem();
   const [error, setError] = useState<string | null>(null);
 
   const canonicalProductId = params.product;
   const canonicalVariantId = params.variant;
+
+  // Persist only public merchant intent; restoring it opens review, never an order.
+  useEffect(() => {
+    if (params.pay !== '1' || !params.seller || !params.pickup) {
+      restoredPickup.current = undefined;
+      return;
+    }
+    const intent = `${params.seller}:${params.pickup}`;
+    if (!cart || accountLoading || restoredPickup.current === intent) return;
+    restoredPickup.current = intent;
+    cartPayment.begin(cart, [params.seller], params.pickup);
+  }, [params.pay, params.seller, params.pickup, cart, accountLoading, cartPayment]);
 
   /**
    * Take the chosen shop to checkout.
@@ -79,6 +99,12 @@ export default function NearbyScreen() {
             setError(t('nearby.screen.addedToCart'));
             return;
           }
+          restoredPickup.current = `${group.sellerKey}:${result.location.locationId}`;
+          router.setParams({
+            pay: '1',
+            seller: group.sellerKey,
+            pickup: result.location.locationId,
+          });
           cartPayment.begin(cart, [group.sellerKey], result.location.locationId);
         },
         onError: (cause: Error) => setError(cause.message),

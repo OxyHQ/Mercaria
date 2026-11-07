@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { useRouter } from 'expo-router';
+import { useGlobalSearchParams, useRouter } from 'expo-router';
 import { useOxy } from '@oxy.so/services/ui/client';
 import { Button } from '@oxy.so/bloom/button';
 import { View } from 'react-native';
@@ -124,6 +124,7 @@ export function CartPaymentProvider({ children }: { children: ReactNode }) {
 function AccountCartPayment({ children }: { children: ReactNode }) {
   const { t, locale } = useTranslation();
   const router = useRouter();
+  const publicIntent = useGlobalSearchParams<{ pay?: string; seller?: string; pickup?: string }>();
   const { isAuthenticated } = useOxy();
   const { data: cart } = useCart();
   const portalConfirmation = usePortalConfirmation();
@@ -243,6 +244,23 @@ function AccountCartPayment({ children }: { children: ReactNode }) {
             submitted.current = true;
           }}
           onCreated={(result) => {
+            // The order now owns its immutable destination. Remove only the
+            // public intent that opened THIS selection, preserving all other params.
+            if (
+              publicIntent.pay === '1' &&
+              typeof publicIntent.seller === 'string' &&
+              publicIntent.pickup &&
+              publicIntent.pickup === active.selection.pickupLocationId &&
+              JSON.stringify(
+                publicIntent.seller
+                  ?.split(',')
+                  .map((key) => key.trim())
+                  .filter(Boolean)
+                  .sort(),
+              ) === JSON.stringify([...active.selection.sellerKeys].sort())
+            ) {
+              router.setParams({ pay: undefined, seller: undefined, pickup: undefined });
+            }
             setPlaced(result);
             if (!result.payment) leave(result);
           }}
