@@ -648,6 +648,17 @@ describe('checkout.service.checkout — idempotent replay', () => {
     },
   );
 
+  it('does not release a claim for an unknown failure', async () => {
+    const redis = { set: vi.fn().mockResolvedValue('OK'), eval: vi.fn() };
+    getRedisClient.mockReturnValue(redis);
+    getCart.mockRejectedValueOnce(new Error('database unavailable'));
+    await expect(checkout(ACTOR, { addressId: ADDRESS_ID }, 'unknown-key')).rejects.toThrow(
+      'database unavailable',
+    );
+    expect(redis.eval).not.toHaveBeenCalled();
+    expect(insertOrder).not.toHaveBeenCalled();
+  });
+
   it('returns the original orders without reserving or creating again', async () => {
     const storedGroupId = 'group-prior-1';
     const redis = {

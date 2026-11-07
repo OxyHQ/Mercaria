@@ -1,7 +1,13 @@
 import { afterAll, beforeAll, expect, it } from 'vitest';
 import Redis from 'ioredis';
 import { randomUUID } from 'node:crypto';
-import { completeLegacyCheckoutClaim, isPendingCheckoutClaim } from '../idempotency.js';
+import {
+  checkoutClaimToken,
+  completeCheckoutClaim,
+  isPendingCheckoutClaim,
+  releaseCheckoutClaim,
+} from '../idempotency.js';
+
 let redis: Redis;
 const key = `checkout-lease-test:${randomUUID()}`;
 beforeAll(async () => {
@@ -16,29 +22,46 @@ afterAll(async () => {
     await redis.quit();
   }
 });
-it('recognizes both pending formats and keeps completed groups replayable', () => {
+it('recognizes rolling-deployment markers without treating completed groups as pending', () => {
   expect(isPendingCheckoutClaim('__pending__')).toBe(true);
-  expect(isPendingCheckoutClaim(`__pending__:${randomUUID()}`)).toBe(true);
+  expect(isPendingCheckoutClaim(checkoutClaimToken(randomUUID()))).toBe(true);
   expect(isPendingCheckoutClaim(randomUUID())).toBe(false);
 });
-it('completes a legacy claim atomically and preserves its replay TTL', async () => {
-  await redis.set(key, '__pending__', 'PX', 10_000);
-  expect(await completeLegacyCheckoutClaim(redis, key, 'completed-group', 10_000)).toBe(true);
+it('serializes concurrent claims and fences expired owners from releasing or publishing over successors', async () => {
+  const first = checkoutClaimToken(randomUUID());
+  const second = checkoutClaimToken(randomUUID());
+  expect(await redis.set(key, first, 'PX', 10_000, 'NX')).toBe('OK');
+  expect(await redis.set(key, second, 'PX', 10_000, 'NX')).toBeNull();
+  expect(await releaseCheckoutClaim(redis, key, second)).toBe(false);
+  expect(await redis.get(key)).toBe(first);
+  await redis.pexpire(key, 1);
+  const expiryDeadline = Date.now() + 1_000;
+  while ((await redis.exists(key)) && Date.now() < expiryDeadline) {
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  expect(await redis.get(key)).toBeNull();
+  expect(await redis.set(key, second, 'PX', 10_000, 'NX')).toBe('OK');
+  expect(await releaseCheckoutClaim(redis, key, first)).toBe(false);
+  expect(await completeCheckoutClaim(redis, key, first, 'stale-group', 10_000)).toBe(false);
+  expect(await redis.get(key)).toBe(second);
+  expect(await completeCheckoutClaim(redis, key, second, 'completed-group', 10_000)).toBe(true);
+  expect(await releaseCheckoutClaim(redis, key, first)).toBe(false);
+  expect(await completeCheckoutClaim(redis, key, first, 'stale-group', 10_000)).toBe(false);
   expect(await redis.get(key)).toBe('completed-group');
   expect(await redis.pttl(key)).toBeGreaterThan(0);
 });
-it('cannot complete an expired claim or overwrite a newer owned claim or completed group', async () => {
-  await redis.set(key, '__pending__', 'PX', 1);
-  const deadline = Date.now() + 1_000;
-  while ((await redis.exists(key)) && Date.now() < deadline)
-    await new Promise((resolve) => setTimeout(resolve, 5));
+
+it('cannot act on a replacement claim after independent cache eviction', async () => {
+  await redis.del(key);
+  const evictedOwner = checkoutClaimToken(randomUUID());
+  const successor = checkoutClaimToken(randomUUID());
+  expect(await redis.set(key, evictedOwner, 'PX', 10_000, 'NX')).toBe('OK');
+  // Eviction deletes the entire ownership value; there is no surviving side key.
+  await redis.del(key);
+  expect(await redis.set(key, successor, 'PX', 10_000, 'NX')).toBe('OK');
+  expect(await releaseCheckoutClaim(redis, key, evictedOwner)).toBe(false);
+  expect(await completeCheckoutClaim(redis, key, evictedOwner, 'stale-group', 10_000)).toBe(false);
+  expect(await redis.get(key)).toBe(successor);
+  expect(await releaseCheckoutClaim(redis, key, successor)).toBe(true);
   expect(await redis.get(key)).toBeNull();
-  expect(await completeLegacyCheckoutClaim(redis, key, 'stale-group', 10_000)).toBe(false);
-  const owned = `__pending__:${randomUUID()}`;
-  expect(await redis.set(key, owned, 'PX', 10_000, 'NX')).toBe('OK');
-  expect(await completeLegacyCheckoutClaim(redis, key, 'stale-group', 10_000)).toBe(false);
-  expect(await redis.get(key)).toBe(owned);
-  await redis.set(key, 'new-completed-group', 'PX', 10_000);
-  expect(await completeLegacyCheckoutClaim(redis, key, 'stale-group', 10_000)).toBe(false);
-  expect(await redis.get(key)).toBe('new-completed-group');
 });

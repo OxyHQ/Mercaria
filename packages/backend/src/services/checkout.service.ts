@@ -49,7 +49,12 @@
  * row and keeps its existing per-order transactions untouched.
  */
 
-import { isPendingCheckoutClaim, completeLegacyCheckoutClaim } from './checkout/idempotency.js';
+import {
+  checkoutClaimToken,
+  isPendingCheckoutClaim,
+  releaseCheckoutClaim,
+  completeCheckoutClaim,
+} from './checkout/idempotency.js';
 
 import {
   recoverSupervisedCheckout,
@@ -192,8 +197,6 @@ const SHIPPING_LABELS: Record<ShippingMethod, string> = {
   digital: 'Digital delivery',
 };
 
-/** Sentinel value held in the Redis idempotency key while a checkout is in flight. */
-const IDEMPOTENCY_PENDING = '__pending__';
 /** Redis key prefix for checkout idempotency claims. */
 const IDEMPOTENCY_KEY_PREFIX = 'checkout:';
 
@@ -871,12 +874,13 @@ export async function checkout(
   const redisKey = idempotencyKey
     ? `${IDEMPOTENCY_KEY_PREFIX}${ownerKey(owner)}:${idempotencyKey}`
     : null;
-  let holdsRedisClaim = false;
+  // Ownership is the token, not the SET acknowledgement: a timeout may follow a successful write.
+  const claimToken = checkoutClaimToken(uuidv7());
 
   if (redis && redisKey) {
     try {
       const claim = await withRedisTimeout(
-        redis.set(redisKey, IDEMPOTENCY_PENDING, 'PX', config.orders.idempotencyTtlMs, 'NX'),
+        redis.set(redisKey, claimToken, 'PX', config.orders.idempotencyTtlMs, 'NX'),
       );
       if (claim === null) {
         const stored = await withRedisTimeout(redis.get(redisKey));
@@ -888,14 +892,32 @@ export async function checkout(
         } else if (stored && isPendingCheckoutClaim(stored)) {
           throw conflict('Checkout already in progress');
         }
-      } else {
-        holdsRedisClaim = true;
       }
     } catch (err) {
       if (isMercariaError(err)) {
         throw err;
       }
       log.general.warn({ err }, 'Redis idempotency fast-path failed; falling back to durable path');
+    }
+  }
+
+  // Only these gates prove that this request made no order/reservation writes.
+  // A transport error or any later failure remains ambiguous and keeps its lease.
+  async function beforeOrderGate(
+    reason: 'seller_not_payment_ready' | 'seller_not_activated',
+    run: () => Promise<void>,
+  ): Promise<void> {
+    try {
+      await run();
+    } catch (error) {
+      if (isMercariaError(error) && error.details?.reason === reason && redis && redisKey) {
+        try {
+          await withRedisTimeout(releaseCheckoutClaim(redis, redisKey, claimToken));
+        } catch (releaseError) {
+          log.general.warn({ err: releaseError }, 'Failed to release refused checkout claim');
+        }
+      }
+      throw error;
     }
   }
 
@@ -1086,7 +1108,9 @@ export async function checkout(
   //
   // A no-op when no card rail is configured, without touching Postgres — see
   // `assertSellerGroupsPaymentReady`.
-  await assertSellerGroupsPaymentReady([...groups.keys()], rail === 'none' ? 'card' : rail);
+  await beforeOrderGate('seller_not_payment_ready', () =>
+    assertSellerGroupsPaymentReady([...groups.keys()], rail === 'none' ? 'card' : rail),
+  );
 
   // 4d-bis. Revalidate the DESTINATION against every selected seller (#105),
   // beside the readiness gate and for the identical reason: this is the last
@@ -1313,11 +1337,13 @@ export async function checkout(
   // connector or a completed test order is an ONBOARDING question, and refusing
   // a checkout on it would take a working store off sale because its sync had a
   // bad night. See `checkout-gate.ts`.
-  await assertSellerGroupsActivated(
-    [...groups.keys()].map((sellerKey) => {
-      const feeSchedule = selectedSchedules.get(sellerKey);
-      return feeSchedule ? { sellerKey, feeSchedule } : { sellerKey };
-    }),
+  await beforeOrderGate('seller_not_activated', () =>
+    assertSellerGroupsActivated(
+      [...groups.keys()].map((sellerKey) => {
+        const feeSchedule = selectedSchedules.get(sellerKey);
+        return feeSchedule ? { sellerKey, feeSchedule } : { sellerKey };
+      }),
+    ),
   );
 
   // 4g. Price, gate and LOCK the retail half (#123, ADR 0004 D4 step 1).
@@ -1827,13 +1853,14 @@ export async function checkout(
     throw err;
   }
 
-  // 8. Best-effort: overwrite the Redis claim with the real group id.
-  if (redis && redisKey && holdsRedisClaim) {
+  // 8. Best-effort: publish the group only while this request still owns the claim.
+  if (redis && redisKey) {
     try {
       await withRedisTimeout(
-        completeLegacyCheckoutClaim(
+        completeCheckoutClaim(
           redis,
           redisKey,
+          claimToken,
           checkoutGroupId,
           config.orders.idempotencyTtlMs,
         ),

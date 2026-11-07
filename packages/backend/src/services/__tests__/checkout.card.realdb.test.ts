@@ -50,6 +50,7 @@
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import express from 'express';
+import Redis from 'ioredis';
 import type { Server } from 'node:http';
 import { startSupervisionHttpFixture } from './helpers/supervision-http.js';
 import { and, eq, sql } from 'drizzle-orm';
@@ -1115,6 +1116,140 @@ describe('card checkout on the Peable rail — idempotency and refusals', () => 
     expect(placed.orders).toHaveLength(1);
     expect(gateway.state.sessionCalls).toHaveLength(1);
   });
+
+  it.each(['seller_not_payment_ready', 'seller_not_activated', 'timed_out_claim'] as const)(
+    'releases only its own pre-order refusal claim and retries the same key: %s',
+    async (scenario) => {
+      const redisUrl = process.env.TEST_REDIS_URL;
+      if (!redisUrl) throw new Error('TEST_REDIS_URL is required for checkout lease regressions');
+      const seller = await seedSeller({
+        label: scenario,
+        priceMinor: 3_000,
+        currency: 'USD',
+        paymentReady: false,
+      });
+      const buyer = await seedBuyer({
+        label: scenario,
+        currency: 'USD',
+        lines: [{ listingId: seller.listingId, variantId: seller.variantId, quantity: 1 }],
+      });
+      const key = `key-${RUN}-${scenario}`;
+      const redisKey = `checkout:oxy:${buyer.buyerId}:${key}`;
+      let activate: () => Promise<unknown>;
+      if (scenario === 'seller_not_activated') {
+        const { stores } = await import('../../db/schema/stores.js');
+        const { updateMerchantCheckoutIntents } = await import(
+          '../../db/merchantActivation/activationSettingsRepository.js'
+        );
+        const [store] = await db
+          .insert(stores)
+          .values({
+            oxyAccountId: seller.sellerId,
+            handle: `redis-${RUN}`,
+            name: 'Lease fixture',
+            description: '',
+            brandColor: '#123456',
+            defaultCurrency: 'USD',
+          })
+          .returning();
+        await db
+          .update(catalogSchema.listings)
+          .set({ ownerType: 'store', storeId: store.id, oxyUserId: null })
+          .where(eq(catalogSchema.listings.id, seller.listingId));
+        const { insertLocation } = await import('../../db/stores/locationRepository.js');
+        const { insertLevels } = await import('../../db/catalog/inventoryLevelRepository.js');
+        const location = await insertLocation(store.id, {
+          name: 'Warehouse',
+          type: 'warehouse',
+          isDefault: true,
+          isActive: true,
+          fulfillsOnlineOrders: true,
+        });
+        await insertLevels([
+          {
+            variantId: seller.variantId,
+            listingId: seller.listingId,
+            locationId: location.id,
+            available: 5,
+            committed: 0,
+          },
+        ]);
+        await seedPeableAccount({
+          ownerType: 'store',
+          ownerId: store.id,
+          accountId: seller.accountId,
+        });
+        await db.transaction((tx) =>
+          updateMerchantCheckoutIntents(tx, { storeId: store.id, nativeCheckoutIntent: 'paused' }),
+        );
+        activate = () =>
+          db.transaction((tx) =>
+            updateMerchantCheckoutIntents(tx, {
+              storeId: store.id,
+              nativeCheckoutIntent: 'enabled',
+            }),
+          );
+      } else {
+        activate = () =>
+          seedPeableAccount({
+            ownerType: 'user',
+            ownerId: seller.sellerId,
+            accountId: seller.accountId,
+          });
+      }
+      const actor = { kind: 'oxy' as const, oxyUserId: buyer.buyerId };
+      const input = { addressId: buyer.addressId };
+      const redis = new Redis(redisUrl);
+      const redisModule = await import('../../lib/redis.js');
+      const redisSpy = vi.spyOn(redisModule, 'getRedisClient').mockReturnValue(redis);
+      // Execute the real SET, but lose its acknowledgement beyond the production timeout.
+      const originalSet = redis.set.bind(redis);
+      const setSpy =
+        scenario === 'timed_out_claim'
+          ? vi.spyOn(redis, 'set').mockImplementationOnce(async (...args) => {
+              const result = await originalSet(...args);
+              await new Promise((resolve) =>
+                setTimeout(resolve, redisModule.REDIS_TIMEOUT_MS + 50),
+              );
+              return result;
+            })
+          : undefined;
+      try {
+        await expect(checkout(actor, input, key)).rejects.toMatchObject({
+          details: {
+            reason: scenario === 'seller_not_activated' ? scenario : 'seller_not_payment_ready',
+          },
+        });
+        expect(await redis.get(redisKey)).toBeNull();
+        expect(await stockOf(seller.variantId)).toEqual({ available: 5, committed: 0 });
+        expect(
+          await db
+            .select({ id: orderSchema.orders.id })
+            .from(orderSchema.orders)
+            .where(eq(orderSchema.orders.buyerOxyUserId, buyer.buyerId)),
+        ).toHaveLength(0);
+        expect(gateway.state.sessionCalls).toHaveLength(0);
+        await activate();
+        const placed = await checkout(actor, input, key);
+        expect(placed.orders).toHaveLength(1);
+        expect(await redis.get(redisKey)).toBe(placed.checkoutGroupId);
+        const replay = await checkout(actor, input, key);
+        expect(replay.checkoutGroupId).toBe(placed.checkoutGroupId);
+        expect(
+          await db
+            .select({ id: orderSchema.orders.id })
+            .from(orderSchema.orders)
+            .where(eq(orderSchema.orders.buyerOxyUserId, buyer.buyerId)),
+        ).toHaveLength(1);
+        expect(await stockOf(seller.variantId)).toEqual({ available: 4, committed: 1 });
+      } finally {
+        setSpy?.mockRestore();
+        redisSpy.mockRestore();
+        await redis.del(redisKey);
+        await redis.quit();
+      }
+    },
+  );
 
   it('leaves the reservation clock alone when a payment fails and is retried', async () => {
     const seller = await seedSeller({ label: 'retry', priceMinor: 5_000, currency: 'USD' });
