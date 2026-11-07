@@ -1,3 +1,4 @@
+import { useCartPayment } from '@/components/payment/CartPaymentProvider';
 import { useState } from 'react';
 import { View } from 'react-native';
 import Head from 'expo-router/head';
@@ -35,25 +36,15 @@ import { useTranslation } from '@/lib/i18n';
  * changes the answer — `describeBuyerPickupBlock` decides that, not this
  * screen, and a mixed refusal never offers it.
  *
- * ## What travels in the URL, and why it is allowed to
- *
- * `?pickup=` carries a LOCATION id and `?pickupName=` its published display
- * name. #93 client rule 14 forbids precise location, contact and access tokens
- * in URLs — a merchant's own published shop front is none of the three: it is
- * public, it is the merchant's rather than the buyer's, and it authorizes
- * nothing (the server re-validates it against the actor and every cart line
- * before a single unit is reserved). The BUYER's position never leaves this
- * screen: it lives in `useNearbyOrigin`'s state and is never written to a
- * param, a store or an analytics call.
- *
- * That choice also has to survive a reload and a bank redirect, which is #93
- * client rule 11 — and a URL param survives both where component state does
- * not.
+ * The chosen public location id is frozen in the sheet's checkout attempt.
+ * Mercaria revalidates it against the actor and every cart line before reserving
+ * stock. The buyer's position remains in this screen's nearby-origin state.
  */
 
 export default function NearbyScreen() {
   const { t } = useTranslation();
   const params = useLocalSearchParams<{ product?: string; variant?: string }>();
+  const cartPayment = useCartPayment();
   const router = useRouter();
   const { isAuthenticated, openAccountDialog } = useOxy();
   const addToCart = useAddCartItem();
@@ -72,6 +63,7 @@ export default function NearbyScreen() {
    * meeting the refusal.
    */
   const collectHere = (result: NearbyLocationResult) => {
+    if (cartPayment.resumeSubmitted()) return;
     setError(null);
     addToCart.mutate(
       { listingId: result.listingId, variantId: result.variantId, quantity: 1 },
@@ -87,12 +79,7 @@ export default function NearbyScreen() {
             setError(t('nearby.screen.addedToCart'));
             return;
           }
-          const query = new URLSearchParams({
-            seller: group.sellerKey,
-            pickup: result.location.locationId,
-            pickupName: result.location.displayName,
-          });
-          router.push(`/checkout?${query.toString()}`);
+          cartPayment.begin(cart, [group.sellerKey], result.location.locationId);
         },
         onError: (cause: Error) => setError(cause.message),
       },

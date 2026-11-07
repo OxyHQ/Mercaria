@@ -1,3 +1,4 @@
+import { useCartPayment } from '@/components/payment/CartPaymentProvider';
 import { renderListingLink, renderMerchantLink } from '@/lib/catalog/product-links';
 import { renderCartVendorLink } from '@/lib/catalog/cart-vendor-links';
 import { useState } from 'react';
@@ -76,14 +77,12 @@ interface FeedBodyProps {
 /** The feed content — identical on web and native, only its scroll host differs. */
 function FeedBody({ data, isLoading, isError, refetch, onHeroVisibilityChange }: FeedBodyProps) {
   const router = useRouter();
+  const cartPayment = useCartPayment();
   const { data: cart } = useCart();
 
   const onCheckout = (group: CartGroup) => {
-    router.push(
-      group.guestCheckout?.status === 'blocked'
-        ? '/cart'
-        : { pathname: '/checkout', params: { seller: group.sellerKey } },
-    );
+    if (group.guestCheckout?.status === 'blocked') router.push('/cart');
+    else if (cart) cartPayment.begin(cart, [group.sellerKey]);
   };
 
   return (

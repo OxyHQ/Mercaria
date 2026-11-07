@@ -567,8 +567,6 @@
   },
   "checkout": {
     "address": {},
-    "backToOrders": "注文履歴に戻る",
-    "checkLaterFromOrders": "あとで注文履歴から確認する",
     "claim": {
       "optional": "任意です。いずれの場合もご注文は確定しています。",
       "saveToOxy": "この注文を Oxy に保存する"
@@ -581,12 +579,7 @@
       "accessibilityLabel": "割引コード",
       "label": "割引コード（任意）"
     },
-    "emailMeLink": "この注文へのリンクをメールで送る",
-    "empty": {
-      "backToCart": "カートに戻る",
-      "body": "カートが空か、これらの商品はもう取り扱いがありません。",
-      "title": "購入手続きするものがありません"
-    },
+    "empty": {},
     "error": {
       "sellerNotActivated": "%{seller}は現在注文を受け付けていません。この販売者の商品を注文から削除すると、残りの商品を購入できます。",
       "sellerNotPaymentReady": "%{seller}は現在お支払いを受け付けられません。この販売者の商品を注文から削除すると、残りの商品を購入できます。",
@@ -636,30 +629,16 @@
       "supplyCountryLabel": "現在いる国"
     },
     "keepShopping": "買い物を続ける",
-    "orderNumbers": {
-      "headingOne": "注文番号",
-      "headingOther": "注文番号",
-      "keepToHand": "控えておいてください。お問い合わせの際にご購入を特定できます。"
-    },
-    "pageTitle": "購入手続き — Mercaria",
-    "signIn": {
-      "action": "ログイン",
-      "body": "ログインすると、保存した住所が使え、このカートが他の端末でも見られ、この注文がアカウントの履歴に残ります。ゲストのままでも購入できます。入力する手間は同じです。",
-      "title": "Oxy アカウントをお持ちですか？"
-    },
+    "orderNumbers": {},
+    "signIn": {},
     "summary": {
-      "calculatedAtPlacement": "割引・税・送料は、ご注文の確定時に計算されます。",
       "cannotAcceptPayment": "現在お支払いを受け付けられません",
-      "subtotal": "小計",
-      "title": "注文内容",
       "notAcceptingOrders": "現在注文を受け付けていません"
     },
-    "title": "購入手続き",
     "toast": {
       "reservedGuest": "ご注文をしばらく確保しています。お支払いは、もう一度購入手続きへお進みください。",
       "reservedSignedIn": "ご注文を確保しています。注文履歴からお支払いいただけます。"
     },
-    "viewOrder": "注文を見る",
     "viewOrders": "注文履歴を見る",
     "payWith": {},
     "account": {
@@ -672,16 +651,12 @@
   "payment": {
     "cancelled": {
       "body": "この支払いはキャンセルされ、請求は発生していません。",
-      "bodyItemsReturned": "この支払いはキャンセルされ、請求は発生していません。商品は店舗の在庫に戻りました。",
       "title": "支払いをキャンセルしました"
     },
     "card": {
       "payNow": "支払う"
     },
-    "cardDetailsNotice": "カード情報は決済代行会社に直接送られ、Mercaria には届きません。",
     "confirming": {
-      "bankStillCompleting": "銀行がこの支払いを処理中です。少し時間がかかることがあります。",
-      "checkingWithBank": "銀行に確認しています。その間、ご注文は確保されています。",
       "continueWithoutWaiting": "待たずに進む",
       "pageTitle": "支払いを確認しています — Mercaria",
       "returnBody": "銀行での手続きが終わり、こちらで支払いを確認しています。通常は数秒で完了します。",
@@ -699,7 +674,6 @@
       "missingGroup": "このリンクには対象の購入手続きが含まれていません。お支払いが完了していれば、ご注文は無事です。このページで変わることはありません。"
     },
     "title": "お支払い",
-    "totalToPay": "お支払い金額",
     "unreadable": {
       "body": "ここからはこの支払いを確認できませんでした。完了していれば、ご注文は無事です。このページで変わることはありません。",
       "title": "この支払いを読み取れませんでした"

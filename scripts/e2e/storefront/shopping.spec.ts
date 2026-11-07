@@ -432,9 +432,8 @@ for (const width of [390, 1440])
     await expect(page).toHaveURL(new RegExp(`${vendorPath}$`));
     await page.goto('/');
     await card.getByRole('button', { name: 'Continue to checkout', exact: true }).click();
-    await expect(page).toHaveURL(
-      new RegExp(`/checkout\\?seller=${encodeURIComponent(group.sellerKey)}$`),
-    );
+    await expect(page.getByTestId('bloom-checkout-step')).toBeVisible();
+    await expect(page).toHaveURL(/\/$/);
   });
 
 test('Recently viewed keeps one image-only card per product and opens its full history', async ({

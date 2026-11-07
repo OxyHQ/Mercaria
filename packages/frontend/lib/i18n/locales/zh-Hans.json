@@ -567,8 +567,6 @@
   },
   "checkout": {
     "address": {},
-    "backToOrders": "返回你的订单",
-    "checkLaterFromOrders": "稍后到订单里查看",
     "claim": {
       "optional": "可选。无论如何你的订单都已确认。",
       "saveToOxy": "把这些订单保存到 Oxy"
@@ -581,12 +579,7 @@
       "accessibilityLabel": "优惠码",
       "label": "优惠码（可选）"
     },
-    "emailMeLink": "把这笔订单的链接发到我的邮箱",
-    "empty": {
-      "backToCart": "返回购物车",
-      "body": "你的购物车是空的，或者这些商品已经下架。",
-      "title": "没有可结算的商品"
-    },
+    "empty": {},
     "error": {
       "sellerNotActivated": "%{seller}目前不接受订单。请从订单中移除该卖家的商品，以便结算其余商品。",
       "sellerNotPaymentReady": "%{seller}目前无法接受付款。请从订单中移除该卖家的商品，以结算其余商品。",
@@ -636,30 +629,16 @@
       "supplyCountryLabel": "你所在的国家/地区"
     },
     "keepShopping": "继续购物",
-    "orderNumbers": {
-      "headingOne": "你的订单号",
-      "headingOther": "你的订单号",
-      "keepToHand": "请保存好——需要联系我们时，它能对应到你的这笔购买。"
-    },
-    "pageTitle": "结算 — Mercaria",
-    "signIn": {
-      "action": "登录",
-      "body": "登录后可以使用已保存的地址，这个购物车会同步到你的其他设备，这笔订单也会留在账号的订单记录里。你也可以以访客身份结算——要填的内容一样多。",
-      "title": "有 Oxy 账号吗？"
-    },
+    "orderNumbers": {},
+    "signIn": {},
     "summary": {
-      "calculatedAtPlacement": "优惠、税费和运费在提交订单时计算。",
       "cannotAcceptPayment": "目前无法接受付款",
-      "subtotal": "小计",
-      "title": "订单摘要",
       "notAcceptingOrders": "目前不接受订单"
     },
-    "title": "结算",
     "toast": {
       "reservedGuest": "你的订单会保留一小段时间。再次结算即可付款。",
       "reservedSignedIn": "你的订单已保留。可以在订单里完成付款。"
     },
-    "viewOrder": "查看订单",
     "viewOrders": "查看你的订单",
     "payWith": {},
     "account": {
@@ -672,16 +651,12 @@
   "payment": {
     "cancelled": {
       "body": "这笔付款已取消，未产生任何扣款。",
-      "bodyItemsReturned": "这笔付款已取消，未产生任何扣款。商品已经退回店铺。",
       "title": "付款已取消"
     },
     "card": {
       "payNow": "立即付款"
     },
-    "cardDetailsNotice": "你的银行卡信息直接发送给我们的支付服务商，不会经过 Mercaria。",
     "confirming": {
-      "bankStillCompleting": "你的银行还在处理这笔付款，可能需要一点时间。",
-      "checkingWithBank": "我们正在向你的银行确认。在此期间订单会为你保留。",
       "continueWithoutWaiting": "不等待，继续",
       "pageTitle": "正在确认付款 — Mercaria",
       "returnBody": "银行已经把你带回这里，我们正在确认付款，通常只需几秒。",
@@ -699,7 +674,6 @@
       "missingGroup": "这个链接缺少所属的结算信息。如果你已经完成付款，订单不受影响——这个页面不会改变它。"
     },
     "title": "付款",
-    "totalToPay": "应付总额",
     "unreadable": {
       "body": "我们无法从这里核对这笔付款。如果付款成功，订单不受影响——这个页面也无法改变它。",
       "title": "无法读取这笔付款"

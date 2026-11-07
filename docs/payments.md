@@ -60,7 +60,14 @@ adapter and event ingress (ADR 0009).
 
 ### The storefront opens Peable before creating orders
 
-Pay opens `PeableSheetCheckout` immediately. Its preparation step contains the
+Cart checkout, Buy now and pickup actions open `PeableSheetCheckout` directly over
+the current storefront page. There is no separate checkout screen or second Pay
+button before it. Saved `/checkout` links only adapt their seller/pickup selection
+to the cart and open the same sheet. Seller identities and commercial disclosures
+appear in the sheet before submission; named seller refusals also flag their cart
+groups. A closed pending attempt can be resumed from the cart without a new order.
+
+Its preparation step contains the
 private Oxy address book, guest receipt contact, and Mercaria's pickup and
 digital-supply fields. Existing Mercaria destinations remain selectable; saving
 a reviewed destination to Oxy is a separate explicit action. Structured places

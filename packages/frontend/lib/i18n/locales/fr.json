@@ -572,8 +572,6 @@
   },
   "checkout": {
     "address": {},
-    "backToOrders": "Retour à vos commandes",
-    "checkLaterFromOrders": "Vérifier plus tard depuis vos commandes",
     "claim": {
       "optional": "Facultatif. Votre commande est confirmée dans tous les cas.",
       "saveToOxy": "Enregistrer ces commandes dans Oxy"
@@ -586,12 +584,7 @@
       "accessibilityLabel": "Code de réduction",
       "label": "Code de réduction (facultatif)"
     },
-    "emailMeLink": "M'envoyer un lien vers cette commande par e-mail",
-    "empty": {
-      "backToCart": "Retour au panier",
-      "body": "Votre panier est vide ou ces articles ne sont plus disponibles.",
-      "title": "Rien à commander"
-    },
+    "empty": {},
     "error": {
       "sellerNotActivated": "%{seller} n'accepte pas de commandes pour le moment. Retire ses articles de ta commande pour payer le reste.",
       "sellerNotPaymentReady": "%{seller} ne peut pas accepter de paiement pour le moment. Retirez ses articles de votre commande pour régler le reste.",
@@ -641,30 +634,16 @@
       "supplyCountryLabel": "Pays où vous êtes"
     },
     "keepShopping": "Continuer mes achats",
-    "orderNumbers": {
-      "headingOne": "Votre numéro de commande",
-      "headingOther": "Vos numéros de commande",
-      "keepToHand": "Gardez-le sous la main : il identifie votre achat si vous devez nous contacter."
-    },
-    "pageTitle": "Commande — Mercaria",
-    "signIn": {
-      "action": "Se connecter",
-      "body": "En vous connectant, vous retrouvez vos adresses enregistrées, ce panier sur vos autres appareils et cette commande dans l'historique de votre compte. Vous pouvez aussi commander en tant qu'invité — il y a autant à saisir.",
-      "title": "Vous avez un compte Oxy ?"
-    },
+    "orderNumbers": {},
+    "signIn": {},
     "summary": {
-      "calculatedAtPlacement": "Les remises, les taxes et la livraison sont calculées au moment de la commande.",
       "cannotAcceptPayment": "Ne peut pas accepter de paiement pour le moment",
-      "subtotal": "Sous-total",
-      "title": "Récapitulatif de la commande",
       "notAcceptingOrders": "N'accepte pas de commandes pour le moment"
     },
-    "title": "Commande",
     "toast": {
       "reservedGuest": "Votre commande est réservée un court instant. Repassez à la caisse pour la régler.",
       "reservedSignedIn": "Votre commande est réservée. Vous pouvez la régler depuis vos commandes."
     },
-    "viewOrder": "Voir votre commande",
     "viewOrders": "Voir vos commandes",
     "payWith": {},
     "account": {
@@ -677,16 +656,12 @@
   "payment": {
     "cancelled": {
       "body": "Ce paiement a été annulé et rien n'a été débité.",
-      "bodyItemsReturned": "Ce paiement a été annulé et rien n'a été débité. Vos articles ont été remis en boutique.",
       "title": "Paiement annulé"
     },
     "card": {
       "payNow": "Payer maintenant"
     },
-    "cardDetailsNotice": "Les données de votre carte vont directement à notre prestataire de paiement et n'atteignent jamais Mercaria.",
     "confirming": {
-      "bankStillCompleting": "Votre banque finalise encore ce paiement. Cela peut prendre un instant.",
-      "checkingWithBank": "Nous le confirmons auprès de votre banque. Votre commande reste réservée en attendant.",
       "continueWithoutWaiting": "Continuer sans attendre",
       "pageTitle": "Confirmation de votre paiement — Mercaria",
       "returnBody": "Votre banque vous a renvoyé vers nous et nous confirmons le paiement. Cela prend généralement quelques secondes.",
@@ -704,7 +679,6 @@
       "missingGroup": "Il manque à ce lien la commande à laquelle il se rapporte. Si vous avez réglé un paiement, votre commande est en sécurité — rien ne change ici."
     },
     "title": "Paiement",
-    "totalToPay": "Total à payer",
     "unreadable": {
       "body": "Nous n'avons pas pu vérifier ce paiement depuis ici. S'il est passé, votre commande est en sécurité — cette page n'y change rien de toute façon.",
       "title": "Nous n'avons pas pu lire ce paiement"
