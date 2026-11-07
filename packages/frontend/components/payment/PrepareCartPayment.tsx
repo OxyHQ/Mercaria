@@ -113,7 +113,8 @@ export function PrepareCartPayment({
   const [unavailable, setUnavailable] = useState<string>();
   const attempt = useRef<ReturnType<typeof checkoutInput> | null>(null);
   const resultRef = useRef<CheckoutResult | null>(null);
-  const submissions = useRef(0);
+  const unresolvedSubmission = useRef(false);
+  const submissionGeneration = useRef(0);
   const [groupId, setGroupId] = useState<string>();
   const lines = selection.groups.flatMap((group) => group.items);
   const ships = lines.some((line) => line.delivery !== 'digital');
@@ -328,7 +329,10 @@ export function PrepareCartPayment({
         attempt.current = input;
       }
       onSubmitting();
-      submissions.current += 1;
+      const generation = ++submissionGeneration.current;
+      const hadUnresolvedSubmission = unresolvedSubmission.current;
+      // Until this request proves otherwise, another attempt may already own an order.
+      unresolvedSubmission.current = true;
       let result: CheckoutResult;
       try {
         result =
@@ -337,12 +341,14 @@ export function PrepareCartPayment({
         if (signal.aborted) throw error;
         const message = onRefused(error);
         const reason = apiErrorDetails(error)?.reason;
-        // Both named gates precede order writes. A later retry after an unknown
-        // response cannot prove the earlier request did not create an order.
+        // Both named gates precede order writes. Repeated definitive refusals
+        // remain editable, but none can resolve an earlier uncertain request.
         if (
-          submissions.current === 1 &&
+          !hadUnresolvedSubmission &&
+          generation === submissionGeneration.current &&
           (reason === 'seller_not_activated' || reason === 'seller_not_payment_ready')
         ) {
+          unresolvedSubmission.current = false;
           attempt.current = null;
           onRejectedBeforeCreation();
           throw new SheetPreparationError(message, 'not_created');

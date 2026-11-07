@@ -335,3 +335,30 @@ test('a late placement response cannot reopen a payment after guest authority is
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await expect(page.getByRole('textbox', { name: 'Email address', exact: true })).toHaveValue('');
 });
+
+test('repeated definitive seller refusals allow a new selection without an unresolved order', async ({
+  page,
+}) => {
+  const requests = await fixture(page, true, false, { refuseSeller: 2 });
+  await page.goto('/cart');
+  await page
+    .getByRole('button', { name: 'Continue to checkout with Fixture shop', exact: true })
+    .click();
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
+  await expect.poll(() => requests.length).toBe(1);
+  await expect(page.getByText(/Fixture shop isn't accepting/).last()).toBeVisible();
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
+  await expect.poll(() => requests.length).toBe(2);
+  await expect(page.getByText(/Fixture shop isn't accepting/).last()).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page
+    .getByRole('button', { name: 'Continue to checkout with Other shop', exact: true })
+    .click();
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
+  await expect.poll(() => requests.length).toBe(3);
+  expect(requests[1].key).toBe(requests[0].key);
+  expect(requests[2].key).not.toBe(requests[1].key);
+  expect(requests[2].body).toMatchObject({ sellerKeys: ['store:other'] });
+});

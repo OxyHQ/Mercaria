@@ -120,7 +120,7 @@ export async function fixture(
     payerUpdates?: unknown[];
     noEmail?: boolean;
     cartResponses?: number[];
-    refuseSeller?: boolean;
+    refuseSeller?: boolean | number;
   } = {},
 ) {
   let placed = false;
@@ -244,7 +244,10 @@ export async function fixture(
         key: route.request().headers()['idempotency-key'],
         body: route.request().postDataJSON(),
       });
-      if (options.refuseSeller && requests.length === 1)
+      if (
+        options.refuseSeller &&
+        requests.length <= (typeof options.refuseSeller === 'number' ? options.refuseSeller : 1)
+      )
         return route.fulfill({
           status: 409,
           json: {

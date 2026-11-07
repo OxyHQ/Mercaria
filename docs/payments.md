@@ -83,8 +83,9 @@ opening the panel and completing preparation never authorize a charge.
 The same Bloom sheet remains mounted while the session is created, while the
 cart refreshes after placement, and across dismissal/reopening. After a request
 starts, its address, collector, consent, discount and idempotency key stay frozen
-for retries, including uncertain server failures. Only a local preflight refusal
-before the first request allows editing. Account changes discard the private
+for retries, including uncertain server failures. A local preflight refusal or a
+sequence of definitive pre-order seller refusals permits editing; a later refusal
+never unlocks an earlier uncertain request. Account changes discard the private
 controller and suppress stale callbacks. A failed session read recovers using
 the existing order's capability; it does not create another checkout.
 
