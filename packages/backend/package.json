@@ -34,7 +34,7 @@
     "@mercaria/contracts": "workspace:*",
     "@mercaria/shared-types": "workspace:*",
     "@oxy.so/contracts": "6.24.0",
-    "@oxy.so/core": "7.47.1",
+    "@oxy.so/core": "7.48.0",
     "@oxy.so/db": "^1.4.0",
     "@oxy.so/mcp": "1.4.2",
     "@oxy.so/moovo-sdk": "0.3.0",
