@@ -18,6 +18,9 @@
 
 name: Publish OTA update
 
+# The export and publish are OxyHQ/oxy's shared .github/workflows/publish-ota-update.yml;
+# `workflow_ref` in the OIDC token still names THIS file, so keep its path.
+
 on:
   push:
     branches: [main]
@@ -33,9 +36,7 @@ on:
       - bun.lock
   workflow_dispatch: {}
 
-permissions:
-  contents: read
-  id-token: write
+permissions: {}
 
 concurrency:
   group: oxy-updates-${{ github.ref }}
@@ -43,9 +44,6 @@ concurrency:
 
 jobs:
   publish:
-    name: Publish ${{ matrix.app-dir }} to ${{ matrix.channel }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -54,63 +52,14 @@ jobs:
             channel: production
           - app-dir: packages/pos
             channel: pos-production
-    env:
-      OXY_CLIENT_ID: oxy_dk_8993efc30f18b2cfd361374634df4099a63a247df675132c
-      APP_DIR: ${{ matrix.app-dir }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: package.json
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24.20.0
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile --minimum-release-age=0
-
-      # The env the native build uses (oxy's android-release.yml): the eas.json
-      # `production` profile's `env`, following `extends`, plus
-      # NODE_ENV=production. Public build-time config only (EXPO_PUBLIC_*).
-      - name: Build environment from eas.json
-        run: |
-          node - <<'JS' >> "$GITHUB_ENV"
-          const { readFileSync } = require('node:fs');
-          const { join } = require('node:path');
-          const eas = JSON.parse(readFileSync(join(process.env.APP_DIR, 'eas.json'), 'utf8'));
-          const resolve = (name, seen = new Set()) => {
-            const profile = eas.build?.[name];
-            if (!profile) throw new Error(`eas.json has no build profile "${name}"`);
-            if (seen.has(name)) throw new Error(`eas.json profile "${name}" extends itself`);
-            seen.add(name);
-            const base = profile.extends ? resolve(profile.extends, seen) : {};
-            return { ...base, ...profile.env };
-          };
-          for (const [key, value] of Object.entries(resolve('production'))) {
-            if (!/^[A-Z_][A-Z0-9_]*$/.test(key) || /[\r\n]/.test(String(value))) {
-              throw new Error(`eas.json env ${key} cannot be exported`);
-            }
-            console.log(`${key}=${value}`);
-          }
-          console.log('NODE_ENV=production');
-          JS
-
-      - name: Publish with oxy-ship
-        working-directory: ${{ matrix.app-dir }}
-        env:
-          OXY_SHIP_CLIENT_ID: ${{ env.OXY_CLIENT_ID }}
-          OXY_API_URL: https://api.oxy.so
-          SHIP_MESSAGE: ${{ github.event.head_commit.message || format('Manual publish of {0}', github.sha) }}
-          NODE_OPTIONS: '--max-old-space-size=4096'
-          CHANNEL: ${{ matrix.channel }}
-        # The update's message is the commit's subject line: Oxy Updates caps a
-        # message at 500 characters, and a squash commit's body runs past it.
-        run: |
-          message="${SHIP_MESSAGE%%$'\n'*}"
-          bunx --no-install oxy-ship publish \
-            --channel "$CHANNEL" \
-            --platform all \
-            --git-commit "$GITHUB_SHA" \
-            --message "${message:0:500}"
+    permissions:
+      contents: read
+      id-token: write
+    uses: OxyHQ/oxy/.github/workflows/publish-ota-update.yml@main
+    with:
+      app_dir: ${{ matrix.app-dir }}
+      channel: ${{ matrix.channel }}
+      # The application's PUBLIC client id (not a secret): the one in the manifest URL.
+      client_id: oxy_dk_8993efc30f18b2cfd361374634df4099a63a247df675132c
+      node_version: 24.20.0
+      node_options: '--max-old-space-size=4096'
