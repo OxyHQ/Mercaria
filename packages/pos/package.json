@@ -93,7 +93,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
-    "@oxy.so/ship": "2.0.0",
+    "@oxy.so/ship": "2.0.1",
     "@tailwindcss/postcss": "4.2.2",
     "@types/react": "~19.3.0",
     "@typescript-eslint/parser": "^8.64.0",
