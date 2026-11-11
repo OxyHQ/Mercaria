@@ -1,191 +1,95 @@
 # Mercaria
 
-Oxy's buy/sell marketplace — new items from shops, secondhand from people, eBay
-or Wallapop style. A Shopify-grade commerce backend serving three Expo apps
-(storefront, dashboard, POS) and a shared UI package.
-
-> **For how this project WORKS, read `docs/index.mdx`**; `docs/adr/` holds the
-> binding decisions and `packages/backend/src/db/schema/CONVENTIONS.md` binds
-> every schema one. For almost any backend task: `docs/house-invariants.md` and
-> `docs/postgres-testing-and-migrations.md`. `HANDOFF.md` holds deferred work.
->
-> **This file carries only RULES — things that break silently.** Design notes go
-> in `docs/`. Org-wide standards are in `~/Oxy/AGENTS.md`.
->
-> **Budget: under 12 KB**, enforced by `scripts/check-agents-md-size.mjs`. An
-> addition that pushes it over is paid for in the SAME edit.
+Oxy's buy/sell marketplace (new items from shops, secondhand from people): a commerce
+backend serving three Expo apps (storefront, dashboard, POS) and a shared UI package.
 
 ## Commands
 
-`bun` only, from the repo root. Postgres must be up for the backend suite:
-`docker compose -f docker-compose.postgres.yml up -d` (5435).
+Use `bun` only, from the repo root. The backend suite needs Postgres:
+`docker compose -f docker-compose.postgres.yml up -d` (port 5435).
 
 ```bash
 bun install
-bun run build:shared-types                # ALWAYS before db:generate
-bun run --cwd packages/backend test        # vitest, incl. the *.realdb.test.ts suites
-bun run --cwd packages/backend typecheck   # also --filter @mercaria/{ui,frontend,dashboard,pos}
-bun run lint
-bun run validate:agents-md                # budget
-bun run --cwd packages/backend db:generate # drizzle-kit; needs the marker below
+bun run dev                                  # all packages; dev:backend / dev:frontend / dev:dashboard / dev:pos for one
+bun run build                                # shared-types + contracts + backend + frontend
+bun run build:shared-types                   # after any shared-types change, and before db:generate
+bun run --cwd packages/backend test          # vitest, including *.realdb.test.ts
+bun run --cwd packages/backend typecheck     # also: --filter @mercaria/{ui,frontend,dashboard,pos}
+bun run lint                                 # Biome + Expo ESLint; lint:fix and format write
+bun run validate:agents-md                   # AGENTS.md byte budget
 ```
 
-## Layout
+## Map
 
-`packages/` — `frontend` (mercaria.co) · `dashboard` · `pos` (Expo apps) · `ui`
-(shared components) · `backend` (Express + PostgreSQL) · `shared-types` (DTOs and
-every closed value set) · `contracts` (the `/public/v1` zod source; regen
-`openapi.json`) · `sdk` (`@mercaria.co/sdk`, published; `docs/sdk.md`).
+- Start at [`docs/index.mdx`](docs/index.mdx); decisions are in [`docs/adr/`](docs/adr/).
+- Backend invariants and DB work: [`docs/house-invariants.md`](docs/house-invariants.md),
+  [`docs/postgres-testing-and-migrations.md`](docs/postgres-testing-and-migrations.md),
+  [`packages/backend/AGENTS.md`](packages/backend/AGENTS.md) (migrations and test DB rules).
+- Schema rules: `packages/backend/src/db/schema/CONVENTIONS.md`. Deferred work: [`HANDOFF.md`](HANDOFF.md).
+- Packages: `frontend` (mercaria.co), `dashboard`, `pos` (Expo apps), `ui` (shared), `backend`,
+  `shared-types` (DTOs, closed value sets), `contracts` (`/public/v1` zod source), `sdk` ([`docs/sdk.md`](docs/sdk.md)).
+- Rules that break silently live in [`docs/agent-rules/`](docs/agent-rules/): `money`, `auth-identity`,
+  `silent-breakers`, `client-packages`, `i18n-rtl`, `deploy-ci`. Read the one for the area you touch.
 
-- **`@mercaria/ui` is NOT built to dist.** Apps consume it through Metro
-  `watchFolders`, the `@mercaria/ui/theme/tailwind.preset` preset and a
-  `tsconfig.paths` alias. Do NOT add a build step, and never keep a local copy of
-  anything it owns (`PriceDisplay`, `FxContext`, every marketplace
-  primitive). `formatMoney` is shared headless code, re-exported by both UI and SDK.
-- **CI typechecks all three Expo apps.** A build is not a substitute: Babel
-  strips types, so `expo export` bundles code `tsc` rejects.
-- **`typedRoutes` is armed** (`generate-router-types.mjs` in each app's `typecheck`;
-  `typed-routes-armed.test.ts` fails if it stops). It checks the OBJECT form
-  COMPLETELY — a wrong `{ pathname }` is TS2820 — but a TEMPLATE LITERAL only when
-  no dynamic route sits above the mistyped segment, so `` `/products/wizrd/${id}` ``
-  exits 0, absorbed by `/products/[id]` (#456). Spell dynamic targets as objects;
-  `validate:route-targets` resolves each against the real tree (`docs/product-page.md`).
+## Conventions that differ from defaults
 
-## Money
+- `@mercaria/ui` has no `dist`; apps import its source (Metro `watchFolders`). Do not add a build step or
+  keep a local copy of anything it owns. Why: a second copy drifts silently.
+- Spell dynamic route targets as objects (`{ pathname, params }`), not template literals; `validate:route-targets`
+  gates it. Why: `tsc` only checks template literals partly. Detail: [`client-packages`](docs/agent-rules/client-packages.md).
+- Money: the catalog stores native currency, every column is `bigint`, the ledger is the only commission record,
+  corrections are reversing transactions. Detail: [`money`](docs/agent-rules/money.md).
+- Auth: one `OxyServer` client, a person's calls use `oxyClient.withUser`; `/internal/*` desks are Oxy app roles,
+  never env id lists. Detail: [`auth-identity`](docs/agent-rules/auth-identity.md).
+- Migrations come from `db:generate` and are applied only by `src/db/migrate.ts`, each with one
+  `-- oxy:deploy-phase=pre|post` marker. Why: no default phase. Detail: `packages/backend/AGENTS.md`.
+- Client strings go through the one locale registry in `@mercaria/ui/src/i18n/`; layout uses logical utilities
+  (`ms-`, `start-`), not `ml-`. Gates: `validate:i18n-strings`, `validate:rtl-classes`. Detail: [`i18n-rtl`](docs/agent-rules/i18n-rtl.md).
+- Peable is the only payment rail; Moovo owns logistics (no shipping zones or rates); place facts come from GoWay
+  and store crawls from Clarity. Detail: [`silent-breakers`](docs/agent-rules/silent-breakers.md).
 
-- **The catalog stores NATIVE currency** and converts nothing; **`paid` converts
-  NOTHING** — no FX call in `order.service.transition('paid')`.
-- **`DualMoney { shop, presentment }`** carries every TRANSACTED amount, with an
-  `FxRateSnapshot` that identifies the conversion completely; a later rate move
-  can never alter a stored amount.
-- **Every money column is `bigint({ mode: 'number' })`**, and `assertSafeMoneyAmount`
-  is called at every construction boundary — `z.number().int()` alone accepts
-  `1e300`.
-- **Adding a `CurrencyCode` is a code change PLUS `bun run db:generate` PLUS an
-  additive (`pre`) migration in the same PR.** Every currency column carries a CHECK
-  rendered from the shared-types tuple, so skipping the migration makes the first
-  write of the new code fail in production with a green build. It, or a condition
-  key, also breaks every installed `@mercaria.co/sdk` — release that first.
-- **The ledger is the ONLY record of Mercaria's commission** (ADR 0001 D3).
-  `db/payments/ledgerRepository.ts` is its only writer and refuses an unbalanced set; a trigger raises on UPDATE and
-  DELETE. A correction is a REVERSING transaction (no `reverseTransaction(id)`).
-  Positive is a debit; every transaction sums to zero PER CURRENCY.
-- **Nothing auto-deletes or rewrites financial history**; repairs are audited
-  operator actions from a CLOSED set.
-- **Peable is the only rail** (ADR 0009 D13): no provider SDK beside
-  `PaymentProvider`; sellers are connected accounts, synced by READING one.
-  A cart is ONE Peable Checkout Session offering FairCoin (ADR 0020).
+## Boundaries
 
-## PostgreSQL
+Never:
+- Run `drizzle-kit migrate`, rename a migration, or hand-edit `meta/_journal.json` or snapshots: the journal drifts from the SQL.
+- Convert `*.realdb.test.ts` suites to mocks: a mock accepts statements Postgres rejects.
+- Mount a webhook router after `express.json()`, or add a second writer to `listings.published_at` or the ledger:
+  chokepoint tests fail the build.
+- Add a build step to `@mercaria/ui`, or deploy web apps with `cloudflare/wrangler-action` (Workers via `bunx wrangler`).
+- Rewrite or auto-delete financial history: repairs are audited operator actions.
 
-`DATABASE_URL` is **required to boot**. PostgreSQL is the ONLY store: no
-`src/models/`, no rollback target.
+Ask first:
+- Adding a `CurrencyCode` or condition key (needs a `pre` migration and an SDK release first; see `money`).
+- Changing `allowed-origins.ts`, the Dockerfile, or `.github/workflows/` (CODEOWNERS review applies).
+- Building shipping UI, or growing this file past its budget (move material to `docs/` in the same edit).
 
-- **`bun run db:generate` writes migrations; `src/db/migrate.ts` is the ONLY
-  thing that applies them** — never `drizzle-kit migrate`. Every generated `.sql`
-  needs exactly one `-- oxy:deploy-phase=pre` (additive) or `=post` (drops,
-  renames, narrows) marker; no default.
-- **`bun run build:shared-types` BEFORE `db:generate`, always.** drizzle-kit renders
-  every closed-value-set CHECK from the BUILT `@mercaria/shared-types`, so a stale
-  `dist/` silently emits `DROP`/`ADD CONSTRAINT` pairs narrowing a sibling branch's
-  tuple back, in a diff that looks plausible.
-- **Never hand-rename a migration, hand-edit `meta/_journal.json` or hand-write a
-  snapshot**; after any regeneration READ the file for statements you did not
-  intend — it DROPS every hand-written trigger, function, backfill and the
-  marker; verify its count is 1.
-- **Do not convert `*.realdb.test.ts` suites to mocks.** A mocked insert/update
-  accepts a statement the server rejects; CHECKs, unique indexes, `requireTransaction`
-  and `FOR UPDATE SKIP LOCKED` have no mocked counterpart.
-- **The test database is SHARED across parallel files.** Scope aggregates to
-  ids your file owns, floor every count equality, never widen a global config bound,
-  hold the advisory-lock mutex for the global active matching policy, and keep a
-  trigger-toggle window to exactly ONE table.
+## Testing
 
-## Auth and the identity surfaces
+- Backend change: `bun run --cwd packages/backend test` and `typecheck`. DB change: run the `*.realdb.test.ts` suites.
+- Client change: `typecheck` for each of `@mercaria/{ui,frontend,dashboard,pos}` it touches; a build is not a substitute.
+- Done means `bun run lint`, the relevant `validate:*` gate and the affected tests pass locally; CI runs the same.
+- Write real-database tests that scope counts to ids the file owns; the test DB is shared across parallel files.
 
-- **One `OxyServer` (`oxyClient`); a person's calls use `oxyClient.withUser`.** No
-  local service principal or verifier: Oxy's shared middleware with the canonical audience; public reads use the optional receiver
-  (`docs/first-party-authority.md`), never a synthetic user. Provider webhooks
-  verify their own signatures; never add unmounted auth primitives.
-- **Every `/internal/*` desk is an Oxy app role** (`middleware/operator-authz.ts`)
-  held by `oxy` org owners/admins via oxy's registry (oxy ADR 0056): always mounted,
-  404 to non-holders, no env id lists or grants. A new surface joins the key whose
-  power it shares (`docs/house-invariants.md`).
-- **A store is owned by an Oxy account; Oxy decides who gets in** (ADR 0012). No
-  member list: `oxyClient.accountAccessFor` (THEIR session, fail closed, fresh on
-  writes) → `STORE_ROLE_PERMISSIONS` ± overrides.
-  `admin` lacks only `store:manage`, which gates fee and identity routes.
-- **Buyer, seller and `oxy_user_id` ids are Oxy's keys** and carry no foreign key.
-- **CORS:** `packages/backend/src/lib/allowed-origins.ts` is the ONE origin authority
-  (CORS and the bounded referral-cookie migration gate) and must carry `mercaria.co`, `dashboard.mercaria.co`
-  and `pos.mercaria.co`. The central Oxy API's `allowedOrigins.ts` must carry
-  `https://mercaria.co` and `/^https:\/\/[a-z0-9-]+\.mercaria\.co$/`, or
-  `auth/refresh-all` fails with CORS from every Mercaria app.
+## PR and commit rules
 
-## Things that break silently if you change them
+- Follow the [Oxy contributing guide](https://github.com/OxyHQ/.github/blob/main/CONTRIBUTING.md) and the PR template.
+- Write `Closes #N` only when the PR finishes that issue, in the body and in every commit message.
+- Merge with bare `gh pr merge --squash`; do not pass `--delete-branch` when a merge queue is on.
+- Package releases happen by merging a version bump: [npm releases](https://github.com/OxyHQ/oxy/blob/main/docs/npm-releases.md). Never publish from a laptop.
 
-- **Five webhook routers stay mounted BEFORE `express.json()`**
-  (`docs/house-invariants.md`), asserted PER MOUNT on the real chain.
-- **No request body carries a feed** (the proxy refuses >100 MB): parts go to
-  storage presigned; validation is a polled 202 job (`docs/feed-importer.md`).
-- **Three moderation ESCAPES are closed in pre-existing commerce code**, invisible
-  from `services/moderation/`: `catalog-write.service.updateListing` refuses to set
-  `restricted` or to leave it; `archiveListing` refuses a restricted listing at all
-  (DELETE-then-PATCH laundered a jury's decision in two calls — #402); and
-  `order.service.transition` refuses a held order. Keep all three, and
-  `restoreSubject` relists from `archived` too; `listing-archive-census.test.ts`
-  fails the build on a new archiver. `docs/moderation.md`.
-- **"Report" is two unrelated things.** `report.service.ts` and
-  `/admin/stores/:storeId/reports/*` are SALES ANALYTICS; abuse reports are
-  `services/moderation/`. Never merge.
-- **`product_variants.sku` and `.barcode` are unique at NO grain and must not be
-  re-narrowed** — two merchants selling one trade item share a GTIN by definition.
-  GTIN identity is `product_identifiers`' collision gate; the ambiguity check lives
-  in `matchIncomingVariant`/`resolveInventoryVariant`, which REFUSE to pick and
-  report `ambiguous`, never `skipped`.
-- **A connector collection mapping may target only a MANUAL collection.**
-  `applyCollectionMapping` and `reconcileAutomatedMembership` both write a NULL
-  `position` into `listing_collections`, so on an automated target each silently
-  deletes the other's rows and the last run wins. Refused at write time AND filtered
-  at import time — the second catches a target made automatic after a valid mapping
-  was stored. `docs/channels.md`.
-- **`listings.published_at` is the FIRST activation, never the row's birthday.**
-  `db/catalog/listingRepository.ts` is its only author;
-  `listing-publication-chokepoint.test.ts` fails the build on a fourth writer.
-- **Digital goods are a commerce type since #1015 (ADR 0010); #1016 (ADR 0011) added
-  authorized RETAIL of third-party keys.** A `digital` order has ALL NINE address
-  columns NULL — `orders_shipping_address_digital_check` says MORE than the NOT NULLs
-  it replaced, so never "fix" it with a placeholder street — place of supply is PER
-  LINE on the consumer COUNTRY alone, and `asset_rights` alone authorizes a download.
-  Retail: a partial unique bounds ONE live purchase order per order line, a timeout
-  only reaches `ambiguous`, a key has no plaintext column, a gift card is
-  unrepresentable. `DIGITAL_DOWNLOADS_ENABLED` and `DIGITAL_RETAIL_REVEAL_ENABLED`
-  default ON, the other eight OFF. `docs/digital-{commerce,retail}.md`.
-- **Shipping UI is HIDDEN and Moovo owns logistics entirely** — do NOT build
-  shipping zones or rates, and the Moovo port is registered on no deployment.
-  Pickup/collection is a different thing and IS built (`docs/pickup.md`).
-- **Place facts are GoWay's** (ADR 0013, `go_way_place_id` only, via
-  `services/goway/`; a location shows only while its place names it back);
-  **stores are crawled by Clarity** (ADR 0017, `services/clarity/`).
-- **ONE locale registry, `@mercaria/ui/src/i18n/`**; module-scope data holds KEYS,
-  never sentences. App copy is per app; **`@mercaria/ui`'s own copy is in ITS
-  bundles**, merged under the reserved `ui` namespace for the locales that app SHIPS
-  — never the union, or the dashboard gains an `ar` it cannot mirror — and read
-  through `SharedUiTranslationProvider` at every app root. `validate:i18n-strings`
-  gates that plus hardcoded strings, parity and unreferenced keys. `docs/app-i18n.md`.
-- **All four client packages mirror for Arabic from LOGICAL utilities only**
-  (`ms-`, `start-`, `rounded-s-`…), gated by `validate:rtl-classes`; a physical
-  `ml-2` half-mirrors a screen yet builds green. Direction follows the SHIPPED
-  BUNDLES, not the tag (#434). `border-s-*`/`text-start` do NOT survive
-  react-native-css/RN 0.88 and stay physical (`validate-rtl-upstream-premises`
-  re-measures both). A Bloom `Dialog` side-sheet takes the LOGICAL
-  `placement="start"|"end"`, never `left`/`right`; its `inset` keys stay
-  physical. Arabic is NOT fully supported — #429 item 2.
-- **The root API Dockerfile pins `node-gyp`** (`ws` has no musl-arm64 prebuild;
-  `@latest` flakes on ARM).
-- **`ci.yml`'s `Lint & Test` stays on x86** though `deploy-aws.yml` builds ARM:
-  ARM runners have no service containers; `postgis/postgis` is amd64-only.
-- **Web apps deploy to Cloudflare Workers, NOT Pages**, via **`bunx wrangler`,
-  never `cloudflare/wrangler-action`** (its `npm i wrangler` chokes on
-  `workspace:*`). All four deploys gate on `ci.yml`'s verdict for that commit;
-  none runs a copy of the suite (#518). `docs/deploy.md`.
+## Secrets
+
+Env values come from each package's `.env` (copy `.env.example`) and the deploy environment. Never print or
+commit `DATABASE_URL` or any credential; refer to variable names only.
+
+## Further reading
+
+- [Engineering standards](https://github.com/OxyHQ/oxy/blob/main/docs/engineering/standards.md),
+  [lint and format](https://github.com/OxyHQ/oxy/blob/main/docs/engineering/lint-and-format.md),
+  [gate writing](https://github.com/OxyHQ/oxy/blob/main/docs/engineering/gate-writing.md),
+  [build and runtime traps](https://github.com/OxyHQ/oxy/blob/main/docs/engineering/build-and-runtime-traps.md)
+- [Application roles](https://github.com/OxyHQ/oxy/blob/main/docs/auth/application-roles.md),
+  [Postgres and Drizzle](https://github.com/OxyHQ/oxy/blob/main/docs/postgres-and-drizzle.md),
+  [Bloom app conventions](https://github.com/OxyHQ/Bloom/blob/main/docs/app-conventions.mdx)
+
+Owner: OxyHQ (CODEOWNERS). Last reviewed: 2026-11-11.
