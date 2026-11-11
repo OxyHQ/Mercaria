@@ -51,7 +51,9 @@ export async function probePlanCheckouts(
   },
 ): Promise<CheckoutProbeResult[]> {
   const fetchPage =
-    options.fetchPage ?? (async (url: string) => (await fetch(url, { redirect: 'follow' })).status);
+    options.fetchPage ??
+    (async (url: string) =>
+      (await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(30_000) })).status);
   const customer = await client.customers.create(
     {
       name: 'Mercaria plan checkout probe',

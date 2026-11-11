@@ -48,6 +48,7 @@
 import { Readable } from 'node:stream';
 import { readResponseBody } from '@oxy.so/core/server';
 import { findAssetFileStorageKey } from '../../db/digital/assetRepository.js';
+import { fetchWithHeadersTimeout } from '../../lib/http/fetch-with-headers-timeout.js';
 import { log } from '../../lib/logger.js';
 import type { AssetByteRead, AssetByteSource } from './inspection/bytes.js';
 import { registerAssetByteSource } from './inspection/bytes.js';
@@ -91,7 +92,9 @@ export const storageAssetByteSource: AssetByteSource = {
 
     let response: Response;
     try {
-      response = await fetch(url);
+      // Bounded connect + headers; the body has its own deadline below. A stall
+      // throws here, which is a transient failure BullMQ retries.
+      response = await fetchWithHeadersTimeout(url);
     } catch (cause) {
       // A transport failure. Thrown, never flattened — see the module docblock.
       throw new Error('Reading the asset object failed', { cause });

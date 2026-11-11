@@ -33,6 +33,7 @@
  * retires a catalogue.
  */
 
+import { fetchWithHeadersTimeout } from '../../lib/http/fetch-with-headers-timeout.js';
 import type { FeedCompression, FeedForbiddenContainer } from '@mercaria/shared-types';
 import { mintPrivateDownloadUrls } from '../catalog-media/oxy-files.js';
 import { FeedImportRefusal } from './errors.js';
@@ -141,13 +142,15 @@ async function storedUploadUrl(fileId: string): Promise<string> {
   return url;
 }
 
+const RANGE_READ_TIMEOUT_MS = 60_000;
+
 async function fetchStored(
   url: string,
   init: { range?: string; signal?: AbortSignal },
 ): Promise<Response> {
   let response: Response;
   try {
-    response = await fetch(url, {
+    response = await fetchWithHeadersTimeout(url, {
       redirect: 'error',
       ...(init.range === undefined ? {} : { headers: { range: init.range } }),
       ...(init.signal === undefined ? {} : { signal: init.signal }),
@@ -215,6 +218,8 @@ export async function readStoredUploadRange(
 ): Promise<Buffer> {
   const response = await fetchStored(await storedUploadUrl(fileId), {
     range: `bytes=${offset}-${offset + length - 1}`,
+    // A prefix read is small: one deadline for the whole exchange, body included.
+    signal: AbortSignal.timeout(RANGE_READ_TIMEOUT_MS),
   });
   const chunks: Buffer[] = [];
   let total = 0;
