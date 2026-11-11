@@ -10,7 +10,7 @@ or Wallapop style. A Shopify-grade commerce backend serving three Expo apps
 > `docs/postgres-testing-and-migrations.md`. `HANDOFF.md` holds deferred work.
 >
 > **This file carries only RULES — things that break silently.** Design notes go
-> in `docs/`. Org-wide standards are in `~/AGENTS.md` and `~/Oxy/AGENTS.md`.
+> in `docs/`. Org-wide standards are in `~/Oxy/AGENTS.md`.
 >
 > **Budget: under 12 KB**, enforced by `scripts/check-agents-md-size.mjs`. An
 > addition that pushes it over is paid for in the SAME edit.
