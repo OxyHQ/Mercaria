@@ -372,8 +372,10 @@ jobs:
       # (`reviewed-image.py check`, Lint & Test, inside CI complete).
       - name: Refuse unreviewed image build inputs
         id: reviewed
-        run: python3 -B .github/scripts/reviewed-image.py guard --recipe mercaria
-
+        uses: OxyHQ/oxy/.github/actions/reviewed-image@main
+        with:
+          phase: guard
+          recipe: mercaria
       - name: Build and push (linux/arm64)
         id: image
         env:
