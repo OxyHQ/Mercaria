@@ -7,8 +7,8 @@
  * are drawn with the same cards as the search page.
  */
 
-import type { AliaToolRenderers, AliaToolResult } from '@alia.onl/sdk';
-import { useAskAgent } from '@alia.onl/sdk/ask';
+import type { GemieToolRenderers, GemieToolResult } from '@gemies/sdk';
+import { useAskGemie } from '@gemies/sdk/ask';
 import { Button } from '@oxy.so/bloom/button';
 import { useRouter } from 'expo-router';
 import { View } from 'react-native';
@@ -19,10 +19,10 @@ import { searchOfResult } from '@/lib/thread/search-result';
 /** How many cards one search shows in the sheet; the rest are one tap away on the search page. */
 export const THREAD_RESULTS_MAX = 8;
 
-function SearchProducts({ result }: { result: AliaToolResult }) {
+function SearchProducts({ result }: { result: GemieToolResult }) {
   const { t } = useTranslation();
   const router = useRouter();
-  const { dismiss } = useAskAgent();
+  const { dismiss } = useAskGemie();
   const { query, results } = searchOfResult(result);
   if (results.length === 0) return null;
   return (
@@ -47,6 +47,6 @@ function SearchProducts({ result }: { result: AliaToolResult }) {
   );
 }
 
-export const MERCARIA_TOOL_RENDERERS: AliaToolRenderers = {
+export const MERCARIA_TOOL_RENDERERS: GemieToolRenderers = {
   'mercaria:searchProducts': (result) => <SearchProducts result={result} />,
 };

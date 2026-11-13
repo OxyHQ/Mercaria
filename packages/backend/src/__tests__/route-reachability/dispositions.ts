@@ -103,7 +103,7 @@ export const ROUTE_DISPOSITIONS: Readonly<
         '(MercariaAskProvider). It is kept so a browser, bookmark or shared link still lands: ' +
         '?q= opens the sheet with that first turn, ?conversationId= reopens that conversation, ' +
         'and the route replaces itself with the home page. In-app code asks the sheet with ' +
-        'useAskAgent() and must never navigate here — that would push a screen whose only act ' +
+        'useAskGemie() and must never navigate here — that would push a screen whose only act ' +
         'is to leave.',
     },
     '/settings': {

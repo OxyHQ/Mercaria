@@ -1,6 +1,6 @@
 import { renderListingLink } from '@/lib/catalog/product-links';
-import { useConversations } from '@alia.onl/sdk/runtime';
-import { useAskAgent } from '@alia.onl/sdk/ask';
+import { useConversations } from '@gemies/sdk/runtime';
+import { useAskGemie } from '@gemies/sdk/ask';
 import { View } from 'react-native';
 import { Link } from 'expo-router';
 import { ProductShelf, ThreadShelf } from '@mercaria/ui';
@@ -21,7 +21,7 @@ export function ShoppingHistoryShelves() {
   const owner = useShoppingHistoryOwner();
   const { products, hydrated } = useShoppingHistory();
   const conversations = useConversations({ app: MERCARIA_APP });
-  const { resume } = useAskAgent();
+  const { resume } = useAskGemie();
   const { t, locale } = useTranslation();
   if (!hydrated) return null;
   const recentProducts = products

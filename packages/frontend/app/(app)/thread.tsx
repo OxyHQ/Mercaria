@@ -7,7 +7,7 @@
  * the home page, and leaves itself. Signed out, the SDK opens Oxy's sign-in.
  */
 
-import { useAskAgent } from '@alia.onl/sdk/ask';
+import { useAskGemie } from '@gemies/sdk/ask';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Head from 'expo-router/head';
 import { useEffect, useRef } from 'react';
@@ -15,7 +15,7 @@ import { useEffect, useRef } from 'react';
 export default function ThreadAddress() {
   const { q, conversationId } = useLocalSearchParams<{ q?: string; conversationId?: string }>();
   const router = useRouter();
-  const { ask, resume } = useAskAgent();
+  const { ask, resume } = useAskGemie();
   const opened = useRef(false);
 
   useEffect(() => {
