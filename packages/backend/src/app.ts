@@ -16,6 +16,7 @@ import { ecosystemActivityMiddleware } from './ecosystemActivity';
 
 import express from 'express';
 import { createOxyCors, oxyTrustProxy } from '@oxy.so/core/server';
+import { OXY_TELEMETRY_REQUEST_HEADERS } from '@oxy.so/telemetry';
 import cors from 'cors';
 import { log } from './lib/logger.js';
 // Routes
@@ -229,8 +230,7 @@ export function createApp(): express.Express {
       'X-Mercaria-Portal-Transport',
       'X-Mercaria-Referral-State',
       'X-Mercaria-Referral-Migration',
-      'X-Oxy-Edge-Region',
-      'X-Oxy-Activity-Id',
+      ...OXY_TELEMETRY_REQUEST_HEADERS,
     ],
     exposedHeaders: [
       'X-Mercaria-Guest-Token',
