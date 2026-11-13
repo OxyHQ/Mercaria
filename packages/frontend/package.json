@@ -19,10 +19,10 @@
     "test:commerce-browser": "vitest run --config vitest.commerce-browser.config.ts"
   },
   "dependencies": {
-    "@alia.onl/sdk": "22.10.1",
     "@expo/app-integrity": "~58.0.2",
     "@expo/html-elements": "~58.0.3",
     "@expo/vector-icons": "^15.1.1",
+    "@gemies/sdk": "1.0.0",
     "@goway.to/sdk": "0.3.0",
     "@hugeicons/react-native": "^1.0.15",
     "@mercaria.co/sdk": "workspace:*",

@@ -2,7 +2,7 @@
  * Alia in Mercaria: the SDK's one sheet, mounted once above the app frame.
  *
  * It is the storefront's ONLY chat surface — there is no shopping-thread page.
- * The composer asks it (`useAskAgent().ask(undefined, turn)`), "Keep shopping"
+ * The composer asks it (`useAskGemie().ask(undefined, turn)`), "Keep shopping"
  * reopens a conversation in it (`resume`), and signed out the SDK opens Oxy's
  * sign-in instead. Alia leads; she reaches the catalogue through Mercaria's
  * capability catalogue (`oxy_mercaria__searchProducts`), and the person present
@@ -16,7 +16,7 @@
  * cards read.
  */
 
-import { AliaAskProvider } from '@alia.onl/sdk/ask';
+import { GemieAskProvider } from '@gemies/sdk/ask';
 import type { ReactNode } from 'react';
 import { MERCARIA_TOOL_RENDERERS } from '@/components/thread/mercariaToolRenderers';
 import { MERCARIA_APP } from '@/lib/alia/mercaria-app';
@@ -25,12 +25,12 @@ import { useTranslation } from '@/lib/i18n';
 export function MercariaAskProvider({ children }: { children: ReactNode }) {
   const { locale } = useTranslation();
   return (
-    <AliaAskProvider
+    <GemieAskProvider
       app={MERCARIA_APP}
       toolRenderers={MERCARIA_TOOL_RENDERERS}
       clientContext={`Mercaria, Oxy's marketplace. Locale: ${locale}. Search Mercaria's catalogue for products; the app draws the products the search returns, so name them without repeating their details.`}
     >
       {children}
-    </AliaAskProvider>
+    </GemieAskProvider>
   );
 }

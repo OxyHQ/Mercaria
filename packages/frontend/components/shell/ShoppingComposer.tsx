@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { TextInput } from 'react-native';
-import { useAskAgent } from '@alia.onl/sdk/ask';
+import { useAskGemie } from '@gemies/sdk/ask';
 import { useOxy } from '@oxy.so/services/ui/client';
 import { useLocalSearchParams } from 'expo-router';
 import { ChatComposer } from '@oxy.so/bloom/chat-composer';
@@ -58,7 +58,7 @@ export function ShoppingComposerProvider({ children }: { children: ReactNode }) 
  */
 export function ShoppingComposer({ inline = false }: { inline?: boolean }) {
   const { t } = useTranslation();
-  const { ask } = useAskAgent();
+  const { ask } = useAskGemie();
   const { canUsePrivateApi } = useOxy();
   const draft = useContext(DraftContext);
   if (!draft) throw new Error('ShoppingComposer requires ShoppingComposerProvider');
