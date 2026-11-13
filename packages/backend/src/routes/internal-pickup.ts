@@ -1,22 +1,22 @@
 /**
  * `/internal/pickup/*` — the location and collection operator surface (#93).
  *
- * On the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list
- * #54/#55/#56/#57/#58/#60/#62/#68/#83/#94 use, and NOT a seventh: withdrawing a
+ * On the SAME `catalog.operate` key
+ * #54/#55/#56/#57/#58/#60/#62/#68/#83/#94 use, and NOT a new key: withdrawing a
  * published shop front is a catalogue-moderation power over the same graph, and
- * a new list would be a new thing to keep in step for a separation it does not
+ * a new key would be a new thing to keep in step for a separation it does not
  * have. Reading what Mercaria PAYS suppliers is a different power and has its
- * own list; deciding what may be publicly discovered is this one.
+ * own key; deciding what may be publicly discovered is this one.
  *
- * Mounted only when that list is non-empty — 404 on a deployment with no
- * operators, never a 401 that would advertise the surface — and it stays
+ * Mounted on every deployment — 404 to anyone without the key, never a 401 that
+ * would advertise the surface — and it stays
  * mounted while `NEARBY_DISCOVERY_ENABLED` is off, because the evidence has to
  * be readable during the incident that turned discovery off.
  */
 
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireCatalogOperator } from '../middleware/catalog-operator-authz.js';
+import { requireCatalogOperator } from '../middleware/operator-authz.js';
 import { validateBody, validateId } from '../middleware/validate.js';
 import { setPublicationRestrictionSchema } from '../middleware/pickup-schemas.js';
 import {
@@ -27,8 +27,8 @@ import {
 
 const router = Router();
 
-// Authentication FIRST, then the allow-list — a list consulted before
-// authentication compares against whatever a client claimed.
+// Authentication FIRST, then the operator gate — it asks Oxy about the verified
+// caller's own session, which only `authenticateToken` establishes.
 router.use(authenticateToken);
 router.use(requireCatalogOperator);
 

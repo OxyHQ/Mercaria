@@ -350,11 +350,11 @@ with no sweep having run.
 
 ### The operator surface
 
-`/internal/supplier-preflight/*`, behind `PROCUREMENT_OPERATOR_OXY_USER_IDS` —
-a SIXTH allow-list, for a power none of the other five holds: it reads what
+`/internal/supplier-preflight/*`, behind `procurement.operate` —
+a SIXTH operator key, for a power none of the other five holds: it reads what
 Mercaria PAYS its suppliers and flips the supplier and market kill switches. A
 compliance reviewer vetted to verify a safety certificate is not thereby vetted
-to see Mercaria's cost base. Empty = not mounted (404, never 401).
+to see Mercaria's cost base. Anyone without it gets 404, never 401.
 
 | Route | Purpose |
 |---|---|
@@ -426,7 +426,6 @@ SUPPLIER_PREFLIGHT_SWEEP_INTERVAL_MS=30000
 SUPPLIER_PREFLIGHT_SWEEP_BATCH_SIZE=50
 SUPPLIER_PREFLIGHT_MAX_RELEASE_ATTEMPTS=5
 SUPPLIER_PREFLIGHT_FAKE_ADAPTER_ENABLED=false
-PROCUREMENT_OPERATOR_OXY_USER_IDS=        # empty = surface not mounted (404)
 ```
 
 `SUPPLIER_PREFLIGHT_ENABLED=true` **requires** the fingerprint key — the
@@ -483,7 +482,7 @@ Each is a NAMED contract that fails closed, never a stub that lies.
 
 ## Production-readiness checklist
 
-1. `PROCUREMENT_OPERATOR_OXY_USER_IDS` populated — without it nobody can publish
+1. `procurement.operate` seeded on Mercaria and held by the operators (owners or admins of the `oxy` organization, `docs/auth.md`) — without it nobody can publish
    a sourcing policy, read a quote trace or stop a failing supplier.
 2. `SUPPLIER_PREFLIGHT_FINGERPRINT_KEY` provisioned (64 hex characters, its own
    key — never shared with the guest PII or email-hash keys).

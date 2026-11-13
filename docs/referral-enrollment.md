@@ -336,7 +336,7 @@ There is no route that takes a partner id, no route that reads another partner,
 and no route that could grant a permission. `requirePartner` takes an OWNER and
 never an id, so the refusal is the SIGNATURE.
 
-**Operator**, on the SAME `REFERRAL_OPERATOR_OXY_USER_IDS` allow-list #143 and
+**Operator**, on the SAME `referrals.operate` key #143 and
 #145 use — NOT an eighth. Deciding whether somebody may be a partner and
 approving what they are paid are the same economy.
 

@@ -32,6 +32,7 @@
  */
 
 import type {
+  CatalogRefreshMode,
   CatalogSourceFetchFailureKind,
   CatalogSourceHealthState,
   CatalogSourceStatus,
@@ -136,9 +137,34 @@ export function mayRetireUnseen(input: {
   return input.enumerationComplete && CATALOG_SOURCE_RETIRING_OUTCOMES.includes(input.outcome);
 }
 
-/** Every outcome that is not a complete success, for the "is it degraded" read. */
-export function isDegraded(outcome: CatalogSourceHealthState): boolean {
-  return outcome !== 'full_feed_success';
+/**
+ * Did this pass SUCCEED, for scheduling: does it set `last_success_at` and wait
+ * the source's cadence, or take the failure backoff?
+ *
+ * Not the same question as the health state, which is about COVERAGE. A pass
+ * that is not a snapshot can never be `full_feed_success` — its pages may not
+ * claim completeness, a CHECK — so an incremental or query-driven pass that read
+ * the provider to its last page without an error closes `partial_feed`, and that
+ * is a finished pass, not a failed one. Treating it as a failure starved every
+ * such source of a `last_success_at` and put it on the 2ⁿ-minute backoff, which
+ * is SHORTER than a daily cadence: Steam and YGOPRODeck re-read their whole
+ * provider several times a day in October 2026.
+ *
+ * `matching_ambiguity` is a finished pass too — the review queue is long, and
+ * reading the provider again sooner shortens nothing. A rejection-ratio
+ * `schema_drift` is not: its records failed.
+ *
+ * A SNAPSHOT pass is held to the old rule. It exists to establish completeness,
+ * and one that did not is retried until it does; counting it would switch the
+ * source to incremental and it would never take a retiring pass.
+ */
+export function passSucceeded(input: {
+  readonly outcome: CatalogSourceHealthState;
+  readonly refreshMode: CatalogRefreshMode;
+}): boolean {
+  if (input.outcome === 'full_feed_success') return true;
+  if (input.refreshMode === 'full_snapshot') return false;
+  return input.outcome === 'partial_feed' || input.outcome === 'matching_ambiguity';
 }
 
 /**

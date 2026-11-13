@@ -11,10 +11,10 @@ import { sendSuccess } from '../utils/api-response.js';
 import { respondWithError } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
 
-/** GET /feed — the DB-backed home feed. PUBLIC; viewerId (optional) drives `saved`. */
+/** GET /feed — the DB-backed home feed. PUBLIC, and the same for every viewer. */
 export async function getHomeFeed(req: Request, res: Response): Promise<void> {
   try {
-    const feed = await getFeed(req.user?.id);
+    const feed = await getFeed();
     sendSuccess(res, feed);
   } catch (err) {
     log.general.error({ err }, 'Failed to build home feed');

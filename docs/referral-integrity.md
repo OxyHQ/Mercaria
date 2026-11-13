@@ -361,7 +361,7 @@ appealed or recorded as a clearance is not one to appeal.
 
 ## The operator surface
 
-`/internal/referrals/*` on the SAME `REFERRAL_OPERATOR_OXY_USER_IDS` allow-list
+`/internal/referrals/*` on the SAME `referrals.operate` key
 #143/#145/#146 use — **not an eighth**. #143 already said why: pausing
 attribution stops partners earning, and #148 is that power at a finer grain plus
 the one #145 stopped short of.

@@ -1,5 +1,6 @@
 import type {
   ApiResponse,
+  FeaturedCollectionSelection,
   Collection,
   CreateCollectionInput,
   UpdateCollectionInput,
@@ -60,6 +61,27 @@ export async function setCollectionProducts(
 ): Promise<Collection> {
   const { data } = await apiClient.post<ApiResponse<Collection>>(
     `${base(storeId)}/${id}/products`,
+    input,
+  );
+  return unwrap(data);
+}
+
+/** The store's saved ordered selection, including entries no longer public. */
+export async function fetchFeaturedCollections(
+  storeId: string,
+): Promise<FeaturedCollectionSelection> {
+  const { data } = await apiClient.get<ApiResponse<FeaturedCollectionSelection>>(
+    `${base(storeId)}/featured`,
+  );
+  return unwrap(data);
+}
+
+export async function setFeaturedCollections(
+  storeId: string,
+  input: FeaturedCollectionSelection,
+): Promise<FeaturedCollectionSelection> {
+  const { data } = await apiClient.put<ApiResponse<FeaturedCollectionSelection>>(
+    `${base(storeId)}/featured`,
     input,
   );
   return unwrap(data);

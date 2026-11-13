@@ -2,11 +2,11 @@
  * `/internal/guest-commerce/governance/*` — the retention, monitoring, abuse
  * and rollout surface (#111).
  *
- * On the SAME `GUEST_OPERATOR_OXY_USER_IDS` allow-list #104, #108, #109 and
- * #110 use, and deliberately NOT a seventh. The power is the one that list
+ * On the SAME `guest.operate` key #104, #108, #109 and
+ * #110 use, and deliberately NOT a new one. The power is the one that key
  * already grants — reading what happened to a guest's data and driving a path
- * that is already bounded — and a new list would be a second answer to a
- * question this one answers. It is deliberately not the PAYMENT list either: a
+ * that is already bounded — and a new key would be a second answer to a
+ * question this one answers. It is deliberately not `payments.operate` either: a
  * support engineer checking whether the retention job is running should not
  * thereby be able to see every store's money.
  *
@@ -39,9 +39,9 @@ import {
   type GuestSignoffDiscipline,
 } from '@mercaria/shared-types';
 import { getRequiredOxyUserId } from '@oxy.so/core/server';
+import { config } from '../config/index.js';
 import { ErrorCodes, sendError, sendSuccess } from '../utils/api-response.js';
 import { getDb } from '../db/postgres.js';
-import { log } from '../lib/logger.js';
 import {
   listRecentInterventions,
   readInterventionRates,
@@ -153,11 +153,11 @@ export async function listGuestRetentionRunsHandler(_req: Request, res: Response
 /**
  * `POST /governance/retention-runs` — run one pass now.
  *
- * `dryRun` defaults to `true`: a pass only ERASES when the body says
- * `dryRun: false`, and even then only for a class with an ACTIVE published
- * retention policy (the service refuses `policy_missing` otherwise). The
- * policy is the recorded decision that contacts may be minimized; the explicit
- * `false` is the operator's decision to do it now, attributable to the request.
+ * Drives the SAME function the scheduled loop drives, so this surface adds a
+ * trigger and no second way to delete anything. Whether it dry-runs is
+ * `GUEST_RETENTION_DRY_RUN`'s decision and not a body field — an operator able
+ * to pass `mode: 'apply'` past a deployment that chose dry-run would make the
+ * flag decorative.
  */
 export async function runGuestRetentionPassHandler(req: Request, res: Response): Promise<void> {
   const retentionClass = req.body?.retentionClass as GuestRetentionClass | undefined;
@@ -170,22 +170,19 @@ export async function runGuestRetentionPassHandler(req: Request, res: Response):
     );
     return;
   }
-  const dryRun: unknown = req.body?.dryRun ?? true;
-  if (typeof dryRun !== 'boolean') {
-    sendError(res, ErrorCodes.VALIDATION_ERROR, 'dryRun must be a boolean when given.', 400);
-    return;
-  }
-  const outcome = await runRetentionPass({ retentionClass, dryRun, now: new Date() });
-  if (!dryRun && outcome.outcome === 'ran') {
-    // The run row carries the policy version and the counters; WHO chose to
-    // apply is the request's, so it is logged beside the run id.
-    log.guest.warn(
-      { runId: outcome.result.runId, retentionClass, appliedBy: getRequiredOxyUserId(req) },
-      '[GuestRetention] an operator applied a retention pass',
-    );
-  }
+  const outcome = await runRetentionPass({
+    retentionClass,
+    dryRun: config.guest.governance.retentionDryRun,
+    now: new Date(),
+  });
   if (outcome.outcome === 'refused') {
     sendError(res, ErrorCodes.CONFLICT, `The retention pass was refused: ${outcome.reason}.`, 409);
+    return;
+  }
+  if (outcome.outcome === 'idle') {
+    // Unreachable from here — only the scheduler asks to skip an empty page —
+    // and answered rather than assumed, so the union stays exhaustive.
+    sendSuccess(res, { examined: 0 }, 202);
     return;
   }
   sendSuccess(res, outcome.result, 202);
@@ -202,6 +199,17 @@ export async function raiseGuestLegalHoldHandler(req: Request, res: Response): P
       res,
       ErrorCodes.VALIDATION_ERROR,
       'checkoutGroupId, retentionClass and reason are required.',
+      400,
+    );
+    return;
+  }
+  if (reason === 'expires_on_schedule') {
+    // A RECEIPT's reason (M8-01), never a hold's: a hold pauses a deletion, and
+    // this one names a class nothing was asked to delete.
+    sendError(
+      res,
+      ErrorCodes.VALIDATION_ERROR,
+      'expires_on_schedule is not a reason a legal hold can carry.',
       400,
     );
     return;

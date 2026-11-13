@@ -17,7 +17,7 @@ import {
 } from 'lucide-react-native';
 import { useIsRtl } from '@oxy.so/bloom/hooks';
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '@oxy.so/services';
+import { useAuth } from '@oxy.so/services/ui/client';
 import { RiNotification3Line } from '@oxy.so/bloom/icons/RiNotification3Line';
 import { EmptyState } from '@oxy.so/bloom/empty-state';
 import * as ExpoNotifications from 'expo-notifications';

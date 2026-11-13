@@ -53,6 +53,7 @@
 import { describe, it, expect, afterAll, beforeAll } from 'vitest';
 import express from 'express';
 import { createHmac } from 'node:crypto';
+import { PEABLE_API_VERSION } from '@peable.to/sdk';
 import { and, eq } from 'drizzle-orm';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
@@ -87,8 +88,7 @@ beforeAll(async () => {
   // which would make the raw-body assertion vacuous while still looking like a
   // wiring bug.
   process.env.PEABLE_BASE_URL = 'https://api.peable.invalid';
-  process.env.OXY_APPLICATION_KEY = 'oxy_dk_not_a_real_key';
-  process.env.OXY_APPLICATION_SECRET = 'oxy_secret_not_a_real_key';
+  process.env.AWS_CONTAINER_CREDENTIALS_RELATIVE_URI = '/v2/credentials/webhook-fixture';
   process.env.PEABLE_WEBHOOK_SECRET = SECRET;
   process.env.PEABLE_WEBHOOK_SECRET_PREVIOUS = SECRET_PREVIOUS;
 
@@ -135,67 +135,101 @@ function listen(app: express.Express): Promise<string> {
   });
 }
 
-/** A syntactically complete gateway event body. */
-function eventBody(overrides: { id?: string; type?: string; intentId?: string }): string {
-  const type = overrides.type ?? 'payment_intent.settled';
-  const created = new Date().toISOString();
+/** A syntactically complete gateway event body, in the published wire's shapes. */
+function eventBody(overrides: {
+  id?: string;
+  type?: string;
+  intentId?: string;
+  livemode?: boolean;
+}): string {
+  const type = overrides.type ?? 'payment_intent.succeeded';
+  const created = Math.floor(Date.now() / 1000);
+  const livemode = overrides.livemode ?? false;
   const paymentIntentId = overrides.intentId ?? 'pi_peable_test_1';
   const object =
     type === 'connected_account.updated'
       ? {
           id: 'ca_peable_fixture',
           object: 'connected_account',
-          externalRef: 'store_fixture',
+          livemode,
+          external_ref: 'store_fixture',
+          rails: ['card'],
+          faircoin: null,
           country: 'ES',
-          defaultCurrency: 'EUR',
+          default_currency: 'EUR',
           payable: false,
-          payoutsEnabled: false,
-          chargesEnabled: false,
-          transfersCapability: 'pending',
-          cardPaymentsCapability: null,
-          requirements: { currentlyDue: 1, eventuallyDue: 1, pastDue: 0, pendingVerification: 0 },
-          disabledReasonCodes: [],
-          lastSyncedAt: null,
-          createdAt: created,
-          updatedAt: created,
+          payouts_enabled: false,
+          charges_enabled: false,
+          created,
+          updated_at: created,
         }
-      : type === 'payment_intent.disputed' || type === 'payment_intent.dispute_closed'
+      : type.startsWith('charge.dispute.')
         ? {
             id: 'dp_peable_fixture',
             object: 'dispute',
-            paymentIntentId,
+            livemode,
+            payment_intent: paymentIntentId,
+            charge: 'ch_peable_fixture',
             amount: '1000',
             currency: 'EUR',
-            status: type === 'payment_intent.disputed' ? 'needs_response' : 'won',
-            reason: null,
-            evidenceDueAt: null,
-            evidenceSubmittedAt: null,
-            createdAt: created,
-            updatedAt: created,
+            status: type === 'charge.dispute.closed' ? 'won' : 'needs_response',
+            reason: 'general',
+            created,
           }
-        : {
-            id: paymentIntentId,
-            object: 'payment_intent',
-            status: 'settled',
-            amount: '1000',
-            currency: 'EUR',
-            rail: 'card',
-            network: null,
-            address: null,
-            merchantId: 'merch_fixture',
-            txid: null,
-            confirmations: 0,
-            clientSecret: 'synthetic-client-secret',
-            metadata: {},
-            expiresAt: created,
-            createdAt: created,
-            updatedAt: created,
-          };
+        : type === 'charge.refunded'
+          ? {
+              id: 'ch_peable_fixture',
+              object: 'charge',
+              livemode,
+              payment_intent: paymentIntentId,
+              amount: '1000',
+              amount_captured: '1000',
+              amount_refunded: '1000',
+              currency: 'EUR',
+              status: 'succeeded',
+              refunded: true,
+              created,
+            }
+          : type.startsWith('refund.')
+            ? {
+                id: 're_peable_fixture',
+                object: 'refund',
+                livemode,
+                external_ref: 'refund_fixture',
+                origin: 'merchant',
+                payment_intent: paymentIntentId,
+                amount: '1000',
+                currency: 'EUR',
+                status: 'succeeded',
+                created,
+                updated_at: created,
+              }
+            : {
+                id: paymentIntentId,
+                object: 'payment_intent',
+                livemode,
+                status: 'succeeded',
+                rail: 'card',
+                amount: '1000',
+                amount_received: '1000',
+                amount_refunded: '0',
+                currency: 'EUR',
+                merchant_id: 'merch_fixture',
+                faircoin: null,
+                client_secret: 'synthetic-client-secret',
+                metadata: {},
+                expires_at: created,
+                created,
+                updated_at: created,
+              };
   return JSON.stringify({
     id: overrides.id ?? 'evt_peable_1',
     object: 'event',
+    api_version: PEABLE_API_VERSION,
+    livemode,
     type,
     created,
+    request: { id: null, idempotency_key: null },
     data: { object },
   });
 }
@@ -389,10 +423,10 @@ describe('Peable webhook signature verification', () => {
 
 describe('published SDK webhook families and rotation', () => {
   for (const type of [
-    'payment_intent.refunded',
-    'payment_intent.partially_refunded',
-    'payment_intent.disputed',
-    'payment_intent.dispute_closed',
+    'charge.refunded',
+    'refund.updated',
+    'charge.dispute.created',
+    'charge.dispute.closed',
     'connected_account.updated',
   ]) {
     for (const [keyName, secret] of [
@@ -425,9 +459,19 @@ describe('published SDK webhook families and rotation', () => {
       ['wrong', 'wrong-secret', Math.floor(Date.now() / 1000)],
     ] as const) {
       const id = `evt_sdk_${suffix}`;
-      const payload = eventBody({ id, type: 'payment_intent.refunded' });
+      const payload = eventBody({ id, type: 'charge.refunded' });
       expect((await post(base, payload, sign(payload, secret, timestamp))).status).toBe(400);
       expect(await storedEvents(id)).toHaveLength(0);
     }
+  });
+  it('acknowledges an authentic delivery of the OTHER mode and stores nothing', async () => {
+    const id = 'evt_sdk_other_mode';
+    // This deployment is test mode (`NODE_ENV` is not `production`).
+    const payload = eventBody({ id, livemode: true });
+    const base = await listen(createApp());
+    const answer = await post(base, payload, sign(payload, SECRET));
+    expect(answer.status).toBe(200);
+    expect(answer.body).toContain('livemode_mismatch');
+    expect(await storedEvents(id)).toHaveLength(0);
   });
 });

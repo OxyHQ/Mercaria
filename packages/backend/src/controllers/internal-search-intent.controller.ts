@@ -1,8 +1,8 @@
 /**
  * `/internal/search-intent/*` — the operator surface (#95).
  *
- * On the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54/#56/#57/#58/#60/
- * #62/#68/#70/#78 use, and deliberately NOT a seventh list: reading how a query
+ * On the SAME `catalog.operate` key #54/#56/#57/#58/#60/
+ * #62/#68/#70/#78 use, and deliberately NOT a new key: reading how a query
  * was interpreted is the same power over the same graph as reading what a query
  * returns (#70's operator surface), and the enablement it publishes is a
  * catalogue-quality decision rather than a financial or a compliance one.
@@ -44,7 +44,7 @@ import {
   SHOPPING_INTENT_PARSER_VERSION,
   SHOPPING_INTENT_PROMPT_VERSION,
 } from '@mercaria/shared-types';
-import { catalogOperatorId } from '../middleware/catalog-operator-authz.js';
+import { operatorId } from '../middleware/operator-authz.js';
 import type {
   IntentBenchmarkRunBody,
   IntentEnablementBody,
@@ -174,7 +174,7 @@ export async function runIntentBenchmarkHandler(req: Request, res: Response): Pr
         costUnits: measurement('cost_units'),
         fallbackRate: measurement('fallback_rate'),
         sampleSize: Math.max(1, sample('schema_validity')),
-        ranByOxyUserId: catalogOperatorId(req),
+        ranByOxyUserId: operatorId(req),
       },
       getDb(),
     );
@@ -250,7 +250,7 @@ export async function publishIntentEnablementHandler(req: Request, res: Response
         enabled: body.enabled,
         benchmarkRunId: run.id,
         datasetDigest: run.datasetDigest,
-        enabledByOxyUserId: catalogOperatorId(req),
+        enabledByOxyUserId: operatorId(req),
         enabledAt: new Date(),
         note: body.note,
       },

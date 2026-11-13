@@ -44,12 +44,14 @@
  * type, so "a merchant role may never publish a global catalog change" is a
  * property of the call graph rather than a branch somebody could invert.
  *
- * ## Roles are a REFINEMENT of the existing allow-list, never an extension
+ * ## Roles are a REFINEMENT of the operator key, never an extension
  *
- * `CATALOG_OPERATOR_OXY_USER_IDS` stays the membership — this is not a seventh
- * allow-list. `CatalogGovernanceRole` narrows WITHIN it: a grant can only ever
- * take capability away from somebody the deployment already trusts, and an
- * account absent from the env list is answered 404 whatever grants exist.
+ * Holding `catalog.operate` (an Oxy application role, held by the owners and
+ * admins of the `oxy` organization — oxy ADR 0056) stays the membership — this is
+ * not a second operator key. `CatalogGovernanceRole` narrows WITHIN it: a
+ * governance grant can only ever take capability away from somebody Oxy already
+ * answers for, and an account that does not hold the key is answered 404
+ * whatever governance grants exist.
  */
 
 /**
@@ -750,7 +752,7 @@ export interface CatalogGovernanceRestoreReport {
  * them.
  *
  * So the prohibition keeps its full force where a shopper reads, and this type
- * sits in the operator module behind `CATALOG_OPERATOR_OXY_USER_IDS` — where
+ * sits in the operator module behind `catalog.operate` — where
  * every other field an operator may see and a shopper may not already lives.
  * `catalog-governance-isolation.test.ts` asserts the public projection cannot
  * reach it.

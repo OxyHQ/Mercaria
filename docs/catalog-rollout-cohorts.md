@@ -304,9 +304,9 @@ error.
   `listings`, with its own kinds (`owner_type`, `connector_provider`) and its own
   read-mode ladder. The two share a grammar deliberately and nothing else.
 - **It grants nothing.** A cohort cannot admit a request `loadStore`,
-  `requireStorePermission` or an operator allow-list would refuse. It only ever
+  `requireStorePermission` or an operator key would refuse. It only ever
   subtracts.
-- **It adds no operator surface and no seventh allow-list.** Changing a rollout
+- **It adds no operator surface and no new operator key.** Changing a rollout
   cohort is an environment change, like the four levers it refines.
 
 ## Open

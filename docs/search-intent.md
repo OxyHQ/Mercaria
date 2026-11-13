@@ -367,7 +367,7 @@ language row, because there is no category to have measured.
 | Route | Who | What |
 |---|---|---|
 | `POST /search-intent` | public, `rl:search-intent:` | the interpretation, never results |
-| `GET /internal/search-intent/metrics` | `CATALOG_OPERATOR_OXY_USER_IDS` | task counters, the durable fallback rate, the dataset digest |
+| `GET /internal/search-intent/metrics` | `catalog.operate` | task counters, the durable fallback rate, the dataset digest |
 | `GET /internal/search-intent/turns/:turnId` | same | one interpretation's trace |
 | `GET`/`POST /internal/search-intent/benchmark-runs` | same | measure, and record |
 | `GET`/`POST /internal/search-intent/enablements` | same | enable against what was measured |
@@ -394,8 +394,8 @@ deterministic rules and the benchmarked model — which is what
 `SHOPPING_INTENT_PARSER_VERSION` being a code constant exists to prevent. An
 operator who needs a different reading ships a rule.
 
-It is on the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54/#56/#57/#58/
-#60/#62/#68/#70/#78 use rather than a seventh list: reading how a query was
+It is on the SAME `catalog.operate` key #54/#56/#57/#58/
+#60/#62/#68/#70/#78 use rather than a new operator key: reading how a query was
 interpreted is the same power over the same graph as reading what a query
 returns. It stays mounted while `NL_INTENT_ENABLED` is off, the
 `/internal/backfill` rule — the benchmark an operator runs to turn it back ON

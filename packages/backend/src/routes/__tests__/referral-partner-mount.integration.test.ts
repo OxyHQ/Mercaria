@@ -115,13 +115,13 @@ describe('the partner surface is reachable in the real app', () => {
   });
 
   /**
-   * The operator review surface is NOT mounted with an empty allow-list —
-   * itself the documented behaviour (empty ⇒ 404, never 401), and worth pinning
-   * so an unpopulated list cannot accidentally expose the review path.
+   * The operator review surface is mounted on every deployment and refuses an
+   * anonymous caller at authentication, before the `referrals.operate` gate
+   * (`middleware/operator-authz.ts`) is even asked — so nothing about the review
+   * path is reachable without a person in a session.
    */
-  it('does not mount the operator review surface with an empty allow-list', async () => {
-    expect(config.referrals.operatorSurfaceEnabled).toBe(false);
-    expect(await get('/internal/referrals/partners')).toBe(404);
+  it('mounts the operator review surface behind authentication', async () => {
+    expect(await get('/internal/referrals/partners')).toBe(401);
   });
 });
 

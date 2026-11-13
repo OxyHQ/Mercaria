@@ -10,8 +10,8 @@
  *
  * ONE route. There is deliberately no `/facets/:categoryId` convenience form and
  * no operator surface: a facet rail is a projection over rows other domains own,
- * every one of which already has an operator surface behind its own allow-list,
- * and a seventh gate for a read that publishes nothing new would be a gate for
+ * every one of which already has an operator surface behind its own operator key,
+ * and another gate for a read that publishes nothing new would be a gate for
  * its own sake.
  */
 
@@ -26,7 +26,12 @@ import { validateBody } from '../middleware/validate.js';
 import { facetRequestSchema } from '../middleware/facet-schemas.js';
 import { facetsHandler } from '../controllers/facets.controller.js';
 
+import { optionalAuth } from '../middleware/auth.js';
+
 const router = Router();
+
+// A presented supervised session cannot bypass policy through an anonymous catalog route.
+router.use(optionalAuth);
 
 router.use(makeRateLimiter('listings'));
 /**

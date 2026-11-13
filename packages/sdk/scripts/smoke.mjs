@@ -11,8 +11,8 @@
  *   node scripts/smoke.mjs --out <dir>  # also keep the tested tarball in <dir>
  *
  * `--out` is how a release publishes EXACTLY the tarball this script tested,
- * rather than re-packing afterwards. Releases are published by hand, never
- * from CI (`docs/sdk.md` §"How it is published").
+ * rather than re-packing afterwards: it is the package's `release:pack`, which
+ * the shared GitHub Actions release runs (`docs/sdk.md` §"How it is published").
  *
  * ## Why the tarball is packed from a staging directory
  *
@@ -77,6 +77,18 @@ const EXPECTED_FILES = [
   'package/dist/index.d.cts',
   'package/dist/index.d.ts',
   'package/dist/index.js',
+  'package/dist/money.cjs',
+  'package/dist/money.d.cts',
+  'package/dist/money.d.ts',
+  'package/dist/money.js',
+  'package/dist/refs.cjs',
+  'package/dist/refs.d.cts',
+  'package/dist/refs.d.ts',
+  'package/dist/refs.js',
+  'package/dist/server.cjs',
+  'package/dist/server.d.cts',
+  'package/dist/server.d.ts',
+  'package/dist/server.js',
   'package/package.json',
 ];
 
@@ -141,7 +153,24 @@ async function main() {
 
   try {
     // ── Stage and pack ────────────────────────────────────────────────────────
-    for (const file of ['index.js', 'index.cjs', 'index.d.ts', 'index.d.cts']) {
+    for (const file of [
+      'index.js',
+      'index.cjs',
+      'index.d.ts',
+      'index.d.cts',
+      'money.js',
+      'money.cjs',
+      'money.d.ts',
+      'money.d.cts',
+      'refs.js',
+      'refs.cjs',
+      'refs.d.ts',
+      'refs.d.cts',
+      'server.js',
+      'server.cjs',
+      'server.d.ts',
+      'server.d.cts',
+    ]) {
       await stat(join(root, 'dist', file)).catch(() =>
         fail(`dist/${file} is missing — run the build first`),
       );
@@ -159,10 +188,10 @@ async function main() {
 
     const packDir = join(scratch, 'pack');
     await mkdir(packDir);
-    const packed = JSON.parse(
-      run('npm', ['pack', '--json', '--pack-destination', packDir], stage, 'pack'),
-    );
-    const tarball = join(packDir, packed[0].filename);
+    run('bun', ['pm', 'pack', '--destination', packDir], stage, 'pack');
+    const packed = (await readdir(packDir)).filter((name) => name.endsWith('.tgz'));
+    if (packed.length !== 1) fail('Expected exactly one packed SDK');
+    const tarball = join(packDir, packed[0]);
     const tarballBytes = (await stat(tarball)).size;
 
     // ── 1. File list ──────────────────────────────────────────────────────────
@@ -232,19 +261,10 @@ async function main() {
       join(consumer, 'package.json'),
       '{ "name": "sdk-smoke-consumer", "private": true }\n',
     );
-    // `--prefer-offline`: `zod` comes from the npm cache when it is there, and
-    // from the registry when it is not — exactly what a consumer's install does.
+    // Install the packed artifact with the repository's Bun release tooling.
     run(
-      'npm',
-      [
-        'install',
-        tarball,
-        '--no-audit',
-        '--no-fund',
-        '--ignore-scripts',
-        '--no-package-lock',
-        '--prefer-offline',
-      ],
+      'bun',
+      ['add', tarball, '--minimum-release-age=0', '--ignore-scripts'],
       consumer,
       'install tarball',
     );
@@ -298,6 +318,39 @@ async function main() {
       pass(`${target} bundle builds from dist/index.js with no Node built-ins`);
     }
 
+    await writeFile(
+      join(consumer, 'refs-entry.js'),
+      `
+      import { parseMercariaRef, formatMercariaRef, productRef } from '@mercaria.co/sdk/refs';
+      import { formatMoney } from '@mercaria.co/sdk/money';
+      export const price = formatMoney({ amount: 14800000000, currency: 'FAIR' }, 'en');
+      export const ref = formatMercariaRef(productRef('id:with spaces'));
+      export const parsed = parseMercariaRef({ kind: 'collection', id: 'collection-1' });
+    `,
+    );
+    for (const [target, options] of Object.entries(bundles)) {
+      const result = await esbuild.build({
+        entryPoints: [join(consumer, 'refs-entry.js')],
+        absWorkingDir: consumer,
+        bundle: true,
+        write: false,
+        metafile: true,
+        format: 'esm',
+        logLevel: 'silent',
+        ...options,
+      });
+      const inputs = Object.keys(result.metafile.inputs);
+      if (inputs.some((input) => input.includes('/zod/') || input.endsWith('/dist/index.js')))
+        fail(`${target} portable refs pulled in schemas or the full SDK: ${inputs.join(', ')}`);
+      if (!inputs.some((input) => input.endsWith('@mercaria.co/sdk/dist/refs.js')))
+        fail(`${target} portable refs did not resolve their published entry`);
+      if (!inputs.some((input) => input.endsWith('@mercaria.co/sdk/dist/money.js')))
+        fail(`${target} money did not resolve its published entry`);
+      if (result.outputFiles[0].contents.length > 16000)
+        fail(`${target} portable refs exceeded the 16KB unminified ceiling`);
+      pass(`${target} portable refs and money build without Zod or the full client`);
+    }
+
     // ── 6. Declarations in a Node and a browser nodenext consumer ─────────────
     await writeFile(join(consumer, 'types-esm.mts'), CONSUMER_TYPES);
     await writeFile(join(consumer, 'types-cjs.cts'), CONSUMER_TYPES);
@@ -311,16 +364,8 @@ async function main() {
       ),
     ).version;
     run(
-      'npm',
-      [
-        'install',
-        `@types/node@${nodeTypes}`,
-        '--no-audit',
-        '--no-fund',
-        '--ignore-scripts',
-        '--no-package-lock',
-        '--prefer-offline',
-      ],
+      'bun',
+      ['add', `@types/node@${nodeTypes}`, '--minimum-release-age=0', '--ignore-scripts'],
       consumer,
       'install @types/node',
     );
@@ -357,12 +402,14 @@ async function main() {
 
     if (keepDir) {
       await mkdir(keepDir, { recursive: true });
-      await cp(tarball, join(keepDir, packed[0].filename));
+      await cp(tarball, join(keepDir, packed[0]));
     }
 
-    const unpackedBytes = packed[0].unpackedSize;
+    const unpackedBytes = (
+      await Promise.all(listed.map((file) => stat(join(stage, file.slice('package/'.length)))))
+    ).reduce((total, file) => total + file.size, 0);
     console.log(
-      `sdk smoke passed — ${checks.length} checks; ${packed[0].filename}: ${(tarballBytes / 1024).toFixed(1)} KB packed, ` +
+      `sdk smoke passed — ${checks.length} checks; ${packed[0]}: ${(tarballBytes / 1024).toFixed(1)} KB packed, ` +
         `${(unpackedBytes / 1024).toFixed(1)} KB unpacked${keepDir ? `; kept in ${keepDir}` : ''}`,
     );
   } finally {
@@ -394,6 +441,7 @@ const product = {
 const respond = (status, body) => async () => ({ status, headers: { get: () => null }, text: async () => JSON.stringify(body) });
 function check(condition, message) { if (!condition) { throw new Error('smoke assertion failed: ' + message); } }
 async function exercise(sdk) {
+  check(sdk.formatMoney({ amount: 14800000000, currency: 'FAIR' }, 'en') === '\u2068⊜148.00\u2069', 'canonical FAIR formatting is exported in the installed package');
   const client = sdk.createMercariaClient({ fetch: respond(200, product) });
   const parsed = await client.products.get(sdk.productRef('prod 1'));
   check(parsed.availability === 'sold' && parsed.condition.group === 'refurbished', 'product parsed');
@@ -413,9 +461,24 @@ async function exercise(sdk) {
 
 const CONSUMER_ESM = `${SHARED_PROGRAM}
 import * as esm from '@mercaria.co/sdk';
+import { formatMoney as lightweightMoney } from '@mercaria.co/sdk/money';
+for (const currency of ['FAIR', 'USD', 'JPY'])
+  check(lightweightMoney({ amount: 14800000000, currency }, 'ar') === esm.formatMoney({ amount: 14800000000, currency }, 'ar'), 'ESM money subpath matches canonical formatter');
+import { mercariaForOxyService } from '@mercaria.co/sdk/server';
 import { createRequire } from 'node:module';
 const cjs = createRequire(import.meta.url)('@mercaria.co/sdk');
 await exercise(esm);
+for (const factory of [mercariaForOxyService, createRequire(import.meta.url)('@mercaria.co/sdk/server').mercariaForOxyService]) {
+  let disposed = false;
+  const client = factory({ createServiceClient: ({ audience }) => {
+    check(audience === 'oxy-service:6a37d0cc5d4b5f15482a9340', 'canonical receiver audience');
+    return { fetch, dispose: () => { disposed = true; } };
+  }});
+  check(!('materials' in client), 'public workload factory has no account-private commands');
+  client.dispose();
+  check(disposed, 'factory disposes shared transport');
+}
+
 const fromCjs = await exercise(cjs);
 check(esm.MercariaGoneError !== cjs.MercariaGoneError, 'the ESM and CJS builds are two copies');
 check(fromCjs instanceof esm.MercariaGoneError, 'a CJS-thrown error is instanceof the ESM class');
@@ -425,6 +488,8 @@ check(!(fromCjs instanceof esm.MercariaNotFoundError), 'but not of an unrelated 
 
 const CONSUMER_CJS = `${SHARED_PROGRAM}
 const sdk = require('@mercaria.co/sdk');
+const lightweightMoney = require('@mercaria.co/sdk/money').formatMoney;
+check(lightweightMoney({ amount: 100000000, currency: 'FAIR' }, 'en') === sdk.formatMoney({ amount: 100000000, currency: 'FAIR' }, 'en'), 'CJS money subpath matches canonical formatter');
 exercise(sdk).catch((error) => { console.error(error); process.exit(1); });
 `;
 
@@ -434,6 +499,18 @@ export const url = createMercariaClient().links.product(productRef('p'));
 `;
 
 const CONSUMER_TYPES = `
+import { formatMoney as lightweightFormatMoney, type Money as LightweightMoney } from '@mercaria.co/sdk/money';
+const lightweightPrice: LightweightMoney = { amount: 100, currency: 'USD' };
+const formattedPrice: string = lightweightFormatMoney(lightweightPrice, 'en');
+void formattedPrice;
+import { productRef as lightweightProductRef } from '@mercaria.co/sdk/refs';
+const lightweightRef: import('@mercaria.co/sdk').MercariaProductRef = lightweightProductRef('product-1');
+void lightweightRef;
+
+import { mercariaForOxyService } from '@mercaria.co/sdk/server';
+const workload = mercariaForOxyService({ createServiceClient: () => ({ fetch, dispose() {} }) });
+workload.products.get('p');
+workload.dispose();
 import {
   createMercariaClient,
   MercariaGoneError,

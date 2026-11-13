@@ -40,7 +40,6 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { sql } from 'drizzle-orm';
-import type { Request } from 'express';
 import type { AuthoringSchema } from '@mercaria/shared-types';
 
 import { connectPostgres, type Database } from '../../../db/postgres.js';
@@ -63,6 +62,7 @@ import {
   type SeededVertical,
 } from '../../../scripts/seed-verticals/__tests__/vertical-fixture.js';
 import { E2E_PERMISSIONS } from '../../../__tests__/vertical-e2e/journey.js';
+import { gatedOperatorRequest } from '../../../__tests__/oxy-app-permissions-fake.js';
 
 const TOKEN = verticalRunToken('l10ninv');
 const OPERATOR = `${TOKEN}-operator`;
@@ -78,7 +78,7 @@ let productTypeDefinitionId: string;
 
 /** An actor holding exactly the roles named — the idiom this domain already uses. */
 function actorWith(...roles: Parameters<typeof governanceActor>[1]): CatalogGovernanceActor {
-  return governanceActor({ userId: OPERATOR } as unknown as Request, roles);
+  return governanceActor(gatedOperatorRequest(OPERATOR), roles);
 }
 
 /** One composition, or a failure naming the refusal rather than reading `undefined`. */

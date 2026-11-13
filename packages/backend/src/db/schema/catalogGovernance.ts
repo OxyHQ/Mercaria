@@ -221,8 +221,8 @@ export const catalogGovernanceChangeRequests = pgTable(
               and btrim(coalesce(${t.impactUnmeasuredReason}, '')) <> '')`,
     ),
 
-    // Four eyes means two people. A merchant who is also on the operator
-    // allow-list is not the case this exists for — that one is closed by the
+    // Four eyes means two people. A merchant who also holds
+    // `catalog.operate` is not the case this exists for — that one is closed by the
     // actor type — but an operator approving their own high-impact merge is.
     check(
       'catalog_governance_change_requests_approver_distinct_check',
@@ -408,18 +408,18 @@ export const catalogGovernanceAuditEvents = pgTable(
 
 /**
  * `catalog_governance_role_grants` — the five capabilities, WITHIN the existing
- * allow-list.
+ * `catalog.operate` key.
  *
- * This table can only ever narrow. `CATALOG_OPERATOR_OXY_USER_IDS` decides who
- * reaches the surface at all — an account absent from it is answered 404 by
+ * This table can only ever narrow. `catalog.operate` decides who
+ * reaches the surface at all — anyone who does not hold it is answered 404 by
  * `requireCatalogOperator` before a grant is ever read — so no row here can
- * admit anybody, which is what keeps this from being a seventh allow-list.
+ * admit anybody, which is what keeps this from being a second operator key.
  * `grant_operator_membership` is named in
  * `CATALOG_GOVERNANCE_FORBIDDEN_CAPABILITIES` for the reader who wonders.
  *
  * ## The empty table means "role separation not adopted"
  *
- * A deployment with no rows here gives every allow-listed operator every role —
+ * A deployment with no rows here gives every `catalog.operate` holder every role —
  * today's behaviour, which is what a rollout mechanism has to default to. The
  * moment ANY live grant exists the deployment has adopted role separation and
  * grants become authoritative. `role.service.ts` refuses a mutation that would
@@ -433,7 +433,7 @@ export const catalogGovernanceRoleGrants = pgTable(
   'catalog_governance_role_grants',
   {
     id: generatedId(),
-    /** An Oxy account id — no foreign key. Must also be on the env allow-list. */
+    /** An Oxy account id — no foreign key. Must also hold `catalog.operate`. */
     subjectOxyUserId: text().notNull(),
     role: text({ enum: asEnumValues(CATALOG_GOVERNANCE_ROLES) }).notNull(),
     grantedByOxyUserId: text().notNull(),

@@ -1,21 +1,28 @@
 /**
  * STEAM STORE — the games on sale on Steam for a market, with that market's
- * price, read from the store's own search.
+ * price, read from the search rows Clarity crawls.
  *
  * Steam has no keyless catalogue API: `appdetails` answers one app at a time
  * (about 200 calls in five minutes), and the app list moved behind a key. The
  * store's search page loads its results as JSON-wrapped HTML fragments, one row
  * per item, carrying the app id, the title, the release date, the review summary,
- * the platforms and the price in the market's minor units. So this is an
- * EXTRACTION provider: it reads a page Steam serves to browsers, under a
- * `robots_respecting` policy, and checks `robots.txt` before every pass.
+ * the platforms and the price in the market's minor units.
+ *
+ * ## Clarity fetches; Mercaria reads
+ *
+ * Mercaria no longer requests the store. Clarity — Oxy's one crawler of stores
+ * — polls the search for each market as a `steam_store` product feed, under
+ * robots.txt for ClarityBot and at a browsing pace, and keeps each game's row
+ * exactly as rendered (`services/clarity/product-feeds.ts`). This provider pages
+ * through those rows and reads them with {@link searchRows} and {@link toItem},
+ * the same mapping it always had.
  *
  * ## Bounded on purpose
  *
- * The search lists ~180,000 games. A pass reads the first
- * {@link STEAM_MAX_RESULTS} in Steam's own relevance order — what people in that
- * market actually buy — rather than the whole store into a shared database.
- * Free games are skipped: a price of nothing compares with nothing.
+ * The search lists ~180,000 games. Clarity's walk keeps the first 10,000 in
+ * Steam's own relevance order — what people in that market actually buy —
+ * rather than the whole store into a shared database. Free games are skipped: a
+ * price of nothing compares with nothing.
  *
  * ## Identity
  *
@@ -24,39 +31,19 @@
  */
 
 import type { NormalizedSourceRecord } from '@mercaria/shared-types';
-import {
-  OpenDataConfigurationError,
-  OpenDataSchemaError,
-  type OpenDataItem,
-  type OpenDataPage,
-  type OpenDataPageContext,
-  type OpenDataProvider,
+import type {
+  OpenDataItem,
+  OpenDataPage,
+  OpenDataPageContext,
+  OpenDataProvider,
 } from '../provider.js';
-import { asNumber, asObject, asText, FactCollector, minorMoney } from '../read.js';
-import { robotsAllows } from '../robots.js';
+import { asObject, asText, FactCollector, minorMoney } from '../read.js';
+import { ensureProductFeed, productFeedRecords } from '../../clarity/product-feeds.js';
 
 export const STEAM_STORE_PROVIDER = 'steam_store';
 
-const ORIGIN = 'https://store.steampowered.com';
-const SEARCH_PATH = '/search/results/';
-/** Steam answers at most 100 rows a call. */
-const PAGE_CAP = 100;
-/** How deep one pass reads, in relevance order. */
-export const STEAM_MAX_RESULTS = 10_000;
-/** A browsing human's pace, well inside the store's tolerance. */
-const INTERVAL_MS = 1_500;
-
-/** Market → the store's currency there and its language. */
-const MARKETS: Readonly<Record<string, { readonly currency: string; readonly language: string }>> =
-  {
-    ES: { currency: 'EUR', language: 'spanish' },
-    PT: { currency: 'EUR', language: 'portuguese' },
-    FR: { currency: 'EUR', language: 'french' },
-    IT: { currency: 'EUR', language: 'italian' },
-    DE: { currency: 'EUR', language: 'german' },
-    GB: { currency: 'GBP', language: 'english' },
-    US: { currency: 'USD', language: 'english' },
-  };
+/** The most rows one page asks Clarity for. */
+const PAGE_CAP = 500;
 
 export const steamStoreProvider: OpenDataProvider = {
   slug: STEAM_STORE_PROVIDER,
@@ -68,63 +55,45 @@ export const steamStoreProvider: OpenDataProvider = {
   attribution: 'Juegos y precios de la tienda de Steam',
   accountRefMeaning: null,
   accountRefRequired: false,
-  extraction: true,
   refreshModes: ['incremental'],
-  minRequestIntervalMs: INTERVAL_MS,
+  // Clarity's API, not the store: the store's pace is Clarity's to keep.
+  minRequestIntervalMs: 0,
   fetchPage: fetchSteamPage,
 };
 
 async function fetchSteamPage(context: OpenDataPageContext): Promise<OpenDataPage> {
   const country = (context.territories[0] ?? 'ES').toUpperCase();
-  const market = MARKETS[country];
-  if (market === undefined)
-    throw new OpenDataConfigurationError(`Steam market ${country} is not mapped to a currency.`);
-  const start = typeof context.cursor?.s === 'number' ? context.cursor.s : 0;
+  const feedId =
+    typeof context.cursor?.f === 'string'
+      ? context.cursor.f
+      : (await ensureProductFeed('steam_store', country)).id;
+  const page = await productFeedRecords(feedId, {
+    ...(typeof context.cursor?.r === 'string' ? { cursor: context.cursor.r } : {}),
+    limit: Math.min(Math.max(context.pageSize, 1), PAGE_CAP),
+  });
 
-  if (start === 0) {
-    const robots = await context.http.getText(`${ORIGIN}/robots.txt`, {
-      minIntervalMs: INTERVAL_MS,
-      allowNotFound: true,
-      ...(context.signal ? { signal: context.signal } : {}),
-    });
-    if (!robotsAllows(robots, 'Mercaria', SEARCH_PATH)) {
-      throw new OpenDataConfigurationError(
-        `${ORIGIN}/robots.txt disallows ${SEARCH_PATH}; Steam is not read.`,
-      );
+  // The market's currency is the feed's own term, as Clarity read the store for
+  // that market — never derived here from the country.
+  const currency = asText(asObject(page.feed.meta)?.currency);
+  if (currency === undefined || !/^[A-Z]{3}$/u.test(currency)) {
+    // Clarity has not read this market yet: nothing to map, and nothing proven gone.
+    return { items: [], next: null, complete: false };
+  }
+
+  const items: OpenDataItem[] = [];
+  for (const record of page.records) {
+    const html = asText(asObject(record.payload)?.html);
+    if (html === undefined) continue;
+    for (const row of searchRows(html)) {
+      const item = toItem(row, { country, currency });
+      if (item !== null) items.push(item);
     }
   }
-
-  const count = Math.min(Math.max(context.pageSize, 1), PAGE_CAP);
-  const params = new URLSearchParams({
-    start: String(start),
-    count: String(count),
-    cc: country.toLowerCase(),
-    l: market.language,
-    infinite: '1',
-    // Games only: no DLC, soundtracks, software or videos.
-    category1: '998',
-    json: '1',
-  });
-  const response = await context.http.getJson(`${ORIGIN}${SEARCH_PATH}?${params.toString()}`, {
-    minIntervalMs: INTERVAL_MS,
-    ...(context.signal ? { signal: context.signal } : {}),
-  });
-  const body = asObject(response?.body);
-  const html = asText(body?.results_html);
-  if (body === undefined || html === undefined) {
-    throw new OpenDataSchemaError('the search response has no `results_html`.');
-  }
-
-  const rows = searchRows(html);
-  const items = rows
-    .map((row) => toItem(row, { country, currency: market.currency }))
-    .filter((item): item is OpenDataItem => item !== null);
-  const total = asNumber(body.total_count) ?? 0;
-  // Steam may answer more rows than asked for; the next page starts after
-  // what it actually served.
-  const nextStart = start + rows.length;
-  const done = rows.length === 0 || nextStart >= Math.min(total, STEAM_MAX_RESULTS);
-  return { items, next: done ? null : { s: nextStart }, complete: false };
+  return {
+    items,
+    next: page.nextCursor === null ? null : { f: feedId, r: page.nextCursor },
+    complete: false,
+  };
 }
 
 /** One search result, as the row's attributes and inner fragments say. */

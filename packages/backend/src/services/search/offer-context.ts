@@ -80,6 +80,7 @@ import { projectOffer } from '../offers/offer-projection.js';
 import {
   isCurrentForSummary,
   summariseProjectedOffers,
+  summaryComparisonRates,
   SUMMARY_OFFER_LIMIT,
 } from '../offer-freshness/product-summary.js';
 import { convert, getRates } from '../fx.service.js';
@@ -487,9 +488,8 @@ export async function buildSearchOfferContexts(
   }
 
   // Regroup in the RANKED order — `loadOffersWithChannel` returns rows in
-  // whatever order the planner produced, and the summary's "first priced offer
-  // is the cheapest" rule depends on the cheapest-first order the ranking pass
-  // established. Reading them back through `ranked` is what preserves it.
+  // whatever order the planner produced, and the ranked order is what keeps a
+  // page deterministic (the summary's lowest price compares prices itself).
   const projectedByProduct = new Map<string, Offer[]>();
   for (const row of ranked) {
     const offer = projectedById.get(row.offerId);
@@ -564,6 +564,14 @@ export async function buildSearchOfferContexts(
 
   const unconvertible = new Set<string>();
   const byProductId = new Map<string, ProductOfferContext>();
+  // One rate read for the page, and only when some product mixes currencies:
+  // a lowest price is compared across currencies through rates, never by
+  // minor units (`lowestOfferPrice`).
+  const summaryRates = await summaryComparisonRates(
+    input.products.map((product) =>
+      (projectedByProduct.get(product.canonicalProductId) ?? []).filter(contributesToSummary),
+    ),
+  );
 
   /**
    * A product with no contributing offer, so a caller never branches on
@@ -617,7 +625,7 @@ export async function buildSearchOfferContexts(
       // fetched: `summariseProjectedOffers` applies #68's freshness filter and
       // knows nothing about publication, so handing it the raw list would put a
       // restricted listing's price back into `lowestPrice`.
-      summary: summariseProjectedOffers(product.canonicalProductId, current),
+      summary: summariseProjectedOffers(product.canonicalProductId, current, summaryRates),
       conditionGroups: [...groups].sort(),
       ...(selectedOffer === undefined ? {} : { selectedOffer }),
       offerMatch: matched.match,

@@ -9,9 +9,9 @@
  * sitemap" are all one handler away, and each would be a second authority over
  * what `decideIndexability` already decides.
  *
- * It also asserts the two middlewares are mounted in the right ORDER: an
- * allow-list consulted before authentication compares against whatever a client
- * claimed.
+ * It also asserts the two middlewares are mounted in the right ORDER: the
+ * operator gate reads the session `authenticateToken` verified, and before it
+ * there is no verified bearer to ask Oxy with.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -58,7 +58,7 @@ describe('the operator surface is a CLOSED set of reads', () => {
     }
   });
 
-  it('authenticates BEFORE it checks the allow-list', () => {
+  it('authenticates BEFORE it checks the operator key', () => {
     const source = readFileSync(join(SRC_ROOT, 'routes/internal-seo.ts'), 'utf8');
     const authenticate = source.indexOf('router.use(authenticateToken)');
     const operator = source.indexOf('router.use(requireCatalogOperator)');
@@ -67,12 +67,12 @@ describe('the operator surface is a CLOSED set of reads', () => {
     expect(authenticate).toBeLessThan(operator);
   });
 
-  it('is on the catalogue allow-list, not a seventh one', () => {
+  it('is on the catalogue key, not a new one', () => {
     const source = readFileSync(join(SRC_ROOT, 'routes/internal-seo.ts'), 'utf8');
     expect(source).toContain('requireCatalogOperator');
-    // A `SEO_OPERATOR_OXY_USER_IDS` would be a seventh list for a power the
-    // catalogue list already holds.
-    expect(source).not.toContain('SEO_OPERATOR');
+    // A `seo.operate` key would be a second answer for a power `catalog.operate`
+    // already grants.
+    expect(source).not.toMatch(/seo\.operate|SEO_OPERATOR/);
   });
 });
 

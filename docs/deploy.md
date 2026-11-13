@@ -539,12 +539,14 @@ The root `Dockerfile`'s runner stage is `oven/bun:1.4.3-alpine` and its CMD is
 `bun packages/backend/dist/index.js` under `dumb-init` (PID 1, forwarding
 SIGTERM to Bun's graceful shutdown). Every ECS one-shot names `bun` too: the
 migrator in `.github/scripts/run-migration-task.sh`, the capability catalog step
-in `deploy-aws.yml`, and the taxonomy provisioner run by hand. The image's
-`node` is only a symlink to bun.
+in `deploy-aws.yml`, the taxonomy provisioner run by hand, and the Oxy-media
+backfills `run-media-backfill.yml` runs (below). The image's `node` is only a
+symlink to bun.
 
 CI's `Build API` job builds that image and boots it against a throwaway PostGIS
 (`.github/scripts/smoke-api-image.sh`): every migrator phase, the taxonomy
-one-shot, `/health/ready` 200, the Docker health check, Bun under `dumb-init`,
+one-shot, a preview of every media backfill, `/health/ready` 200, the Docker
+health check, Bun under `dumb-init`,
 a graceful exit 0 on SIGTERM, and a non-zero exit when boot or a migration
 fails. The same job runs the unit suite under Bun (`bun run --cwd
 packages/backend test:bun`); `bun run test` stays vitest on Node.
@@ -562,6 +564,12 @@ that cannot reach the production image. In production it runs as the COMPILED
 the rollout (`.github/scripts/run-migration-task.sh`); the Dockerfile refuses to
 build if that file was not produced.
 
+- **Each migration commits in its own transaction** (`@oxy.so/db` ≥ 1.2.0),
+  under a short `lock_timeout` retried with backoff and a 120 s
+  `statement_timeout`. A run that fails part-way leaves the migrations before
+  the failing one applied, and re-running resumes from the ledger. A migration
+  that needs longer than 120 s per statement declares
+  `-- oxy:statement-timeout=<n>s` in its own file.
 - **Migrations normally run as the pre/post pair around the rollout** — `pre`
   (additive) before, `post` (drops/renames/narrows) after the new image is live.
 - **`migration_phase=all`, dispatched by hand, is for a from-zero/cutover batch
@@ -571,6 +579,18 @@ build if that file was not produced.
   for every other case: it is a `workflow_dispatch` dropdown an operator sees
   under pressure, and picking it for an ordinary release overrides the
   pre/post rule that keeps a rollout safe.
+
+### Production backfills run on the live task definition
+
+A backfill that acts as Mercaria's Oxy application needs the task role
+`oxy-mercaria-task` (workload identity) and the VPC, so it runs as an ECS
+one-shot of the LIVE service's current task definition: the image production
+already serves, nothing registered or built. `.github/workflows/run-media-backfill.yml`
+is that runner for the Oxy-media backfills (`docs/catalog-media.md` §Backfills):
+dispatch-only, protected `main` only, preview by default, the argv built from
+closed inputs, refused while a rollout is in flight, and the task's CloudWatch
+output printed into the run. A script reaches it only as a `build.ts` entry
+point that has been deployed; `mediaBackfillWorkflow.test.ts` pins both halves.
 
 ### Runtime secrets live in SSM only
 
@@ -597,13 +617,19 @@ out: a task naming a parameter that does not exist fails at start.
 - Register 2 Oxy RP client ids (dashboard, POS).
 - `DATABASE_URL` is live in SSM `/oxy/mercaria/DATABASE_URL` →
   the task definition; the task will not boot without it.
-- Populate the operator allow-lists above before the rails carry live money or
-  real compliance decisions. EMPTY is a working configuration and means nobody
-  can trace a payment, replay an event, run a repair, publish an eligibility
-  policy, lift a recall or approve a payout batch. Pre-launch lists:
+- Seed the operator keys (`payments.operate`, `retail.operate`,
+  `referrals.operate` and the rest — `middleware/operator-authz.ts`) before the
+  rails carry live money or real compliance decisions: they are declared in
+  Mercaria's entry of oxy's first-party registry and applied by oxy's **Seed Oxy
+  applications** workflow (`only_apps` Mercaria, dry run first), and they are held
+  by the owners and admins of the `oxy` organization — nobody is granted them per
+  person (oxy ADR 0056). Until the seed runs, nobody holds them and nobody can trace
+  a payment, replay an event, run a repair, publish an eligibility policy, lift
+  a recall or approve a payout batch. Pre-launch lists:
   `docs/payments.md`, `docs/retail-eligibility.md` and `docs/referral-pilots.md`
   §"Production-readiness checklist".
-- **Referral payouts need FOUR things, not one:** the operator list populated;
+- **Referral payouts need FOUR things, not one:** `referrals.operate` seeded and
+  held by the operators;
   `STRIPE_ENABLED` plus a payment-ready connected account per partner (with the
   rail off every partner's readiness reads `unknown`, which BLOCKS); a partner
   who actually enrolled — agreement AND tax questionnaire

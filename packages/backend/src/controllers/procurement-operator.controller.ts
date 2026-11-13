@@ -2,10 +2,10 @@
  * The procurement operator surface (#124 observability and operations).
  *
  * Lives under `/internal/procurement/*` behind `requireProcurementOperator` —
- * the SAME sixth allow-list `/internal/supplier-preflight` uses, and
- * deliberately not a seventh. The power is the same one: reading what Mercaria
- * pays its suppliers and acting on a supplier order. A separate list would be a
- * second thing to keep in sync with no distinction to justify it.
+ * the SAME sixth key (`procurement.operate`) `/internal/supplier-preflight`
+ * uses, and deliberately not a new one. The power is the same one: reading what Mercaria
+ * pays its suppliers and acting on a supplier order. A separate key would be a
+ * second grant to keep in step with no distinction to justify it.
  *
  * ## Every write DRIVES an existing idempotent path
  *
@@ -39,7 +39,7 @@ import type {
 } from '@mercaria/shared-types';
 import { getDb } from '../db/postgres.js';
 import { sendSuccess, sendError, ErrorCodes } from '../utils/api-response.js';
-import { procurementOperatorId } from '../middleware/procurement-operator-authz.js';
+import { operatorId } from '../middleware/operator-authz.js';
 import { validationError } from '../lib/errors/error-codes.js';
 import {
   findPurchaseOrderById,
@@ -191,11 +191,10 @@ export async function procurementSubmitHandler(req: Request, res: Response): Pro
 /** POST — open a durable cancellation request and enqueue its delivery. */
 export async function procurementCancelHandler(req: Request, res: Response): Promise<void> {
   const purchaseOrderId = requiredParam(req, 'purchaseOrderId');
-  const operatorId = procurementOperatorId(req);
   const outcome = await requestSupplierCancellation({
     purchaseOrderId,
     initiator: 'operator',
-    ...(operatorId ? { byOxyUserId: operatorId } : {}),
+    byOxyUserId: operatorId(req),
   });
   if (outcome.outcome === 'not_cancellable') {
     sendError(
@@ -227,16 +226,11 @@ export async function procurementResolveExceptionHandler(
   res: Response,
 ): Promise<void> {
   const exceptionId = requiredParam(req, 'exceptionId');
-  const operatorId = procurementOperatorId(req);
-  if (!operatorId) {
-    sendError(res, ErrorCodes.UNAUTHORIZED, 'Operator identity is required', 401);
-    return;
-  }
   const body = req.body as { resolution: ProcurementExceptionResolution; note?: string };
   const resolved = await resolveProcurementException({
     exceptionId,
     resolution: body.resolution,
-    resolvedByOxyUserId: operatorId,
+    resolvedByOxyUserId: operatorId(req),
     ...(body.note ? { resolutionNote: body.note } : {}),
   });
   if (!resolved) {

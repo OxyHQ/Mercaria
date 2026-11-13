@@ -7,7 +7,7 @@ import type {
   ReviewHelpfulness,
 } from '@mercaria/shared-types';
 import { REVIEW_HELPFULNESS_BATCH_LIMIT } from '@mercaria/shared-types';
-import { useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import {
   createReview,
   fetchListingReviews,

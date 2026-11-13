@@ -49,7 +49,6 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sql } from 'drizzle-orm';
-import type { Request } from 'express';
 
 import { connectPostgres, type Database } from '../../../db/postgres.js';
 import { catalogAuthoringDrafts } from '../../../db/schema/catalogAuthoring.js';
@@ -85,6 +84,7 @@ import {
   type SeededVertical,
 } from '../../../scripts/seed-verticals/__tests__/vertical-fixture.js';
 import { E2E_PERMISSIONS } from '../../../__tests__/vertical-e2e/journey.js';
+import { gatedOperatorRequest } from '../../../__tests__/oxy-app-permissions-fake.js';
 
 const TOKEN = verticalRunToken('gov587');
 const OPERATOR = `${TOKEN}-operator`;
@@ -108,7 +108,7 @@ let solo: ProductTypeDefinitionRow;
  * and it reads exactly one property off the request.
  */
 function actorWith(...roles: Parameters<typeof governanceActor>[1]): CatalogGovernanceActor {
-  return governanceActor({ userId: OPERATOR } as unknown as Request, roles);
+  return governanceActor(gatedOperatorRequest(OPERATOR), roles);
 }
 
 /**

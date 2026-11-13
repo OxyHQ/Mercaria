@@ -29,7 +29,7 @@
 import type { Request, Response } from 'express';
 import { ErrorCodes, sendError, sendSuccess } from '../utils/api-response.js';
 import { log } from '../lib/logger.js';
-import { catalogOperatorId } from '../middleware/catalog-operator-authz.js';
+import { operatorId } from '../middleware/operator-authz.js';
 import { collectCatalogMetrics } from '../services/catalog-observability/metrics.service.js';
 import { runCatalogIntegrityChecks } from '../services/catalog-observability/integrity.service.js';
 import { readCatalogLatencyReport } from '../services/catalog-observability/budgets.js';
@@ -42,7 +42,7 @@ export async function catalogMetricsHandler(req: Request, res: Response): Promis
     sendSuccess(res, await collectCatalogMetrics());
   } catch (error: unknown) {
     log.general.error(
-      { err: error, actor: catalogOperatorId(req) },
+      { err: error, actor: operatorId(req) },
       '[CatalogObservability] metrics collection failed',
     );
     sendError(res, ErrorCodes.INTERNAL_ERROR, 'Could not collect catalog metrics', 500);
@@ -55,7 +55,7 @@ export async function catalogIntegrityHandler(req: Request, res: Response): Prom
     sendSuccess(res, await runCatalogIntegrityChecks());
   } catch (error: unknown) {
     log.general.error(
-      { err: error, actor: catalogOperatorId(req) },
+      { err: error, actor: operatorId(req) },
       '[CatalogObservability] integrity sweep failed',
     );
     sendError(res, ErrorCodes.INTERNAL_ERROR, 'Could not run catalog integrity checks', 500);
@@ -82,7 +82,7 @@ export async function catalogProposalQueueHandler(req: Request, res: Response): 
     sendSuccess(res, await readProposalQueueAging());
   } catch (error: unknown) {
     log.general.error(
-      { err: error, actor: catalogOperatorId(req) },
+      { err: error, actor: operatorId(req) },
       '[CatalogObservability] proposal queue read failed',
     );
     sendError(res, ErrorCodes.INTERNAL_ERROR, 'Could not read the catalog proposal queue', 500);
@@ -95,7 +95,7 @@ export function catalogLatencyHandler(req: Request, res: Response): void {
     sendSuccess(res, readCatalogLatencyReport());
   } catch (error: unknown) {
     log.general.error(
-      { err: error, actor: catalogOperatorId(req) },
+      { err: error, actor: operatorId(req) },
       '[CatalogObservability] latency report failed',
     );
     sendError(res, ErrorCodes.INTERNAL_ERROR, 'Could not read catalog latency budgets', 500);
@@ -142,7 +142,7 @@ export async function catalogPublicationTraceHandler(req: Request, res: Response
     sendSuccess(res, trace);
   } catch (error: unknown) {
     log.general.error(
-      { err: error, actor: catalogOperatorId(req), handleKind: kind },
+      { err: error, actor: operatorId(req), handleKind: kind },
       '[CatalogObservability] publication trace failed',
     );
     sendError(res, ErrorCodes.INTERNAL_ERROR, 'Could not trace the catalog publication', 500);

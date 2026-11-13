@@ -39,7 +39,6 @@ import {
 } from '../db/feedImport/feedConfigurationRepository.js';
 import {
   findFeedImportReport,
-  insertFeedUpload,
   listFeedImportReportEntries,
   listFeedImportReports,
   listFeedUploads,
@@ -55,18 +54,33 @@ import {
   revertToFeedVersion,
 } from '../services/feed-import/configuration.service.js';
 import { FeedImportRefusal } from '../services/feed-import/errors.js';
-import { previewFeed, validateFeedVersion } from '../services/feed-import/preview.service.js';
+import { previewFeed } from '../services/feed-import/preview.service.js';
 import { redactFeedUrl } from '../services/feed-import/redact.js';
 import { resolveFeedImport } from '../services/feed-import/resolve.js';
-import { sanitizeUploadFilename, stageUploadedFeed } from '../services/feed-import/upload.js';
+import {
+  completeFeedUploadSession,
+  describeFeedUploadSession,
+  feedUploadPartUrls,
+  loadFeedUploadSession,
+  openFeedUploadSession,
+  proveFeedUploadPossession,
+  type FeedUploadOwner,
+  type FeedUploadSessionView,
+} from '../services/feed-import/upload-session.service.js';
+import { requestFeedValidation } from '../services/feed-import/validation-dispatcher.js';
+import {
+  findFeedValidationJob,
+  type FeedValidationJobRow,
+} from '../db/feedImport/feedValidationJobRepository.js';
 import {
   conflict,
   forbidden,
+  MercariaError,
   notFound,
   respondWithError,
   validationError,
 } from '../lib/errors/error-codes.js';
-import { sendSuccess } from '../utils/api-response.js';
+import { ErrorCodes, sendSuccess } from '../utils/api-response.js';
 import { routeParam } from '../utils/request.js';
 import { log } from '../lib/logger.js';
 import type { CatalogRefreshMode } from '@mercaria/shared-types';
@@ -74,8 +88,10 @@ import type {
   ActivateFeedVersionBody,
   CreateOperatorFeedConfigurationBody,
   DraftFeedVersionBody,
+  FeedUploadPartsBody,
+  FeedUploadProofBody,
+  OpenFeedUploadSessionBody,
 } from '../middleware/feed-import-schemas.js';
-import { feedUploadMetadataSchema } from '../middleware/feed-import-schemas.js';
 
 declare global {
   namespace Express {
@@ -223,7 +239,15 @@ function toVersionDTO(row: FeedConfigurationVersionRow): Record<string, unknown>
 function respondWithFeedError(res: Response, error: unknown, context: string): void {
   if (error instanceof FeedImportRefusal) {
     log.general.warn({ reason: error.reason, context }, '[FeedImport] refused');
-    respondWithError(res, validationError(error.message), 'Feed request failed');
+    const refusal =
+      error.reason === 'download_too_large'
+        ? new MercariaError({
+            code: ErrorCodes.VALIDATION_ERROR,
+            message: error.message,
+            httpStatus: 413,
+          })
+        : validationError(error.message);
+    respondWithError(res, refusal, 'Feed request failed');
     return;
   }
   respondWithError(res, error, 'Feed request failed');
@@ -379,23 +403,70 @@ export async function previewFeedVersionHandler(req: Request, res: Response): Pr
   }
 }
 
-/** POST …/feeds/:configurationId/versions/:versionId/validate */
+/**
+ * POST …/feeds/:configurationId/versions/:versionId/validate
+ *
+ * 202 and a job to poll, never the report itself: a validation reads and stages
+ * the WHOLE feed, which outlives the load balancer's idle timeout for any feed
+ * worth validating (`services/feed-import/validation-dispatcher.ts`). Asking
+ * again while one is queued or running answers that same job.
+ */
 export async function validateFeedVersionHandler(req: Request, res: Response): Promise<void> {
   try {
     const configuration = await assertConfigurationOwnedByRequester(
       req,
       routeParam(req, 'configurationId'),
     );
-    const report = await validateFeedVersion({
+    const job = await requestFeedValidation({
       configurationId: configuration.id,
       versionId: routeParam(req, 'versionId'),
-      sourceId: configuration.sourceId,
       requestedByOxyUserId: getRequiredOxyUserId(req),
     });
-    sendSuccess(res, report, 201);
+    sendSuccess(res, toValidationDTO(job), 202);
   } catch (error: unknown) {
     respondWithFeedError(res, error, 'validateFeedVersion');
   }
+}
+
+/** GET …/feeds/:configurationId/versions/:versionId/validations/:validationId */
+export async function getFeedValidationHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const configuration = await assertConfigurationOwnedByRequester(
+      req,
+      routeParam(req, 'configurationId'),
+    );
+    const job = await findFeedValidationJob(getDb(), routeParam(req, 'validationId'));
+    if (
+      job === undefined ||
+      job.configurationId !== configuration.id ||
+      job.versionId !== routeParam(req, 'versionId')
+    ) {
+      throw notFound('Validation not found for this feed');
+    }
+    sendSuccess(res, toValidationDTO(job));
+  } catch (error: unknown) {
+    respondWithFeedError(res, error, 'getFeedValidation');
+  }
+}
+
+/**
+ * The public shape of a validation job. Names every field; the lease is the
+ * dispatcher's business and is not projected.
+ */
+function toValidationDTO(job: FeedValidationJobRow): Record<string, unknown> {
+  return {
+    id: job.id,
+    configurationId: job.configurationId,
+    versionId: job.versionId,
+    status: job.status,
+    reportId: job.reportId,
+    failureReason: job.failureReason,
+    // A refusal's own bounded text — never a feed value or a URL.
+    message: job.status === 'completed' ? null : job.lastError,
+    attempts: job.attempts,
+    createdAt: job.createdAt,
+    updatedAt: job.updatedAt,
+  };
 }
 
 /** POST …/feeds/:configurationId/versions/:versionId/activate */
@@ -436,64 +507,141 @@ export async function revertFeedVersionHandler(req: Request, res: Response): Pro
   }
 }
 
+/** The tenant facts a session's every check reads. */
+function uploadOwnerOf(configuration: FeedConfigurationRow): FeedUploadOwner {
+  return { configurationId: configuration.id, storeId: configuration.storeId };
+}
+
 /**
- * POST …/feeds/:configurationId/uploads
- *
- * The bytes are the raw request body, streamed to disk and never buffered — an
- * upload is a feed and a feed is gigabytes. The metadata rides the query string
- * for the same reason: a multipart parser would have to buffer the part headers
- * ahead of the bytes, which is a dependency and a second parser over
- * attacker-supplied input for two fields.
+ * The HTTP answer for a session's state after a client asked it to move: the
+ * upload when it completed, 202 while storage verifies, and a refusal that
+ * names what to do otherwise. A plain read (`GET`) always answers 200.
  */
-export async function uploadFeedHandler(req: Request, res: Response): Promise<void> {
+function sendSessionOutcome(res: Response, view: FeedUploadSessionView): void {
+  switch (view.status) {
+    case 'completed':
+      sendSuccess(res, view, 201);
+      return;
+    case 'verifying':
+      sendSuccess(res, view, 202);
+      return;
+    case 'proof_required':
+      sendSuccess(res, view, 200);
+      return;
+    case 'uploading':
+      throw conflict(
+        'Storage does not hold every part yet. Read the session for `uploadedParts`, send ' +
+          'the missing parts, and complete again.',
+      );
+    case 'failed':
+      throw new MercariaError({
+        code: ErrorCodes.VALIDATION_ERROR,
+        message: `The upload was refused (${view.failure ?? 'storage_refused'}). Open a new upload.`,
+        httpStatus: 422,
+      });
+  }
+}
+
+/**
+ * POST …/feeds/:configurationId/upload-sessions
+ *
+ * Open a DIRECT upload. The feed never rides a request to this API — a feed is
+ * gigabytes and the proxy in front of it refuses a body over 100 MB — so the
+ * client PUTs presigned parts to storage itself (`upload-session.service.ts`
+ * documents the protocol). 201 with the session: `uploading` with part URLs,
+ * `proof_required` with the range to send, or `completed` with the upload.
+ */
+export async function openFeedUploadSessionHandler(req: Request, res: Response): Promise<void> {
   try {
     const configuration = await assertConfigurationOwnedByRequester(
       req,
       routeParam(req, 'configurationId'),
     );
-    // The global `express.json()` matches on content type and would have
-    // CONSUMED a JSON body before this handler ever ran, leaving an empty
-    // stream that reads as an empty feed — and an empty feed on a snapshot
-    // configuration is the shape that retires a catalogue. Refusing the type is
-    // the honest answer; there is no parser to disable.
-    const contentType = (req.headers['content-type'] ?? '').toLowerCase();
-    if (contentType.includes('application/json') || contentType.includes('multipart/')) {
-      throw validationError(
-        'A feed upload is sent as raw bytes (for example `application/octet-stream`, ' +
-          '`text/csv` or `application/gzip`). A JSON or multipart body would be buffered ' +
-          'whole, which a multi-gigabyte feed must never be.',
-      );
-    }
-    const metadata = feedUploadMetadataSchema.parse({
-      filename: typeof req.query.filename === 'string' ? req.query.filename : '',
-      compression: typeof req.query.compression === 'string' ? req.query.compression : 'none',
+    const body = req.body as OpenFeedUploadSessionBody;
+    const view = await openFeedUploadSession({
+      owner: uploadOwnerOf(configuration),
+      filename: body.filename,
+      compression: body.compression,
+      byteSize: body.byteSize,
+      sha256: body.sha256,
+      actorOxyUserId: getRequiredOxyUserId(req),
     });
-    const staged = await stageUploadedFeed(req, metadata.compression);
-    const row = await insertFeedUpload(getDb(), {
-      configurationId: configuration.id,
-      filename: sanitizeUploadFilename(metadata.filename),
-      byteSize: staged.byteSize,
-      contentDigest: staged.contentDigest,
-      storageKey: staged.storageKey,
-      compression: staged.compression,
-      uploadedByOxyUserId: getRequiredOxyUserId(req),
-      now: new Date(),
-    });
-    sendSuccess(
+    sendSuccess(res, view, 201);
+  } catch (error: unknown) {
+    respondWithFeedError(res, error, 'openFeedUploadSession');
+  }
+}
+
+/** GET …/feeds/:configurationId/upload-sessions/:sessionId — and finish a verifying one. */
+export async function getFeedUploadSessionHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const configuration = await assertConfigurationOwnedByRequester(
+      req,
+      routeParam(req, 'configurationId'),
+    );
+    const session = await loadFeedUploadSession(
+      uploadOwnerOf(configuration),
+      routeParam(req, 'sessionId'),
+    );
+    sendSuccess(res, await describeFeedUploadSession(session));
+  } catch (error: unknown) {
+    respondWithFeedError(res, error, 'getFeedUploadSession');
+  }
+}
+
+/** POST …/feeds/:configurationId/upload-sessions/:sessionId/parts */
+export async function feedUploadPartsHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const configuration = await assertConfigurationOwnedByRequester(
+      req,
+      routeParam(req, 'configurationId'),
+    );
+    const session = await loadFeedUploadSession(
+      uploadOwnerOf(configuration),
+      routeParam(req, 'sessionId'),
+    );
+    const body = req.body as FeedUploadPartsBody;
+    sendSuccess(res, { parts: await feedUploadPartUrls(session, body.partNumbers) });
+  } catch (error: unknown) {
+    respondWithFeedError(res, error, 'feedUploadParts');
+  }
+}
+
+/** POST …/feeds/:configurationId/upload-sessions/:sessionId/complete */
+export async function completeFeedUploadSessionHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const configuration = await assertConfigurationOwnedByRequester(
+      req,
+      routeParam(req, 'configurationId'),
+    );
+    const session = await loadFeedUploadSession(
+      uploadOwnerOf(configuration),
+      routeParam(req, 'sessionId'),
+    );
+    sendSessionOutcome(res, await completeFeedUploadSession(session));
+  } catch (error: unknown) {
+    respondWithFeedError(res, error, 'completeFeedUploadSession');
+  }
+}
+
+/** POST …/feeds/:configurationId/upload-sessions/:sessionId/proof */
+export async function proveFeedUploadSessionHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const configuration = await assertConfigurationOwnedByRequester(
+      req,
+      routeParam(req, 'configurationId'),
+    );
+    const session = await loadFeedUploadSession(
+      uploadOwnerOf(configuration),
+      routeParam(req, 'sessionId'),
+    );
+    const body = req.body as FeedUploadProofBody;
+    sendSessionOutcome(
       res,
-      {
-        id: row.id,
-        filename: row.filename,
-        byteSize: row.byteSize,
-        contentDigest: row.contentDigest,
-        compression: row.compression,
-        status: row.status,
-        expiresAt: row.expiresAt,
-      },
-      201,
+      await proveFeedUploadPossession(session, Buffer.from(body.bytes, 'base64')),
     );
   } catch (error: unknown) {
-    respondWithFeedError(res, error, 'uploadFeed');
+    respondWithFeedError(res, error, 'proveFeedUploadSession');
   }
 }
 

@@ -15,7 +15,7 @@ it" — the questions these answer are "is this happening more than usual" and
 "is a guarantee still true".
 
 **Read the numbers here:** `GET /internal/guest-commerce/governance/signals`,
-behind `GUEST_OPERATOR_OXY_USER_IDS`. It reports every signal in the register
+behind `guest.operate`. It reports every signal in the register
 with an `observed` flag beside its total, because a signal that has never been
 recorded and one recorded as zero mean opposite things and read identically.
 

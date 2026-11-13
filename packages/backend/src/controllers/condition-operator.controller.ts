@@ -38,7 +38,7 @@ import {
   upsertConditionCategoryPolicy,
 } from '../db/condition/conditionPolicyRepository.js';
 import { findConditionRevisions } from '../db/condition/conditionRepository.js';
-import { catalogOperatorId } from '../middleware/catalog-operator-authz.js';
+import { operatorId } from '../middleware/operator-authz.js';
 import { log } from '../lib/logger.js';
 import { ErrorCodes, sendError, sendSuccess } from '../utils/api-response.js';
 import { respondWithError } from '../lib/errors/error-codes.js';
@@ -173,7 +173,7 @@ export async function putConditionRulesetMappingsHandler(
 export async function publishConditionRulesetHandler(req: Request, res: Response): Promise<void> {
   try {
     const rulesetId = routeParam(req, 'id');
-    const activated = await publishRuleset(rulesetId, catalogOperatorId(req), new Date());
+    const activated = await publishRuleset(rulesetId, operatorId(req), new Date());
     if (!activated) {
       sendError(res, ErrorCodes.CONFLICT, 'No draft mapping ruleset with that id', 409);
       return;
@@ -230,7 +230,7 @@ export async function putConditionCategoryPolicyHandler(
       restriction: body.restriction,
       includeDescendants: body.includeDescendants ?? true,
       reason: body.reason,
-      createdByOxyUserId: catalogOperatorId(req),
+      createdByOxyUserId: operatorId(req),
     });
     log.general.info(
       { categoryId: policy.categoryId, conditionKey: policy.conditionKey },

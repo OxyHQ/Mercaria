@@ -197,7 +197,7 @@ describe('#106 authorization — the six it must REJECT', () => {
       orderAccessSubjectForCommerceActor({
         kind: 'guest',
         guestSessionId: 'gs-live',
-        transport: 'cookie',
+        clientClass: 'web',
       }),
     ).toBeNull();
     expect(orderAccessSubjectForCommerceActor({ kind: 'anonymous' })).toBeNull();

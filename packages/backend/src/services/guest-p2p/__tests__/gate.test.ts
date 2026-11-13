@@ -21,8 +21,8 @@ import {
   p2pSellerKeys,
 } from '../gate.js';
 
-const GUEST: CommerceActor = { kind: 'guest', guestSessionId: 'gs-1', transport: 'cookie' };
-const GUEST_NATIVE: CommerceActor = { kind: 'guest', guestSessionId: 'gs-2', transport: 'header' };
+const GUEST: CommerceActor = { kind: 'guest', guestSessionId: 'gs-1', clientClass: 'web' };
+const GUEST_NATIVE: CommerceActor = { kind: 'guest', guestSessionId: 'gs-2' };
 const OXY: CommerceActor = { kind: 'oxy', oxyUserId: 'buyer-1' };
 const ANONYMOUS: CommerceActor = { kind: 'anonymous' };
 

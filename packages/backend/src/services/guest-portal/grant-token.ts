@@ -4,7 +4,7 @@
  * `mgx_` — the single-use, 15-minute EXCHANGE token that rides in the fragment
  * of a link Mercaria mails.
  * `mgp_` — the durable PORTAL credential the exchange mints, carried in an
- * `HttpOnly` cookie or `expo-secure-store`.
+ * web localStorage or native `expo-secure-store`.
  *
  * Both are `<prefix>` + base64url of 32 CSPRNG bytes, and the server stores
  * only the hex SHA-256 — `services/guest-session.service.ts`'s decisions
@@ -96,7 +96,7 @@ export function readPortalToken(value: string | undefined): string | undefined {
 
 function matches(value: string | undefined, prefix: string, pattern: RegExp): value is string {
   // Length first: the patterns are anchored and linear anyway, but refusing on
-  // length keeps the cost of an adversarial megabyte cookie constant.
+  // length keeps the cost of an adversarial megabyte credential constant.
   if (value === undefined || value.length !== prefix.length + TOKEN_BODY_LENGTH) return false;
   return pattern.test(value);
 }

@@ -202,6 +202,10 @@ const DISPATCH_ONLY_WITH_CREDENTIALS: Record<string, string> = {
   // validation and endpoint records only when an operator dispatches it; a
   // merge alone changes no production deployment.
   'setup-mercaria-mcp-dns.yml': 'workflow_dispatch one-shot, not triggered by merging',
+  // An operator-dispatched Oxy-media backfill. It runs the image ALREADY live
+  // and registers nothing, so it cannot ship code; a merge sets nothing off.
+  // Its own properties are pinned by `mediaBackfillWorkflow.test.ts`.
+  'run-media-backfill.yml': 'workflow_dispatch one-shot on the live task definition, ships nothing',
 };
 
 describe('the coverage check watches every workflow that can ship', () => {

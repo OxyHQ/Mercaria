@@ -3,7 +3,7 @@
  *
  * Both calls go through `apiClient`, which carries BOTH credentials the claim
  * needs: the Oxy bearer (its auth interceptor) and the portal credential (an
- * `HttpOnly` cookie on web, the `X-Mercaria-Portal-Token` header on native).
+ * `X-Mercaria-Portal-Token` header on web and native).
  * Neither is read, written or returned here — the two-sided proof is assembled
  * by the transport, which is why no function below takes a token, an email or
  * an account id.

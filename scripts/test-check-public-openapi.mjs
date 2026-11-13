@@ -70,6 +70,11 @@ mustFail('a renamed operationId', 'layer 1', (d) => {
 });
 
 // Layer 2 — payloads.
+mustFail('a material creation response downgraded from 201 to 200', 'layer 2', (d) => {
+  const responses = d.paths['/materials/offers'].post.responses;
+  responses['200'] = responses['201'];
+  delete responses['201'];
+});
 mustFail('a duplicated operationId', 'layer 2', (d) => {
   d.paths['/stores/{id}'].get.operationId = 'getProduct';
 });

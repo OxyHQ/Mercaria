@@ -28,6 +28,16 @@
  * deliberately NOT in the fingerprint: the offset is an item count, so a caller
  * may change `limit` between pages and still get no duplicate and no gap.
  *
+ * ## A list that resumes a keyset of its own
+ *
+ * The catalogue search (`catalog-products`) is not an offset list: the
+ * canonical search pipeline already pages by a keyset over its own relevance
+ * order (`services/search/cursor.ts`), and an offset into it would re-run every
+ * stage at every depth. Its public cursor therefore WRAPS that keyset cursor —
+ * `{ "v": 1, "k", "f", "s": <search cursor> }` — under the same kind and
+ * fingerprint binding, so a replay on another list or other filters is the
+ * same `bad_request`. Depth there is bounded by the search's own ceiling.
+ *
  * ## Depth
  *
  * OFFSET cost grows with depth, and an unbounded offset is a sequential scan
@@ -68,11 +78,15 @@ export function publicCursorFingerprint(
     .slice(0, 22);
 }
 
+const bindingShape = {
+  v: z.literal(CURSOR_VERSION),
+  k: z.enum(MERCARIA_PUBLIC_CURSOR_KINDS),
+  f: z.string().min(1).max(64),
+};
+
 const payloadSchema = z
   .object({
-    v: z.literal(CURSOR_VERSION),
-    k: z.enum(MERCARIA_PUBLIC_CURSOR_KINDS),
-    f: z.string().min(1).max(64),
+    ...bindingShape,
     o: z
       .number()
       .int()
@@ -80,6 +94,25 @@ const payloadSchema = z
       .max(MERCARIA_PUBLIC_LIST_MAX_OFFSET - 1),
   })
   .strict();
+
+/** A wrapped keyset cursor. Bounded so the encoded public cursor stays inside the contract's 512. */
+const searchPayloadSchema = z
+  .object({ ...bindingShape, s: z.string().regex(/^[A-Za-z0-9_-]{1,300}$/u) })
+  .strict();
+
+/** The decoded JSON of a cursor, or `undefined` when it is not base64url JSON at all. */
+function decodePayload(raw: string): unknown {
+  if (!/^[A-Za-z0-9_-]+$/u.test(raw)) return undefined;
+  try {
+    return JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
+  } catch {
+    return undefined;
+  }
+}
+
+function foreignCursor() {
+  return badRequest('cursor: not a cursor this list issued', { field: 'cursor' });
+}
 
 /** Encode the cursor that resumes at `offset`. Deterministic for equal inputs. */
 export function encodePublicCursor(
@@ -107,19 +140,41 @@ export function resolvePublicCursorOffset(
   fingerprint: string,
 ): number {
   if (raw === undefined) return 0;
-  const refused = badRequest('cursor: not a cursor this list issued', { field: 'cursor' });
-  if (!/^[A-Za-z0-9_-]+$/u.test(raw)) throw refused;
-  let decoded: unknown;
-  try {
-    decoded = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
-  } catch {
-    throw refused;
-  }
-  const parsed = payloadSchema.safeParse(decoded);
+  const parsed = payloadSchema.safeParse(decodePayload(raw));
   if (!parsed.success || parsed.data.k !== kind || parsed.data.f !== fingerprint) {
-    throw refused;
+    throw foreignCursor();
   }
   return parsed.data.o;
+}
+
+/** Encode the public cursor that wraps a keyset list's own next-page cursor. */
+export function encodePublicKeysetCursor(
+  kind: MercariaPublicCursorKind,
+  fingerprint: string,
+  inner: string,
+): string {
+  return Buffer.from(
+    JSON.stringify({ v: CURSOR_VERSION, k: kind, f: fingerprint, s: inner }),
+    'utf8',
+  ).toString('base64url');
+}
+
+/**
+ * The keyset cursor a request's public cursor wraps — `undefined` with no cursor.
+ *
+ * @throws `bad_request` on the same terms as {@link resolvePublicCursorOffset}.
+ */
+export function resolvePublicKeysetCursor(
+  raw: string | undefined,
+  kind: MercariaPublicCursorKind,
+  fingerprint: string,
+): string | undefined {
+  if (raw === undefined) return undefined;
+  const parsed = searchPayloadSchema.safeParse(decodePayload(raw));
+  if (!parsed.success || parsed.data.k !== kind || parsed.data.f !== fingerprint) {
+    throw foreignCursor();
+  }
+  return parsed.data.s;
 }
 
 /**

@@ -9,19 +9,18 @@
  *      answers 400 — storing an unverified body would put an attacker's chosen
  *      `(provider, account, event id)` into the dedupe key, after which the REAL
  *      event carrying that id is swallowed as a duplicate.
- *   2. **Store the envelope**, redacted, keyed on that triple. The insert IS the
+ *   2. **Filter on `livemode`.** The gateway serves test and live side by side
+ *      (ADR 0017) and every event names its mode. One for the other mode than
+ *      this deployment's carries ids from a key space that correlates to
+ *      nothing here: logged, persisted nowhere, acknowledged with 200 so the
+ *      gateway stops retrying something that was correctly refused — exactly
+ *      the Stripe ingress's rule.
+ *   3. **Store the envelope**, redacted, keyed on that triple. The insert IS the
  *      dedupe claim: a redelivery loses the race to the unique index and returns
  *      without touching anything.
- *   3. **Process**, through the durable claim in `event-processor.ts`.
+ *   4. **Process**, through the durable claim in `event-processor.ts`.
  *
- * ## Two steps Stripe has that this does not, and why
- *
- * **No `livemode` filter.** Stripe sends test and live deliveries to the same
- * URL and the mode is a field in the body, so the ingress has to refuse the
- * other one. Peable is single-mode per deployment: it serves the environment its
- * credentials belong to, there is no `livemode` on the envelope to read, and the
- * test/live firewall is the service credential itself. `verify.ts` stamps the
- * envelope from `config.payments.peable.livemode` for the column's sake.
+ * ## The step Stripe has that this does not, and why
  *
  * **No scope check.** Stripe needs two endpoints because its Connect-scope
  * deliveries are signed with a different secret — a property of Stripe's API,
@@ -39,6 +38,7 @@
  * queue of duplicates that all resolve to the same no-op.
  */
 
+import { config } from '../../../config/index.js';
 import { RETENTION_SECONDS } from '../../../db/expiryTargets.js';
 import { recordProviderEvent } from '../../../db/payments/paymentRepository.js';
 import { getDb } from '../../../db/postgres.js';
@@ -68,6 +68,11 @@ export type PeableIngressResult =
       readonly providerEventId: string;
       readonly storedEventId: string;
     }
+  | {
+      readonly outcome: 'ignored';
+      readonly code: 'livemode_mismatch';
+      readonly providerEventId: string;
+    }
   | { readonly outcome: 'rejected'; readonly code: 'invalid_signature' };
 
 /** One delivery, exactly as it arrived. */
@@ -79,7 +84,7 @@ export interface PeableDelivery {
 }
 
 /**
- * Verify, store and process one delivery.
+ * Verify, filter, store and process one delivery.
  *
  * Never throws for anything a caller should turn into a 5xx: a refusal is a
  * result, not an exception, because a route that had to distinguish "refused"
@@ -90,8 +95,9 @@ export async function ingestPeableDelivery(delivery: PeableDelivery): Promise<Pe
   let envelope: ProviderEventEnvelope;
   try {
     const payload = delivery.payload.toString('utf8');
-    // The SDK accepts UTF-8 strings. Refuse lossy decoding before verification
-    // so altered raw bytes cannot authenticate as the same replacement character.
+    // The SDK verifies over the body decoded as UTF-8, and decodes lossily.
+    // Refuse a lossy decoding first so altered raw bytes cannot authenticate as
+    // the same replacement character.
     if (!Buffer.from(payload, 'utf8').equals(delivery.payload)) {
       return { outcome: 'rejected', code: 'invalid_signature' };
     }
@@ -108,6 +114,23 @@ export async function ingestPeableDelivery(delivery: PeableDelivery): Promise<Pe
       '[Peable] webhook delivery refused',
     );
     return { outcome: 'rejected', code: 'invalid_signature' };
+  }
+
+  if (envelope.livemode !== config.payments.peable.livemode) {
+    log.general.warn(
+      {
+        providerEventId: envelope.providerEventId,
+        type: envelope.type,
+        eventLivemode: envelope.livemode,
+        deploymentLivemode: config.payments.peable.livemode,
+      },
+      '[Peable] delivery is for the other mode; acknowledged and dropped',
+    );
+    return {
+      outcome: 'ignored',
+      code: 'livemode_mismatch',
+      providerEventId: envelope.providerEventId,
+    };
   }
 
   const stored = await recordProviderEvent(getDb(), {

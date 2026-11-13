@@ -591,6 +591,16 @@
         "lte": "Menor ou igual a"
       },
       "categoryIdentifier": "Identificador de categoria"
+    },
+    "featured": {
+      "title": "Coleções em destaque",
+      "help": "Escolha até %{count} coleções manuais publicadas e organize a ordem de exibição.",
+      "empty": "Nenhuma coleção em destaque.",
+      "unavailable": "Coleção indisponível",
+      "hidden": "Esta coleção não é exibida aos compradores no momento.",
+      "add": "Adicionar uma coleção manual publicada",
+      "failed": "Não foi possível salvar as coleções em destaque. Suas alterações foram preservadas.",
+      "saved": "Coleções em destaque salvas."
     }
   },
   "common": {
@@ -1721,18 +1731,39 @@
         "displayNameLabel": "Nome da organização",
         "done": "A loja agora pertence à organização",
         "failed": "Não foi possível converter a loja",
-        "inviteLabel": "Usuário ou e-mail",
-        "invitePlaceholder": "usuario ou email@exemplo.com",
+        "inviteLabel": "E-mail",
+        "invitePlaceholder": "email@exemplo.com",
         "inviteesTitle": "Pessoas a convidar",
         "nameRequired": "Informe o nome e o usuário da organização",
         "open": "Converter em organização",
-        "someInvitesFailed": "A loja foi movida, mas estes convites falharam: %{names}",
+        "someInvitesFailed": "A loja foi movida, mas não foi possível enviar estes convites: %{names}",
         "submit": "Criar organização e mover a loja",
         "title": "Converter em uma organização",
         "usernameLabel": "Nome de usuário da organização",
         "warning": "Pessoas que antes podiam agir por esta loja e não estão na organização não têm mais acesso a ela."
       },
       "documentTitle": "Membros | Wholesale by Mercaria",
+      "invitations": {
+        "body": "As pessoas só entram na organização depois de aceitar o convite enviado para o e-mail delas.",
+        "dialogTitle": "Convidar alguém",
+        "emailLabel": "E-mail",
+        "empty": "Nenhum convite pendente",
+        "expired": "Expirado",
+        "invalidEmail": "Digite um e-mail válido",
+        "invite": "Convidar",
+        "loadFailed": "Não foi possível carregar os convites",
+        "pending": "Pendente",
+        "resend": "Reenviar",
+        "resendFailed": "Não foi possível reenviar o convite",
+        "resent": "Convite enviado novamente",
+        "revoke": "Revogar",
+        "revokeFailed": "Não foi possível revogar o convite",
+        "revoked": "Convite revogado",
+        "send": "Enviar convite",
+        "sendFailed": "Não foi possível enviar o convite",
+        "sent": "Convite enviado para %{email}",
+        "title": "Convites pendentes"
+      },
       "loadFailed": "Não foi possível carregar as pessoas desta loja",
       "noAccess": "Sem acesso",
       "organizationBody": "Quem pode agir por esta loja é definido pelos membros da organização no Oxy. O Mercaria guarda apenas exceções às permissões de cada papel.",
@@ -2056,5 +2087,23 @@
   "brand": {
     "name": "Wholesale",
     "byline": "by Mercaria"
+  },
+  "catalogSafety": {
+    "title": "Revisão de conteúdo de compras",
+    "intro": "Os operadores da plataforma revisam o texto completo antes de disponibilizar uma apresentação sem imagens.",
+    "accessDenied": "Acesso de plataforma necessário",
+    "accessBody": "Esta área está disponível apenas para revisores autorizados do catálogo.",
+    "unavailable": "Não é possível revisar o item",
+    "empty": "Nenhum item para revisar",
+    "next": "Próximos itens",
+    "select": "Selecione um item para revisar",
+    "limitBody": "Este item excede os limites de revisão e continua indisponível para compras supervisionadas.",
+    "allowed": "O texto atual está aprovado",
+    "pending": "O texto atual não está aprovado",
+    "textOnly": "Apenas título, variantes, opções e preço serão exibidos. Fotos, descrições e avaliações não estão incluídas.",
+    "saveError": "Não foi possível salvar a revisão. Recarregue o item e revise o conteúdo atual.",
+    "saved": "Revisão salva",
+    "allow": "Permitir texto revisado",
+    "withhold": "Não exibir"
   }
 }

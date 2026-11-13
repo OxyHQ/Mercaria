@@ -19,32 +19,25 @@
  * context in the contract's sense — the minimum extra that makes the question
  * answerable — not extra exposure.
  *
- * ## Evidence: file ids are declared, not attached, and that is not laziness
+ * ## Evidence: the gallery is attached by digest, as the bytes Oxy holds
  *
- * `AssetRef` requires a `sha256`. Mercaria stores images as
- * `{ fileId, alt, position }` and holds no digest for any of them, and the SDK
- * call that would resolve one (`getServiceAssetMetadataByIds`) requires a
- * SERVICE-configured Oxy client — `configureServiceAuth(apiKey, apiSecret)` —
- * which this deployment has never had. So the digest is not merely unread here,
- * it is not obtainable by this process today.
+ * Each image travels as an `image` attachment whose `AssetRef` is filled from
+ * ONE `oxyClient.assets.metadataByIds` call over the gallery — Oxy's own
+ * `{sha256, mime, size, width, height}` for the file, read with Mercaria's
+ * workload token. The digest is what pins the exact bytes reviewed, and it
+ * enters the snapshot hash: a seller who swaps a photo has published a different
+ * version, and a decision stays attached to the one reviewed.
  *
- * Inventing one is out of the question: the digest is what pins the exact bytes
- * reviewed, and a fabricated value would make the snapshot claim to identify
- * material it does not.
- *
- * What travels instead is an honest declaration — how many images, and their bare
- * Oxy file ids. Bare ids, never a `mercaria.co` URL: a reviewer's browser fetching
- * a URL on Mercaria's own host would tell that host exactly when its content is
+ * Bare Oxy file ids, never a `mercaria.co` URL: a reviewer's browser fetching a
+ * URL on Mercaria's own host would tell that host exactly when its content is
  * under review, which is an attack on the blind-jury property the whole design
  * rests on. A file id is inert — it identifies without dereferencing.
  *
- * **Closing this needs one thing, not a rewrite:** service credentials for the Oxy
- * client. With `configureServiceAuth` called at boot, one batched
- * `getServiceAssetMetadataByIds(fileIds)` returns `{sha256, mime, size, width,
- * height}` — `AssetRef` field-for-field — and `imageAttachments` below becomes a
- * map instead of a declaration. The trap to avoid when doing it: the digest MUST
- * enter the snapshot hash, because a seller who swaps the photo has published a
- * different version and the decision must stay attached to the one reviewed.
+ * A file Oxy no longer has (deleted there) cannot be attached and is never given
+ * an invented digest: its id is declared instead, with the reason. A metadata
+ * read that FAILS throws — the delivery is retried — because a snapshot sent
+ * without the images it should carry would ask a jury about less than was
+ * reported.
  */
 
 import { isLiveEntityId } from '@oxy.so/db';
@@ -56,6 +49,7 @@ import {
 } from '../../../db/catalog/listingRepository.js';
 import { findStoreById } from '../../../db/stores/storeRepository.js';
 import { config } from '../../../config/index.js';
+import { oxyClient } from '../../../middleware/auth.js';
 import type {
   ModerationContextResource,
   ModerationResource,
@@ -145,30 +139,62 @@ function commercialContext({ listing }: SnapshotListing): ModerationContextResou
 }
 
 /**
- * What the listing's images ARE, since they cannot yet be what they show.
+ * The gallery, as attachments Oxy can vouch for plus a declaration of any file
+ * it no longer holds.
  *
- * File ids in `position` order — the order the buyer sees, and a stable one, so
- * two deliveries of the same report produce the same bytes.
+ * Position order — the order the buyer sees, and a stable one, so two
+ * deliveries of the same report produce the same bytes.
  */
-function declaredImages({ images }: SnapshotListing): ModerationContextResource | null {
+async function galleryEvidence({ images }: SnapshotListing): Promise<{
+  attachments: ModerationResource[];
+  unavailable: ModerationContextResource | null;
+}> {
   // `findListingChildren` already returns them in `position` order; sorting again
   // costs nothing and keeps the stability requirement stated where it matters.
   const fileIds = [...images]
     .sort((a, b) => a.position - b.position)
     .map((image) => image.fileId)
     .filter((fileId) => fileId.length > 0);
-  if (fileIds.length === 0) return null;
+  if (fileIds.length === 0) return { attachments: [], unavailable: null };
 
+  const metadata = new Map(
+    (await oxyClient.assets.metadataByIds(fileIds)).map((file) => [file.id, file]),
+  );
+  const attachments: ModerationResource[] = [];
+  const missing: string[] = [];
+  for (const fileId of fileIds) {
+    const file = metadata.get(fileId);
+    if (!file) {
+      missing.push(fileId);
+      continue;
+    }
+    attachments.push({
+      type: 'image',
+      asset: {
+        fileId,
+        mimeType: file.mime,
+        sha256: file.sha256,
+        sizeBytes: file.size,
+        ...(file.width === undefined ? {} : { width: file.width }),
+        ...(file.height === undefined ? {} : { height: file.height }),
+      },
+    });
+  }
   return {
-    role: 'evidence',
-    type: 'metadata',
-    data: {
-      imageCount: fileIds.length,
-      // Bare Oxy file ids. NEVER a mercaria.co URL — see the module comment.
-      oxyFileIds: fileIds.join(','),
-      evidenceAttached: false,
-      evidenceUnavailableReason: 'no_asset_digest_available',
-    },
+    attachments,
+    unavailable:
+      missing.length === 0
+        ? null
+        : {
+            role: 'evidence',
+            type: 'metadata',
+            data: {
+              unavailableImageCount: missing.length,
+              // Bare Oxy file ids. NEVER a mercaria.co URL — see the module comment.
+              oxyFileIds: missing.join(','),
+              evidenceUnavailableReason: 'asset_not_found',
+            },
+          },
   };
 }
 
@@ -209,8 +235,8 @@ export function createListingSubjectProvider(): ModerationSubjectProvider {
       };
 
       const context: ModerationContextResource[] = [commercialContext(snapshot)];
-      const images = declaredImages(snapshot);
-      if (images) context.push(images);
+      const gallery = await galleryEvidence(snapshot);
+      if (gallery.unavailable) context.push(gallery.unavailable);
 
       return {
         subject: {
@@ -220,6 +246,7 @@ export function createListingSubjectProvider(): ModerationSubjectProvider {
           ...(ownerOxyUserId === undefined ? {} : { author: { oxyUserId: ownerOxyUserId } }),
         },
         content,
+        ...(gallery.attachments.length === 0 ? {} : { attachments: gallery.attachments }),
         context,
       };
     },

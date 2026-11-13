@@ -89,7 +89,7 @@ export type OrderAccessSubject =
   | { readonly kind: 'store_member'; readonly storeId: string }
   /** An individual P2P seller reading an order they must fulfil. */
   | { readonly kind: 'p2p_seller'; readonly sellerOxyUserId: string }
-  /** Mercaria staff on the payment-operator allow-list. */
+  /** A person holding Mercaria's `payments.operate` application role. */
   | { readonly kind: 'operator'; readonly operatorOxyUserId: string };
 
 /** Why access was GRANTED. Bounded, so an audit line can name it. */
@@ -309,8 +309,8 @@ export function authorizeOrderAccess(
     }
 
     case 'operator': {
-      // Unconditional, and that is the point of an operator allow-list: the
-      // gate is membership of `PAYMENT_OPERATOR_OXY_USER_IDS`, checked by
+      // Unconditional, and that is the point of an operator key: the gate is
+      // holding `payments.operate`, checked by
       // `requirePaymentOperator` before a subject of this kind can exist. A
       // second condition here would be a second, weaker gate.
       return { allowed: true, reason: 'operator' };

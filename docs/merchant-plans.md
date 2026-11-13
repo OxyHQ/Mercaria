@@ -377,7 +377,7 @@ cannot threaten order access — there is no capability key for it.
 
 ### Operator — `/internal/payments/*`
 
-Behind the EXISTING `PAYMENT_OPERATOR_OXY_USER_IDS` allow-list, NOT a seventh:
+Behind the EXISTING `payments.operate` key, NOT a seventh:
 publishing a plan is the same kind of act as publishing a fee schedule.
 
 Plan drafting, prices, entitlements, activation and retirement; the capability

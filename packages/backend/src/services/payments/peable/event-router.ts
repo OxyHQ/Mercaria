@@ -7,22 +7,31 @@
  * transaction, maps four object types and reconciles a status it did not expect.
  * Peable sends a decided event about one object, so this maps and applies.
  *
- * ## What this deliberately does NOT do
+ * ## When it re-reads, and when it does not
  *
- * It does not re-read the intent from the gateway before applying. Stripe's
- * router does, because a Stripe event is a snapshot that may be stale by the
- * time a retry runs and its `status` is authoritative only at the provider. Here
- * the event type IS the assertion — `payment_intent.settled` does not become
+ * A `payment_intent.*` event is not re-read. Stripe's router re-reads because a
+ * Stripe event is a snapshot that may be stale by the time a retry runs; here
+ * the event type IS the assertion — `payment_intent.succeeded` does not become
  * untrue later — and `applyPaymentStatus`'s compare-and-swap already discards a
- * late duplicate. A re-read would add a network call, a failure mode, and a
- * second source of truth for a question that has one.
+ * late duplicate.
+ *
+ * `charge.refunded` is the exception, because it asserts no status: refunds
+ * are not intent statuses (ADR 0019), and whether the payment is now
+ * `refunded` or `partially_refunded` is the intent's cumulative
+ * `amount_refunded`. That is read from the gateway through the rail's own
+ * `getStatus` — never from the stored payload, which is redacted — so the
+ * inline path and a replay days later both answer from the gateway's current
+ * books.
  *
  * ## The fee gap, stated rather than defaulted
  *
  * A Stripe success carries settlement detail: what the charge became on the
  * platform balance and what the acquirer kept (`settlement-read.ts`). Peable's
- * contract exposes NEITHER — deliberately, since ADR 0001 D3 keeps the acquirer
- * invisible to a merchant, and a processing fee is an acquirer fact.
+ * events carry neither. Its contract now has the figures —
+ * `refunds.settlement(intent)`'s gross, fee and net in the SETTLEMENT currency
+ * (`null` with a status, never `0`), and the balance transactions — but which
+ * of them Mercaria books, and at what rate, is a ledger decision (ADR 0001 D5,
+ * D7) this adapter has not been given.
  *
  * So a Peable `succeeded` books its charge with **no processor-fee expense**.
  * That is a real gap and it is recorded in the event's outcome note, not
@@ -30,9 +39,8 @@
  * silent understatement of a Mercaria EXPENSE (ADR 0001 D5) rather than a wrong
  * commission — the commission is `gross − Σnets` and does not involve the fee at
  * all, and the ledger still balances to zero per currency because the fee line
- * is simply absent rather than unbalanced. Closing it needs a settlement fact on
- * the gateway's own contract; until then every Peable success says so on its
- * event row, where reconciliation can find them.
+ * is simply absent rather than unbalanced. Until that decision is made, every
+ * Peable success says so on its event row, where reconciliation can find them.
  */
 
 import type { PaymentStatus } from '@mercaria/shared-types';
@@ -41,7 +49,8 @@ import { getDb } from '../../../db/postgres.js';
 import { log } from '../../../lib/logger.js';
 import { PaymentProviderError } from '../provider.js';
 import { applyPaymentStatus, canTransitionPaymentStatus } from '../payment.service.js';
-import { PAYMENT_STATUS_FOR_EVENT } from './verify.js';
+import { resolvePaymentProvider } from '../registry.js';
+import { isPeablePaymentEvent, PAYMENT_STATUS_FOR_EVENT } from './verify.js';
 
 /** What a handler is given, built from the stored row. */
 export interface PeableEventContext {
@@ -49,7 +58,7 @@ export interface PeableEventContext {
   readonly storedEventId: string;
   /** The gateway's own event id. */
   readonly providerEventId: string;
-  /** The gateway's event type verbatim, e.g. `payment_intent.settled`. */
+  /** The gateway's event type verbatim, e.g. `payment_intent.succeeded`. */
   readonly type: string;
   /** The gateway ids this event names, stored verbatim and never redacted. */
   readonly objectIds: Readonly<Record<string, string>>;
@@ -73,7 +82,7 @@ export interface PeableEventOutcome {
  * A correlation this task cannot make YET.
  *
  * Retryable on purpose, exactly as in the Stripe router: the gateway can deliver
- * `payment_intent.settled` before the transaction that wrote Mercaria's payment
+ * `payment_intent.succeeded` before the transaction that wrote Mercaria's payment
  * row is visible to this task. Failing terminally there would discard a real
  * settlement over a race measured in milliseconds. Backoff plus eventual
  * dead-lettering is what stops it retrying forever.
@@ -97,7 +106,7 @@ function unresolved(message: string): PaymentProviderError {
  */
 async function applyIntentEvent(
   context: PeableEventContext,
-  next: PaymentStatus,
+  asserted: PaymentStatus | 'reread',
 ): Promise<PeableEventOutcome> {
   const intentId = context.objectIds.payment_intent;
   if (!intentId) {
@@ -114,6 +123,8 @@ async function applyIntentEvent(
   if (!payment) {
     throw unresolved(`no Mercaria payment is linked to Peable intent ${intentId} yet`);
   }
+
+  const next = asserted === 'reread' ? await readPaymentStatus(intentId) : asserted;
 
   if (payment.status === next) {
     // Already there. Reported as applied rather than ignored because the state
@@ -178,6 +189,18 @@ async function applyIntentEvent(
   };
 }
 
+/**
+ * Where the gateway says the payment stands now, read through the rail.
+ *
+ * The rail being switched off between storing and processing is a transient
+ * condition for the event: the row is retried, and dead-lettered if it lasts.
+ */
+async function readPaymentStatus(intentId: string): Promise<PaymentStatus> {
+  const rail = resolvePaymentProvider('peable');
+  if (!rail) throw unresolved('the Peable rail is not configured; the payment cannot be re-read');
+  return (await rail.getStatus(intentId)).status;
+}
+
 /** One event type's behaviour. */
 export type PeableEventHandler = (context: PeableEventContext) => Promise<PeableEventOutcome>;
 
@@ -191,7 +214,7 @@ export type PeableEventHandler = (context: PeableEventContext) => Promise<Peable
  * stores it as evidence.
  */
 export function routePeableEvent(type: string): PeableEventHandler | undefined {
-  const next = PAYMENT_STATUS_FOR_EVENT[type];
-  if (next === undefined) return undefined;
-  return async (context) => await applyIntentEvent(context, next);
+  if (!isPeablePaymentEvent(type)) return undefined;
+  const asserted = PAYMENT_STATUS_FOR_EVENT[type];
+  return async (context) => await applyIntentEvent(context, asserted);
 }

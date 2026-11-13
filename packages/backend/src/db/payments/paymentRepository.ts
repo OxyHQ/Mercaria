@@ -613,10 +613,13 @@ export interface ClaimProviderEventOptions {
    * Not optional, and not defaulted to "all", because a drain claims a row and
    * then hands it to ITS OWN router. Before ADR 0009 there was one rail and the
    * question could not arise; with two, an unfiltered claim takes the oldest due
-   * row of EITHER rail — so the Stripe drain would claim a `peable` event, find
-   * no handler for `payment_intent.settled` (the two rails do not share type
-   * names), and mark it `processed` with "no handler in this version". A real
-   * settlement, swallowed, with the event row saying it was handled.
+   * row of EITHER rail — so the Stripe drain would claim a `peable` event and
+   * route it by its type alone. Both rails speak Stripe's names
+   * (`payment_intent.succeeded`), so the Stripe router WOULD find a handler and
+   * act on a `pi_…` that is Peable's, asking Stripe about an object Stripe has
+   * never seen; and a type only one rail sends is marked `processed` with "no
+   * handler in this version". Either way a real settlement is mishandled, with
+   * the event row saying it was handled.
    *
    * Making it required means a third rail cannot be added without its author
    * being asked this question by the compiler.

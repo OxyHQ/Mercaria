@@ -1,5 +1,5 @@
 import { Button } from '@oxy.so/bloom/button';
-import { FollowTargetButton, openAccountDialog, useOxy } from '@oxy.so/services';
+import { FollowTargetButton, useOxy } from '@oxy.so/services/ui/client';
 import { useTranslation } from '@/lib/i18n';
 import { useSellerFollowTarget } from '@/lib/hooks/use-seller-follow';
 import type { FollowButtonSize } from '@/lib/follow-graph';
@@ -49,7 +49,7 @@ export function SellerFollowButton({
   size?: FollowButtonSize;
 }) {
   const { t } = useTranslation();
-  const { canUsePrivateApi } = useOxy();
+  const { canUsePrivateApi, openAccountDialog } = useOxy();
   const { data: followTargetId } = useSellerFollowTarget(oxyUserId);
 
   if (followTargetId) {

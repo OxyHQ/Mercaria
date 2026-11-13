@@ -19,6 +19,24 @@ vi.mock('stripe', async (original) => {
     },
   };
 });
+// Replace only workload minting; the real SDK service transport and HTTP
+// gateway still carry every merchant request and retry.
+vi.mock('@oxy.so/core/server', async (original) => {
+  const actual = await original<typeof import('@oxy.so/core/server')>();
+  return {
+    ...actual,
+    canAttestWorkloadIdentity: () => true,
+    OxyServer: class extends actual.OxyServer {
+      constructor(options: ConstructorParameters<typeof actual.OxyServer>[0]) {
+        super(options);
+        Object.assign(this, {
+          workloadServiceToken: async () =>
+            `e30.${Buffer.from(JSON.stringify({ type: 'service', appId: 'fixture', exp: 2_100_000_000 })).toString('base64url')}.fixture`,
+        });
+      }
+    },
+  };
+});
 const nonce = randomUUID().replaceAll('-', '');
 const otherCohortStoreId = randomUUID().replaceAll('-', '').slice(0, 24);
 const otherCohortCustomer = `cus_second${nonce}`;
@@ -62,7 +80,7 @@ beforeAll(async () => {
     if (path === '/auth/service-token')
       data = { data: { token: 'synthetic-token', expiresIn: 300 } };
     else if (path === '/v1/merchants/me')
-      data = { id: 'merchant-fixture', oxyAppId: 'app-fixture', environment: 'development' };
+      data = { id: 'merchant-fixture', oxy_app_id: 'app-fixture', environment: 'development' };
     else if (
       path === `/v1/billing/subscriptions/${sub}` ||
       path === `/v1/billing/subscriptions/${sub}/cancel_at_period_end`
@@ -75,21 +93,22 @@ beforeAll(async () => {
         }
         gatewayCanceled = true;
       }
+      const unix = (offsetMs: number) => Math.floor((Date.now() + offsetMs) / 1000);
       data = {
-        providerSubscriptionId: sub,
-        providerCustomerId: customer,
-        providerPriceId: price,
-        storeId,
-        planId,
+        provider_subscription_id: sub,
+        provider_customer_id: customer,
+        provider_price_id: price,
+        store_id: storeId,
+        plan_id: planId,
         livemode: false,
         status: gatewayStatus,
         interval: 'month',
-        cancelAtPeriodEnd: gatewayCanceled,
-        currentPeriodStart: new Date(Date.now() - 60_000).toISOString(),
-        currentPeriodEnd: new Date(Date.now() + 86_400_000).toISOString(),
-        trialEndsAt: null,
-        cancelAt: gatewayCanceled ? new Date(Date.now() + 86_400_000).toISOString() : null,
-        cancelledAt: null,
+        cancel_at_period_end: gatewayCanceled,
+        current_period_start: unix(-60_000),
+        current_period_end: unix(86_400_000),
+        trial_ends_at: null,
+        cancel_at: gatewayCanceled ? unix(86_400_000) : null,
+        cancelled_at: null,
       };
     } else if (path === '/v1/billing/checkout_sessions' || path === '/v1/billing/portal_sessions') {
       if (!key) {
@@ -101,7 +120,7 @@ beforeAll(async () => {
         effects++;
         receipts.set(key, {
           url: 'https://checkout.stripe.com/owned',
-          expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          expires_at: Math.floor((Date.now() + 60_000) / 1000),
         });
       }
       if (loseCheckout) {
@@ -130,9 +149,6 @@ beforeAll(async () => {
     STRIPE_WEBHOOK_SECRET: secret,
     STRIPE_CONNECT_WEBHOOK_SECRET: 'whsec_connect_fixture',
     MERCHANT_BILLING_ENABLED: String(actions),
-    // Mercaria's Oxy identity, minted from the fixture at OXY_API_URL.
-    OXY_APPLICATION_KEY: 'fixture-public',
-    OXY_APPLICATION_SECRET: 'fixture-secret',
     MERCHANT_BILLING_PEABLE_COHORT: JSON.stringify({
       merchantId: 'merchant-fixture',
       applicationId: 'app-fixture',

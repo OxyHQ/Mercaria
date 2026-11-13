@@ -1,3 +1,4 @@
+import { replaceFeaturedCollections } from '../../db/merchandising/featuredCollectionRepository.js';
 /**
  * `@mercaria.co/sdk` against the REAL Mercaria backend (#1017) — the test that
  * makes route and DTO drift between the server and the published client fail a
@@ -84,6 +85,14 @@ const oxy = vi.hoisted(() => ({
   authorizationHeaders: [] as (string | undefined)[],
 }));
 
+/** The Oxy person behind a seller id, as the mocked `users` reads answer. */
+const person = vi.hoisted(() => (id: string) => ({
+  id,
+  username: `person${id.slice(-6)}`,
+  name: { displayName: 'Pat Seller' },
+  avatar: `avatar-${id}`,
+}));
+
 vi.mock('../../middleware/auth.js', () => ({
   oxyClient: {
     middleware: {
@@ -94,14 +103,12 @@ vi.mock('../../middleware/auth.js', () => ({
         },
     },
     assets: { publicUrl: (fileId: string) => `https://media.test.invalid/${fileId}` },
+    // `get` for one card, `lookupMany` for a batch (`getProfiles`): the same
+    // person either way, and nobody is missing or failed.
     users: {
-      get: (id: string) =>
-        Promise.resolve({
-          id,
-          username: `person${id.slice(-6)}`,
-          name: { displayName: 'Pat Seller' },
-          avatar: `avatar-${id}`,
-        }),
+      get: (id: string) => Promise.resolve(person(id)),
+      lookupMany: (ids: string[]) =>
+        Promise.resolve({ found: [...new Set(ids)].map(person), missing: [], failed: [] }),
     },
   },
   authenticateToken: (_req: express.Request, res: express.Response): void => {
@@ -813,5 +820,35 @@ describe('the privacy census', () => {
       const offending = everything.filter((serialized) => serialized.includes(value));
       expect(offending, `private value ${value} reached an SDK result`).toEqual([]);
     }
+  });
+});
+
+describe('seller-selected storefront shelves through the published SDK contract', () => {
+  it('resolves explicit selections and preserves existing product ordering and availability rules', async () => {
+    await replaceFeaturedCollections(ids.storeA, OWNER_ACCOUNT, [ids.manual]);
+    const shelves = await mercaria.stores.featuredCollections(ids.storeA, { limit: 1 });
+    expect(refIds(shelves)).toEqual([ids.manual]);
+    expect(shelves.nextCursor).toBeNull();
+    expect(Object.isFrozen(shelves.items[0].ref)).toBe(true);
+    const curated = await mercaria.collections.products(shelves.items[0].ref);
+    const existing = await mercaria.collections.products(ids.manual);
+    expect(refIds(curated)).toEqual(refIds(existing));
+    expect(curated.items.length).toBeGreaterThan(0);
+    expect(refIds(curated)).not.toContain(ids.archived);
+    expect(refIds(curated)).not.toContain(ids.restricted);
+    await replaceFeaturedCollections(ids.storeA, OWNER_ACCOUNT, []);
+    expect((await mercaria.stores.featuredCollections(ids.storeA)).items).toEqual([]);
+  });
+  it('applies the live-store gate and refuses cursors belonging to another list', async () => {
+    await expect(mercaria.stores.featuredCollections(ids.storeSuspended)).rejects.toBeInstanceOf(
+      MercariaGoneError,
+    );
+    const ordinary = await mercaria.stores.collections(ids.storeA, { limit: 1 });
+    expect(ordinary.nextCursor).not.toBeNull();
+    if (!ordinary.nextCursor)
+      throw new Error('Fixture must have more than one published collection');
+    await expect(
+      mercaria.stores.featuredCollections(ids.storeA, { cursor: ordinary.nextCursor }),
+    ).rejects.toBeInstanceOf(MercariaBadRequestError);
   });
 });

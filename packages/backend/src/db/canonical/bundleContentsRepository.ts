@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, or } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, or } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { SHOPPER_VISIBLE_CATALOG_STATUSES } from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../postgres.js';
@@ -55,7 +55,6 @@ export async function readBundleImages(
     .select({
       productId: canonicalImages.productId,
       variantId: canonicalImages.variantId,
-      sourceUrl: canonicalImages.sourceUrl,
       fileId: canonicalImages.fileId,
       alt: canonicalImages.alt,
     })
@@ -64,6 +63,8 @@ export async function readBundleImages(
       and(
         eq(canonicalImages.status, 'active'),
         eq(canonicalImages.kind, 'image'),
+        // Imported files only: a supplier URL is never shown (no hotlinks).
+        isNotNull(canonicalImages.fileId),
         or(
           inArray(canonicalImages.productId, productIds),
           inArray(canonicalImages.variantId, variantIds),

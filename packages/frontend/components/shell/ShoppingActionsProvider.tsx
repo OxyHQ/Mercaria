@@ -1,30 +1,41 @@
 import { useCallback, useState, type ReactNode } from 'react';
-import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { Dialog } from '@oxy.so/bloom/dialog';
 import { ListingSaveProvider } from '@mercaria/ui';
-import { useToggleListingSave } from '@/lib/hooks/use-saves';
+import type { ProductSummary } from '@mercaria/shared-types';
+import { useToggleListingSave, useToggleProductSave } from '@/lib/hooks/use-saves';
 import { useTranslation } from '@/lib/i18n';
 
 export function ShoppingActionsProvider({ children }: { children: ReactNode }) {
-  const { canUsePrivateApi } = useOxy();
+  const { canUsePrivateApi, openAccountDialog } = useOxy();
   const { mutateAsync } = useToggleListingSave();
+  const { mutateAsync: toggleProductSave } = useToggleProductSave();
   const { t } = useTranslation();
   const [failed, setFailed] = useState(false);
   const save = useCallback(
-    async (id: string, nextSaved: boolean) => {
+    async (id: string, nextSaved: boolean, product?: ProductSummary) => {
       if (!canUsePrivateApi) {
         openAccountDialog();
         return false;
       }
       try {
-        await mutateAsync({ listingId: id, saved: !nextSaved });
+        // A catalogue product's card saves the product; a listing's, the listing.
+        if (product?.catalogSlug) {
+          await toggleProductSave({
+            canonicalProductId: id,
+            saved: !nextSaved,
+            sourceContext: 'product_card',
+          });
+        } else {
+          await mutateAsync({ listingId: id, saved: !nextSaved });
+        }
         return true;
       } catch {
         setFailed(true);
         return false;
       }
     },
-    [canUsePrivateApi, mutateAsync],
+    [canUsePrivateApi, mutateAsync, openAccountDialog, toggleProductSave],
   );
   return (
     <ListingSaveProvider onSave={save}>

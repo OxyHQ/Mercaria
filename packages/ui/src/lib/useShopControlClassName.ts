@@ -1,6 +1,6 @@
-import { useReducedMotion } from 'react-native-reanimated';
 import { useColorScheme } from './useColorScheme';
 import { cn } from './cn';
+import { usePrefersReducedMotion } from '@oxy.so/bloom/hooks';
 
 type ShopControlAppearance =
   | 'primary'
@@ -35,7 +35,7 @@ const HOVER = {
  * the interaction class explicitly. Reduced motion also omits press scaling. */
 export function useShopControlClassName() {
   const { isDarkColorScheme } = useColorScheme();
-  const reducedMotion = useReducedMotion();
+  const reducedMotion = usePrefersReducedMotion();
   return (appearance: ShopControlAppearance, disabled = false, loading = false) =>
     cn(
       'shop-control',

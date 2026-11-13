@@ -12,6 +12,7 @@
 export * from './primitives';
 export * from './refs';
 export * from './catalog';
+export * from './catalog-products';
 export * from './locations';
 export * from './pagination';
 export * from './errors';
@@ -19,3 +20,5 @@ export * from './requests';
 export * from './json-schema';
 export * from './routes';
 export * from './openapi';
+
+export * from './materials';

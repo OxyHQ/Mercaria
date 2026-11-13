@@ -1,9 +1,9 @@
 /**
  * The claim domain's operator handlers (#109 revocation rules 3, 4 and 8).
  *
- * Behind `requireGuestOperator` — the SAME `GUEST_OPERATOR_OXY_USER_IDS`
- * allow-list #104's diagnostic and #108's portal surface use, and deliberately
- * not a seventh list. Detaching a claim is the same power class as revoking a
+ * Behind `requireGuestOperator` — the SAME `guest.operate`
+ * key #104's diagnostic and #108's portal surface use, and deliberately
+ * not a new key. Detaching a claim is the same power class as revoking a
  * group's portal access: a guest-commerce support decision about who may reach
  * a placed order, made without learning what anyone bought.
  *
@@ -128,8 +128,8 @@ export async function requestClaimRevocationHandler(req: Request, res: Response)
     });
     if (outcome.status === 'refused') {
       const mapped = refusalStatus(outcome.refusal);
-      // The refusal CODE is returned verbatim: the caller is an identified,
-      // allow-listed person acting on a claim they already named, so there is
+      // The refusal CODE is returned verbatim: the caller is an identified
+      // `guest.operate` holder acting on a claim they already named, so there is
       // no enumeration to protect against — and "it did not work" with no
       // reason is the answer that generates a second support ticket (#108's
       // operator surface makes the same call).

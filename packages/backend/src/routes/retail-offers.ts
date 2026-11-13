@@ -33,7 +33,12 @@ import { validateQuery } from '../middleware/validate.js';
 import { sendSuccess } from '../utils/api-response.js';
 import { readRetailOfferPresentation } from '../services/commercial-presentation/retail-offer.service.js';
 
+import { optionalAuth } from '../middleware/auth.js';
+
 const router = Router();
+
+// A presented supervised session cannot bypass policy through an anonymous catalog route.
+router.use(optionalAuth);
 
 router.use(makeRateLimiter('listings'));
 

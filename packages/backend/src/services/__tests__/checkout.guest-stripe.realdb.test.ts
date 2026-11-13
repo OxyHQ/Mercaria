@@ -447,7 +447,7 @@ describe('a guest pays for a store order', () => {
     });
 
     const result = await checkout(
-      { kind: 'guest', guestSessionId, transport: 'cookie' },
+      { kind: 'guest', guestSessionId, clientClass: 'web' },
       {
         destination: { type: 'inline_shipping_address', address: INLINE_ADDRESS },
         contact: { email: 'guest.meta@example.com' },
@@ -485,7 +485,7 @@ describe('a guest pays for a store order', () => {
       variantId: seller.variantId,
       quantity: 1,
     });
-    const actor = { kind: 'guest', guestSessionId, transport: 'cookie' } as const;
+    const actor = { kind: 'guest', guestSessionId, clientClass: 'web' } as const;
     const body = {
       destination: { type: 'inline_shipping_address' as const, address: INLINE_ADDRESS },
       contact: { email: 'guest.replay@example.com' },
@@ -538,7 +538,7 @@ describe('a guest cannot buy from an individual, and a mixed cart separates (#11
 
     await expect(
       checkout(
-        { kind: 'guest', guestSessionId, transport: 'cookie' },
+        { kind: 'guest', guestSessionId, clientClass: 'web' },
         {
           destination: { type: 'inline_shipping_address', address: INLINE_ADDRESS },
           contact: { email: 'guest.p2p.only@example.com' },
@@ -565,7 +565,7 @@ describe('a guest cannot buy from an individual, and a mixed cart separates (#11
       { listingId: store.listingId, variantId: store.variantId, quantity: 1 },
       { listingId: person.listingId, variantId: person.variantId, quantity: 1 },
     );
-    const actor = { kind: 'guest', guestSessionId, transport: 'cookie' } as const;
+    const actor = { kind: 'guest', guestSessionId, clientClass: 'web' } as const;
     const body = {
       destination: { type: 'inline_shipping_address' as const, address: INLINE_ADDRESS },
       contact: { email: 'guest.p2p.mixed@example.com' },
@@ -618,7 +618,7 @@ describe('verified success hands #108 exactly one portal initialization', () => 
     });
 
     const result = await checkout(
-      { kind: 'guest', guestSessionId, transport: 'cookie' },
+      { kind: 'guest', guestSessionId, clientClass: 'web' },
       {
         destination: { type: 'inline_shipping_address', address: INLINE_ADDRESS },
         contact: { email: 'guest.portal@example.com' },
@@ -724,7 +724,7 @@ describe('the payment-status read is scoped through the guest contact record', (
       quantity: 1,
     });
     const result = await checkout(
-      { kind: 'guest', guestSessionId, transport: 'cookie' },
+      { kind: 'guest', guestSessionId, clientClass: 'web' },
       {
         destination: { type: 'inline_shipping_address', address: INLINE_ADDRESS },
         contact: { email: 'guest.status@example.com' },

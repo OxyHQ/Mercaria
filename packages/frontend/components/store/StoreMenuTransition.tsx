@@ -1,11 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { View } from 'react-native';
-import { useIsRtl } from '@oxy.so/bloom/hooks';
+import { useIsRtl, usePrefersReducedMotion } from '@oxy.so/bloom/hooks';
 import { useDialogFrame } from '@oxy.so/bloom/dialog';
 import Animated, {
   Easing,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withClamp,
   withTiming,
@@ -23,7 +22,7 @@ function IncomingPage({
   width: number;
 }) {
   const rtl = useIsRtl();
-  const reducedMotion = useReducedMotion();
+  const reducedMotion = usePrefersReducedMotion();
   const progress = useSharedValue(reducedMotion ? 1 : 0);
   // Shop's pushIn/popIn travel 40% of the page, not of the viewport.
   const offset =

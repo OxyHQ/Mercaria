@@ -253,16 +253,88 @@ export async function previewFeedVersion(
   return unwrap(data);
 }
 
-/** POST to read the WHOLE feed and write a validation report. */
+/**
+ * A whole-feed validation the server runs in the background.
+ *
+ * Reading and staging a whole feed outlives any request, so `validate` answers
+ * 202 with this job and the client polls it; the report it writes is what an
+ * activation cites.
+ */
+export interface FeedValidationJob {
+  id: string;
+  configurationId: string;
+  versionId: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'dead_letter';
+  reportId: string | null;
+  failureReason: string | null;
+  /** The refusal's own text when it did not complete. */
+  message: string | null;
+  attempts: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** How often a running validation is polled, and for how long at most. */
+const VALIDATION_POLL_MS = 2_000;
+const VALIDATION_WAIT_MS = 60 * 60 * 1_000;
+
+/** A validation that ended without a report. The message is the server's. */
+export class FeedValidationFailedError extends Error {
+  readonly job: FeedValidationJob;
+  constructor(job: FeedValidationJob) {
+    super(job.message ?? 'The feed could not be validated.');
+    this.name = 'FeedValidationFailedError';
+    this.job = job;
+  }
+}
+
+/** POST to queue a validation of the WHOLE feed (or rejoin the one running). */
+export async function requestFeedValidation(
+  storeId: string,
+  configurationId: string,
+  versionId: string,
+): Promise<FeedValidationJob> {
+  const { data } = await apiClient.post<ApiResponse<FeedValidationJob>>(
+    `${base(storeId)}/${configurationId}/versions/${versionId}/validate`,
+  );
+  return unwrap(data);
+}
+
+/** GET one validation job. */
+export async function fetchFeedValidation(
+  storeId: string,
+  configurationId: string,
+  versionId: string,
+  validationId: string,
+): Promise<FeedValidationJob> {
+  const { data } = await apiClient.get<ApiResponse<FeedValidationJob>>(
+    `${base(storeId)}/${configurationId}/versions/${versionId}/validations/${validationId}`,
+  );
+  return unwrap(data);
+}
+
+/**
+ * Validate the WHOLE feed and resolve with the report it wrote: queue the job,
+ * poll it until it finishes, then read the report. Rejects with
+ * {@link FeedValidationFailedError} when the server refused the feed.
+ */
 export async function validateFeedVersion(
   storeId: string,
   configurationId: string,
   versionId: string,
 ): Promise<FeedReport> {
-  const { data } = await apiClient.post<ApiResponse<FeedReport>>(
-    `${base(storeId)}/${configurationId}/versions/${versionId}/validate`,
+  let job = await requestFeedValidation(storeId, configurationId, versionId);
+  const deadline = Date.now() + VALIDATION_WAIT_MS;
+  while (job.status === 'pending' || job.status === 'processing') {
+    if (Date.now() > deadline) throw new FeedValidationFailedError(job);
+    await new Promise<void>((resolve) => setTimeout(resolve, VALIDATION_POLL_MS));
+    job = await fetchFeedValidation(storeId, configurationId, versionId, job.id);
+  }
+  if (job.status !== 'completed' || job.reportId === null) throw new FeedValidationFailedError(job);
+  const { data } = await apiClient.get<ApiResponse<{ report: FeedReport }>>(
+    `${base(storeId)}/${configurationId}/reports/${job.reportId}`,
   );
-  return unwrap(data);
+  return unwrap(data).report;
 }
 
 /**

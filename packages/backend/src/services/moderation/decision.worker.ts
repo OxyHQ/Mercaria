@@ -20,7 +20,7 @@
  * compromised or buggy sender direct enforcement at any listing in the catalogue.
  */
 
-import { DecisionSchema } from '@oxy.so/crowdsource-contracts';
+import { DecisionSchema } from '@crowdsource.you/contracts';
 import {
   findOldestAbuseReportForCase,
   markAbuseReportsDecided,

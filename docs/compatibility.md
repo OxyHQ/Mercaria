@@ -518,7 +518,7 @@ runner.
   counting, and `POST .../:claimId/fitment` promotes one — the vehicle named in
   full by the operator, audited with a mandatory reason, opening a fitment that
   records `operator_review` so the row says a person decided. It is on the
-  `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54/#55/#56 use and NOT a seventh
+  `catalog.operate` key #54/#55/#56 use and NOT a seventh
   list, and it sits on the governance router beside the review route that was
   already there rather than in an `internal-compatibility.ts` of its own.
 

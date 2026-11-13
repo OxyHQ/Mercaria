@@ -692,9 +692,9 @@ snapshot whose schema may have moved.
 ## Operator surface
 
 All under `/internal/commerce-graph/*`, behind the SAME
-`CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54, #55, #56, #57 and #83 use —
+`catalog.operate` key #54, #55, #56, #57 and #83 use —
 deciding that two things are one thing is the same power over the same graph as
-linking a merchant to a store. Empty list = the router is not mounted (404).
+linking a merchant to a store. Anyone without it gets 404.
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -726,7 +726,6 @@ names.
 ## Environment
 
 ```
-CATALOG_OPERATOR_OXY_USER_IDS=      # the gate; empty = not mounted (404)
 CATALOG_FOUR_EYES_REQUIRED=true     # ONE flag, read by #55 and #59 alike
 CURATION_JOBS_ENABLED=true          # gates the LOOP, never the request
 CURATION_JOB_BATCH_SIZE=5
@@ -795,7 +794,7 @@ through one left those rows on a tombstone with every page still rendering,
 which is exactly the invisible damage this domain exists to prevent.
 
 The merge an operator uses is `POST /internal/commerce-graph/merge-jobs`, on the
-SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list, covering all seven mergeable
+SAME `catalog.operate` key, covering all seven mergeable
 entity types.
 
 ### The behaviour the retirement did not carry over, and how it came back (#333)

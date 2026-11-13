@@ -1,4 +1,5 @@
 import {
+  type ComponentRef,
   createContext,
   useCallback,
   useContext,
@@ -9,7 +10,9 @@ import {
   type ReactNode,
 } from 'react';
 import type { TextInput } from 'react-native';
-import { useLocalSearchParams, usePathname, useRouter } from 'expo-router';
+import { useAskAgent } from '@alia.onl/sdk/ask';
+import { useOxy } from '@oxy.so/services/ui/client';
+import { useLocalSearchParams } from 'expo-router';
 import { ChatComposer } from '@oxy.so/bloom/chat-composer';
 import { PageFooter } from '@oxy.so/bloom/page-footer';
 import Animated, {
@@ -17,13 +20,13 @@ import Animated, {
   FadeInDown,
   ReduceMotion,
   useAnimatedStyle,
-  useReducedMotion,
   withTiming,
 } from 'react-native-reanimated';
 import { ArrowRight } from 'lucide-react-native';
 import { toBloomIcon } from '@mercaria/ui';
 import { useTranslation } from '@/lib/i18n';
 import { useFeed } from '@/lib/hooks/use-feed';
+import { usePrefersReducedMotion } from '@oxy.so/bloom/hooks';
 
 const ARRIVAL = FadeInDown.duration(200)
   .easing(Easing.bezier(0.2, 0, 0, 1))
@@ -37,8 +40,7 @@ const DraftContext = createContext<{
 /** The home field and its floating continuation edit the same draft. */
 export function ShoppingComposerProvider({ children }: { children: ReactNode }) {
   const { q } = useLocalSearchParams<{ q?: string }>();
-  const pathname = usePathname();
-  const routeQuery = pathname !== '/thread' && typeof q === 'string' ? q : '';
+  const routeQuery = typeof q === 'string' ? q : '';
   const [query, setQuery] = useState(routeQuery);
   useEffect(() => {
     setQuery(routeQuery);
@@ -47,55 +49,50 @@ export function ShoppingComposerProvider({ children }: { children: ReactNode }) 
   return <DraftContext.Provider value={value}>{children}</DraftContext.Provider>;
 }
 
-/** Bloom owns the input, autosizing, keyboard suggestions, focus and send transitions. */
-export function ShoppingComposer({
-  onSubmit,
-  busy = false,
-  disabled = false,
-  inline = false,
-}: {
-  inline?: boolean;
-  onSubmit?: (value: string) => void;
-  busy?: boolean;
-  disabled?: boolean;
-}) {
+/**
+ * Bloom owns the input, autosizing, keyboard suggestions, focus and send transitions.
+ *
+ * Sending asks Alia in her one sheet (`components/alia/MercariaAskProvider.tsx`)
+ * with the words as the first turn. Signed out, the SDK opens Oxy's sign-in and
+ * the words stay in the field, to send again once signed in.
+ */
+export function ShoppingComposer({ inline = false }: { inline?: boolean }) {
   const { t } = useTranslation();
-  const router = useRouter();
+  const { ask } = useAskAgent();
+  const { canUsePrivateApi } = useOxy();
   const draft = useContext(DraftContext);
   if (!draft) throw new Error('ShoppingComposer requires ShoppingComposerProvider');
   const { query, setQuery } = draft;
   const [focused, setFocused] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<ComponentRef<typeof TextInput>>(null);
   const feed = useFeed();
-  const reducedMotion = useReducedMotion();
+  const reducedMotion = usePrefersReducedMotion();
   const expansion = useAnimatedStyle(
     () => ({
       maxWidth: reducedMotion
-        ? onSubmit
-          ? 896
-          : inline
+        ? inline
+          ? 600
+          : focused
             ? 600
-            : focused
-              ? 600
-              : 512
-        : withTiming(onSubmit ? 896 : inline ? 600 : focused ? 600 : 512, {
+            : 512
+        : withTiming(inline ? 600 : focused ? 600 : 512, {
             duration: 320,
             easing: Easing.bezier(0.2, 0, 0, 1),
           }),
     }),
-    [focused, reducedMotion, inline, onSubmit],
+    [focused, reducedMotion, inline],
   );
 
   const suggestions = useMemo(() => {
-    if (!focused || onSubmit) return [];
+    if (!focused) return [];
     const pills = feed.data?.sections.find((section) => section.kind === 'category-pills');
     if (pills?.kind !== 'category-pills') return [];
     return pills.pills
       .filter((pill) => pill.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
       .slice(0, 5)
       .map((pill) => ({ id: pill.id, label: pill.name }));
-  }, [feed.data, focused, query, onSubmit]);
+  }, [feed.data, focused, query]);
 
   const submit = useCallback(
     (value: string) => {
@@ -106,12 +103,10 @@ export function ShoppingComposer({
       }
       setFocused(false);
       inputRef.current?.blur();
-      if (onSubmit) {
-        onSubmit(term);
-        setQuery('');
-      } else router.push({ pathname: '/thread', params: { q: term } });
+      ask(undefined, { text: term });
+      if (canUsePrivateApi) setQuery('');
     },
-    [onSubmit, router, setQuery],
+    [ask, canUsePrivateApi, setQuery],
   );
 
   const composer = (
@@ -128,8 +123,7 @@ export function ShoppingComposer({
           setActiveIndex(-1);
         }}
         onSend={submit}
-        canSend={!busy && !disabled && Boolean(query.trim())}
-        disabled={busy || disabled}
+        canSend={Boolean(query.trim())}
         maxLines={4}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
@@ -151,7 +145,7 @@ export function ShoppingComposer({
           paddingRight: 12,
           paddingTop: 12,
           paddingBottom: 12,
-          boxShadow: onSubmit ? '0 2px 12px rgba(0, 0, 0, 0.06)' : '0 8px 40px rgba(0, 0, 0, 0.12)',
+          boxShadow: '0 8px 40px rgba(0, 0, 0, 0.12)',
         }}
       />
     </Animated.View>
@@ -161,7 +155,7 @@ export function ShoppingComposer({
   ) : (
     <PageFooter
       position="document"
-      scrim={onSubmit ? 'always' : 'none'}
+      scrim="none"
       safeArea
       testID="shopping-composer-footer"
       style={{ paddingBottom: 28 }}

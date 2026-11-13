@@ -1,7 +1,7 @@
 import { Pressable, View } from 'react-native';
 import Head from 'expo-router/head';
 import { useRouter } from 'expo-router';
-import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { BuyerAssetRightCard, Text } from '@mercaria/ui';
 import { ScreenShell } from '@/components/shell/ScreenShell';
 import { Footer } from '@/components/shell/Footer';
@@ -110,6 +110,7 @@ export default function DigitalLibraryScreen() {
  * (`~/Oxy/AGENTS.md`: no app-local sign-in screen).
  */
 function SignedOutInvitation() {
+  const { openAccountDialog } = useOxy();
   const { t } = useTranslation();
   return (
     <View className="gap-space-12 rounded-radius-16 border border-border-secondary bg-bg-fill p-space-16">

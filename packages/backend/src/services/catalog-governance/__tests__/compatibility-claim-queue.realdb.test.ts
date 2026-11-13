@@ -41,7 +41,6 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sql } from 'drizzle-orm';
-import type { Request } from 'express';
 
 import { connectPostgres, type Database } from '../../../db/postgres.js';
 import { governanceActor } from '../actor.js';
@@ -62,6 +61,7 @@ import {
   verticalRunToken,
   type SeededVertical,
 } from '../../../scripts/seed-verticals/__tests__/vertical-fixture.js';
+import { gatedOperatorRequest } from '../../../__tests__/oxy-app-permissions-fake.js';
 
 const TOKEN = verticalRunToken('cq');
 const OPERATOR = `${TOKEN}-operator-2`;
@@ -76,13 +76,14 @@ let unfittedConfigurationId: string;
  * An actor holding exactly the named roles.
  *
  * `governanceActor` is the only thing that can mint the branded type, and it
- * reads exactly ONE property off the request — `getOxyUserId` looks at `userId`,
- * `user.id` and `user._id` and nothing else. So a request-shaped object is
- * enough, and mocking the whole Oxy auth module inside a realdb file would
- * replace far more than the one thing this test does not care about.
+ * reads exactly ONE property off the request — `operatorId(req)`, the person the
+ * operator gate left on `req.oxyAppPermissions`. So a request that has already
+ * passed the gate is enough, and mocking the whole Oxy auth module inside a
+ * realdb file would replace far more than the one thing this test does not care
+ * about.
  */
 function actorWith(...roles: Parameters<typeof governanceActor>[1]): CatalogGovernanceActor {
-  return governanceActor({ userId: OPERATOR } as unknown as Request, roles);
+  return governanceActor(gatedOperatorRequest(OPERATOR), roles);
 }
 
 beforeAll(async () => {

@@ -326,9 +326,9 @@ POST /catalog-proposals/:id/withdraw
 POST /catalog-proposals/:id/information     answer a reviewer
 ```
 
-**Operator**, on the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list
+**Operator**, on the SAME `catalog.operate` key
 #54/#55/#56/#57/#58/#59/#60/#62/#68/#70/#78/#79/#80/#83/#90/#94 use, and not a
-seventh list — a proposal asks for a category, a product type, a brand or a
+new operator key — a proposal asks for a category, a product type, a brand or a
 controlled value, and who may reshape that catalogue and who may decide a request
 to reshape it are the same power over the same graph:
 
@@ -359,7 +359,7 @@ already page, not a handle.
 
 The queue's health is measured by the observability domain, not by this one, and
 that is where the read lives: `GET /internal/catalog-metrics/proposal-queue`,
-behind the SAME allow-list, plus nine `catalog_proposals`-sourced metrics on
+behind the SAME `catalog.operate` key, plus nine `catalog_proposals`-sourced metrics on
 `GET /internal/catalog-metrics`. Full mechanics:
 [catalog-observability.md](catalog-observability.md) §"The proposal review
 queue"; the alert and its runbook are

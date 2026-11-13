@@ -81,7 +81,7 @@ const MEMBER = `${TOKEN}-member`;
 const OUTSIDER = `${TOKEN}-outsider`;
 /**
  * The catalog operator, for the three surfaces added in #367 line 814 that sit
- * behind `CATALOG_OPERATOR_OXY_USER_IDS`. Distinct from MEMBER and OUTSIDER so
+ * behind the `catalog.operate` application role. Distinct from MEMBER and OUTSIDER so
  * a route answering for the wrong one is a failure rather than a coincidence.
  */
 const OPERATOR = `${TOKEN}-operator`;
@@ -90,7 +90,18 @@ const OPERATOR = `${TOKEN}-operator`;
 /* The auth stand-in                                                          */
 /* -------------------------------------------------------------------------- */
 
-vi.mock('../../middleware/auth.js', () => {
+vi.mock('../../middleware/auth.js', async () => {
+  const { fakeAccountAccess } = await import('../../__tests__/oxy-account-access-fake.js');
+  const { fakeAppPermissions } = await import('../../__tests__/oxy-app-permissions-fake.js');
+  // Only OPERATOR holds `catalog.operate` on Mercaria's application.
+  const appPermissions = fakeAppPermissions((req) =>
+    req.userId === OPERATOR ? ['catalog.operate'] : [],
+  );
+  const accountAccess = fakeAccountAccess(
+    async (bearer: string, accountId: string) =>
+      bearer === `bearer-${accountId}` ? 'owner' : null,
+    async () => new Map(),
+  );
   const actorOf = (req: express.Request): string | undefined => {
     const raw = req.headers['x-test-actor'];
     const value = Array.isArray(raw) ? raw[0] : raw;
@@ -101,6 +112,7 @@ vi.mock('../../middleware/auth.js', () => {
     // `createOxyRateLimit` calls it on every request. `{}` would throw at
     // construction and take the whole app with it.
     oxyClient: {
+      ...accountAccess,
       cloudURL: 'https://cloud.oxy.so',
       assets: { publicUrl: (id: string) => `https://cloud.oxy.so/${id}` },
       middleware: {
@@ -109,6 +121,7 @@ vi.mock('../../middleware/auth.js', () => {
           (_req: express.Request, _res: express.Response, next: express.NextFunction): void => {
             next();
           },
+        requireAppPermission: appPermissions.requireAppPermission,
       },
     },
     authenticateToken: (
@@ -123,14 +136,15 @@ vi.mock('../../middleware/auth.js', () => {
         res.status(401).json({ success: false, error: 'UNAUTHORIZED', message: 'Unauthorized' });
         return;
       }
-      // ALL THREE, because the real `createOxyAuthMiddleware` sets them and
-      // different consumers read different ones: `loadStore` reads `req.userId`
-      // and forwards the bearer to Oxy for the caller's role (ADR 0012).
-      // Setting only `req.user` makes every store-scoped route answer 401 —
-      // measured.
+      // ALL FOUR, because the real `createOxyAuthMiddleware` sets them and
+      // different consumers read different ones: `storeCallerFrom` needs
+      // `req.userId`, the bearer AND the session before `loadStore` asks Oxy
+      // for the caller's role (ADR 0012). A request missing any of them has no
+      // store caller, and every store-scoped route answers 401 — measured.
       (req as unknown as { user: { id: string }; userId: string }).user = { id: actor };
       (req as unknown as { userId: string }).userId = actor;
       (req as unknown as { accessToken: string }).accessToken = `bearer-${actor}`;
+      (req as unknown as { sessionId: string }).sessionId = `session-${actor}`;
       next();
     },
     optionalAuth: (
@@ -153,11 +167,6 @@ vi.mock('../../middleware/auth.js', () => {
  * anybody else's. The fixture store is owned by MEMBER's account, so MEMBER is
  * its owner and every other actor is a stranger to it.
  */
-vi.mock('../../services/oxy-account-graph.js', () => ({
-  readCallerAccountRole: async (bearer: string, accountId: string) =>
-    bearer === `bearer-${accountId}` ? 'owner' : null,
-  listCallerAccountRoles: async () => new Map(),
-}));
 vi.mock('@oxy.so/core/server', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@oxy.so/core/server')>()),
   getRequiredOxyUserId: (req: express.Request) =>
@@ -253,11 +262,6 @@ beforeAll(async () => {
     process.env[lever] = 'true';
   }
   process.env.STRIPE_ENABLED = 'false';
-  // #367 line 814: the localization, internal-taxonomy and internal-attribute
-  // surfaces are allow-list gated, and an EMPTY list is 404 FROM THE MOUNT —
-  // so without this the routes would not exist to be censused, and the
-  // coverage assertion below would pass over a surface that was never there.
-  process.env.CATALOG_OPERATOR_OXY_USER_IDS = OPERATOR;
   // `config/index.ts` freezes `process.env` at import, and `app.ts` decides every
   // mount from that frozen value — so the levers have to be set before the module
   // graph loads. `catalog-rollout.realdb.test.ts`'s device.
@@ -454,10 +458,6 @@ beforeAll(async () => {
 }, 240_000);
 
 afterAll(async () => {
-  // process.env is process-wide while the module registry is per file, so a
-  // leaked operator list could make a sibling's empty-list 404 case pass for
-  // the wrong reason. `internal-catalog-metrics.test.ts`'s teardown, copied.
-  delete process.env.CATALOG_OPERATOR_OXY_USER_IDS;
   if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
   if (!db || !fx) return;
   const { setCategoryLifecycle } = await import('../../db/taxonomy/taxonomyRepository.js');
@@ -1678,10 +1678,10 @@ describe('the localization operator surface', () => {
     expect(answer.status).toBe(200);
   });
 
-  it('is allow-list gated: 401 unauthenticated, 403 for a non-operator', async () => {
+  it('is gated on catalog.operate: 401 unauthenticated, 404 for a caller holding no key', async () => {
     expect((await get('/internal/catalog-localization/alerts')).status).toBe(401);
     expect((await get('/internal/catalog-localization/alerts', { actor: MEMBER })).status).toBe(
-      403,
+      404,
     );
   });
 });
@@ -1722,7 +1722,7 @@ describe('the attribute routes nothing drove', () => {
     expect((await get('/internal/catalog-attributes/alias-fold-audit')).status).toBe(401);
     expect(
       (await get('/internal/catalog-attributes/alias-fold-audit', { actor: MEMBER })).status,
-    ).toBe(403);
+    ).toBe(404);
   });
 });
 

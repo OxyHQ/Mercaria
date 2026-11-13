@@ -12,6 +12,10 @@
  * again.
  */
 
+import {
+  cancelSupervisedApproval,
+  confirmSupervisedPayment,
+} from '../supervised-shopping/purchase.service.js';
 import type { PaymentOutboxRow } from '../../db/payments/paymentOutboxRepository.js';
 import { getDb } from '../../db/postgres.js';
 import { SYSTEM_ACTOR, transition } from '../order.service.js';
@@ -151,6 +155,9 @@ async function handlePaymentSucceeded(event: PaymentOutboxRow): Promise<void> {
   if (!checkoutGroupId) {
     throw new Error(`Payment outbox event ${event.id} carries no checkoutGroupId.`);
   }
+
+  if (!paymentId) throw new Error(`Payment outbox event ${event.id} carries no paymentId.`);
+  await confirmSupervisedPayment(paymentId);
 
   const orders = await findOrdersInCheckoutGroup(checkoutGroupId);
   for (const order of orders) {
@@ -672,6 +679,11 @@ async function handleRefundUnmatched(event: PaymentOutboxRow): Promise<void> {
  */
 export async function runPaymentOutboxEvent(event: PaymentOutboxRow): Promise<void> {
   switch (event.eventType) {
+    case 'supervised_purchase_cancelled': {
+      const { paymentId } = readPayload(event);
+      if (!paymentId) throw new Error('Supervised cancellation has no payment id.');
+      return await cancelSupervisedApproval(paymentId);
+    }
     case 'payment_succeeded':
       return await handlePaymentSucceeded(event);
     case 'payment_failed':

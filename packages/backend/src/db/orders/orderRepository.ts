@@ -958,6 +958,28 @@ export async function findOrderByIdempotencyKey(
   return record ?? null;
 }
 
+/** Exact durable request identity, scoped to the buyer; never latest order or amount matching. */
+export async function findCheckoutGroupsByRequestKey(
+  buyerOxyUserId: string,
+  requestKey: string,
+): Promise<string[]> {
+  const rows = await getDb()
+    .selectDistinct({ checkoutGroupId: orders.checkoutGroupId })
+    .from(orders)
+    .where(
+      and(
+        eq(orders.buyerOxyUserId, buyerOxyUserId),
+        sql`${orders.idempotencyKey} = ${requestKey} || ':' ||
+      case ${orders.sellerType}
+        when 'store' then 'store:' || ${orders.storeId}
+        when 'user' then 'user:' || ${orders.sellerOxyUserId}
+        else 'platform' end`,
+      ),
+    )
+    .limit(2);
+  return rows.flatMap((row) => (row.checkoutGroupId ? [row.checkoutGroupId] : []));
+}
+
 /**
  * Orders still `pending_payment` and older than `cutoff` — the expire-reservations
  * sweep, served by `orders_status_created_at_idx`.

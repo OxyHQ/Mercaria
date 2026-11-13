@@ -12,9 +12,8 @@
  *
  * ## The operator trace is a different function on purpose
  *
- * Provenance — full rows, events, conversions — is an operator concern with an
- * operator gate to come (#147 owns the surface; the interim gate follows
- * `PAYMENT_OPERATOR_OXY_USER_IDS` when it is mounted). Keeping it a separate
+ * Provenance — full rows, events, conversions — is an operator concern, served only behind
+ * `referrals.operate` (`/internal/referrals`). Keeping it a separate
  * function means a partner endpoint can never "accidentally" reach it by
  * passing a flag.
  */

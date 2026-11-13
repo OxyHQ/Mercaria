@@ -591,6 +591,16 @@
         "lte": "Més petit o igual que"
       },
       "categoryIdentifier": "Identificador de categoria"
+    },
+    "featured": {
+      "title": "Col·leccions destacades",
+      "help": "Tria fins a %{count} col·leccions manuals publicades i ordena com es mostren.",
+      "empty": "No hi ha col·leccions destacades.",
+      "unavailable": "Col·lecció no disponible",
+      "hidden": "Aquesta col·lecció no es mostra actualment als compradors.",
+      "add": "Afegeix una col·lecció manual publicada",
+      "failed": "No s’han pogut desar les col·leccions destacades. Els canvis es conserven.",
+      "saved": "Col·leccions destacades desades."
     }
   },
   "common": {
@@ -1721,18 +1731,39 @@
         "displayNameLabel": "Nom de l'organització",
         "done": "La botiga ara pertany a l'organització",
         "failed": "No s'ha pogut convertir la botiga",
-        "inviteLabel": "Usuari o correu",
-        "invitePlaceholder": "usuari o correu@exemple.com",
+        "inviteLabel": "Correu electrònic",
+        "invitePlaceholder": "correu@exemple.com",
         "inviteesTitle": "Persones a convidar",
         "nameRequired": "Escriu el nom i l'usuari de l'organització",
         "open": "Converteix en organització",
-        "someInvitesFailed": "La botiga s'ha mogut, però aquestes invitacions han fallat: %{names}",
+        "someInvitesFailed": "La botiga s'ha mogut, però no s'han pogut enviar aquestes invitacions: %{names}",
         "submit": "Crea l'organització i mou la botiga",
         "title": "Converteix en una organització",
         "usernameLabel": "Nom d'usuari de l'organització",
         "warning": "Les persones que abans podien actuar per aquesta botiga i no són a l'organització ja no hi tenen accés."
       },
       "documentTitle": "Membres | Wholesale by Mercaria",
+      "invitations": {
+        "body": "Les persones s'uneixen a l'organització només després d'acceptar la invitació enviada al seu correu.",
+        "dialogTitle": "Convida algú",
+        "emailLabel": "Correu electrònic",
+        "empty": "No hi ha invitacions pendents",
+        "expired": "Caducada",
+        "invalidEmail": "Introdueix un correu electrònic vàlid",
+        "invite": "Convida",
+        "loadFailed": "No s'han pogut carregar les invitacions",
+        "pending": "Pendent",
+        "resend": "Torna a enviar",
+        "resendFailed": "No s'ha pogut tornar a enviar la invitació",
+        "resent": "Invitació enviada de nou",
+        "revoke": "Revoca",
+        "revokeFailed": "No s'ha pogut revocar la invitació",
+        "revoked": "Invitació revocada",
+        "send": "Envia la invitació",
+        "sendFailed": "No s'ha pogut enviar la invitació",
+        "sent": "Invitació enviada a %{email}",
+        "title": "Invitacions pendents"
+      },
       "loadFailed": "No s'han pogut carregar les persones d'aquesta botiga",
       "noAccess": "Sense accés",
       "organizationBody": "Qui pot actuar per aquesta botiga ho decideix la pertinença a l'organització a Oxy. Mercaria només guarda excepcions als permisos de cada rol.",
@@ -2056,5 +2087,23 @@
   "brand": {
     "name": "Wholesale",
     "byline": "by Mercaria"
+  },
+  "catalogSafety": {
+    "title": "Revisió de contingut de compres",
+    "intro": "Els operadors de la plataforma revisen tot el text abans de mostrar articles sense imatges.",
+    "accessDenied": "Cal accés de plataforma",
+    "accessBody": "Aquesta àrea només està disponible per a revisors autoritzats del catàleg.",
+    "unavailable": "No es pot revisar l’article",
+    "empty": "No hi ha articles per revisar",
+    "next": "Articles següents",
+    "select": "Selecciona un article per revisar",
+    "limitBody": "Aquest article supera els límits de revisió i no estarà disponible per a compres amb supervisió.",
+    "allowed": "El text actual està aprovat",
+    "pending": "El text actual no està aprovat",
+    "textOnly": "Només es mostraran el títol, les variants, les opcions i el preu. No s’inclouen fotos, descripcions ni ressenyes.",
+    "saveError": "No s’ha pogut desar la revisió. Recarrega l’article i revisa el contingut actual.",
+    "saved": "Revisió desada",
+    "allow": "Permetre text revisat",
+    "withhold": "No mostrar"
   }
 }

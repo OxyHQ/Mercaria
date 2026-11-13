@@ -72,6 +72,14 @@ export const ROUTE_DISPOSITIONS: Readonly<
         'must not, because arriving without the provider round trip is not a state this screen ' +
         'can serve. An inbound in-app edge would be the defect, not the fix.',
     },
+    '/materials-transport/[id]': {
+      kind: 'deliberate',
+      reason:
+        "A sponsor's payer-approval page. A donation participant shares this link with the " +
+        'person or organization paying for transport (MaterialTransportPanel builds it); the ' +
+        'payer is not a participant in the reservation, so no screen of theirs lists it. An ' +
+        'in-app edge would show a transport to an account that has no reason to see it.',
+    },
     '/referral-partner': {
       kind: 'deliberate',
       reason:
@@ -79,6 +87,16 @@ export const ROUTE_DISPOSITIONS: Readonly<
         'bridge that keeps an old link landing on it — it opens the dialog on that page and ' +
         'steps back off itself. In-app code opens it with useSettingsDialog().open(' +
         "'referrals') and must never navigate here.",
+    },
+    '/thread': {
+      kind: 'deliberate',
+      reason:
+        "The old address of the shopping thread, which is now Alia's one sheet " +
+        '(MercariaAskProvider). It is kept so a browser, bookmark or shared link still lands: ' +
+        '?q= opens the sheet with that first turn, ?conversationId= reopens that conversation, ' +
+        'and the route replaces itself with the home page. In-app code asks the sheet with ' +
+        'useAskAgent() and must never navigate here — that would push a screen whose only act ' +
+        'is to leave.',
     },
     '/settings': {
       kind: 'deliberate',
@@ -89,6 +107,17 @@ export const ROUTE_DISPOSITIONS: Readonly<
         'navigate here — that would push a screen whose only act is to pop itself.',
     },
     '/settings/addresses': {
+      kind: 'deliberate',
+      reason:
+        'A deep-link bridge into the Settings dialog (Bloom SettingsModal), kept so an old ' +
+        'link or a bookmark still lands on the right page: it opens the dialog and steps back ' +
+        'off itself. In-app code opens Settings with useSettingsDialog().open() and must never ' +
+        'navigate here — that would push a screen whose only act is to pop itself.',
+    },
+    // Reachable only through the merchant page's old Claim button, which pushed
+    // `/settings/general?claimMerchant=…` — a query nothing read. The claim flow
+    // is a dialog on the merchant page now, so this bridge is what its siblings are.
+    '/settings/general': {
       kind: 'deliberate',
       reason:
         'A deep-link bridge into the Settings dialog (Bloom SettingsModal), kept so an old ' +

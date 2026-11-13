@@ -8,11 +8,6 @@
     "icon": "./assets/icon-512.png",
     "scheme": "mercaria",
     "userInterfaceStyle": "automatic",
-    "splash": {
-      "image": "./assets/images/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#040711"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "co.mercaria.app",
@@ -35,7 +30,14 @@
       "favicon": "./assets/icon-192.png"
     },
     "plugins": [
-      "expo-router",
+      [
+        "expo-router",
+        {
+          "asyncRoutes": {
+            "web": false
+          }
+        }
+      ],
       "expo-localization",
       "expo-font",
       "expo-image",
@@ -48,6 +50,29 @@
         {
           "merchantIdentifier": "merchant.co.mercaria.app",
           "enableGooglePay": true
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone, to dictate messages and to talk with Alia while you shop",
+          "recordAudioAndroid": true,
+          "enableBackgroundPlayback": false
+        }
+      ],
+      [
+        "react-native-audio-api",
+        {
+          "iosMicrophonePermission": "Allow $(PRODUCT_NAME) to access your microphone, to dictate messages and to talk with Alia while you shop",
+          "iosBackgroundMode": false,
+          "androidForegroundService": false,
+          "androidPermissions": ["android.permission.RECORD_AUDIO"]
+        }
+      ],
+      [
+        "@oxy.so/app-preset",
+        {
+          "android": { "gifEnabled": false, "webpEnabled": false }
         }
       ]
     ],

@@ -49,8 +49,8 @@
  * ## No write route may be added here
  *
  * A taxonomy change is planned, approved and applied through
- * `/internal/catalog-governance/changes`, on the `CATALOG_OPERATOR_OXY_USER_IDS`
- * allow-list, where it gets an impact estimate, four eyes and an audit row. A
+ * `/internal/catalog-governance/changes`, on the `catalog.operate`
+ * key, where it gets an impact estimate, four eyes and an audit row. A
  * second way to move a category would be a second authority over the one table
  * whose write chokepoint has a build-failing gate
  * (`db/__tests__/taxonomy-write-chokepoint.test.ts`).

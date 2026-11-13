@@ -23,7 +23,6 @@ import {
   requestPortalRecovery,
   signOutOfPortal,
 } from '../api/guest-portal';
-import { discardPortalToken } from '../stores/portal-credential-store';
 import { queryKeys } from './query-keys';
 
 /** Whether this browser or device currently holds a live portal session. */
@@ -105,17 +104,13 @@ export function usePortalRecoveryRequest() {
   });
 }
 
-/** Sign out: revoke the credential server-side, then forget the native copy. */
+/** Sign out: revoke the credential server-side, then forget the matching header credential. */
 export function usePortalSignOut() {
   const queryClient = useQueryClient();
   return useMutation<void, Error, void>({
     mutationFn: signOutOfPortal,
     onSettled: () => {
-      // `onSettled` and not `onSuccess`: the server revokes idempotently and
-      // always answers 204, so a failure here is a network one — and a client
-      // that kept a credential it believes is dead is worse than one that
-      // forgot a live one, which costs a fresh link at most.
-      discardPortalToken();
+      // The shared transport clears only the response's original credential revision.
       queryClient.removeQueries({ queryKey: queryKeys.guestPortal.all });
     },
   });

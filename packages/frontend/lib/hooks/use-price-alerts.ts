@@ -5,7 +5,7 @@ import type {
   PriceAlert,
   PriceAlertSplitResolution,
 } from '@mercaria/shared-types';
-import { useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import {
   createPriceAlert,
   deletePriceAlert,

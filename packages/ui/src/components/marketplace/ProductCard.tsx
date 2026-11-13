@@ -19,8 +19,16 @@ const ON_IMAGE_LIGHT = '#FFFFFF';
 /** Heart icon size for the favorite button. */
 const HEART_SIZE = 18;
 
-/** The consuming app owns routing; the card owns its separate image/text links. */
-export type ProductLinkRenderer = (id: string, child: ReactElement) => ReactNode;
+/**
+ * The consuming app owns routing; the card owns its separate image/text links.
+ * `product` is the card's own summary: a catalogue product (`catalogSlug`)
+ * opens its product page rather than a listing's.
+ */
+export type ProductLinkRenderer = (
+  id: string,
+  child: ReactElement,
+  product?: ProductSummary,
+) => ReactNode;
 
 export interface ProductCardProps {
   variant?: 'standard' | 'image-only';
@@ -73,7 +81,7 @@ export function ProductCard({
     const next = !isSaved;
     setSaving(true);
     try {
-      if ((await saveAction(product.id, next)) !== false) setIsSaved(next);
+      if ((await saveAction(product.id, next, product)) !== false) setIsSaved(next);
     } finally {
       setSaving(false);
     }
@@ -107,6 +115,7 @@ export function ProductCard({
               className="h-full w-full web:transition-transform web:duration-300 web:group-hover:scale-105 web:motion-reduce:transition-none web:motion-reduce:transform-none"
             />
           </Pressable>,
+          product,
         )}
 
         {/* Subtle dark wash over the image (Shop bg-bg-overlay-inverse-04). */}
@@ -211,6 +220,7 @@ export function ProductCard({
                 ) : null}
               </View>
             </Pressable>,
+            product,
           )
         : null}
     </View>

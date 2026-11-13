@@ -3,7 +3,7 @@
  * `/internal/commerce-graph/relationships`.
  *
  * Every handler stamps the authenticated operator as the ACTOR — read from the
- * verified caller through `catalogOperatorId`, never from the body, so no
+ * verified caller through `operatorId`, never from the body, so no
  * request can attribute a decision to someone else. That matters more here than
  * on most surfaces: `relationship_reviews` is append-only and its actor column
  * is the four-eyes mechanism, so a forgeable actor would be a forgeable second
@@ -17,7 +17,7 @@ import type {
   RelationshipVerificationMethod,
   RelationshipVerificationState,
 } from '@mercaria/shared-types';
-import { catalogOperatorId } from '../middleware/catalog-operator-authz.js';
+import { operatorId } from '../middleware/operator-authz.js';
 import {
   assertRelationship,
   attachEvidence,
@@ -77,7 +77,7 @@ export async function assertRelationshipHandler(req: Request, res: Response): Pr
       // An operator asserting is still only asserting: the row lands as a
       // candidate and reaching `verified` runs every gate, including four eyes.
       assertedByKind: 'catalog_operator',
-      actorOxyUserId: catalogOperatorId(req),
+      actorOxyUserId: operatorId(req),
     });
     sendSuccess(res, toOperatorRelationshipDTO(row, null), 201);
   } catch (error) {
@@ -148,7 +148,7 @@ export async function attachEvidenceHandler(req: Request, res: Response): Promis
       observedAt: optionalDate(body.observedAt),
       reviewerNote: body.reviewerNote,
       expiresAt: optionalDate(body.expiresAt),
-      collectedByOxyUserId: catalogOperatorId(req),
+      collectedByOxyUserId: operatorId(req),
     });
     sendSuccess(res, toEvidenceDTO(row), 201);
   } catch (error) {
@@ -163,7 +163,7 @@ export async function revokeEvidenceHandler(req: Request, res: Response): Promis
     const row = await revokeRelationshipEvidence({
       evidenceId: routeParam(req, 'evidenceId'),
       reason: body.reason,
-      actorOxyUserId: catalogOperatorId(req),
+      actorOxyUserId: operatorId(req),
     });
     sendSuccess(res, toEvidenceDTO(row));
   } catch (error) {
@@ -178,7 +178,7 @@ export async function approveRelationshipHandler(req: Request, res: Response): P
     const review = await endorseRelationship({
       relationshipId: routeParam(req, 'id'),
       reason: body.reason,
-      actorOxyUserId: catalogOperatorId(req),
+      actorOxyUserId: operatorId(req),
     });
     sendSuccess(res, toReviewDTO(review), 201);
   } catch (error) {
@@ -199,7 +199,7 @@ export async function verifyRelationshipHandler(req: Request, res: Response): Pr
       method: body.method,
       reason: body.reason,
       validTo: optionalDate(body.validTo),
-      actorOxyUserId: catalogOperatorId(req),
+      actorOxyUserId: operatorId(req),
     });
     sendSuccess(res, toOperatorRelationshipDTO(row, null));
   } catch (error) {
@@ -214,7 +214,7 @@ export async function rejectRelationshipHandler(req: Request, res: Response): Pr
     const row = await rejectRelationship({
       relationshipId: routeParam(req, 'id'),
       reason: body.reason,
-      actorOxyUserId: catalogOperatorId(req),
+      actorOxyUserId: operatorId(req),
     });
     sendSuccess(res, toOperatorRelationshipDTO(row, null));
   } catch (error) {
@@ -229,7 +229,7 @@ export async function requestEvidenceHandler(req: Request, res: Response): Promi
     const row = await requestMoreEvidence({
       relationshipId: routeParam(req, 'id'),
       reason: body.reason,
-      actorOxyUserId: catalogOperatorId(req),
+      actorOxyUserId: operatorId(req),
     });
     sendSuccess(res, toOperatorRelationshipDTO(row, null));
   } catch (error) {
@@ -246,7 +246,7 @@ export async function expireRelationshipHandler(req: Request, res: Response): Pr
       action: 'expire',
       reason: body.reason,
       at: optionalDate(body.at),
-      actorOxyUserId: catalogOperatorId(req),
+      actorOxyUserId: operatorId(req),
     });
     sendSuccess(res, toOperatorRelationshipDTO(row, null));
   } catch (error) {
@@ -263,7 +263,7 @@ export async function revokeRelationshipHandler(req: Request, res: Response): Pr
       action: 'revoke',
       reason: body.reason,
       at: optionalDate(body.at),
-      actorOxyUserId: catalogOperatorId(req),
+      actorOxyUserId: operatorId(req),
     });
     sendSuccess(res, toOperatorRelationshipDTO(row, null));
   } catch (error) {
@@ -290,7 +290,7 @@ export async function correctRelationshipHandler(req: Request, res: Response): P
       validFrom: optionalDate(body.validFrom),
       validTo: optionalDate(body.validTo),
       note: body.note,
-      actorOxyUserId: catalogOperatorId(req),
+      actorOxyUserId: operatorId(req),
     });
     sendSuccess(
       res,

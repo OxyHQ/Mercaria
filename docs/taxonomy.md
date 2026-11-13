@@ -300,7 +300,7 @@ primary column, which has no lifecycle rule at all — tightening that one would
 refuse a write the serving image performs, making it a `post`-phase change.
 
 Operator surface: `/internal/taxonomy/*`, on the SAME
-`CATALOG_OPERATOR_OXY_USER_IDS` allow-list. Four routes and no more — there is
+`catalog.operate` key. Four routes and no more — there is
 no "set the primary" (that is the seller's listing write path, unchanged), no
 "promote to primary", no bulk file, and no "list every subject under this
 category"; the COUNT is served, which is what an operator needs before
@@ -367,8 +367,8 @@ condition domain owns.
   twice — `category_product_type_scopes` in D2's list, the D5 name in D5 —
   and the D5 name is the correct one; the D2 spelling is an error in the ADR.
 - **Any WRITE route.** A taxonomy change is planned, approved and applied through
-  `/internal/catalog-governance/changes` on the `CATALOG_OPERATOR_OXY_USER_IDS`
-  allow-list, where it gets an impact estimate, four eyes and an audit row, and
+  `/internal/catalog-governance/changes` on the `catalog.operate`
+  key, where it gets an impact estimate, four eyes and an audit row, and
   export/import is `/internal/catalog-governance/snapshots`. A second way to move a
   category would be a second authority over the one table whose write chokepoint has
   a build-failing gate.

@@ -41,7 +41,11 @@ import {
   EMPTY_COUNTERS,
   type BackfillCounterDelta,
 } from '../../db/backfill/backfillRunRepository.js';
-import { recordBackfillOutcome } from '../../db/backfill/backfillRecordRepository.js';
+import {
+  recordBackfillOutcome,
+  recordBackfillOutcomes,
+  type RecordBackfillOutcomeInput,
+} from '../../db/backfill/backfillRecordRepository.js';
 import type { BackfillCohort } from './cohort.js';
 import type { CanonicalGraphWriter } from './graph-writer.js';
 import { backfillSubjectKey, type BackfillSubject } from './mapping-version.js';
@@ -131,24 +135,35 @@ function counterFor(outcome: CatalogBackfillOutcome): BackfillCounterDelta {
   }
 }
 
+/** One subject's verdict as the evidence row it becomes, and what it counts. */
+interface Judgement {
+  readonly record: RecordBackfillOutcomeInput;
+  readonly counters: BackfillCounterDelta;
+  /** The stage threw: its transaction (if any) is not the place for the row. */
+  readonly failed: boolean;
+}
+
 /**
- * Examine ONE subject: run the stage's logic, record what happened, and count it.
- *
- * A throw is caught, logged, recorded as `record_error`/`failed`, and the page
- * continues — which is the whole of issue job behaviour 4. Nothing rethrows: a
- * page that aborted on the first bad listing would make the cursor unable to
- * advance past it, and the migration would stop at its worst record forever.
- *
- * @param db Pass a transaction when the stage's write and its evidence must
- *   commit together; omit it when the stage only reads.
+ * Run the stage's logic for ONE subject and turn the result into its evidence
+ * row. A throw is caught, logged and judged `record_error`/`failed` — which is
+ * the whole of issue job behaviour 4. Nothing rethrows: a page that aborted on
+ * the first bad listing would make the cursor unable to advance past it, and
+ * the migration would stop at its worst record forever.
  */
-export async function examineSubject(
+async function judgeSubject(
   context: StageContext,
   subject: BackfillSubject,
   decide: () => Promise<SubjectVerdict>,
-  db?: DatabaseOrTransaction,
-): Promise<BackfillCounterDelta> {
+): Promise<Judgement> {
   const subjectKey = backfillSubjectKey(subject);
+  const identity = {
+    runId: context.runId,
+    stage: context.stage,
+    mode: context.mode,
+    mappingVersion: context.mappingVersion,
+    subjectKind: subject.kind,
+    subjectKey,
+  };
   let verdict: SubjectVerdict;
   try {
     verdict = await decide();
@@ -158,48 +173,59 @@ export async function examineSubject(
       { err: error, stage: context.stage, subjectKey, runId: context.runId },
       '[Backfill] record failed; isolated and recorded',
     );
-    await recordBackfillOutcome(
-      {
-        runId: context.runId,
-        stage: context.stage,
-        mode: context.mode,
-        mappingVersion: context.mappingVersion,
-        subjectKind: subject.kind,
-        subjectKey,
-        outcome: 'failed',
-        reasonCode: 'record_error',
-        detail: message,
-      },
-      getDb(),
-    );
-    return counterFor('failed');
+    return {
+      record: { ...identity, outcome: 'failed', reasonCode: 'record_error', detail: message },
+      counters: counterFor('failed'),
+      failed: true,
+    };
   }
 
   const outcome = outcomeFor(verdict.reasonCode);
-  await recordBackfillOutcome(
-    {
-      runId: context.runId,
-      stage: context.stage,
-      mode: context.mode,
-      mappingVersion: context.mappingVersion,
-      subjectKind: subject.kind,
-      subjectKey,
+  return {
+    record: {
+      ...identity,
       outcome,
       reasonCode: verdict.reasonCode,
       detail: verdict.detail ?? null,
       canonicalProductId: verdict.canonicalProductId ?? null,
       canonicalVariantId: verdict.canonicalVariantId ?? null,
     },
-    db ?? getDb(),
-  );
-  return counterFor(outcome);
+    counters: counterFor(outcome),
+    failed: false,
+  };
 }
 
 /**
- * Examine a whole page's worth of subjects, summing their counters.
+ * Examine ONE subject: run the stage's logic, record what happened, and count it.
  *
- * The failure of one subject never reaches another: `examineSubject` has already
- * absorbed it, so this loop has nothing to guard.
+ * A throw is isolated and recorded as `record_error`/`failed`
+ * ({@link judgeSubject}), and the page continues.
+ *
+ * @param db Pass a transaction when the stage's write and its evidence must
+ *   commit together; omit it when the stage only reads. A FAILED subject's row
+ *   is written outside it, because the transaction may be the thing that failed.
+ */
+export async function examineSubject(
+  context: StageContext,
+  subject: BackfillSubject,
+  decide: () => Promise<SubjectVerdict>,
+  db?: DatabaseOrTransaction,
+): Promise<BackfillCounterDelta> {
+  const judgement = await judgeSubject(context, subject, decide);
+  await recordBackfillOutcome(judgement.record, judgement.failed ? getDb() : (db ?? getDb()));
+  return judgement.counters;
+}
+
+/**
+ * Examine a whole page's worth of subjects, summing their counters, and write
+ * the page's evidence as ONE statement ({@link recordBackfillOutcomes}).
+ *
+ * The failure of one subject never reaches another: {@link judgeSubject} has
+ * already absorbed it, so this loop has nothing to guard. Only stages whose
+ * verdicts need no transaction come through here, so holding the rows until
+ * the page ends changes nothing a crash could observe: the page's counters and
+ * cursor are not advanced until it returns either, and a re-run upserts the
+ * same rows.
  */
 export async function examineAll<T>(
   context: StageContext,
@@ -208,12 +234,13 @@ export async function examineAll<T>(
   decide: (item: T) => Promise<SubjectVerdict>,
 ): Promise<BackfillCounterDelta> {
   let counters = EMPTY_COUNTERS;
+  const records: RecordBackfillOutcomeInput[] = [];
   for (const item of items) {
-    counters = addCounters(
-      counters,
-      await examineSubject(context, subjectOf(item), () => decide(item)),
-    );
+    const judgement = await judgeSubject(context, subjectOf(item), () => decide(item));
+    records.push(judgement.record);
+    counters = addCounters(counters, judgement.counters);
   }
+  await recordBackfillOutcomes(records, getDb());
   return counters;
 }
 

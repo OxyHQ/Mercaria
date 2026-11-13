@@ -467,13 +467,15 @@ describe('the registry the sweeper runs over', () => {
       // per-record ENTRIES expire first (30 days — a merchant downloads them
       // this week, and they are the only #63 table bounded by traffic), the
       // REPORT that counts them outlives them (90 days — an active mapping
-      // version cites one by foreign key), and a staged UPLOAD goes soonest of
-      // all (7 days — the bytes live on one task's disk and do not survive a
-      // deployment, so a long-lived row is a `missing` refusal with a
-      // plausible-looking date on it).
+      // version cites one by foreign key), and an UPLOAD no version cites goes
+      // soonest of all (7 days; a cited one has no deadline). The upload SESSION
+      // and the validation JOB are records that something ran, swept at 7 days
+      // while the upload and the report they produced outlive them.
       'feed_import_report_entries',
       'feed_import_reports',
+      'feed_upload_sessions',
       'feed_uploads',
+      'feed_validation_jobs',
       // #111's THREE, and the six it leaves out are the point: these are the
       // only tables in that domain bounded by TRAFFIC. The retention POLICY,
       // the runs, the legal holds and the two erasure-audit tables must outlive
