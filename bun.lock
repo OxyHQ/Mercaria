@@ -30,6 +30,7 @@
         "@oxy.so/db": "^1.5.0",
         "@oxy.so/mcp": "1.4.3",
         "@oxy.so/moovo-sdk": "0.3.0",
+        "@oxy.so/telemetry": "2.2.0",
         "@peable.to/sdk": "6.2.1",
         "@socket.io/redis-adapter": "^8.3.0",
         "bullmq": "^5.80.4",
