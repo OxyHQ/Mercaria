@@ -25,7 +25,7 @@
     "@hugeicons/react-native": "^1.0.15",
     "@mercaria/shared-types": "workspace:*",
     "@mercaria/ui": "workspace:*",
-    "@oxy.so/app-preset": "6.6.0",
+    "@oxy.so/app-preset": "6.7.2",
     "@oxy.so/bloom": "21.0.0",
     "@oxy.so/core": "7.49.0",
     "@oxy.so/expo-splash": "^1.1.0",
