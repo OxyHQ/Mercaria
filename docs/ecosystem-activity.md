@@ -4,13 +4,16 @@ The backend publishes aggregate traffic and its infrastructure heartbeat to the
 Oxy API, which broadcasts changes to the website dashboard. Collection runs in
 the service process regardless of whether somebody opens the dashboard.
 
-Enable with `OXY_ECOSYSTEM_ACTIVITY_ENABLED=true`, `AWS_REGION`, and an Oxy
+`startEcosystemTraffic` from `@oxy.so/core/server` starts it at process bootstrap
+(`packages/backend/src/index.ts`). `OXY_ECOSYSTEM_ACTIVITY_ENABLED` is `true` or
+`false` and wins when set; unset, it publishes where `AWS_REGION` is set. Production
+sets it to `true` in the task definition. Publishing needs `AWS_REGION` and an Oxy
 identity. On ECS that is the task role: `oxy-mercaria-task` is bound to the
 Mercaria application with an administratively bound environment (Oxy ADR 0049).
 The shared publisher attests it; customer key pairs do not select own authority.
 Local development needs a registered workload identity to publish.
 An invalid activation value or missing required configuration fails at boot.
-Disabled collection emits a warning; it must not be interpreted as zero traffic.
+A process that does not publish is silent; that is not zero traffic.
 
 HTTP middleware is mounted before body parsers and routers, including public
 routes, webhooks, failures and authenticated internal calls. Outgoing fetch and

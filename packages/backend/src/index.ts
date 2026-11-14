@@ -1,5 +1,6 @@
-import { startEcosystemActivity, stopEcosystemActivity } from './ecosystemActivity';
 import http from 'node:http';
+import { startEcosystemTraffic } from '@oxy.so/core/server';
+import { createAwsWorkloadCredentialProvider } from '@oxy.so/core/server/aws';
 import { connectPostgres } from './db/postgres.js';
 import { startExpirySweeper, stopExpirySweeper } from './db/expirySweeper.js';
 import { createApp } from './app.js';
@@ -27,7 +28,13 @@ import { initSocket } from './socket.js';
 // table, opens no connection and reads no config.
 registerSizeSystemConceptRegistry();
 
-const app = createApp();
+// `ready` is read on the heartbeat, after this module has finished evaluating.
+const traffic = startEcosystemTraffic({
+  service: 'mercaria',
+  ready: () => server.listening,
+  workloadCredentials: createAwsWorkloadCredentialProvider(),
+});
+const app = createApp({ traffic });
 // Local dev default only — ECS injects PORT explicitly (oxy-infra
 // terraform-uswest2/app-services.tf sets it to 3001). 4160 is Mercaria's slot
 // in the per-app port map so several Oxy backends can run side by side.
@@ -60,8 +67,7 @@ server.on('connection', (socket) => {
   socket.setKeepAlive(true, 60000);
 });
 
-startEcosystemActivity(() => server.listening);
-initSocket(server);
+initSocket(server, traffic);
 
 // The middleware chain and routes live in `app.ts` so they can be built without
 // listening — see that file for why the webhook mount order is asserted there.
@@ -907,7 +913,7 @@ connectPostgres()
         log.general.info('PostgreSQL pool closed');
 
         clearTimeout(forceTimeout);
-        await stopEcosystemActivity();
+        await traffic.stop();
         log.general.info('Graceful shutdown complete');
         process.exit(0);
       } catch (error) {
