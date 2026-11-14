@@ -41,6 +41,8 @@ bun run validate:agents-md                   # AGENTS.md byte budget
   corrections are reversing transactions. Detail: [`money`](docs/agent-rules/money.md).
 - Auth: one `OxyServer` client, a person's calls use `oxyClient.withUser`; `/internal/*` desks are Oxy app roles,
   never env id lists. Detail: [`auth-identity`](docs/agent-rules/auth-identity.md).
+- First-party never asks people for permissions: this app acts for a person with `actingFor` on what oxy's
+  first-party registry declares (oxy ADR 0066); permissions, scopes and consent are only for third parties.
 - Migrations come from `db:generate` and are applied only by `src/db/migrate.ts`, each with one
   `-- oxy:deploy-phase=pre|post` marker. Why: no default phase. Detail: `packages/backend/AGENTS.md`.
 - Client strings go through the one locale registry in `@mercaria/ui/src/i18n/`; layout uses logical utilities
