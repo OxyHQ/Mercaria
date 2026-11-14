@@ -1,4 +1,3 @@
-import { ecosystemActivityMiddleware } from './ecosystemActivity';
 /**
  * The Express application, built without listening.
  *
@@ -15,7 +14,7 @@ import { ecosystemActivityMiddleware } from './ecosystemActivity';
  */
 
 import express from 'express';
-import { createOxyCors, oxyTrustProxy } from '@oxy.so/core/server';
+import { createOxyCors, type EcosystemTraffic, oxyTrustProxy } from '@oxy.so/core/server';
 import { OXY_TELEMETRY_REQUEST_HEADERS } from '@oxy.so/telemetry';
 import cors from 'cors';
 import { log } from './lib/logger.js';
@@ -171,7 +170,7 @@ import { MERCARIA_CAPABILITY_CATALOG } from './capabilities/mercaria.catalog.js'
  * consumed before they can be verified (`docs/house-invariants.md`, "Raw-body
  * mounts").
  */
-export function createApp(): express.Express {
+export function createApp({ traffic }: { traffic?: EcosystemTraffic } = {}): express.Express {
   const app = express();
   // FIRST, before any middleware reads `req.ip`: the general and actor rate
   // limits, guest-session farming (`networkRangeOf`) and guest order recovery
@@ -183,7 +182,7 @@ export function createApp(): express.Express {
   // hop and nothing further out, so `req.ip` is the client either way and a
   // forged header is never believed.
   app.set('trust proxy', oxyTrustProxy);
-  app.use(ecosystemActivityMiddleware);
+  if (traffic) app.use(traffic.observeHttp);
   const mercariaMcpHttpService = createMercariaMcpHttpService();
 
   // MCP owns its raw request body, exact protected-resource identity and OAuth

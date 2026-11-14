@@ -1,8 +1,7 @@
-import { observeEcosystemSocket } from './ecosystemActivity';
 import { Server, type Socket } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import type http from 'node:http';
-import { createOxySocketCors } from '@oxy.so/core/server';
+import { createOxySocketCors, type EcosystemTraffic } from '@oxy.so/core/server';
 import { isLiveEntityId } from '@oxy.so/db';
 import { ALLOWED_ORIGINS } from './lib/allowed-origins.js';
 import { getSocketAdapterClients } from './lib/redis.js';
@@ -74,7 +73,7 @@ function socketCallerOf(socket: Socket): SocketCaller | null {
   return { userId, sessionId, token };
 }
 
-export function initSocket(server: http.Server) {
+export function initSocket(server: http.Server, traffic?: EcosystemTraffic) {
   // Hold the instance in a local const so the adapter attachment below
   // references a provably-defined server (no module-level non-null assertion).
   //
@@ -119,7 +118,7 @@ export function initSocket(server: http.Server) {
   socketServer.use(oxyClient.middleware.socket());
 
   socketServer.on('connection', (socket) => {
-    observeEcosystemSocket(socket);
+    traffic?.observeSocket(socket);
     const caller = socketCallerOf(socket);
     if (!caller) {
       // middleware.socket() guarantees all three, but fail closed if one is ever missing.

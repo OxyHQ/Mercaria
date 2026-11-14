@@ -46,7 +46,6 @@ const EXCLUDED: Readonly<Record<string, readonly string[]>> = {
   // the original module, so a partial mock replaces the whole module and named
   // imports go missing; there is no module-registry reset at all.
   'module mocking (vi.hoisted / importOriginal / vi.mocked / vi.resetModules)': [
-    'src/__tests__/ecosystemActivity.test.ts',
     'src/__tests__/socket-cors.test.ts',
     'src/capabilities/__tests__/capability-authority.test.ts',
     'src/capabilities/__tests__/mercaria-domain-authority.test.ts',
