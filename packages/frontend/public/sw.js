@@ -1,3 +1,6 @@
+// The Oxy base worker: offline shell and static cache (app-preset README, "Installable web apps").
+importScripts('/oxy-sw-base.js');
+
 /**
  * Service Worker — handles web push notification display and click actions.
  */
