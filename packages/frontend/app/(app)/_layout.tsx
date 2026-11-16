@@ -1,7 +1,7 @@
 import { CartPaymentProvider } from '@/components/payment/CartPaymentProvider';
 import { SupervisedStorefrontGate } from '@/components/shell/SupervisedStorefrontGate';
 import { Slot, Stack } from 'expo-router';
-import { Platform, useWindowDimensions } from 'react-native';
+import { Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AppShell, AppShellPanel } from '@oxy.so/bloom/app-shell';
 import { CartFlightProvider } from '@mercaria/ui';
@@ -46,7 +46,6 @@ function StorefrontLayout() {
   useNotificationSetup();
 
   const sidebar = useStorefrontSidebar();
-  const { width } = useWindowDimensions();
 
   // Bloom's `AppShell` owns the responsive layout: the sidebar in flow from
   // 976px (a drawer below it), the bottom bar below it, and the framed
@@ -77,13 +76,14 @@ function StorefrontLayout() {
       <ShoppingActionsProvider>
         <GestureHandlerRootView style={GESTURE_ROOT_STYLE}>
           <AppShell
-            variant="feed"
+            layout="catalog"
+            presentation="framed"
             safeArea
             panels
             // WEB scrolls the DOCUMENT (sticky navigation, the address bar
             // collapsing, scroll restoration); NATIVE is one fixed frame and each
             // page owns its scroller (`ScreenShell`).
-            scroll={IS_WEB ? 'document' : 'fixed'}
+            scroll="page"
             sidebar={sidebar}
             // Mobile destinations live in the bottom bar or Profile (Orders),
             // so no drawer trigger is needed. Pages draw their own headings.
@@ -91,10 +91,8 @@ function StorefrontLayout() {
             bottomBar={<BottomTabBar />}
             navFrom={STOREFRONT_NAV_FROM}
             contentWidth={CONTENT_WIDTH}
-            gutter={width >= STOREFRONT_NAV_FROM ? 8 : 0}
-            navigationGap={4}
           >
-            <AppShellPanel>
+            <AppShellPanel role="main">
               {/* Web only: a referral link opens in the browser, never the app. */}
               {IS_WEB ? <ReferralDisclosureNotice /> : null}
               <CartPaymentProvider>{routed}</CartPaymentProvider>

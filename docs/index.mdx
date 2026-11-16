@@ -18,7 +18,17 @@ schema decision. `HANDOFF.md` holds deferred work.
   `AppShell` (`@oxy.so/bloom/app-shell`), mounted in `app/(app)/_layout.tsx` with
   a `use*Sidebar()` hook and a Bloom `BottomBar`, both built from that app's
   `components/shell/nav-items.ts`; pages render inside `ScreenShell` / `Screen`,
-  never a `ContentPanel` of their own
+  never a `ContentPanel` of their own. The storefront declares
+  `layout="catalog" presentation="framed"`: Bloom owns the centered catalog,
+  desktop frame and compact full-bleed presentation. The app keeps its 976px
+  navigation threshold and 2000px catalog measure as product constraints; it
+  does not measure the window to calculate gutters. Merchant dashboard and POS
+  declare `layout="workspace" presentation="framed"`, retaining their existing
+  unpanelled route host, 1300px cap and 12px frame. All three use `scroll="page"`
+  so Bloom selects document scrolling on web and route-owned scrolling on
+  native. The native Stack remains the route-transition owner. See Bloom's
+  [composition guide](https://github.com/OxyHQ/Bloom/blob/main/docs/compose-layouts.mdx)
+  for the versioned semantic layout contract.
 - `packages/ui/` — shared components, consumed from source with no dist. Built
   on `@oxy.so/bloom` (Oxy's cross-app UI primitives) plus `@mercaria/ui`'s own
   marketplace-specific components; do not duplicate what Bloom already provides.
