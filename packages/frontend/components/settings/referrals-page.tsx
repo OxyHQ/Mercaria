@@ -3,12 +3,8 @@ import { Platform, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Button } from '@oxy.so/bloom/button';
 import { Loading } from '@oxy.so/bloom/loading';
-import {
-  SettingsCard,
-  SettingsRow,
-  SettingsSection,
-  SettingsSelect,
-} from '@oxy.so/bloom/settings-modal';
+import { SettingsSection, SettingsSelect } from '@oxy.so/bloom/settings-modal';
+import { GroupedSection, GroupedSectionItem } from '@oxy.so/bloom/grouped-section';
 import { TextFieldInput } from '@oxy.so/bloom/text-field';
 import { toast } from '@oxy.so/bloom/toast';
 import { useOxy } from '@oxy.so/services/ui/client';
@@ -139,21 +135,25 @@ export function ReferralsSettingsPage() {
     return (
       <Page>
         <SettingsSection>
-          <SettingsCard>
-            <SettingsRow
-              label={t('referral.signedOut.title')}
+          <GroupedSection separator="line">
+            <GroupedSectionItem
+              titleNumberOfLines={0}
+              descriptionLines={0}
+              wrapControl
+              title={t('referral.signedOut.title')}
               description={t('referral.signedOut.body')}
-            >
-              <Button
-                size="sm"
-                appearance="subtle"
-                tone="neutral"
-                onPress={() => afterClose(() => openAccountDialog())}
-              >
-                {t('referral.signedOut.action')}
-              </Button>
-            </SettingsRow>
-          </SettingsCard>
+              rightElement={
+                <Button
+                  size="sm"
+                  appearance="subtle"
+                  tone="neutral"
+                  onPress={() => afterClose(() => openAccountDialog())}
+                >
+                  {t('referral.signedOut.action')}
+                </Button>
+              }
+            />
+          </GroupedSection>
         </SettingsSection>
       </Page>
     );
@@ -230,7 +230,7 @@ function CodeEntrySection() {
 
   return (
     <SettingsSection label={t('referral.code.title')} description={t('referral.code.description')}>
-      <SettingsCard>
+      <GroupedSection separator="line">
         <View className="flex-row items-center gap-3 p-3">
           <View className="flex-1">
             <TextFieldInput
@@ -255,8 +255,15 @@ function CodeEntrySection() {
           </Button>
         </View>
         {/* The program's own buyer-facing terms, verbatim, once they apply. */}
-        {terms ? <SettingsRow label={terms} /> : null}
-      </SettingsCard>
+        {terms ? (
+          <GroupedSectionItem
+            titleNumberOfLines={0}
+            descriptionLines={0}
+            wrapControl
+            title={terms}
+          />
+        ) : null}
+      </GroupedSection>
     </SettingsSection>
   );
 }
@@ -313,37 +320,51 @@ function LinksSection({ data }: { data: ReferralPartnerDashboard }) {
         ) : undefined
       }
     >
-      <SettingsCard>
+      <GroupedSection separator="line">
         {links.length === 0 ? (
-          <SettingsRow
-            label={canCreate ? t('referral.links.empty') : t('referral.links.notPartner')}
+          <GroupedSectionItem
+            titleNumberOfLines={0}
+            descriptionLines={0}
+            wrapControl
+            title={canCreate ? t('referral.links.empty') : t('referral.links.notPartner')}
           />
         ) : (
           links.map((link) => {
             const url = shareUrl(link);
             return (
-              <SettingsRow key={link.id} label={displayUrl(url)} description={link.campaignRef}>
-                <Button
-                  size="sm"
-                  appearance="subtle"
-                  tone="neutral"
-                  accessibilityLabel={t('referral.links.copyLink', { url: displayUrl(url) })}
-                  onPress={() => void copy(url)}
-                >
-                  {t('referral.links.copy')}
-                </Button>
-              </SettingsRow>
+              <GroupedSectionItem
+                titleNumberOfLines={0}
+                descriptionLines={0}
+                wrapControl
+                key={link.id}
+                title={displayUrl(url)}
+                description={link.campaignRef}
+                rightElement={
+                  <Button
+                    size="sm"
+                    appearance="subtle"
+                    tone="neutral"
+                    accessibilityLabel={t('referral.links.copyLink', { url: displayUrl(url) })}
+                    onPress={() => void copy(url)}
+                  >
+                    {t('referral.links.copy')}
+                  </Button>
+                }
+              />
             );
           })
         )}
         {/* The disclosure a partner must publish, VERBATIM and never
             summarised: it is Mercaria's published consumer-law statement, and a
             paraphrase is a different statement. */}
-        <SettingsRow
-          label={t('referral.instruments.disclosureIntro')}
+        <GroupedSectionItem
+          titleNumberOfLines={0}
+          descriptionLines={0}
+          wrapControl
+          title={t('referral.instruments.disclosureIntro')}
           description={`“${data.instruments.disclosureText}”`}
         />
-      </SettingsCard>
+      </GroupedSection>
     </SettingsSection>
   );
 }
@@ -363,26 +384,37 @@ function StandingSection(props: {
         props.outstanding.length > 0 ? t('referral.standing.accrualContinues') : undefined
       }
     >
-      <SettingsCard>
-        <SettingsRow
-          label={
+      <GroupedSection separator="line">
+        <GroupedSectionItem
+          titleNumberOfLines={0}
+          descriptionLines={0}
+          wrapControl
+          title={
             props.earningStarted
               ? t('referral.standing.earning')
               : t('referral.standing.notEarning')
           }
         />
         {props.outstanding.length === 0 ? (
-          <SettingsRow label={t('referral.standing.nothingOutstanding')} />
+          <GroupedSectionItem
+            titleNumberOfLines={0}
+            descriptionLines={0}
+            wrapControl
+            title={t('referral.standing.nothingOutstanding')}
+          />
         ) : (
           props.outstanding.map((item) => (
-            <SettingsRow
+            <GroupedSectionItem
+              titleNumberOfLines={0}
+              descriptionLines={0}
+              wrapControl
               key={item}
-              label={t(REFERRAL_OUTSTANDING_KEYS[item])}
+              title={t(REFERRAL_OUTSTANDING_KEYS[item])}
               description={t('referral.standing.beforePaid')}
             />
           ))
         )}
-      </SettingsCard>
+      </GroupedSection>
     </SettingsSection>
   );
 }
@@ -411,25 +443,35 @@ function EarningsSection({ earnings }: { earnings: ReferralPartnerDashboard['ear
       label={t('referral.earnings.title')}
       description={reconciling ? t('referral.earnings.reconciling') : undefined}
     >
-      <SettingsCard>
+      <GroupedSection separator="line">
         {earnings.byCurrency.length === 0 ? (
-          <SettingsRow label={t('referral.earnings.empty')} />
+          <GroupedSectionItem
+            titleNumberOfLines={0}
+            descriptionLines={0}
+            wrapControl
+            title={t('referral.earnings.empty')}
+          />
         ) : (
           earnings.byCurrency.flatMap((row) => [
             ...states.map(([state, field]) => (
-              <SettingsRow
+              <GroupedSectionItem
+                titleNumberOfLines={0}
+                descriptionLines={0}
+                wrapControl
                 key={`${row.currency}:${state}`}
-                label={t(REFERRAL_REWARD_STATE_LABEL_KEYS[state])}
+                title={t(REFERRAL_REWARD_STATE_LABEL_KEYS[state])}
                 description={t(REFERRAL_REWARD_STATE_EXPLANATION_KEYS[state])}
-              >
-                <AmountText>{money(row[field], row.currency, locale)}</AmountText>
-              </SettingsRow>
+                rightElement={<AmountText>{money(row[field], row.currency, locale)}</AmountText>}
+              />
             )),
             // Two WHOLE sentences, not one plus an appended parenthetical:
             // where the minimum sits is the translator's decision.
-            <SettingsRow
+            <GroupedSectionItem
+              titleNumberOfLines={0}
+              descriptionLines={0}
+              wrapControl
               key={`${row.currency}:payable`}
-              label={
+              title={
                 row.payoutMinimumMinor !== undefined
                   ? t('referral.earnings.availableNowWithMinimum', {
                       amount: money(row.payableNowMinor, row.currency, locale),
@@ -442,11 +484,14 @@ function EarningsSection({ earnings }: { earnings: ReferralPartnerDashboard['ear
             />,
           ])
         )}
-        <SettingsRow
-          label={t('referral.earnings.pendingConversions', { count: earnings.pendingConversions })}
+        <GroupedSectionItem
+          titleNumberOfLines={0}
+          descriptionLines={0}
+          wrapControl
+          title={t('referral.earnings.pendingConversions', { count: earnings.pendingConversions })}
         />
         {metricRows(t, earnings.metrics)}
-      </SettingsCard>
+      </GroupedSection>
     </SettingsSection>
   );
 }
@@ -456,36 +501,51 @@ function PayoutsSection({ payouts }: { payouts: ReferralPartnerDashboard['payout
   const locale = useSharedUiLocale();
   return (
     <SettingsSection label={t('referral.payouts.title')}>
-      <SettingsCard>
-        <SettingsRow
-          label={t('referral.payouts.summary', {
+      <GroupedSection separator="line">
+        <GroupedSectionItem
+          titleNumberOfLines={0}
+          descriptionLines={0}
+          wrapControl
+          title={t('referral.payouts.summary', {
             identity: t(PAYOUT_READINESS_KEYS[payouts.identity]),
             tax: t(PAYOUT_READINESS_KEYS[payouts.tax]),
             payout: t(PAYOUT_READINESS_KEYS[payouts.payout]),
           })}
         />
-        <SettingsRow
-          label={
+        <GroupedSectionItem
+          titleNumberOfLines={0}
+          descriptionLines={0}
+          wrapControl
+          title={
             payouts.beneficiaryLast4
               ? t('referral.payouts.destinationEnding', { last4: payouts.beneficiaryLast4 })
               : t('referral.payouts.noDestination')
           }
         />
         {payouts.recentPayouts.length === 0 ? (
-          <SettingsRow label={t('referral.payouts.none')} />
+          <GroupedSectionItem
+            titleNumberOfLines={0}
+            descriptionLines={0}
+            wrapControl
+            title={t('referral.payouts.none')}
+          />
         ) : (
           payouts.recentPayouts.map((batch, index) => (
-            <SettingsRow
+            <GroupedSectionItem
+              titleNumberOfLines={0}
+              descriptionLines={0}
+              wrapControl
               // biome-ignore lint/suspicious/noArrayIndexKey: a batch carries no id by design (A5), and two can settle on one day; the list is never reordered.
               key={`${batch.date}:${index}`}
-              label={batch.date}
+              title={batch.date}
               description={t(REFERRAL_PAYOUT_STATUS_KEYS[batch.status])}
-            >
-              <AmountText>{money(batch.netPayoutMinor, batch.currency, locale)}</AmountText>
-            </SettingsRow>
+              rightElement={
+                <AmountText>{money(batch.netPayoutMinor, batch.currency, locale)}</AmountText>
+              }
+            />
           ))
         )}
-      </SettingsCard>
+      </GroupedSection>
     </SettingsSection>
   );
 }
@@ -527,7 +587,7 @@ function PerformanceSection({ window }: { window: ReferralPartnerDashboard['perf
         />
       }
     >
-      <SettingsCard>
+      <GroupedSection separator="line">
         {!performance ? (
           <View className="items-center py-4">
             <Loading variant="inline" size="sm" />
@@ -537,9 +597,12 @@ function PerformanceSection({ window }: { window: ReferralPartnerDashboard['perf
             // Clicks and referrals side by side and deliberately NO rate
             // between them: a conversion is revisable for weeks while a click
             // is not, so the ratio moves with neither input wrong.
-            <SettingsRow
+            <GroupedSectionItem
+              titleNumberOfLines={0}
+              descriptionLines={0}
+              wrapControl
               key="totals"
-              label={t('referral.performance.totals', {
+              title={t('referral.performance.totals', {
                 clicks: performance.totals.humanClicks,
                 referrals: performance.totals.qualifiedConversions,
                 from: performance.from,
@@ -547,11 +610,22 @@ function PerformanceSection({ window }: { window: ReferralPartnerDashboard['perf
               })}
             />,
             ...(performance.rows.length === 0 && performance.withheldRowCount === 0
-              ? [<SettingsRow key="empty" label={t('referral.performance.empty')} />]
+              ? [
+                  <GroupedSectionItem
+                    titleNumberOfLines={0}
+                    descriptionLines={0}
+                    wrapControl
+                    key="empty"
+                    title={t('referral.performance.empty')}
+                  />,
+                ]
               : performance.rows.map((row) => (
-                  <SettingsRow
+                  <GroupedSectionItem
+                    titleNumberOfLines={0}
+                    descriptionLines={0}
+                    wrapControl
                     key={row.key}
-                    label={t('referral.performance.row', {
+                    title={t('referral.performance.row', {
                       label: row.label,
                       clicks: row.humanClicks,
                       referrals: row.qualifiedConversions,
@@ -561,7 +635,7 @@ function PerformanceSection({ window }: { window: ReferralPartnerDashboard['perf
             ...metricRows(t, performance.metrics),
           ]
         )}
-      </SettingsCard>
+      </GroupedSection>
     </SettingsSection>
   );
 }
@@ -570,14 +644,22 @@ function ProgramsSection({ programs }: { programs: ReferralPartnerDashboard['pro
   const { t, locale } = useTranslation();
   return (
     <SettingsSection label={t('referral.programs.title')}>
-      <SettingsCard>
+      <GroupedSection separator="line">
         {programs.length === 0 ? (
-          <SettingsRow label={t('referral.programs.empty')} />
+          <GroupedSectionItem
+            titleNumberOfLines={0}
+            descriptionLines={0}
+            wrapControl
+            title={t('referral.programs.empty')}
+          />
         ) : (
           programs.map((offer) => (
-            <SettingsRow
+            <GroupedSectionItem
+              titleNumberOfLines={0}
+              descriptionLines={0}
+              wrapControl
               key={`${offer.program.programId}:${offer.program.version}`}
-              label={offer.program.name}
+              title={offer.program.name}
               // The revenue base, always, and never an abbreviation of it. No
               // earnings projection: the projection has no field to carry one.
               description={[
@@ -593,7 +675,7 @@ function ProgramsSection({ programs }: { programs: ReferralPartnerDashboard['pro
             />
           ))
         )}
-      </SettingsCard>
+      </GroupedSection>
     </SettingsSection>
   );
 }
@@ -602,17 +684,20 @@ function CodesSection({ codes }: { codes: ReferralPartnerDashboard['instruments'
   const { t } = useTranslation();
   return (
     <SettingsSection label={t('referral.instruments.title')}>
-      <SettingsCard>
+      <GroupedSection separator="line">
         {codes.map((code) => (
-          <SettingsRow
+          <GroupedSectionItem
+            titleNumberOfLines={0}
+            descriptionLines={0}
+            wrapControl
             key={code.id}
-            label={code.code}
+            title={code.code}
             description={[t(INSTRUMENT_STATUS_KEYS[code.status]), code.market, code.campaignRef]
               .filter(Boolean)
               .join(' · ')}
           />
         ))}
-      </SettingsCard>
+      </GroupedSection>
     </SettingsSection>
   );
 }
@@ -632,11 +717,17 @@ function HelpSection({ support }: { support: ReferralPartnerDashboard['support']
   if (rows.length === 0) return null;
   return (
     <SettingsSection label={t('referral.support.title')}>
-      <SettingsCard>
+      <GroupedSection separator="line">
         {rows.map((row) => (
-          <SettingsRow key={row} label={row} />
+          <GroupedSectionItem
+            titleNumberOfLines={0}
+            descriptionLines={0}
+            wrapControl
+            key={row}
+            title={row}
+          />
         ))}
-      </SettingsCard>
+      </GroupedSection>
     </SettingsSection>
   );
 }
@@ -651,9 +742,12 @@ function metricRows(
   definitions: readonly ReferralMetricDefinition[],
 ) {
   return definitions.map((definition) => (
-    <SettingsRow
+    <GroupedSectionItem
+      titleNumberOfLines={0}
+      descriptionLines={0}
+      wrapControl
       key={`metric:${definition.key}`}
-      label={definition.label}
+      title={definition.label}
       description={describeMetric(t, definition)}
     />
   ));
