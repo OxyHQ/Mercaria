@@ -200,7 +200,7 @@ export function ProductReviewsDialog({
             <Search
               ref={searchInput}
               iconSize={24}
-              clearButtonProps={{ size: 24, glyphSize: 24, icon: ReviewSearchClearIcon }}
+              clearButtonProps={{ size: 24, iconSize: 24, icon: ReviewSearchClearIcon }}
               role="searchbox"
               fieldClassName={`h-[44px] ${width >= 976 ? 'px-[18px]' : 'px-space-16'}`}
               style={{ fontSize: 14, lineHeight: 20 }}
