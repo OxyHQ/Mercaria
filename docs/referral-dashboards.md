@@ -365,6 +365,12 @@ conversion rate, a withheld breakdown explains itself, the disclosure is
 verbatim and no state relies on colour. The breakdown dimensions now render
 translated labels rather than the raw enum member.
 
+Bloom 22 owns these rows through `GroupedSection` and `GroupedSectionItem`.
+Labels and descriptions remain untruncated, and the copy/sign-in controls and
+payout amounts occupy the shared `rightElement` slot with wrapping enabled.
+The application retains the data, disclosure text and actions; it does not
+recreate the removed settings-card or settings-row components.
+
 ### The shared URL is `mercaria.co/r/<token>`, and the worker REDIRECTS it
 
 ADR 0005 D3's shape. `GET /r/:token` is an API route, and the storefront worker

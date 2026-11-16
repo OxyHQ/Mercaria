@@ -40,11 +40,15 @@ function Shell() {
 
   return (
     <AppShell
-      variant="dashboard"
+      layout="workspace"
+      presentation="framed"
+      panels={false}
+      contentMaxWidth={1300}
+      gutter={12}
       testID="merchant-shell"
       // WEB scrolls the DOCUMENT (sticky navigation, scroll restoration);
       // NATIVE is one fixed frame and each page owns its scroller (`Screen`).
-      scroll={IS_WEB ? 'document' : 'fixed'}
+      scroll="page"
       sidebar={sidebar}
       // The drawer carries the account footer, which the bottom bar does not,
       // so below `md` the header keeps its menu button — ours, for its label.
