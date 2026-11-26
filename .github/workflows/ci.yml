@@ -683,7 +683,10 @@ jobs:
 
   # lint-and-test's hosted twin in the Seldon race: the same name, services, outputs and steps.
   lint-and-test-hosted:
-    name: Lint & Test
+    # The real job's name only while the race is on: a skipped twin or rescue
+    # sharing it would become that name's newest check run and could mask a
+    # failed required check.
+    name: ${{ vars.CI_SELDON_RACE == 'true' && 'Lint & Test' || 'Lint & Test (seldon twin, off)' }}
     needs: race
     if: ${{ !cancelled() && needs.race.outputs.race == 'true' }}
     runs-on: ubuntu-latest
@@ -698,7 +701,10 @@ jobs:
   # lint-and-test's rescue: reruns it hosted when its Seldon lane failed (the
   # house network drops connections); a genuine failure fails again.
   lint-and-test-rescue:
-    name: Lint & Test
+    # The real job's name only while the race is on: a skipped twin or rescue
+    # sharing it would become that name's newest check run and could mask a
+    # failed required check.
+    name: ${{ vars.CI_SELDON_RACE == 'true' && 'Lint & Test' || 'Lint & Test (seldon rescue, off)' }}
     needs: lint-and-test
     if: ${{ !cancelled() && needs.lint-and-test.result == 'failure' && vars.CI_SELDON_RACE == 'true' && github.run_attempt == 1 && (github.event_name == 'pull_request' || github.event_name == 'merge_group') && !github.event.pull_request.head.repo.fork }}
     runs-on: ubuntu-latest
@@ -774,7 +780,10 @@ jobs:
 
   # build-api's hosted twin in the Seldon race: the same name, services and steps.
   build-api-hosted:
-    name: Build API
+    # The real job's name only while the race is on: a skipped twin or rescue
+    # sharing it would become that name's newest check run and could mask a
+    # failed required check.
+    name: ${{ vars.CI_SELDON_RACE == 'true' && 'Build API' || 'Build API (seldon twin, off)' }}
     needs: [lint-and-test, lint-and-test-hosted, lint-and-test-rescue, race-2]
     if: ${{ !cancelled() && needs.race-2.outputs.race == 'true' && (needs.lint-and-test.result == 'success' || needs.lint-and-test-hosted.result == 'success' || needs.lint-and-test-rescue.result == 'success') && (needs.lint-and-test.result == 'success' && needs.lint-and-test.outputs.build-api || needs.lint-and-test-hosted.result == 'success' && needs.lint-and-test-hosted.outputs.build-api || needs.lint-and-test-rescue.outputs.build-api) != 'false' }}
     runs-on: ubuntu-latest
@@ -788,7 +797,10 @@ jobs:
   # build-api's rescue: reruns it hosted when its Seldon lane failed (the house
   # network drops connections); a genuine failure fails again.
   build-api-rescue:
-    name: Build API
+    # The real job's name only while the race is on: a skipped twin or rescue
+    # sharing it would become that name's newest check run and could mask a
+    # failed required check.
+    name: ${{ vars.CI_SELDON_RACE == 'true' && 'Build API' || 'Build API (seldon rescue, off)' }}
     needs: [lint-and-test, lint-and-test-hosted, lint-and-test-rescue, build-api]
     if: ${{ !cancelled() && needs.build-api.result == 'failure' && vars.CI_SELDON_RACE == 'true' && github.run_attempt == 1 && (github.event_name == 'pull_request' || github.event_name == 'merge_group') && !github.event.pull_request.head.repo.fork && (needs.lint-and-test.result == 'success' || needs.lint-and-test-hosted.result == 'success' || needs.lint-and-test-rescue.result == 'success') && (needs.lint-and-test.result == 'success' && needs.lint-and-test.outputs.build-api || needs.lint-and-test-hosted.result == 'success' && needs.lint-and-test-hosted.outputs.build-api || needs.lint-and-test-rescue.outputs.build-api) != 'false' }}
     runs-on: ubuntu-latest
@@ -830,7 +842,10 @@ jobs:
 
   # build-app's hosted twin in the Seldon race: the same name and steps.
   build-app-hosted:
-    name: Build App
+    # The real job's name only while the race is on: a skipped twin or rescue
+    # sharing it would become that name's newest check run and could mask a
+    # failed required check.
+    name: ${{ vars.CI_SELDON_RACE == 'true' && 'Build App' || 'Build App (seldon twin, off)' }}
     needs: [lint-and-test, lint-and-test-hosted, lint-and-test-rescue, race-2]
     if: ${{ !cancelled() && needs.race-2.outputs.race == 'true' && (needs.lint-and-test.result == 'success' || needs.lint-and-test-hosted.result == 'success' || needs.lint-and-test-rescue.result == 'success') && (needs.lint-and-test.result == 'success' && needs.lint-and-test.outputs.build-app || needs.lint-and-test-hosted.result == 'success' && needs.lint-and-test-hosted.outputs.build-app || needs.lint-and-test-rescue.outputs.build-app) != 'false' }}
     runs-on: ubuntu-latest
@@ -843,7 +858,10 @@ jobs:
   # build-app's rescue: reruns it hosted when its Seldon lane failed (the house
   # network drops connections); a genuine failure fails again.
   build-app-rescue:
-    name: Build App
+    # The real job's name only while the race is on: a skipped twin or rescue
+    # sharing it would become that name's newest check run and could mask a
+    # failed required check.
+    name: ${{ vars.CI_SELDON_RACE == 'true' && 'Build App' || 'Build App (seldon rescue, off)' }}
     needs: [lint-and-test, lint-and-test-hosted, lint-and-test-rescue, build-app]
     if: ${{ !cancelled() && needs.build-app.result == 'failure' && vars.CI_SELDON_RACE == 'true' && github.run_attempt == 1 && (github.event_name == 'pull_request' || github.event_name == 'merge_group') && !github.event.pull_request.head.repo.fork && (needs.lint-and-test.result == 'success' || needs.lint-and-test-hosted.result == 'success' || needs.lint-and-test-rescue.result == 'success') && (needs.lint-and-test.result == 'success' && needs.lint-and-test.outputs.build-app || needs.lint-and-test-hosted.result == 'success' && needs.lint-and-test-hosted.outputs.build-app || needs.lint-and-test-rescue.outputs.build-app) != 'false' }}
     runs-on: ubuntu-latest
@@ -884,7 +902,10 @@ jobs:
 
   # build-dashboard's hosted twin in the Seldon race: the same name and steps.
   build-dashboard-hosted:
-    name: Build Dashboard
+    # The real job's name only while the race is on: a skipped twin or rescue
+    # sharing it would become that name's newest check run and could mask a
+    # failed required check.
+    name: ${{ vars.CI_SELDON_RACE == 'true' && 'Build Dashboard' || 'Build Dashboard (seldon twin, off)' }}
     needs: [lint-and-test, lint-and-test-hosted, lint-and-test-rescue, race-2]
     if: ${{ !cancelled() && needs.race-2.outputs.race == 'true' && (needs.lint-and-test.result == 'success' || needs.lint-and-test-hosted.result == 'success' || needs.lint-and-test-rescue.result == 'success') && (needs.lint-and-test.result == 'success' && needs.lint-and-test.outputs.build-dashboard || needs.lint-and-test-hosted.result == 'success' && needs.lint-and-test-hosted.outputs.build-dashboard || needs.lint-and-test-rescue.outputs.build-dashboard) != 'false' }}
     runs-on: ubuntu-latest
@@ -897,7 +918,10 @@ jobs:
   # build-dashboard's rescue: reruns it hosted when its Seldon lane failed (the house
   # network drops connections); a genuine failure fails again.
   build-dashboard-rescue:
-    name: Build Dashboard
+    # The real job's name only while the race is on: a skipped twin or rescue
+    # sharing it would become that name's newest check run and could mask a
+    # failed required check.
+    name: ${{ vars.CI_SELDON_RACE == 'true' && 'Build Dashboard' || 'Build Dashboard (seldon rescue, off)' }}
     needs: [lint-and-test, lint-and-test-hosted, lint-and-test-rescue, build-dashboard]
     if: ${{ !cancelled() && needs.build-dashboard.result == 'failure' && vars.CI_SELDON_RACE == 'true' && github.run_attempt == 1 && (github.event_name == 'pull_request' || github.event_name == 'merge_group') && !github.event.pull_request.head.repo.fork && (needs.lint-and-test.result == 'success' || needs.lint-and-test-hosted.result == 'success' || needs.lint-and-test-rescue.result == 'success') && (needs.lint-and-test.result == 'success' && needs.lint-and-test.outputs.build-dashboard || needs.lint-and-test-hosted.result == 'success' && needs.lint-and-test-hosted.outputs.build-dashboard || needs.lint-and-test-rescue.outputs.build-dashboard) != 'false' }}
     runs-on: ubuntu-latest
@@ -938,7 +962,10 @@ jobs:
 
   # build-pos's hosted twin in the Seldon race: the same name and steps.
   build-pos-hosted:
-    name: Build POS
+    # The real job's name only while the race is on: a skipped twin or rescue
+    # sharing it would become that name's newest check run and could mask a
+    # failed required check.
+    name: ${{ vars.CI_SELDON_RACE == 'true' && 'Build POS' || 'Build POS (seldon twin, off)' }}
     needs: [lint-and-test, lint-and-test-hosted, lint-and-test-rescue, race-2]
     if: ${{ !cancelled() && needs.race-2.outputs.race == 'true' && (needs.lint-and-test.result == 'success' || needs.lint-and-test-hosted.result == 'success' || needs.lint-and-test-rescue.result == 'success') && (needs.lint-and-test.result == 'success' && needs.lint-and-test.outputs.build-pos || needs.lint-and-test-hosted.result == 'success' && needs.lint-and-test-hosted.outputs.build-pos || needs.lint-and-test-rescue.outputs.build-pos) != 'false' }}
     runs-on: ubuntu-latest
@@ -951,7 +978,10 @@ jobs:
   # build-pos's rescue: reruns it hosted when its Seldon lane failed (the house
   # network drops connections); a genuine failure fails again.
   build-pos-rescue:
-    name: Build POS
+    # The real job's name only while the race is on: a skipped twin or rescue
+    # sharing it would become that name's newest check run and could mask a
+    # failed required check.
+    name: ${{ vars.CI_SELDON_RACE == 'true' && 'Build POS' || 'Build POS (seldon rescue, off)' }}
     needs: [lint-and-test, lint-and-test-hosted, lint-and-test-rescue, build-pos]
     if: ${{ !cancelled() && needs.build-pos.result == 'failure' && vars.CI_SELDON_RACE == 'true' && github.run_attempt == 1 && (github.event_name == 'pull_request' || github.event_name == 'merge_group') && !github.event.pull_request.head.repo.fork && (needs.lint-and-test.result == 'success' || needs.lint-and-test-hosted.result == 'success' || needs.lint-and-test-rescue.result == 'success') && (needs.lint-and-test.result == 'success' && needs.lint-and-test.outputs.build-pos || needs.lint-and-test-hosted.result == 'success' && needs.lint-and-test-hosted.outputs.build-pos || needs.lint-and-test-rescue.outputs.build-pos) != 'false' }}
     runs-on: ubuntu-latest
