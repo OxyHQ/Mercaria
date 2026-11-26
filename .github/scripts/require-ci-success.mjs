@@ -68,7 +68,10 @@
 import { pathToFileURL } from 'node:url';
 
 /**
- * Every job `ci.yml` defines, by the name the Actions API reports.
+ * Every job `ci.yml` defines, by the name the Actions API reports. A raced
+ * job's hosted twin and rescue share its name, so each name is listed once;
+ * the Seldon race's own start and finish calls (`uses:` jobs) are not listed,
+ * because they skip on every push run.
  *
  * Kept here rather than parsed out of the workflow at run time so this script
  * needs no YAML dependency and no `bun install` in the gate job — the drift is
@@ -267,15 +270,29 @@ async function readJobs({ repository, runId, token }) {
  * exactly the ones an integration test would be least likely to reach.
  */
 export function judgeJobs(jobs) {
-  const byName = new Map(jobs.map((job) => [job.name, job]));
+  // One name can carry several jobs: a job raced on Seldon has a hosted twin
+  // and a rescue of the same name (ci.yml, the Seldon race), which skip
+  // whenever they are not needed — on every push run, the runs a deploy reads.
+  // So a name passes when one of its jobs succeeded and none ended in anything
+  // but success, skipped or cancelled (a race's loser), never on whichever of
+  // them the API happened to list last.
+  const byName = new Map();
+  for (const job of jobs) byName.set(job.name, [...(byName.get(job.name) ?? []), job]);
   const problems = [];
   for (const required of REQUIRED_CI_JOBS) {
-    const job = byName.get(required);
-    if (!job) {
+    const lanes = byName.get(required);
+    if (!lanes) {
       problems.push(`${required}: MISSING from the run (missing counts as failing)`);
       continue;
     }
-    if (job.conclusion !== 'success') {
+    const passed =
+      lanes.some((job) => job.conclusion === 'success') &&
+      lanes.every((job) => ['success', 'skipped', 'cancelled'].includes(job.conclusion));
+    if (!passed) {
+      const job =
+        lanes.find((lane) => !['success', 'skipped', 'cancelled'].includes(lane.conclusion)) ??
+        lanes.find((lane) => lane.conclusion !== 'skipped') ??
+        lanes[0];
       problems.push(`${required}: ${job.conclusion ?? job.status ?? 'no conclusion'}`);
     }
   }

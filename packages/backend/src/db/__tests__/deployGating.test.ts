@@ -149,6 +149,7 @@ interface WorkflowStep {
 }
 interface WorkflowJob {
   name?: string;
+  uses?: string;
   if?: string;
   env?: Record<string, string>;
   needs?: string | string[];
@@ -202,7 +203,16 @@ const GATED_DEPLOY_WORKFLOWS = [...WEB_DEPLOY_WORKFLOWS, 'deploy-aws.yml'] as co
 describe('the deploy gate demands the CI jobs that actually exist', () => {
   it('requires exactly the jobs ci.yml defines, by their reported names', () => {
     const ci = readWorkflow(CI_WORKFLOW_FILE);
-    const defined = Object.entries(ci.jobs).map(([id, job]) => reportedJobName(id, job));
+    // Once per name: a raced job's hosted twin and rescue share its name. The
+    // Seldon race's start and finish are reusable-workflow calls (`uses:`) that
+    // skip on every push run, the runs a deploy reads, so no deploy waits on them.
+    const defined = [
+      ...new Set(
+        Object.entries(ci.jobs)
+          .filter(([, job]) => job.uses === undefined)
+          .map(([id, job]) => reportedJobName(id, job)),
+      ),
+    ];
 
     // Vacuity floor. An empty or one-job `ci.yml` would make the equality below
     // pass against a gate that demands almost nothing, and a workflow that
@@ -843,6 +853,40 @@ describe('judgeJobs refuses the two shapes that read as green', () => {
         : job,
     );
     expect(gateModule.judgeJobs(running)).toEqual(['Lint & Test: in_progress']);
+  });
+
+  it('passes a name whose raced twin and rescue skipped, whatever order the API lists them in', () => {
+    // A push run: every raced job's `-hosted` twin and `-rescue` report
+    // `skipped` under the job's own name. Listed after the job, they must not
+    // stand in for it.
+    const withLanes = green.flatMap((job) => [
+      { name: job.name, conclusion: 'skipped' },
+      job,
+      { name: job.name, conclusion: 'skipped' },
+    ]);
+    expect(gateModule.judgeJobs(withLanes)).toEqual([]);
+  });
+
+  it('passes a raced name whose loser was cancelled', () => {
+    const raced = [...green, { name: 'Build API', conclusion: 'cancelled' }];
+    expect(gateModule.judgeJobs(raced)).toEqual([]);
+  });
+
+  it('refuses a name where one lane failed, even if another succeeded', () => {
+    const failed = [...green, { name: 'Lint & Test', conclusion: 'failure' }];
+    expect(gateModule.judgeJobs(failed)).toEqual(['Lint & Test: failure']);
+  });
+
+  it('refuses a name whose every lane skipped', () => {
+    const skipped = green.flatMap((job) =>
+      job.name === 'Build App'
+        ? [
+            { name: job.name, conclusion: 'skipped' },
+            { name: job.name, conclusion: 'skipped' },
+          ]
+        : [job],
+    );
+    expect(gateModule.judgeJobs(skipped)).toEqual(['Build App: skipped']);
   });
 
   it('is not vacuous: an empty job list refuses every required job', () => {
