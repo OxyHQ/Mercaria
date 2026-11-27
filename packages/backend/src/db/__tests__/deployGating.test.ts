@@ -203,13 +203,15 @@ const GATED_DEPLOY_WORKFLOWS = [...WEB_DEPLOY_WORKFLOWS, 'deploy-aws.yml'] as co
 describe('the deploy gate demands the CI jobs that actually exist', () => {
   it('requires exactly the jobs ci.yml defines, by their reported names', () => {
     const ci = readWorkflow(CI_WORKFLOW_FILE);
-    // Once per name: a raced job's hosted twin and rescue share its name. The
-    // Seldon race's start and finish are reusable-workflow calls (`uses:`) that
-    // skip on every push run, the runs a deploy reads, so no deploy waits on them.
+    // Once per name, and without the Seldon race's own jobs. Its start and
+    // finish are reusable-workflow calls (`uses:`), and a raced job's `-hosted`
+    // twin and `-rescue` carry that job's name (or, with the race off, the name
+    // plus an "off" suffix, computed from CI_SELDON_RACE). All of them skip on
+    // every push run, the runs a deploy reads, so no deploy waits on them.
     const defined = [
       ...new Set(
         Object.entries(ci.jobs)
-          .filter(([, job]) => job.uses === undefined)
+          .filter(([id, job]) => job.uses === undefined && !/-(hosted|rescue)$/u.test(id))
           .map(([id, job]) => reportedJobName(id, job)),
       ),
     ];
